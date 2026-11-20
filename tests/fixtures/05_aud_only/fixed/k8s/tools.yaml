@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tools
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: debug
+  namespace: tools
+spec:
+  selector:
+    matchLabels:
+      app: debug
+  template:
+    metadata:
+      labels:
+        app: debug
+    spec:
+      containers:
+        - name: shell
+          image: registry.example.com/tools/debug:2.0.0

@@ -88,3 +88,13 @@ cases:
       resource: [{Effect: Allow, Principal: {Federated: "arn:aws:iam::111122223333:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE"}, Action: "sts:AssumeRoleWithWebIdentity", Condition: {StringEquals: {"${clapa:unresolved:local.oidc}:sub": "system:serviceaccount:payments:api"}}}]
     expect: UNKNOWN
     expect_unresolved: ["Condition"]
+
+  - name: clapa.unresolved.caller-identity
+    doc: "docs/DESIGN.md section 4.2: an IRSA caller whose OIDC provider ARN is unknown (issuer not configured) is UNKNOWN, not denied"
+    principal: {kind: web-identity, arn: "${clapa:unresolved:oidc_provider}"}
+    action: "sts:AssumeRoleWithWebIdentity"
+    resource: "arn:aws:iam::111122223333:role/target"
+    policies:
+      resource_policy_required: true
+      resource: [{Effect: Allow, Principal: {Federated: "arn:aws:iam::111122223333:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE"}, Action: "sts:AssumeRoleWithWebIdentity"}]
+    expect: UNKNOWN

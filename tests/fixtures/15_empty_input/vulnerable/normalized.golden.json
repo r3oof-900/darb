@@ -1,0 +1,18 @@
+{
+  "boundaries": [],
+  "clusters": [],
+  "collected": 0,
+  "entry_points": [],
+  "exposures": [],
+  "gaps": [],
+  "mappings": [],
+  "node_groups": [],
+  "pod_identity": [],
+  "policies": [],
+  "principals": [],
+  "rbac": [],
+  "resources": [],
+  "service_accounts": [],
+  "trusts": [],
+  "workloads": []
+}

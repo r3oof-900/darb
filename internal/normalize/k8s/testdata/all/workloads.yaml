@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: quiet
+  namespace: web
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lone
+  namespace: web
+  labels: {app: lone}
+spec:
+  serviceAccountName: quiet
+  containers: [{name: c, image: example/c:1}]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: {name: db, namespace: web}
+spec:
+  serviceName: db
+  selector: {matchLabels: {app: db}}
+  template:
+    metadata: {labels: {app: db}}
+    spec:
+      serviceAccountName: quiet
+      automountServiceAccountToken: true
+      containers: [{name: c, image: example/db:1}]
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata: {name: agent, namespace: web}
+spec:
+  selector: {matchLabels: {app: agent}}
+  template:
+    metadata: {labels: {app: agent}}
+    spec:
+      serviceAccountName: missing-sa
+      containers: [{name: c, image: example/agent:1}]
+---
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata: {name: rs, namespace: web}
+spec:
+  selector: {matchLabels: {app: rs}}
+  template:
+    metadata: {labels: {app: rs}}
+    spec:
+      containers: [{name: c, image: example/rs:1}]
+---
+apiVersion: batch/v1
+kind: Job
+metadata: {name: once, namespace: web}
+spec:
+  template:
+    metadata: {labels: {app: once}}
+    spec:
+      restartPolicy: Never
+      containers: [{name: c, image: example/once:1}]
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata: {name: nightly, namespace: web}
+spec:
+  schedule: "0 0 * * *"
+  jobTemplate:
+    spec:
+      template:
+        metadata: {labels: {app: nightly}}
+        spec:
+          restartPolicy: Never
+          containers: [{name: c, image: example/nightly:1}]
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: creds
+  namespace: web
+  labels: {DataClass: secret}
+type: Opaque

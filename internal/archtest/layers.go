@@ -97,7 +97,11 @@ func coreRules() []*Rule {
 			TestInternal: []string{"internal/iampolicy"},
 		},
 		{Package: "internal/graph", Layer: LayerCore, Internal: []string{"internal/model", "internal/eval"}},
-		{Package: "internal/access", Layer: LayerCore, Internal: coreModel("internal/eval", "internal/eval/match", "internal/eval/condition", "internal/graph")},
+		{
+			Package: "internal/access", Layer: LayerCore,
+			Internal:     coreModel("internal/eval", "internal/eval/match", "internal/eval/condition", "internal/graph"),
+			TestInternal: []string{"internal/iampolicy"},
+		},
 		{Package: "internal/paths", Layer: LayerCore, Internal: []string{"internal/model", "internal/graph"}},
 		{Package: "internal/classify", Layer: LayerCore, Internal: coreModel()},
 		{Package: "internal/rules", Layer: LayerCore, Internal: coreModel("internal/eval", "internal/graph", "internal/paths")},
@@ -136,18 +140,23 @@ func pureRules() []*Rule {
 		{Package: "internal/normalize", Layer: LayerPure, Internal: coreModel("internal/coverage")},
 		{
 			Package: "internal/normalize/terraform", Layer: LayerPure,
-			Internal: plus(normDeps, "internal/iampolicy", "internal/managedpolicies", "internal/collect/tfraw"),
-			External: []string{extHCL, extTFJSON, extCty},
+			Internal:     plus(normDeps, "internal/iampolicy", "internal/managedpolicies", "internal/collect/tfraw"),
+			External:     []string{extHCL, extTFJSON, extCty},
+			TestInternal: []string{"internal/collect", "internal/collect/terraform/hclstatic", "internal/safeio", "internal/eval", "internal/eval/match", "internal/eval/condition"},
 		},
 		{
 			Package: "internal/normalize/k8s", Layer: LayerPure,
-			Internal: plus(normDeps, "internal/collect/k8sraw"),
-			External: []string{extK8sAPI, extK8sMach},
+			Internal:     plus(normDeps, "internal/collect/k8sraw"),
+			External:     []string{extK8sAPI, extK8sMach, extSigsYAML},
+			TestInternal: []string{"internal/collect", "internal/collect/k8s/manifests", "internal/safeio"},
 		},
 		{
+			// net/url only for URL-decoding IAM policy documents (no network).
 			Package: "internal/normalize/aws", Layer: LayerPure,
-			Internal: plus(normDeps, "internal/iampolicy", "internal/managedpolicies", "internal/collect/awsraw"),
-			External: []string{extAWSSDK},
+			Internal:     plus(normDeps, "internal/iampolicy", "internal/managedpolicies", "internal/collect/awsraw"),
+			External:     []string{extAWSSDK},
+			ExtraStd:     []string{"net/url"},
+			TestInternal: []string{"internal/collect", "internal/collect/awssnapshot", "internal/safeio"},
 		},
 		{
 			Package: "internal/patch", Layer: LayerPure,

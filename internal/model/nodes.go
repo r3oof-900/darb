@@ -51,6 +51,8 @@ type ResourceInput struct {
 	Tags           map[string]string
 	Classification string // e.g. "pii"; empty when not a crown jewel
 	ClassifiedBy   string // which rule marked it: "tag:DataClass", "config", "heuristic:..."
+	Encryption     Encryption
+	S3             S3Settings
 	Source         SourceLocation
 }
 
@@ -64,6 +66,8 @@ type Resource struct {
 	tags           []Tag
 	classification string
 	classifiedBy   string
+	encryption     Encryption
+	s3             S3Settings
 	source         SourceLocation
 }
 
@@ -76,7 +80,8 @@ func NewResource(in *ResourceInput) *Resource {
 	slices.SortFunc(tags, func(a, b Tag) int { return cmp.Compare(a.Key, b.Key) })
 	return &Resource{
 		id: NewID(in.Kind, in.ARN), kind: in.Kind, arn: in.ARN, account: in.Account, region: in.Region,
-		tags: tags, classification: in.Classification, classifiedBy: in.ClassifiedBy, source: in.Source,
+		tags: tags, classification: in.Classification, classifiedBy: in.ClassifiedBy,
+		encryption: in.Encryption, s3: in.S3, source: in.Source,
 	}
 }
 
@@ -100,6 +105,20 @@ func (r *Resource) Tags() []Tag { return slices.Clone(r.tags) }
 
 // Classification returns the data classification and which rule set it.
 func (r *Resource) Classification() (class, by string) { return r.classification, r.classifiedBy }
+
+// Encryption returns the encryption at rest.
+func (r *Resource) Encryption() Encryption { return r.encryption }
+
+// S3 returns S3-specific settings.
+func (r *Resource) S3() S3Settings { return r.s3 }
+
+// WithClassification returns a copy of r marked as a crown jewel.
+func (r *Resource) WithClassification(class, by string) *Resource {
+	c := *r
+	c.tags = slices.Clone(r.tags)
+	c.classification, c.classifiedBy = class, by
+	return &c
+}
 
 // Source returns where the resource was defined.
 func (r *Resource) Source() *SourceLocation { s := r.source; return &s }

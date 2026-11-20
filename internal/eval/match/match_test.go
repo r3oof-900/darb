@@ -198,3 +198,17 @@ func TestUnresolvedSourceValues(t *testing.T) {
 		t.Errorf("already excluded: %+v", m)
 	}
 }
+
+func TestUnresolvedCaller(t *testing.T) {
+	caller := &RequestPrincipal{Kind: KindWebIdentity, ARN: model.UnresolvedPlaceholder("oidc_provider")}
+	fed := spec(model.PrincipalRef{Type: model.PrincipalFederated, Value: oidc})
+	if m := Principal(fed, caller); m.Value != model.Unknown || m.Reason == "" {
+		t.Errorf("unresolved caller vs Principal: %+v", m)
+	}
+	if m := NotPrincipal(fed, caller); m.Value != model.Unknown {
+		t.Errorf("unresolved caller vs NotPrincipal: %+v", m)
+	}
+	if m := NotPrincipal(model.NewPrincipalSpec(true, nil), caller); m.Value != model.False {
+		t.Errorf("NotPrincipal * excludes everyone, resolved or not: %+v", m)
+	}
+}

@@ -1,0 +1,22 @@
+{
+  "format": "clapa-managed-policies/v1",
+  "snapshot_date": "2026-11-20",
+  "source": "AWS Managed Policy Reference Guide (docs.aws.amazon.com/aws-managed-policy/latest/reference/), default versions, transcribed and checked on the snapshot date. Regenerate from IAM with tools/refresh-managed-policies.",
+  "policies": [
+    {
+      "arn": "arn:aws:iam::aws:policy/AdministratorAccess",
+      "version": "v1",
+      "document": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "*", "Resource": "*"}]}
+    },
+    {
+      "arn": "arn:aws:iam::aws:policy/AmazonS3FullAccess",
+      "version": "v2",
+      "document": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": ["s3:*", "s3-object-lambda:*"], "Resource": "*"}]}
+    },
+    {
+      "arn": "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess",
+      "version": "v3",
+      "document": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": ["s3:Get*", "s3:List*", "s3:Describe*", "s3-object-lambda:Get*", "s3-object-lambda:List*"], "Resource": "*"}]}
+    }
+  ]
+}

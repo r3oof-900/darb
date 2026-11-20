@@ -1,0 +1,163 @@
+{
+  "boundaries": [],
+  "clusters": [
+    {
+      "account": "111122223333",
+      "arn": "",
+      "name": "prod",
+      "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
+      "region": "us-east-1",
+      "source": "clapa.yaml (clusters.prod)"
+    }
+  ],
+  "collected": 15,
+  "entry_points": [
+    {
+      "public": "true",
+      "reason": "exposed:Service/LoadBalancer",
+      "workload": "k8s:prod/payments/Deployment/api"
+    }
+  ],
+  "exposures": [
+    {
+      "public": "true",
+      "via": "Service/LoadBalancer",
+      "workload": "k8s:prod/payments/Deployment/api"
+    }
+  ],
+  "gaps": [],
+  "mappings": [],
+  "node_groups": [],
+  "pod_identity": [],
+  "policies": [
+    {
+      "kind": "resource",
+      "policy": "aws_kms_key.receipts.policy",
+      "source": "terraform/receipts.tf:1-3 (aws_kms_key.receipts)",
+      "statements": [
+        "Allow kms:* on * (0 conditions)"
+      ],
+      "target": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.receipts",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "resource",
+      "policy": "aws_s3_bucket_policy.customer_pii",
+      "source": "terraform/pii_guard.tf:1-13 (aws_s3_bucket_policy.customer_pii)",
+      "statements": [
+        "Deny s3:* on arn:aws:s3:::acme-customer-pii,arn:aws:s3:::acme-customer-pii/* (0 conditions)"
+      ],
+      "target": "arn:aws:s3:::acme-customer-pii",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "identity",
+      "policy": "aws_iam_role_policy.payments_api",
+      "source": "terraform/role.tf:6-19 (aws_iam_role_policy.payments_api)",
+      "statements": [
+        "Allow s3:GetObject on arn:aws:s3:::acme-payment-receipts/* (0 conditions)",
+        "Allow kms:Decrypt on arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.receipts (1 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/payments-api",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "resource",
+      "policy": "aws_kms_key.pii.policy",
+      "source": "terraform/pii_kms_bucket.tf:1-7 (aws_kms_key.pii)",
+      "statements": [
+        "Allow kms:* on * (0 conditions)"
+      ],
+      "target": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+      "unresolved_statements": 0
+    }
+  ],
+  "principals": [
+    {
+      "account": "111122223333",
+      "identity": "arn:aws:iam::111122223333:role/payments-api",
+      "kind": "aws:iam:role",
+      "source": "terraform/role.tf:1-4 (aws_iam_role.payments_api)"
+    }
+  ],
+  "rbac": [],
+  "resources": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.receipts",
+      "classification": "",
+      "classified_by": "",
+      "kind": "aws:kms:key",
+      "region": "us-east-1",
+      "source": "terraform/receipts.tf:1-3 (aws_kms_key.receipts)"
+    },
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:s3:::acme-customer-pii",
+      "classification": "pii",
+      "classified_by": "tag:DataClass",
+      "encryption": {
+        "Type": "aws:kms",
+        "KeyARN": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii"
+      },
+      "kind": "aws:s3:bucket",
+      "region": "us-east-1",
+      "restrict_public_buckets": "true",
+      "source": "terraform/pii_kms_bucket.tf:9-14 (aws_s3_bucket.customer_pii)"
+    },
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:s3:::acme-payment-receipts",
+      "classification": "",
+      "classified_by": "",
+      "encryption": {
+        "Type": "aws:kms",
+        "KeyARN": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.receipts"
+      },
+      "kind": "aws:s3:bucket",
+      "region": "us-east-1",
+      "restrict_public_buckets": "unknown",
+      "source": "terraform/receipts.tf:5-7 (aws_s3_bucket.receipts)"
+    },
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+      "classification": "pii",
+      "classified_by": "tag:DataClass",
+      "kind": "aws:kms:key",
+      "region": "us-east-1",
+      "source": "terraform/pii_kms_bucket.tf:1-7 (aws_kms_key.pii)"
+    }
+  ],
+  "service_accounts": [
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "prod",
+      "role_arn": "arn:aws:iam::111122223333:role/payments-api",
+      "source": "k8s/payments.yaml:6 (ServiceAccount/payments/api)",
+      "subject": "system:serviceaccount:payments:api"
+    }
+  ],
+  "trusts": [
+    {
+      "kind": "resource",
+      "policy": "aws_iam_role.payments_api.assume_role_policy",
+      "source": "terraform/role.tf:1-4 (aws_iam_role.payments_api)",
+      "statements": [
+        "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (2 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/payments-api",
+      "unresolved_statements": 0
+    }
+  ],
+  "workloads": [
+    {
+      "automount_token": "true",
+      "host_network": false,
+      "identity": "k8s:prod/payments/Deployment/api",
+      "service_account": "api",
+      "source": "k8s/payments.yaml:14 (Deployment/payments/api)"
+    }
+  ]
+}

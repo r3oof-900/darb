@@ -126,7 +126,7 @@ generates. Rules for reading the table:
 | Package | Layer | May import (module) | May import (external) | Extra std / test-only |
 |---|---|---|---|---|
 | `cmd/clapa` | entry | `internal/cli` | — | — |
-| `internal/access` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/eval/match`, `internal/eval/condition`, `internal/graph` | — | — |
+| `internal/access` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/eval/match`, `internal/eval/condition`, `internal/graph` | — | tests: `internal/iampolicy` |
 | `internal/app` | entry | `internal/config`, `internal/collect/...`, `internal/normalize/...`, `internal/model`, `internal/classify`, `internal/iampolicy`, `internal/eval`, `internal/access`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/rules/catalog`, `internal/scoring`, `internal/findings`, `internal/remediate`, `internal/verify`, `internal/patch`, `internal/report/...`, `internal/llm/...`, `internal/coverage`, `internal/redact`, `internal/safeio`, `internal/version`, `internal/managedpolicies`, `pkg/schema` | `golang.org/x/sync` | — |
 | `internal/archtest` | tooling | — (leaf) | — | — |
 | `internal/arn` | core | — (leaf) | — | — |
@@ -155,9 +155,9 @@ generates. Rules for reading the table:
 | `internal/managedpolicies` | pure | — (leaf) | — | — |
 | `internal/model` | core | `internal/arn` | — | — |
 | `internal/normalize` | pure | `internal/model`, `internal/arn`, `internal/coverage` | — | — |
-| `internal/normalize/aws` | pure | `internal/model`, `internal/arn`, `internal/normalize`, `internal/coverage`, `internal/iampolicy`, `internal/managedpolicies`, `internal/collect/awsraw` | `github.com/aws/aws-sdk-go-v2` | — |
-| `internal/normalize/k8s` | pure | `internal/model`, `internal/arn`, `internal/normalize`, `internal/coverage`, `internal/collect/k8sraw` | `k8s.io/api`, `k8s.io/apimachinery` | — |
-| `internal/normalize/terraform` | pure | `internal/model`, `internal/arn`, `internal/normalize`, `internal/coverage`, `internal/iampolicy`, `internal/managedpolicies`, `internal/collect/tfraw` | `github.com/hashicorp/hcl/v2`, `github.com/hashicorp/terraform-json`, `github.com/zclconf/go-cty` | — |
+| `internal/normalize/aws` | pure | `internal/model`, `internal/arn`, `internal/normalize`, `internal/coverage`, `internal/iampolicy`, `internal/managedpolicies`, `internal/collect/awsraw` | `github.com/aws/aws-sdk-go-v2` | std: `net/url`; tests: `internal/collect`, `internal/collect/awssnapshot`, `internal/safeio` |
+| `internal/normalize/k8s` | pure | `internal/model`, `internal/arn`, `internal/normalize`, `internal/coverage`, `internal/collect/k8sraw` | `k8s.io/api`, `k8s.io/apimachinery`, `sigs.k8s.io/yaml` | tests: `internal/collect`, `internal/collect/k8s/manifests`, `internal/safeio` |
+| `internal/normalize/terraform` | pure | `internal/model`, `internal/arn`, `internal/normalize`, `internal/coverage`, `internal/iampolicy`, `internal/managedpolicies`, `internal/collect/tfraw` | `github.com/hashicorp/hcl/v2`, `github.com/hashicorp/terraform-json`, `github.com/zclconf/go-cty` | tests: `internal/collect`, `internal/collect/terraform/hclstatic`, `internal/safeio`, `internal/eval`, `internal/eval/match`, `internal/eval/condition` |
 | `internal/patch` | pure | `internal/model`, `internal/iampolicy`, `internal/remediate`, `internal/findings` | `github.com/hashicorp/hcl/v2`, `github.com/aymanbagabas/go-udiff` | — |
 | `internal/paths` | core | `internal/model`, `internal/graph` | — | — |
 | `internal/redact` | pure | — (leaf) | — | — |
@@ -361,6 +361,28 @@ collected ⇒ exit 3; "0 findings" is never printed for an empty scan.
 `Limit`/`Continue` pagination. Tokens are never logged. TLS verification on;
 `--insecure` prints a loud warning and is recorded in the report. Non-TTY never
 prompts; missing config is a clear error.
+
+### 4.6 Decisions made while implementing (Phase 3)
+
+| Topic | Decision | Why / source |
+|---|---|---|
+| Unresolved values reach the evaluator | Every value a collector cannot resolve becomes `${clapa:unresolved:<id>}` inside policy documents. The evaluator treats it as **UNKNOWN** in Action, Resource, Principal (including the caller's own identity), condition keys and values, in every policy version | your Phase 3 instruction; never text, never a guess (corpus file 18) |
+| Policy content not available at all | represented by an unknown Allow **and** an unknown Deny, so it can never produce ALLOW and can never hide a deny | an absent policy is not evidence of "no permissions" |
+| Plan values known only after apply | a plain attribute reference becomes symbolic (`aws_kms_key.pii.arn`); a computed expression becomes `unknown-after-apply` and a gap. Note: `jsonencode(...)` over an unknown value makes the whole attribute unknown in plan JSON; static mode keeps its structure | terraform-json `after_unknown` + configuration references |
+| Plan file positions | plan JSON has no line numbers; plan evidence names the plan file and the resource address. Line-level evidence comes from static mode (Phase 4 may join them) | terraform-json format |
+| Static HCL roots | every directory with `.tf` files is its own root module; `module` calls, `count`/`for_each` and `dynamic` blocks are not expanded and are reported. Only `terraform.tfvars` and `*.auto.tfvars` are loaded, as Terraform does | Terraform › Input variables › "Variable definitions files" |
+| Resources not yet created | deterministic synthetic ARNs of the real shape (`arn:aws:kms:<region>:<acct>:key/tf-<address>`, `…:secret:<name>-tfpend`): a wildcard pattern still matches them, a specific other ARN does not | needed to evaluate policies before apply |
+| Unknown account or region | recorded as a gap; set `terraform.account`/`region` in `clapa.yaml` or `allowed_account_ids` on the provider. A default key policy then names an unresolved account (UNKNOWN delegation, not a silent deny) | — |
+| S3 default encryption | a bucket without an encryption configuration in Terraform is SSE-S3; in a snapshot without `get-bucket-encryption`, it is unknown | S3 User Guide › "Default encryption" (all new objects since January 2023) |
+| KMS key without `policy` | the documented default key policy (account root, `kms:*`) | KMS Developer Guide › "Default key policy" |
+| AWS managed policies | resolved from the vendored snapshot (`internal/managedpolicies`, 3 policies checked against the AWS Managed Policy Reference on 2026-11-20; refresh with `tools/refresh-managed-policies`). Any other managed policy is unknown and a gap | spec §4.1 |
+| `aws_iam_policy_document` with `source_policy_documents`/`override_*` | not merged; the rendered document gets unknown statements, added where it is parsed (as a resource or identity policy) | merging rules are not modelled yet |
+| IRSA request | principal = `oidc-provider/<issuer>` in the role's account; context `<issuer>:sub = system:serviceaccount:<ns>:<name>` and `<issuer>:aud` (annotation or `sts.amazonaws.com`); every other key unknown. No issuer → unresolved provider ARN → UNKNOWN. The trust policy is always decided by the evaluator (`access.IRSARequest`, `internal/app/irsa_test.go` on scenarios 1, 4, 5) | your Phase 3 instruction; EKS User Guide › IRSA |
+| Implicit `default` service account | added for every namespace whose workloads use it without a manifest (Kubernetes creates it) | Kubernetes › Service accounts |
+| LoadBalancer exposure | explicit scheme annotation decides; AWS LB Controller types (`external`, `nlb-ip`) default to internal; otherwise the in-tree provider's internet-facing default. NodePort and Ingress without a scheme annotation are `unknown` public | AWS Load Balancer Controller › annotations |
+| RBAC | bindings resolved to rules; only `cluster-admin` of the built-in roles is modelled; missing or aggregated roles give grants with unknown rules (and a gap), never dropped | Kubernetes › RBAC › user-facing roles |
+| IMDS settings | from the node group's launch template `metadata_options`; without one they are unknown (EKS defaults are not assumed) | EC2 User Guide › instance metadata options |
+| Model records | nodes (Principal, Resource, Workload) are immutable types; relation records (ServiceAccount, Cluster, RBACGrant, …) are value types built once by normalizers and sorted by `normalize.Builder.Build` | spec §3.1 allows either |
 
 ---
 
@@ -830,7 +852,17 @@ after the test job; fixtures are LF-only via `.gitattributes`.
 Scenario 13 (module + `for_each`) needs a real plan JSON. **Flag**: it is generated
 once with Terraform using fake credentials and the AWS provider's `skip_*`
 validation settings, committed, and regenerated only by a documented script; CI
-never needs Terraform.
+never needs Terraform. *Phase 3 status:* Terraform is not installed on the
+development machine, so `plan.json` is hand-written to the terraform-json format
+(validated by `hashicorp/terraform-json`) to match `terraform/`, and the fixture
+README says so. It should be replaced by real `terraform show -json` output when
+Terraform is available.
+
+*Phase 3 status:* every variant has `normalized.golden.json` (inventory, gaps,
+entry points; and `normalized.static.golden.json` when a plan is present),
+checked by `internal/app/golden_test.go`, which also runs each scan twice and
+requires byte-identical output. `expected.json` (findings) is added in Phase 4
+together with the rules that produce findings. See `tests/fixtures/README.md`.
 
 ### 13.1 Read-permission audit (decided after Phase 1 review)
 

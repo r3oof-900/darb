@@ -1,0 +1,355 @@
+{
+  "boundaries": [],
+  "clusters": [
+    {
+      "account": "111122223333",
+      "arn": "",
+      "name": "prod",
+      "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
+      "region": "us-east-1",
+      "source": "clapa.yaml (clusters.prod)"
+    }
+  ],
+  "collected": 14,
+  "entry_points": [
+    {
+      "public": "unknown",
+      "reason": "assume-compromised",
+      "workload": "k8s:prod/analytics/CronJob/ml"
+    },
+    {
+      "public": "unknown",
+      "reason": "assume-compromised",
+      "workload": "k8s:prod/analytics/CronJob/bi"
+    },
+    {
+      "public": "unknown",
+      "reason": "assume-compromised",
+      "workload": "k8s:prod/analytics/CronJob/etl"
+    }
+  ],
+  "exposures": [],
+  "gaps": [
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "arn is only known after apply"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "id is only known after apply"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"bi\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "arn is only known after apply"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"bi\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "id is only known after apply"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"bi\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "unique_id is only known after apply"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"etl\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "arn is only known after apply"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"etl\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "id is only known after apply"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"etl\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "unique_id is only known after apply"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"ml\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "arn is only known after apply"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"ml\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "id is only known after apply"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"ml\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "unique_id is only known after apply"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role_policy.read[\"bi\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "id is only known after apply"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role_policy.read[\"etl\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "id is only known after apply"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role_policy.read[\"ml\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "id is only known after apply"
+    }
+  ],
+  "mappings": [],
+  "node_groups": [],
+  "pod_identity": [],
+  "policies": [
+    {
+      "kind": "identity",
+      "policy": "module.readers.aws_iam_role_policy.read[\"etl\"]",
+      "source": "plan.json (module.readers.aws_iam_role_policy.read[\"etl\"])",
+      "statements": [
+        "Allow s3:GetObject on arn:aws:s3:::acme-customer-pii/* (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/reader-etl",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "identity",
+      "policy": "module.readers.aws_iam_role_policy.read[\"ml\"]",
+      "source": "plan.json (module.readers.aws_iam_role_policy.read[\"ml\"])",
+      "statements": [
+        "Allow s3:GetObject on arn:aws:s3:::acme-customer-pii/* (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/reader-ml",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "identity",
+      "policy": "module.readers.aws_iam_role_policy.read[\"bi\"]",
+      "source": "plan.json (module.readers.aws_iam_role_policy.read[\"bi\"])",
+      "statements": [
+        "Allow s3:GetObject on arn:aws:s3:::acme-customer-pii/* (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/reader-bi",
+      "unresolved_statements": 0
+    }
+  ],
+  "principals": [
+    {
+      "account": "111122223333",
+      "identity": "arn:aws:iam::111122223333:role/reader-etl",
+      "kind": "aws:iam:role",
+      "source": "plan.json (module.readers.aws_iam_role.r[\"etl\"])"
+    },
+    {
+      "account": "111122223333",
+      "identity": "arn:aws:iam::111122223333:role/reader-ml",
+      "kind": "aws:iam:role",
+      "source": "plan.json (module.readers.aws_iam_role.r[\"ml\"])"
+    },
+    {
+      "account": "111122223333",
+      "identity": "arn:aws:iam::111122223333:role/reader-bi",
+      "kind": "aws:iam:role",
+      "source": "plan.json (module.readers.aws_iam_role.r[\"bi\"])"
+    }
+  ],
+  "rbac": [],
+  "resources": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:s3:::acme-customer-pii",
+      "classification": "pii",
+      "classified_by": "tag:DataClass",
+      "encryption": {
+        "Type": "AES256",
+        "KeyARN": ""
+      },
+      "kind": "aws:s3:bucket",
+      "region": "us-east-1",
+      "restrict_public_buckets": "unknown",
+      "source": "plan.json (aws_s3_bucket.customer_pii)"
+    }
+  ],
+  "service_accounts": [
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "prod",
+      "role_arn": "arn:aws:iam::111122223333:role/reader-etl",
+      "source": "k8s/analytics.yaml:6 (ServiceAccount/analytics/etl)",
+      "subject": "system:serviceaccount:analytics:etl"
+    },
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "prod",
+      "role_arn": "arn:aws:iam::111122223333:role/reader-ml",
+      "source": "k8s/analytics.yaml:56 (ServiceAccount/analytics/ml)",
+      "subject": "system:serviceaccount:analytics:ml"
+    },
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "prod",
+      "role_arn": "arn:aws:iam::111122223333:role/reader-bi",
+      "source": "k8s/analytics.yaml:31 (ServiceAccount/analytics/bi)",
+      "subject": "system:serviceaccount:analytics:bi"
+    }
+  ],
+  "trusts": [
+    {
+      "kind": "resource",
+      "policy": "module.readers.aws_iam_role.r[\"etl\"].assume_role_policy",
+      "source": "plan.json (module.readers.aws_iam_role.r[\"etl\"])",
+      "statements": [
+        "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (1 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/reader-etl",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "resource",
+      "policy": "module.readers.aws_iam_role.r[\"ml\"].assume_role_policy",
+      "source": "plan.json (module.readers.aws_iam_role.r[\"ml\"])",
+      "statements": [
+        "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (1 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/reader-ml",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "resource",
+      "policy": "module.readers.aws_iam_role.r[\"bi\"].assume_role_policy",
+      "source": "plan.json (module.readers.aws_iam_role.r[\"bi\"])",
+      "statements": [
+        "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (1 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/reader-bi",
+      "unresolved_statements": 0
+    }
+  ],
+  "workloads": [
+    {
+      "automount_token": "true",
+      "host_network": false,
+      "identity": "k8s:prod/analytics/CronJob/ml",
+      "service_account": "ml",
+      "source": "k8s/analytics.yaml:64 (CronJob/analytics/ml)"
+    },
+    {
+      "automount_token": "true",
+      "host_network": false,
+      "identity": "k8s:prod/analytics/CronJob/bi",
+      "service_account": "bi",
+      "source": "k8s/analytics.yaml:39 (CronJob/analytics/bi)"
+    },
+    {
+      "automount_token": "true",
+      "host_network": false,
+      "identity": "k8s:prod/analytics/CronJob/etl",
+      "service_account": "etl",
+      "source": "k8s/analytics.yaml:14 (CronJob/analytics/etl)"
+    }
+  ]
+}

@@ -15,7 +15,10 @@ vars:
     sh: git rev-parse --verify --quiet HEAD || echo unknown
   LDFLAGS: -s -w -buildid= -X {{.MODULE}}/internal/version.version={{.VERSION}} -X {{.MODULE}}/internal/version.commit={{.COMMIT}}
   # Fuzz targets, as "package-dir:FuzzName".
-  FUZZ_TARGETS: internal/arn:FuzzParse internal/arn:FuzzMatch internal/iampolicy:FuzzParse internal/eval:FuzzEvaluate
+  FUZZ_TARGETS: >-
+    internal/arn:FuzzParse internal/arn:FuzzMatch internal/iampolicy:FuzzParse internal/eval:FuzzEvaluate
+    internal/collect/terraform/plan:FuzzPlanJSON internal/collect/terraform/hclstatic:FuzzModule
+    internal/collect/k8s/manifests:FuzzDocuments
   FUZZTIME: 5m
   # Packages gated at >= 95% branch coverage (gobco), docs/DESIGN.md section 6.4.
   BRANCH_PKGS: internal/eval internal/eval/condition internal/eval/match internal/arn internal/iampolicy internal/model
@@ -78,6 +81,11 @@ tasks:
     cmds:
       - go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
       - go tool cover -func=coverage.out
+
+  golden:
+    desc: Regenerate tests/fixtures/*/*/normalized*.golden.json (review the diff before committing)
+    cmds:
+      - go test -count=1 -run TestGoldenFixtures ./internal/app/ -update
 
   cover:branch:
     desc: Branch coverage (gobco) of the core packages; fails below 95%

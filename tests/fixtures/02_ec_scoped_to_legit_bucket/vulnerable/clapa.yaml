@@ -1,0 +1,8 @@
+version: 1
+terraform: {account: "111122223333", region: us-east-1}
+clusters:
+  - {name: prod, account: "111122223333", region: us-east-1, oidc_issuer: "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E"}
+intended_access:
+  - principal: "k8s:prod/payments/Deployment/api"
+    action: "s3:GetObject"
+    resource: "arn:aws:s3:::acme-payment-receipts/*"

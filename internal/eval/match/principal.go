@@ -67,6 +67,9 @@ func Principal(spec *model.PrincipalSpec, p *RequestPrincipal) PrincipalMatch {
 	if spec.Wildcard() {
 		return PrincipalMatch{Value: model.True, Via: ViaWildcard}
 	}
+	if callerUnresolved(p) {
+		return PrincipalMatch{Value: model.Unknown, Reason: "the caller's identity was not resolved in the source"}
+	}
 	best := PrincipalMatch{Value: model.False}
 	for _, ref := range spec.Refs() {
 		m := matchRef(ref, p)
@@ -95,6 +98,12 @@ func matchRef(ref model.PrincipalRef, p *RequestPrincipal) PrincipalMatch {
 		return direct(p.CanonicalUser != "" && ref.Value == p.CanonicalUser, ViaCanonicalUser)
 	}
 	return PrincipalMatch{Value: model.False} // an unrecognised principal type matches nobody
+}
+
+// callerUnresolved: the request's own identity contains an unresolved
+// placeholder (e.g. an OIDC provider ARN built from an unknown issuer).
+func callerUnresolved(p *RequestPrincipal) bool {
+	return model.ContainsUnresolved(p.ARN) || model.ContainsUnresolved(p.SourceARN) || model.ContainsUnresolved(p.Account)
 }
 
 func direct(ok bool, via Via) PrincipalMatch {
@@ -178,6 +187,9 @@ func accountOf(v string) (string, bool) {
 // the session ARN, the role ARN and the account; a list with the session ARN
 // and account but without the role ARN is not documented and is Unknown.
 func NotPrincipal(spec *model.PrincipalSpec, p *RequestPrincipal) PrincipalMatch {
+	if !spec.Wildcard() && callerUnresolved(p) {
+		return PrincipalMatch{Value: model.Unknown, Reason: "the caller's identity was not resolved in the source"}
+	}
 	l := listed(spec, p)
 	m := notPrincipalListed(&l, p)
 	if m.Value == model.True && l.unresolved {

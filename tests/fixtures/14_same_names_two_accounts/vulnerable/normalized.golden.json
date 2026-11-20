@@ -1,0 +1,102 @@
+{
+  "boundaries": [],
+  "clusters": [],
+  "collected": 2,
+  "entry_points": [],
+  "exposures": [],
+  "gaps": [],
+  "mappings": [],
+  "node_groups": [],
+  "pod_identity": [],
+  "policies": [
+    {
+      "kind": "identity",
+      "policy": "arn:aws:iam::111122223333:role/app#inline/data",
+      "source": "arn:aws:iam::111122223333:role/app via iam:GetAccountAuthorizationDetails",
+      "statements": [
+        "Allow s3:GetObject on arn:aws:s3:::data-111122223333/* (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/app",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "identity",
+      "policy": "arn:aws:iam::444455556666:role/app#inline/data",
+      "source": "arn:aws:iam::444455556666:role/app via iam:GetAccountAuthorizationDetails",
+      "statements": [
+        "Allow s3:GetObject on arn:aws:s3:::data-444455556666/* (0 conditions)"
+      ],
+      "target": "arn:aws:iam::444455556666:role/app",
+      "unresolved_statements": 0
+    }
+  ],
+  "principals": [
+    {
+      "account": "111122223333",
+      "identity": "arn:aws:iam::111122223333:role/app",
+      "kind": "aws:iam:role",
+      "source": "arn:aws:iam::111122223333:role/app via iam:GetAccountAuthorizationDetails"
+    },
+    {
+      "account": "444455556666",
+      "identity": "arn:aws:iam::444455556666:role/app",
+      "kind": "aws:iam:role",
+      "source": "arn:aws:iam::444455556666:role/app via iam:GetAccountAuthorizationDetails"
+    }
+  ],
+  "rbac": [],
+  "resources": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:s3:::data-111122223333",
+      "classification": "pii",
+      "classified_by": "tag:DataClass",
+      "encryption": {
+        "Type": "AES256",
+        "KeyARN": ""
+      },
+      "kind": "aws:s3:bucket",
+      "region": "us-east-1",
+      "restrict_public_buckets": "true",
+      "source": "arn:aws:s3:::data-111122223333 via s3:GetBucketPolicy"
+    },
+    {
+      "account": "444455556666",
+      "arn": "arn:aws:s3:::data-444455556666",
+      "classification": "pii",
+      "classified_by": "tag:DataClass",
+      "encryption": {
+        "Type": "AES256",
+        "KeyARN": ""
+      },
+      "kind": "aws:s3:bucket",
+      "region": "us-east-1",
+      "restrict_public_buckets": "true",
+      "source": "arn:aws:s3:::data-444455556666 via s3:GetBucketPolicy"
+    }
+  ],
+  "service_accounts": [],
+  "trusts": [
+    {
+      "kind": "resource",
+      "policy": "arn:aws:iam::111122223333:role/app#trust",
+      "source": "arn:aws:iam::111122223333:role/app via iam:GetAccountAuthorizationDetails",
+      "statements": [
+        "Allow sts:AssumeRole on \u003cno Resource element\u003e (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/app",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "resource",
+      "policy": "arn:aws:iam::444455556666:role/app#trust",
+      "source": "arn:aws:iam::444455556666:role/app via iam:GetAccountAuthorizationDetails",
+      "statements": [
+        "Allow sts:AssumeRole on \u003cno Resource element\u003e (0 conditions)"
+      ],
+      "target": "arn:aws:iam::444455556666:role/app",
+      "unresolved_statements": 0
+    }
+  ],
+  "workloads": []
+}

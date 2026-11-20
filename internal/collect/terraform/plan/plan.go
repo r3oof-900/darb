@@ -48,11 +48,16 @@ func Collect(ctx context.Context, in *collect.Input, opts *Options, rec *coverag
 	if err := safeio.CheckJSONDepth(data, in.Limits.MaxDepth); err != nil {
 		return nil, fmt.Errorf("%s: %s: %w", Name, in.Path, err)
 	}
+	return fromJSON(in.Path, data, rec)
+}
+
+// fromJSON converts plan JSON (already size- and depth-checked) into resources.
+func fromJSON(file string, data []byte, rec *coverage.Recorder) (*tfraw.Module, error) {
 	var p tfjson.Plan
 	if err := json.Unmarshal(data, &p); err != nil {
-		return nil, fmt.Errorf("%s: %s: %w", Name, in.Path, err)
+		return nil, fmt.Errorf("%s: %s: %w", Name, file, err)
 	}
-	c := &converter{file: in.Path, rec: rec, changes: map[string]*tfjson.ResourceChange{}, configs: map[string]*tfjson.ConfigResource{}}
+	c := &converter{file: file, rec: rec, changes: map[string]*tfjson.ResourceChange{}, configs: map[string]*tfjson.ConfigResource{}}
 	c.index(&p)
 	m := &tfraw.Module{Source: "plan"}
 	if p.PlannedValues != nil {

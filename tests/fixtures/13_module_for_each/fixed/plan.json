@@ -1,0 +1,64 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.9.8",
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {"address": "aws_s3_bucket.customer_pii", "mode": "managed", "type": "aws_s3_bucket", "name": "customer_pii",
+         "provider_name": "registry.terraform.io/hashicorp/aws", "values": {"bucket": "acme-customer-pii", "tags": {"DataClass": "pii"}}}
+      ],
+      "child_modules": [
+        {"address": "module.readers", "resources": [
+            {"address": "module.readers.aws_iam_role.r[\"etl\"]", "mode": "managed", "type": "aws_iam_role", "name": "r", "index": "etl",
+             "provider_name": "registry.terraform.io/hashicorp/aws", "values": {"name": "reader-etl", "path": "/", "assume_role_policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Federated\":\"arn:aws:iam::111122223333:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E\"},\"Action\":\"sts:AssumeRoleWithWebIdentity\",\"Condition\":{\"StringEquals\":{\"oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E:sub\":\"system:serviceaccount:analytics:etl\"}}}]}"}},
+            {"address": "module.readers.aws_iam_role_policy.read[\"etl\"]", "mode": "managed", "type": "aws_iam_role_policy", "name": "read", "index": "etl",
+             "provider_name": "registry.terraform.io/hashicorp/aws", "values": {"name": "read", "role": "reader-etl", "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::acme-analytics-public/*\"}]}"}},
+            {"address": "module.readers.aws_iam_role.r[\"bi\"]", "mode": "managed", "type": "aws_iam_role", "name": "r", "index": "bi",
+             "provider_name": "registry.terraform.io/hashicorp/aws", "values": {"name": "reader-bi", "path": "/", "assume_role_policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Federated\":\"arn:aws:iam::111122223333:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E\"},\"Action\":\"sts:AssumeRoleWithWebIdentity\",\"Condition\":{\"StringEquals\":{\"oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E:sub\":\"system:serviceaccount:analytics:bi\"}}}]}"}},
+            {"address": "module.readers.aws_iam_role_policy.read[\"bi\"]", "mode": "managed", "type": "aws_iam_role_policy", "name": "read", "index": "bi",
+             "provider_name": "registry.terraform.io/hashicorp/aws", "values": {"name": "read", "role": "reader-bi", "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::acme-analytics-public/*\"}]}"}},
+            {"address": "module.readers.aws_iam_role.r[\"ml\"]", "mode": "managed", "type": "aws_iam_role", "name": "r", "index": "ml",
+             "provider_name": "registry.terraform.io/hashicorp/aws", "values": {"name": "reader-ml", "path": "/", "assume_role_policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Federated\":\"arn:aws:iam::111122223333:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E\"},\"Action\":\"sts:AssumeRoleWithWebIdentity\",\"Condition\":{\"StringEquals\":{\"oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E:sub\":\"system:serviceaccount:analytics:ml\"}}}]}"}},
+            {"address": "module.readers.aws_iam_role_policy.read[\"ml\"]", "mode": "managed", "type": "aws_iam_role_policy", "name": "read", "index": "ml",
+             "provider_name": "registry.terraform.io/hashicorp/aws", "values": {"name": "read", "role": "reader-ml", "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::acme-analytics-public/*\"}]}"}}
+        ]}
+      ]
+    }
+  },
+  "resource_changes": [
+    {"address": "aws_s3_bucket.customer_pii", "mode": "managed", "type": "aws_s3_bucket", "name": "customer_pii",
+     "provider_name": "registry.terraform.io/hashicorp/aws", "change": {"actions": ["create"], "before": null, "after": {}, "after_unknown": {"arn": true, "id": true}}},
+    {"address": "module.readers.aws_iam_role.r[\"etl\"]", "module_address": "module.readers", "mode": "managed", "type": "aws_iam_role", "name": "r", "index": "etl",
+     "provider_name": "registry.terraform.io/hashicorp/aws", "change": {"actions": ["create"], "before": null, "after": {}, "after_unknown": {"arn": true, "id": true, "unique_id": true}}},
+    {"address": "module.readers.aws_iam_role_policy.read[\"etl\"]", "module_address": "module.readers", "mode": "managed", "type": "aws_iam_role_policy", "name": "read", "index": "etl",
+     "provider_name": "registry.terraform.io/hashicorp/aws", "change": {"actions": ["create"], "before": null, "after": {}, "after_unknown": {"id": true}}},
+    {"address": "module.readers.aws_iam_role.r[\"bi\"]", "module_address": "module.readers", "mode": "managed", "type": "aws_iam_role", "name": "r", "index": "bi",
+     "provider_name": "registry.terraform.io/hashicorp/aws", "change": {"actions": ["create"], "before": null, "after": {}, "after_unknown": {"arn": true, "id": true, "unique_id": true}}},
+    {"address": "module.readers.aws_iam_role_policy.read[\"bi\"]", "module_address": "module.readers", "mode": "managed", "type": "aws_iam_role_policy", "name": "read", "index": "bi",
+     "provider_name": "registry.terraform.io/hashicorp/aws", "change": {"actions": ["create"], "before": null, "after": {}, "after_unknown": {"id": true}}},
+    {"address": "module.readers.aws_iam_role.r[\"ml\"]", "module_address": "module.readers", "mode": "managed", "type": "aws_iam_role", "name": "r", "index": "ml",
+     "provider_name": "registry.terraform.io/hashicorp/aws", "change": {"actions": ["create"], "before": null, "after": {}, "after_unknown": {"arn": true, "id": true, "unique_id": true}}},
+    {"address": "module.readers.aws_iam_role_policy.read[\"ml\"]", "module_address": "module.readers", "mode": "managed", "type": "aws_iam_role_policy", "name": "read", "index": "ml",
+     "provider_name": "registry.terraform.io/hashicorp/aws", "change": {"actions": ["create"], "before": null, "after": {}, "after_unknown": {"id": true}}}
+  ],
+  "configuration": {
+    "provider_config": {
+      "aws": {"name": "aws", "full_name": "registry.terraform.io/hashicorp/aws",
+              "expressions": {"region": {"constant_value": "us-east-1"}, "allowed_account_ids": {"constant_value": ["111122223333"]}}}
+    },
+    "root_module": {
+      "resources": [
+        {"address": "aws_s3_bucket.customer_pii", "mode": "managed", "type": "aws_s3_bucket", "name": "customer_pii", "provider_config_key": "aws",
+         "expressions": {"bucket": {"constant_value": "acme-customer-pii"}}}
+      ],
+      "module_calls": {
+        "readers": {"source": "./modules/readers", "expressions": {"bucket": {"constant_value": "acme-analytics-public"}},
+          "module": {"resources": [
+            {"address": "aws_iam_role.r", "mode": "managed", "type": "aws_iam_role", "name": "r", "provider_config_key": "aws", "expressions": {}, "for_each_expression": {"references": ["var.names"]}},
+            {"address": "aws_iam_role_policy.read", "mode": "managed", "type": "aws_iam_role_policy", "name": "read", "provider_config_key": "aws",
+             "expressions": {"role": {"references": ["aws_iam_role.r", "each.value"]}}, "for_each_expression": {"references": ["var.names"]}}
+          ]}}
+      }
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "boundaries": [],
+  "clusters": [
+    {
+      "account": "111122223333",
+      "arn": "",
+      "name": "prod",
+      "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
+      "region": "us-east-1",
+      "source": "clapa.yaml (clusters.prod)"
+    }
+  ],
+  "collected": 3,
+  "entry_points": [],
+  "exposures": [],
+  "gaps": [],
+  "mappings": [],
+  "node_groups": [],
+  "pod_identity": [],
+  "policies": [
+    {
+      "kind": "resource",
+      "policy": "aws_s3_bucket_policy.marketing_leads",
+      "source": "terraform/bucket.tf:17-29 (aws_s3_bucket_policy.marketing_leads)",
+      "statements": [
+        "Allow s3:GetObject on arn:aws:s3:::acme-marketing-leads/* (0 conditions)"
+      ],
+      "target": "arn:aws:s3:::acme-marketing-leads",
+      "unresolved_statements": 0
+    }
+  ],
+  "principals": [],
+  "rbac": [],
+  "resources": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:s3:::acme-marketing-leads",
+      "classification": "pii",
+      "classified_by": "tag:DataClass",
+      "encryption": {
+        "Type": "AES256",
+        "KeyARN": ""
+      },
+      "kind": "aws:s3:bucket",
+      "region": "us-east-1",
+      "restrict_public_buckets": "true",
+      "source": "terraform/bucket.tf:2-7 (aws_s3_bucket.marketing_leads)"
+    }
+  ],
+  "service_accounts": [],
+  "trusts": [],
+  "workloads": []
+}

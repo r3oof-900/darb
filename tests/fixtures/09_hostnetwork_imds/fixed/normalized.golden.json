@@ -1,0 +1,104 @@
+{
+  "boundaries": [],
+  "clusters": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "name": "prod",
+      "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
+      "region": "us-east-1",
+      "source": "terraform/nodes.tf:1-7 (aws_eks_cluster.prod)"
+    }
+  ],
+  "collected": 8,
+  "entry_points": [
+    {
+      "public": "unknown",
+      "reason": "assume-compromised",
+      "workload": "k8s:prod/monitoring/DaemonSet/node-monitor"
+    }
+  ],
+  "exposures": [],
+  "gaps": [],
+  "mappings": [],
+  "node_groups": [
+    {
+      "cluster": "prod",
+      "hop_limit": 1,
+      "http_endpoint": "enabled",
+      "http_tokens": "required",
+      "name": "default",
+      "role_arn": "arn:aws:iam::111122223333:role/eks-node",
+      "source": "terraform/nodes.tf:35-49 (aws_eks_node_group.default)"
+    }
+  ],
+  "pod_identity": [],
+  "policies": [
+    {
+      "kind": "identity",
+      "policy": "aws_iam_role_policy.node_reads_everything",
+      "source": "terraform/nodes.tf:17-24 (aws_iam_role_policy.node_reads_everything)",
+      "statements": [
+        "Allow s3:GetObject on * (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/eks-node",
+      "unresolved_statements": 0
+    }
+  ],
+  "principals": [
+    {
+      "account": "111122223333",
+      "identity": "arn:aws:iam::111122223333:role/eks-node",
+      "kind": "aws:iam:role",
+      "source": "terraform/nodes.tf:9-15 (aws_iam_role.node)"
+    }
+  ],
+  "rbac": [],
+  "resources": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:s3:::acme-customer-exports",
+      "classification": "pii",
+      "classified_by": "tag:DataClass",
+      "encryption": {
+        "Type": "AES256",
+        "KeyARN": ""
+      },
+      "kind": "aws:s3:bucket",
+      "region": "us-east-1",
+      "restrict_public_buckets": "unknown",
+      "source": "terraform/nodes.tf:52-57 (aws_s3_bucket.exports)"
+    }
+  ],
+  "service_accounts": [
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "prod",
+      "role_arn": "",
+      "source": "k8s/monitor.yaml:6 (DaemonSet/monitoring/node-monitor)",
+      "subject": "system:serviceaccount:monitoring:default"
+    }
+  ],
+  "trusts": [
+    {
+      "kind": "resource",
+      "policy": "aws_iam_role.node.assume_role_policy",
+      "source": "terraform/nodes.tf:9-15 (aws_iam_role.node)",
+      "statements": [
+        "Allow sts:AssumeRole on \u003cno Resource element\u003e (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/eks-node",
+      "unresolved_statements": 0
+    }
+  ],
+  "workloads": [
+    {
+      "automount_token": "true",
+      "host_network": false,
+      "identity": "k8s:prod/monitoring/DaemonSet/node-monitor",
+      "service_account": "default",
+      "source": "k8s/monitor.yaml:6 (DaemonSet/monitoring/node-monitor)"
+    }
+  ]
+}

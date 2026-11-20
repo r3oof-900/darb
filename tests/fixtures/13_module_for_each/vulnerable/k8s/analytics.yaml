@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: analytics
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: etl
+  namespace: analytics
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/reader-etl
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: etl
+  namespace: analytics
+spec:
+  schedule: "0 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: etl
+          restartPolicy: Never
+          containers:
+            - name: job
+              image: registry.example.com/analytics/etl:1.0.0
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bi
+  namespace: analytics
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/reader-bi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: bi
+  namespace: analytics
+spec:
+  schedule: "0 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: bi
+          restartPolicy: Never
+          containers:
+            - name: job
+              image: registry.example.com/analytics/bi:1.0.0
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ml
+  namespace: analytics
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/reader-ml
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ml
+  namespace: analytics
+spec:
+  schedule: "0 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: ml
+          restartPolicy: Never
+          containers:
+            - name: job
+              image: registry.example.com/analytics/ml:1.0.0

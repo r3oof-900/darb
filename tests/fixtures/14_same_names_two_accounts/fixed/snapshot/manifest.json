@@ -1,0 +1,6 @@
+{"format": "clapa-snapshot/v1",
+ "accounts": [{"id": "111122223333", "partition": "aws"}, {"id": "444455556666", "partition": "aws"}],
+ "calls": [
+  {"account": "111122223333", "service": "iam", "region": "", "api": "GetAccountAuthorizationDetails", "target": "", "status": "ok"},
+  {"account": "444455556666", "service": "iam", "region": "", "api": "GetAccountAuthorizationDetails", "target": "", "status": "ok"}
+ ]}

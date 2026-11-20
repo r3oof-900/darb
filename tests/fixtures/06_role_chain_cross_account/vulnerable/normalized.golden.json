@@ -1,0 +1,145 @@
+{
+  "boundaries": [],
+  "clusters": [
+    {
+      "account": "111122223333",
+      "arn": "",
+      "name": "prod",
+      "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
+      "region": "us-east-1",
+      "source": "clapa.yaml (clusters.prod)"
+    }
+  ],
+  "collected": 11,
+  "entry_points": [
+    {
+      "public": "true",
+      "reason": "exposed:Service/LoadBalancer",
+      "workload": "k8s:prod/payments/Deployment/api"
+    }
+  ],
+  "exposures": [
+    {
+      "public": "true",
+      "via": "Service/LoadBalancer",
+      "workload": "k8s:prod/payments/Deployment/api"
+    }
+  ],
+  "gaps": [],
+  "mappings": [],
+  "node_groups": [],
+  "pod_identity": [],
+  "policies": [
+    {
+      "kind": "identity",
+      "policy": "arn:aws:iam::aws:policy/AdministratorAccess",
+      "source": "terraform/account_b.tf:7-19 (aws_iam_role.analytics_admin)",
+      "statements": [
+        "Allow * on * (0 conditions)"
+      ],
+      "target": "arn:aws:iam::444455556666:role/analytics-admin",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "resource",
+      "policy": "aws_kms_key.warehouse.policy",
+      "source": "terraform/account_b.tf:21-24 (aws_kms_key.warehouse)",
+      "statements": [
+        "Allow kms:* on * (0 conditions)"
+      ],
+      "target": "arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "identity",
+      "policy": "aws_iam_role_policy.payments_api",
+      "source": "terraform/role.tf:6-13 (aws_iam_role_policy.payments_api)",
+      "statements": [
+        "Allow sts:AssumeRole on * (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/payments-api",
+      "unresolved_statements": 0
+    }
+  ],
+  "principals": [
+    {
+      "account": "444455556666",
+      "identity": "arn:aws:iam::444455556666:role/analytics-admin",
+      "kind": "aws:iam:role",
+      "source": "terraform/account_b.tf:7-19 (aws_iam_role.analytics_admin)"
+    },
+    {
+      "account": "111122223333",
+      "identity": "arn:aws:iam::111122223333:role/payments-api",
+      "kind": "aws:iam:role",
+      "source": "terraform/role.tf:1-4 (aws_iam_role.payments_api)"
+    }
+  ],
+  "rbac": [],
+  "resources": [
+    {
+      "account": "444455556666",
+      "arn": "arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse",
+      "classification": "",
+      "classified_by": "",
+      "kind": "aws:kms:key",
+      "region": "us-east-1",
+      "source": "terraform/account_b.tf:21-24 (aws_kms_key.warehouse)"
+    },
+    {
+      "account": "444455556666",
+      "arn": "arn:aws:s3:::acme-analytics-warehouse",
+      "classification": "pii",
+      "classified_by": "tag:DataClass",
+      "encryption": {
+        "Type": "aws:kms",
+        "KeyARN": "arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse"
+      },
+      "kind": "aws:s3:bucket",
+      "region": "us-east-1",
+      "restrict_public_buckets": "unknown",
+      "source": "terraform/account_b.tf:26-32 (aws_s3_bucket.warehouse)"
+    }
+  ],
+  "service_accounts": [
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "prod",
+      "role_arn": "arn:aws:iam::111122223333:role/payments-api",
+      "source": "k8s/payments.yaml:6 (ServiceAccount/payments/api)",
+      "subject": "system:serviceaccount:payments:api"
+    }
+  ],
+  "trusts": [
+    {
+      "kind": "resource",
+      "policy": "aws_iam_role.analytics_admin.assume_role_policy",
+      "source": "terraform/account_b.tf:7-19 (aws_iam_role.analytics_admin)",
+      "statements": [
+        "Allow sts:AssumeRole on \u003cno Resource element\u003e (0 conditions)"
+      ],
+      "target": "arn:aws:iam::444455556666:role/analytics-admin",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "resource",
+      "policy": "aws_iam_role.payments_api.assume_role_policy",
+      "source": "terraform/role.tf:1-4 (aws_iam_role.payments_api)",
+      "statements": [
+        "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (2 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/payments-api",
+      "unresolved_statements": 0
+    }
+  ],
+  "workloads": [
+    {
+      "automount_token": "true",
+      "host_network": false,
+      "identity": "k8s:prod/payments/Deployment/api",
+      "service_account": "api",
+      "source": "k8s/payments.yaml:14 (Deployment/payments/api)"
+    }
+  ]
+}
