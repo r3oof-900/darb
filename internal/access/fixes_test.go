@@ -10,12 +10,12 @@ import (
 )
 
 // policyFixes prices each side of a policy-decided edge (SCORING.md §4).
-func TestPolicyFixesSides(t *testing.T) {
+func TestPolicyFixesSides(tt *testing.T) {
 	const (
 		bucket = "arn:aws:s3:::b"
 		roleA  = "arn:aws:iam::111111111111:role/r"
 	)
-	bucketPolicy := trust(t, `{"Version":"2012-10-17","Statement":[{"Effect":"Allow",
+	bucketPolicy := trust(tt, `{"Version":"2012-10-17","Statement":[{"Effect":"Allow",
 		"Principal":{"AWS":"arn:aws:iam::111111111111:role/r"},"Action":"s3:GetObject","Resource":"arn:aws:s3:::b/*"}]}`)
 	role := model.NewPrincipal(model.KindIAMRole, roleA, "111111111111", &model.SourceLocation{})
 	anyPerm := model.NewPrincipal(model.KindIAMRoleAnyPermission, roleA, "111111111111", &model.SourceLocation{})
@@ -52,26 +52,27 @@ func TestPolicyFixesSides(t *testing.T) {
 	}
 	b := &builder{}
 	for _, c := range cases {
-		got := b.policyFixes(graph.CanRead, request(c.account), c.set, c.who, bucket, "bucket policy", c.canRewrite)
+		t := &grantTarget{action: "s3:GetObject", prefix: bucket + "/", principal: roleA}
+		got := b.policyFixes(graph.CanRead, request(c.account), c.set, c.who, bucket, "bucket policy", t, c.canRewrite)
 		var sides []string
 		for _, f := range got {
 			sides = append(sides, f.Side)
 		}
 		if len(sides) != len(c.want) {
-			t.Errorf("%s: sides %v, want %v", c.name, sides, c.want)
+			tt.Errorf("%s: sides %v, want %v", c.name, sides, c.want)
 			continue
 		}
 		for i := range sides {
 			if sides[i] != c.want[i] {
-				t.Errorf("%s: sides %v, want %v", c.name, sides, c.want)
+				tt.Errorf("%s: sides %v, want %v", c.name, sides, c.want)
 			}
 		}
 		for _, f := range got {
-			if f.Side == graph.SideResource && (f.Resource != bucket || f.Policy != bucket+" bucket policy" || f.Cost != 2) {
-				t.Errorf("%s: resource fix %+v", c.name, f)
+			if f.Side == graph.SideResource && (f.Resource != bucket || f.Policy != bucket+" bucket policy" || f.Kind != graph.FixRevoke || f.Cost != 4) {
+				tt.Errorf("%s: resource fix %+v", c.name, f)
 			}
-			if f.Side == graph.SideIdentity && (f.Policy != "clapa:any-permission" || f.Cost != 1) {
-				t.Errorf("%s: identity fix %+v", c.name, f)
+			if f.Side == graph.SideIdentity && (f.Policy != "clapa:any-permission" || f.Kind != graph.FixNarrow || f.Cost != 1) {
+				tt.Errorf("%s: identity fix %+v", c.name, f)
 			}
 		}
 	}

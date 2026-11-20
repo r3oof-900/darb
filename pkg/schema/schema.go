@@ -87,6 +87,8 @@ type Finding struct {
 	// OtherSideFix: the other sides that also break it.
 	Fix          []FixStep `json:"fix,omitempty"`
 	OtherSideFix []FixStep `json:"other_side_fix,omitempty"`
+	// AlternativeFixDetail: the cheapest fix of each alternative_fix edge.
+	AlternativeFixDetail []FixStep `json:"alternative_fix_detail,omitempty"`
 	// SharedFixPossible: resources one change to whose policy breaks two or
 	// more chokepoint edges; cut_cost then overstates the fix.
 	SharedFixPossible []string  `json:"shared_fix_possible,omitempty"`
@@ -98,8 +100,11 @@ type Finding struct {
 
 // FixStep is one change that breaks one edge.
 type FixStep struct {
-	Edge   string `json:"edge"`
-	Side   string `json:"side"`
+	Edge string `json:"edge"`
+	Side string `json:"side"`
+	// Kind: "narrow" (make a broad grant specific) or "revoke" (remove an
+	// explicit grant; confirm it is not needed), SCORING.md §4.1.
+	Kind   string `json:"fix_kind"`
 	Policy string `json:"policy"`
 	Cost   int64  `json:"cost"`
 }

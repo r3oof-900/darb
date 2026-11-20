@@ -727,9 +727,12 @@ states' arcs to the sink are added. The representative path of a finding is
 its highest-scoring path (ties: fewer edges). A rapid property compares Dinic
 with brute force on random graphs of up to 8 nodes.
 
-**Capacities (third Phase 4 review).** An edge's capacity is the cheapest
-change that breaks it, priced per side (identity, resource, trust, workload,
-rbac, mapping, node; SCORING.md §4.1). The access builder decides each
+**Capacities (third and fourth Phase 4 reviews).** An edge's capacity is the
+cheapest change that breaks it, priced per side (identity, resource, trust,
+workload, rbac, mapping, node; SCORING.md §4.1), and per kind: narrowing a
+broad grant costs the side's price, revoking an explicit grant 2 more. The
+kind comes from the side's granting statements (`eval.Granting`: the Allow
+statements of those policies that apply to the request). The access builder decides each
 evaluator-decided edge again without each side's policies and keeps only the
 sides whose removal really stops the grant. It drops the sides a principal can
 undo (SCORING.md §4.2): a "role with any permission" has no identity side; a
@@ -829,8 +832,11 @@ per rule only after they are checked against the benchmark text.
 3. **Tie-break under a derived read.** When `CAN_READ` and `CAN_DECRYPT` under a
    `CAN_READ_PLAINTEXT` cost the same, the chokepoint is `CAN_DECRYPT[for jewel]`
    (qualified by the protected resource, so an encryption-context condition
-   removes exactly this path); the equal-cost read edge is reported in the same
-   finding as `alternative_fix`.
+   removes exactly this path). *Revised in the fourth Phase 4 review:* since a
+   revoke costs 2 more than a narrow fix (SCORING.md §4.1), the cheaper edge
+   usually wins outright and the rule only decides exact ties (no fixture has
+   one); the other underlying edge is reported as `alternative_fix` whatever
+   its cost, with its own fix in `alternative_fix_detail`.
 4. **Fixture 13 states its encryption.** Both variants now declare SSE-S3
    explicitly; the S3 default itself is tested separately (a bucket without any
    encryption configuration is SSE-S3 with `value_source: default`).
@@ -876,8 +882,8 @@ the tool.
 The files are written by `tests/fixtures/expected_source.py`, which holds the
 hand-derived data and the score arithmetic in comments; it only serialises.
 The golden test compares rule, entry, jewel, path, confirmation, confidence,
-score, severity, chokepoints, `alternative_fix`, the chosen fix side and cost
-(`fix`, where stated) and `defaults_used`, and computes each fingerprint from
+score, severity, chokepoints, `alternative_fix`, the chosen fix's side, kind and
+cost (`fix` and `alternative_fix_detail`, where stated) and `defaults_used`, and computes each fingerprint from
 these fields with the §8 formula independently of the engine, then compares it with the engine's. Findings the file does not list fail
 the test (no extra findings). `entry: null` means "any entry" (the scenario does
 not name one); `absent` lists findings that must not appear; `exit_code` and

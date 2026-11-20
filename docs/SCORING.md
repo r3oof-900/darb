@@ -85,7 +85,7 @@ price for its kind (decided in the third Phase 4 review): the cheapest
 *disruption* wins, not the shortest path. Without weights the min-cut would
 happily cut `RUNS_AS` or `ASSUMES` — i.e. break the application's own identity.
 
-### 4.1 Sides of an edge
+### 4.1 Sides of an edge, and narrowing versus revoking
 
 An edge the evaluator decides has up to two sides, and each side is a separate
 fix. A side counts only if deciding the request again **without** that side's
@@ -93,24 +93,67 @@ policies no longer grants (ALLOW or UNKNOWN both count as granting); a side
 whose removal changes nothing is not a fix. Edges that come from facts (a pod's
 service account, a mapping, an RBAC binding) have exactly one side.
 
-| Edge | Side | Typical fix | Cost |
+A policy side's fix is one of two kinds (decided in the fourth Phase 4 review):
+
+- **narrow**: every statement that grants the edge on that side is *broad*;
+  the fix makes it specific (an exact ARN, an exact principal, an
+  encryption-context condition). It costs the side's price.
+- **revoke**: at least one statement that grants it is *explicit*: it names
+  the target and the principal on purpose, so breaking the edge means deleting
+  that grant, which may break a function. It costs the side's price **+ 2**.
+
+| Edge | Side | narrow | revoke |
 |---|---|---|---|
-| `CAN_READ`, `CAN_DECRYPT`, `ASSUMES` (role → role) | **identity** | narrow the principal's identity policy (`Resource` to exact ARNs, an encryption-context condition, the exact role ARN for `sts:AssumeRole`) | **1** |
-| `CAN_READ` | **resource** | narrow the bucket policy (replace `"*"` with explicit principals) | **2** |
-| `CAN_DECRYPT` | **resource** | narrow the key policy | **2** |
-| `ASSUMES` (role → role, SA → role: IRSA / Pod Identity / PassRole) | **trust** | tighten the trust policy (principal, `:sub` / `:aud`, `sts:ExternalId`, `aws:PrincipalArn`) | **5** |
-| `CAN_ESCALATE` (IAM permission: PassRole, UpdateAssumeRolePolicy, Put/Attach policy) | identity | remove the escalation permission | **2** |
-| `NODE_ROLE` | node | require IMDSv2, hop limit 1 | **3** |
-| `CAN_ESCALATE` via K8s token (automount) | workload | `automountServiceAccountToken: false` | **3** |
-| `CAN_ESCALATE` via K8s RBAC | rbac | remove/limit the binding (`create pods`, `pods/exec`, `impersonate`, `serviceaccounts/token`) | **5** |
-| `MAPS_TO` (`aws-auth` / access entry) | mapping | remove/narrow the mapping | **8** |
-| `RUNS_AS` | workload | change the workload's identity | **100** |
-| `PROTECTS` | — | structural fact, not a permission | **∞** |
-| `EXPOSED_TO` | — | not a graph edge yet: exposure is a scoring factor of the entry (DESIGN.md, deferred to Phase 5), so "remove internet exposure" is never proposed | — |
-| `CAN_READ_PLAINTEXT` (derived) | — | the cut names the cheaper of its `CAN_READ` / `CAN_DECRYPT` (`CAN_DECRYPT` on a tie) | min of the two |
+| `CAN_READ`, `CAN_DECRYPT`, `ASSUMES` (role -> role) | **identity** | **1** | **3** |
+| `CAN_READ` (bucket policy), `CAN_DECRYPT` (key policy) | **resource** | **2** | **4** |
+| `ASSUMES` (role -> role, IRSA, projected token, Pod Identity, PassRole's service) | **trust** | **5** | **7** |
+| `CAN_ESCALATE` (IAM: PassRole, UpdateAssumeRolePolicy, Put/Attach policy, CreatePolicyVersion) | identity | **2** | **4** |
+
+Fact sides have a fixed kind and cost (their price already is that of removing
+or turning off something specific):
+
+| Edge | Side | Kind | Cost |
+|---|---|---|---|
+| `NODE_ROLE` (require IMDSv2, hop limit 1) | node | narrow | **3** |
+| `CAN_ESCALATE` via K8s token (`automountServiceAccountToken: false`) | workload | narrow | **3** |
+| `CAN_ESCALATE` via K8s RBAC (remove/limit the binding) | rbac | revoke | **5** |
+| `MAPS_TO` (`aws-auth` / access entry) | mapping | revoke | **8** |
+| `RUNS_AS` (change the workload's identity) | workload | revoke | **100** |
+| `PROTECTS` | none | structural fact, not a permission | **∞** |
+| `EXPOSED_TO` | none | not a graph edge yet: exposure is a scoring factor of the entry (DESIGN.md, deferred to Phase 5), so "remove internet exposure" is never proposed | none |
+| `CAN_READ_PLAINTEXT` (derived) | none | the cut names the cheaper of its `CAN_READ` / `CAN_DECRYPT` | min of the two |
 
 The edge's capacity is its cheapest side. An edge with no side left is
 **uncuttable**: no single change breaks it.
+
+**When a statement is explicit.** The granting statements of a side are the
+Allow statements of that side's policies that apply to the request (TRUE or
+UNKNOWN). A statement is **explicit** when every element below names its value
+exactly; otherwise it is **broad** ("a wildcard that matches in general").
+
+| Element | Explicit | Broad |
+|---|---|---|
+| `Action` | a value equal to the requested action (any case), even beside wildcards (`["s3:*", "s3:GetObject"]`) | only wildcard values (`s3:Get*`, `*`), or `NotAction` |
+| `Resource`, S3 read (identity side) | the bucket name is literal and any wildcard is in the object key: a **narrow prefix** is `arn:aws:s3:::B/` followed by at least one character (`B/*`, `B/reports/*`, `B/k.csv`) | a wildcard in the bucket name (`B*/*`, `arn:aws:s3:::*`), `*`, another bucket (`BB/*` does not start with `B/`), or `NotResource` |
+| `Resource`, `sts:AssumeRole` and IAM escalations (identity side) | the exact role (or policy) ARN | any wildcard (`role/adm*`, `*`), or `NotResource` |
+| `Principal` (resource and trust side) | the exact principal: the role's ARN, or the exact service (`lambda.amazonaws.com`, `pods.eks.amazonaws.com`) | `"*"`, `{"AWS": "*"}`, an account ID or its `root`, another principal, or `NotPrincipal` |
+| Web identity trust (IRSA, projected token) | a condition on `<issuer>:sub`, not negated, whose every value is exactly `system:serviceaccount:<ns>:<name>` (also under `StringLike` without a wildcard) | a wildcard `:sub` (`...:payments:*`), a negated operator, or no `:sub` (only `:aud`) |
+| `CAN_DECRYPT[for J]` (both sides) | in addition: a condition on `kms:EncryptionContext:aws:s3:arn`, not negated, whose every value is J's ARN or a narrow prefix of its objects (`J/*`) | no such condition (the key's Resource does not decide: the target is J's data), a wildcard (`arn:aws:s3:::*`), a value naming another bucket too, or a negated operator |
+
+On a resource policy the `Resource` element always means the resource the
+policy is attached to (a key policy's `"*"` is "this key"), so only `Principal`,
+`Action` and, for a decrypt, the context decide. A value holding an unresolved
+Terraform placeholder cannot be shown to be broad and counts as explicit. A
+side is **revoke** when any of its granting statements is explicit (breaking
+the edge must delete it), **narrow** when all are broad, and **revoke** when no
+granting statement can be found (it cannot be shown to be broad). Each boundary
+above is a test case (`internal/access/fixkind_test.go`).
+
+Examples: scenario 1's `kms:Decrypt` on `"*"` with no context is broad (narrow,
+1) while its `s3:GetObject` on the PII bucket's objects is explicit (revoke, 3),
+so the decrypt is cut. Scenario 10's key policy grants `Principal: "*"` with
+`aws:PrincipalOrgID` (narrow, key policy, 2); the role's explicit read (revoke,
+3) is the alternative.
 
 ### 4.2 A principal that can grant itself the access again
 
@@ -130,28 +173,39 @@ side it can rewrite does not count either; the cut moves before it:
 
 Scenario 6 is the reference: `analytics-admin` can rewrite its own policies, the
 warehouse key's policy and the bucket policy, so nothing after it is cuttable;
-the cut is `ASSUMES payments-api -> analytics-admin`, identity side, cost 1
-(remove `sts:AssumeRole` on that role from `payments-api`), with the trust side
-(cost 5) as the other fix.
+the cut is `ASSUMES payments-api -> analytics-admin`, identity side, narrow,
+cost 1 (`payments-api` has `sts:AssumeRole` on `"*"`: narrow it to the roles it
+needs), with the trust side (cost 5) as the other fix.
 
 ### 4.3 What a finding reports
 
 - `chokepoints`: the cut edges; `cut_cost`: the sum of their capacities.
-- `fix`: for each cut edge, the side the cut chose (its cheapest), the policy
-  to change and its cost; `other_side_fix`: the other sides that also break
-  that edge, dearer.
-- `alternative_fix`: for a cut `CAN_READ_PLAINTEXT`, the underlying edge of
-  equal cost that was not chosen.
+- `fix`: for each cut edge, the side the cut chose (its cheapest), its
+  `fix_kind` (`narrow` | `revoke`), the policy to change and its cost;
+  `other_side_fix`: the other sides that also break that edge, dearer. The
+  console prints a revoke with a warning: *this removes an explicit grant;
+  confirm it is not needed*.
+- `alternative_fix`: for a cut `CAN_READ_PLAINTEXT`, the other underlying edge
+  (whatever its cost, if it can be cut at all); `alternative_fix_detail`: its
+  cheapest fix, with side, kind and cost.
+- **Tie rule.** When the two underlying edges cost exactly the same, the cut
+  names `CAN_DECRYPT[for jewel]` (an encryption-context condition removes
+  exactly this path). It is kept only for that case, e.g. `s3:GetObject` and
+  `kms:Decrypt` both on `"*"` (both narrow, 1); no fixture uses it, since
+  explicit grants cost more (`internal/paths` tests both the tie and a
+  cheaper read).
 - `shared_fix_possible: [<resource ARN>]`: one change to that resource's policy
   can break two or more of the cut edges. Shared fixes are priced in Phase 5;
   until then `cut_cost` counts edges and is **not** the size of the fix.
 
 Rules:
 
-- **Uncuttable** (`∞`): `PROTECTS`; every edge with no side
-  left (§4.2); every edge listed in `remediation.uncuttable_edges` in
-  `clapa.yaml`; and every edge on any path that realises a declared
-  `intended_access` entry (automatic).
+- **`intended_access` is the strongest constraint**: every edge on any path
+  that realises a declared entry is uncuttable, whatever its cost (tested:
+  scenario 1 with its read declared intended has no fix).
+- **Uncuttable** (`∞`): `PROTECTS`; every edge with no side left (§4.2); every
+  edge listed in `remediation.uncuttable_edges` in `clapa.yaml`; and the
+  intended-access edges above.
 - Costs can be overridden per edge kind (`remediation.cut_costs`, integers ≥ 1);
   an override replaces the edge's cheapest side cost for every edge of that
   kind, but never makes an edge with no side cuttable. The fingerprint never

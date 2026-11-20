@@ -144,17 +144,24 @@ func (b *builder) webIdentity(from model.ID, sa *model.ServiceAccount, audiences
 		}
 		verdict := eval.ImplicitDeny
 		var used, why []string
+		var best *eval.Request
 		for _, aud := range audiences {
 			holder := *sa
 			holder.Audience = aud
 			accepted, extra := b.accepted(cluster, role.Account(), aud)
-			d := eval.Evaluate(IRSARequest(&holder, cluster, role.Identity(), role.Account(), b.opts.Partition), TrustPolicySet(trust))
+			req := IRSARequest(&holder, cluster, role.Identity(), role.Account(), b.opts.Partition)
+			d := eval.Evaluate(req, TrustPolicySet(trust))
 			if v := both(d.Verdict, accepted); v.Grants() > verdict.Grants() {
-				verdict, used, why = v, extra, append(evidence(&d), "audience "+aud)
+				verdict, used, why, best = v, extra, append(evidence(&d), "audience "+aud), req
 			}
 		}
 		if grants(verdict) {
+			// The trust names the service account explicitly by an exact :sub
+			// (revoke) or matches it in general (narrow, SCORING.md §4.1).
+			t := &grantTarget{action: "sts:AssumeRoleWithWebIdentity", sub: "system:serviceaccount:" + sa.Namespace + ":" + sa.Name}
+			trustFix := sideFix(graph.Assumes, sub, graph.SideTrust, best, []*model.PolicyDocument{trust}, t, role.Identity(), role.Identity()+" trust policy")
 			b.edge(from, role.ID(), graph.Assumes, sub, &eval.Decision{Verdict: verdict}, func(e *graph.Edge) {
+				e.Fixes = []graph.Fix{trustFix}
 				e.Evidence = why
 				e.Defaults = append(slices.Clone(defaults), used...)
 				slices.Sort(e.Defaults)
@@ -273,7 +280,11 @@ func (b *builder) podIdentity(a *model.PodIdentityAssociation) {
 	}
 	r := PodIdentityAssume(a, cluster, trust, role.Account(), AgentInstalled(b.inv, a.Cluster))
 	if grants(r.Verdict) {
+		req := PodIdentityRequest(a, cluster, role.Account(), "sts:AssumeRole")
+		trustFix := sideFix(graph.Assumes, "pod-identity", graph.SideTrust, req, []*model.PolicyDocument{trust},
+			&grantTarget{action: "sts:AssumeRole", principal: "pods.eks.amazonaws.com"}, role.Identity(), role.Identity()+" trust policy")
 		b.edge(sa, role.ID(), graph.Assumes, "pod-identity", &eval.Decision{Verdict: r.Verdict}, func(e *graph.Edge) {
+			e.Fixes = []graph.Fix{trustFix}
 			e.Evidence = []string{
 				"Pod Identity association " + a.Source.String(),
 				"sts:AssumeRole " + r.AssumeRole.String(), "sts:TagSession " + r.TagSession.String(),

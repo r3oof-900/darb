@@ -21,6 +21,31 @@ func TestNilContextMeansEveryKeyUnknown(t *testing.T) {
 	}
 }
 
+// Granting: the Allow statements that apply (TRUE or UNKNOWN); never a Deny,
+// never an Allow that does not apply.
+func TestGranting(t *testing.T) {
+	d := mustDoc(t, "id", model.PolicyIdentity, []map[string]any{
+		{"Sid": "Applies", "Effect": "Allow", "Action": "s3:GetObject", "Resource": "*"},
+		{
+			"Sid": "Unknown", "Effect": "Allow", "Action": "s3:GetObject", "Resource": "*",
+			"Condition": map[string]any{"Bool": map[string]any{"aws:SecureTransport": "true"}},
+		},
+		{"Sid": "OtherAction", "Effect": "Allow", "Action": "s3:PutObject", "Resource": "*"},
+		{"Sid": "Deny", "Effect": "Deny", "Action": "s3:GetObject", "Resource": "*"},
+	})
+	req := &Request{
+		Principal: match.RequestPrincipal{Kind: match.KindIAMUser, ARN: "arn:aws:iam::111122223333:user/a", Account: "111122223333"},
+		Action:    "s3:GetObject", Resource: "arn:aws:s3:::b/k", ResourceAccount: "111122223333",
+	}
+	var sids []string
+	for _, s := range Granting(req, []*model.PolicyDocument{d}) {
+		sids = append(sids, s.Sid())
+	}
+	if len(sids) != 2 || sids[0] != "Applies" || sids[1] != "Unknown" {
+		t.Fatalf("granting statements: %v", sids)
+	}
+}
+
 func TestEnumStringsAndInvalidValues(t *testing.T) {
 	for v, want := range map[Verdict]string{Allow: "ALLOW", Deny: "DENY", Unknown: "UNKNOWN", ImplicitDeny: "IMPLICIT_DENY", Verdict(9): "INVALID"} {
 		if v.String() != want {

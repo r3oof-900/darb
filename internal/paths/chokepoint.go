@@ -14,8 +14,9 @@ import (
 // each jewel only adds arcs from its states to the sink.
 //
 // A derived CAN_READ_PLAINTEXT costs its cheapest underlying edge; the cut
-// names that edge, CAN_DECRYPT on a tie (DESIGN.md §8.1, decision 3), and
-// the other equal-cost one is the alternative.
+// names that edge, CAN_DECRYPT only on a tie (DESIGN.md §8.1, decision 3),
+// and the other cuttable underlying edge, at whatever cost, is the
+// alternative.
 type network struct {
 	g        *graph.Graph
 	opts     *Options
@@ -121,7 +122,7 @@ func costOf(g *graph.Graph, id graph.EdgeID, opts *Options) int64 {
 }
 
 // underlying maps a cut derived edge to the underlying edge that is cut
-// (cheapest; CAN_DECRYPT on a tie) and the equal-cost alternatives.
+// (cheapest; CAN_DECRYPT on a tie) and the other cuttable underlying edges.
 func underlying(g *graph.Graph, id graph.EdgeID, opts *Options) (chosen graph.EdgeID, alternatives []graph.EdgeID) {
 	e := g.Edge(id)
 	if e.Kind != graph.CanReadPlaintext || len(e.Under) == 0 {
@@ -140,9 +141,9 @@ func underlying(g *graph.Graph, id graph.EdgeID, opts *Options) (chosen graph.Ed
 			chosen = c
 		}
 	}
-	for _, c := range cands {
-		if c != chosen {
-			alternatives = append(alternatives, c)
+	for _, u := range e.Under {
+		if u != chosen && opts.Cost(u) != Uncuttable {
+			alternatives = append(alternatives, u)
 		}
 	}
 	return chosen, alternatives

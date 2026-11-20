@@ -100,8 +100,9 @@ func TestEnumerationCaps(t *testing.T) {
 	}
 }
 
-// The derived read costs its cheapest underlying edge; CAN_DECRYPT is cut on
-// a tie and the read edge is the alternative.
+// The derived read costs its cheapest underlying edge; CAN_DECRYPT is cut
+// only on a tie; the other cuttable underlying edge, at any cost, is the
+// alternative.
 func TestDerivedEdgeCut(t *testing.T) {
 	x := newTG()
 	x.e("w", "role", graph.Assumes, "irsa")
@@ -122,8 +123,28 @@ func TestDerivedEdgeCut(t *testing.T) {
 		return cost(g)(id)
 	}
 	p = Analyze(g, []graph.NodeID{lookup(g, "w")}, []graph.NodeID{lookup(g, "jewel")}, Options{Cost: expensiveRead})[0]
+	if len(p.Alternative) != 1 || g.Edge(p.Alternative[0]).Kind != graph.CanRead || g.Edge(cutEdge(&p)).Kind != graph.CanDecrypt {
+		t.Fatalf("the dearer read is still the alternative: %+v %v", p.Cut, p.Alternative)
+	}
+	expensiveDecrypt := func(id graph.EdgeID) int64 {
+		if g.Edge(id).Kind == graph.CanDecrypt {
+			return 9
+		}
+		return cost(g)(id)
+	}
+	p = Analyze(g, []graph.NodeID{lookup(g, "w")}, []graph.NodeID{lookup(g, "jewel")}, Options{Cost: expensiveDecrypt})[0]
+	if p.Cut.Cost != 1 || g.Edge(cutEdge(&p)).Kind != graph.CanRead || len(p.Alternative) != 1 || g.Edge(p.Alternative[0]).Kind != graph.CanDecrypt {
+		t.Fatalf("a cheaper read is cut, no tie rule: %+v %v", p.Cut, p.Alternative)
+	}
+	uncuttableRead := func(id graph.EdgeID) int64 {
+		if g.Edge(id).Kind == graph.CanRead {
+			return Uncuttable
+		}
+		return cost(g)(id)
+	}
+	p = Analyze(g, []graph.NodeID{lookup(g, "w")}, []graph.NodeID{lookup(g, "jewel")}, Options{Cost: uncuttableRead})[0]
 	if len(p.Alternative) != 0 || g.Edge(cutEdge(&p)).Kind != graph.CanDecrypt {
-		t.Fatalf("no alternative at a higher cost: %+v %v", p.Cut, p.Alternative)
+		t.Fatalf("an uncuttable read is no alternative: %+v %v", p.Cut, p.Alternative)
 	}
 	uncuttable := func(graph.EdgeID) int64 { return Uncuttable }
 	p = Analyze(g, []graph.NodeID{lookup(g, "w")}, []graph.NodeID{lookup(g, "jewel")}, Options{Cost: uncuttable})[0]

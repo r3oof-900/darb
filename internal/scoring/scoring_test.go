@@ -55,28 +55,35 @@ func TestFactorTables(t *testing.T) {
 }
 
 func TestFixCosts(t *testing.T) {
+	n, r := graph.FixNarrow, graph.FixRevoke
 	cases := []struct {
-		kind      graph.Kind
-		sub, side string
-		want      int64
+		kind         graph.Kind
+		sub, side, k string
+		want         int64
 	}{
-		{graph.Assumes, "sts", graph.SideIdentity, 1},
-		{graph.Assumes, "sts", graph.SideTrust, 5},
-		{graph.CanRead, "", graph.SideIdentity, 1},
-		{graph.CanRead, "public", graph.SideResource, 2},
-		{graph.CanDecrypt, "", graph.SideIdentity, 1},
-		{graph.CanDecrypt, "", graph.SideResource, 2},
-		{graph.CanEscalate, "iam:passrole:lambda", graph.SideIdentity, 2},
-		{graph.CanEscalate, "k8s-token", graph.SideWorkload, 3},
-		{graph.RunsAs, "", graph.SideWorkload, 100},
-		{graph.CanEscalate, "rbac", graph.SideRBAC, 5},
-		{graph.MapsTo, "Group", graph.SideMapping, 8},
-		{graph.NodeRole, "", graph.SideNode, 3},
-		{graph.Protects, "", "none", -1},
+		{graph.Assumes, "sts", graph.SideIdentity, n, 1},
+		{graph.Assumes, "sts", graph.SideIdentity, r, 3},
+		{graph.Assumes, "sts", graph.SideTrust, n, 5},
+		{graph.Assumes, "irsa", graph.SideTrust, r, 7},
+		{graph.CanRead, "", graph.SideIdentity, n, 1},
+		{graph.CanRead, "", graph.SideIdentity, r, 3},
+		{graph.CanRead, "public", graph.SideResource, n, 2},
+		{graph.CanRead, "", graph.SideResource, r, 4},
+		{graph.CanDecrypt, "", graph.SideIdentity, n, 1},
+		{graph.CanDecrypt, "", graph.SideResource, n, 2},
+		{graph.CanEscalate, "iam:passrole:lambda", graph.SideIdentity, n, 2},
+		{graph.CanEscalate, "iam:passrole:lambda", graph.SideIdentity, r, 4},
+		// Fact sides have a fixed cost whatever their kind.
+		{graph.CanEscalate, "k8s-token", graph.SideWorkload, n, 3},
+		{graph.RunsAs, "", graph.SideWorkload, r, 100},
+		{graph.CanEscalate, "rbac", graph.SideRBAC, r, 5},
+		{graph.MapsTo, "Group", graph.SideMapping, r, 8},
+		{graph.NodeRole, "", graph.SideNode, n, 3},
+		{graph.Protects, "", "none", n, -1},
 	}
 	for _, c := range cases {
-		if got := FixCost(c.kind, c.sub, c.side); got != c.want {
-			t.Errorf("%s/%s %s = %d, want %d", c.kind, c.sub, c.side, got, c.want)
+		if got := FixCost(c.kind, c.sub, c.side, c.k); got != c.want {
+			t.Errorf("%s/%s %s %s = %d, want %d", c.kind, c.sub, c.side, c.k, got, c.want)
 		}
 	}
 }

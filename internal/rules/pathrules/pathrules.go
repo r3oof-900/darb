@@ -164,9 +164,13 @@ func chokepoints(g *graph.Graph, p *paths.Pair, f *rules.Finding) {
 	}
 	for _, e := range p.Alternative {
 		f.Alternative = append(f.Alternative, g.Describe(e))
+		if fx := g.Edge(e).Fixes; len(fx) > 0 {
+			f.AlternativeDetail = append(f.AlternativeDetail, rules.FixStep{Edge: g.Describe(e), Side: fx[0].Side, Kind: fx[0].Kind, Policy: fx[0].Policy, Cost: fx[0].Cost})
+		}
 	}
 	slices.Sort(f.Chokepoints)
 	slices.Sort(f.Alternative)
+	slices.SortFunc(f.AlternativeDetail, func(a, b rules.FixStep) int { return cmp.Compare(a.Edge, b.Edge) })
 	slices.SortFunc(f.ChokepointEdge, cmp.Compare)
 	fixSides(g, f)
 }
@@ -178,7 +182,7 @@ func fixSides(g *graph.Graph, f *rules.Finding) {
 	for _, id := range f.ChokepointEdge {
 		e := g.Edge(id)
 		for i, fx := range e.Fixes {
-			step := rules.FixStep{Edge: g.Describe(id), Side: fx.Side, Policy: fx.Policy, Cost: fx.Cost}
+			step := rules.FixStep{Edge: g.Describe(id), Side: fx.Side, Kind: fx.Kind, Policy: fx.Policy, Cost: fx.Cost}
 			if i == 0 {
 				f.Fix = append(f.Fix, step)
 			} else {

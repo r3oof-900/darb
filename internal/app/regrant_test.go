@@ -93,18 +93,8 @@ func TestRegrantRemovesIdentitySide(t *testing.T) {
 func TestNoCutAfterSelfModifyingRole(t *testing.T) {
 	const admin = "arn:aws:iam::444455556666:role/analytics-admin"
 	a := analyzeVariant(t, "06_role_chain_cross_account/vulnerable", func(dir string) {
-		file := filepath.Join(dir, "clapa.yaml")
-		data, err := os.ReadFile(file) //nolint:gosec // G304: inside the test's temp copy.
-		if err != nil {
-			t.Fatal(err)
-		}
-		extra := strings.Join([]string{
-			"remediation:", "  uncuttable_edges:",
-			"    - {kind: ASSUMES, from: \"" + apiRole + "\", to: \"" + admin + "\", reason: test}", "",
-		}, string(rune(10)))
-		if err := os.WriteFile(file, append(data, extra...), 0o600); err != nil { //nolint:gosec // G703: temp copy.
-			t.Fatal(err)
-		}
+		appendConfig(t, dir, "remediation:", "  uncuttable_edges:",
+			"    - {kind: ASSUMES, from: \""+apiRole+"\", to: \""+admin+"\", reason: test}")
 	})
 	f := findingFor(a, "CLAPA-PATH-001", "arn:aws:s3:::acme-analytics-warehouse")
 	if f == nil || len(f.Chokepoints) == 0 {
@@ -119,5 +109,38 @@ func TestNoCutAfterSelfModifyingRole(t *testing.T) {
 		if strings.Contains(s.Edge, admin+" ->") {
 			t.Errorf("identity-side fix after the self-modifying role: %+v", s)
 		}
+	}
+}
+
+// appendConfig adds YAML lines to the end of the copy's clapa.yaml.
+func appendConfig(t *testing.T, dir string, lines ...string) {
+	t.Helper()
+	file := filepath.Join(dir, "clapa.yaml")
+	data, err := os.ReadFile(file) //nolint:gosec // G304: inside the test's temp copy.
+	if err != nil {
+		t.Fatal(err)
+	}
+	extra := strings.Join(append(lines, ""), string(rune(10)))
+	if err := os.WriteFile(file, append(data, extra...), 0o600); err != nil { //nolint:gosec // G703: temp copy.
+		t.Fatal(err)
+	}
+}
+
+// intended_access is the strongest constraint (SCORING.md §4): with the api
+// workload's read of the PII bucket declared intended, no edge on its path
+// is cut, not even the cheapest (the broad decrypt, narrow, cost 1); the
+// finding reports no fix within the constraints.
+func TestIntendedAccessIsNeverCut(t *testing.T) {
+	base := findingFor(analyzeVariant(t, "01_classic/vulnerable", nil), "CLAPA-PATH-001", piiBucket)
+	if base == nil || base.NoFix || base.CutCost != 1 {
+		t.Fatalf("baseline: the decrypt is cut at cost 1: %+v", base)
+	}
+	a := analyzeVariant(t, "01_classic/vulnerable", func(dir string) {
+		appendConfig(t, dir, "intended_access:", "  - principal: \"k8s:prod/payments/Deployment/api\"",
+			"    action: \"s3:GetObject\"", "    resource: \""+piiBucket+"/*\"")
+	})
+	f := findingFor(a, "CLAPA-PATH-001", piiBucket)
+	if f == nil || !f.NoFix || len(f.Chokepoints) != 0 || len(f.Fix) != 0 {
+		t.Fatalf("an intended path must have no cut: %+v", f)
 	}
 }

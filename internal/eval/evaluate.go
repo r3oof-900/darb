@@ -14,10 +14,7 @@ import (
 // evaluation logic (docs/DESIGN.md section 6). It is a pure function:
 // statement and policy order never change the result.
 func Evaluate(req *Request, ps *PolicySet) Decision {
-	ctx := req.Context
-	if ctx == nil {
-		ctx = condition.NewContext(&condition.Input{})
-	}
+	ctx := contextOf(req)
 	r := collect(req, ps, ctx)
 	if denies := r.filter(model.EffectDeny, model.True); len(denies) > 0 {
 		return Decision{Verdict: Deny, Contributing: sortRefs(denies)}
@@ -40,6 +37,32 @@ func Evaluate(req *Request, ps *PolicySet) Decision {
 		d.Unresolved = r.unresolved()
 	}
 	return d
+}
+
+// contextOf: the request context; nil means every key is unknown.
+func contextOf(req *Request) *condition.Context {
+	if req.Context == nil {
+		return condition.NewContext(&condition.Input{})
+	}
+	return req.Context
+}
+
+// Granting returns the Allow statements of docs that apply to req (TRUE or
+// UNKNOWN), in document and statement order: the grants a change to those
+// policies has to touch (SCORING.md §4.1).
+func Granting(req *Request, docs []*model.PolicyDocument) []*model.Statement {
+	ctx := contextOf(req)
+	var out []*model.Statement
+	for _, d := range docs {
+		stmts := d.Statements()
+		rs := evalDocument(d, req, ctx)
+		for i := range rs {
+			if r := &rs[i].ref; r.Effect == model.EffectAllow && r.Applies != model.False {
+				out = append(out, stmts[i])
+			}
+		}
+	}
+	return out
 }
 
 // results holds the statement results per policy group.

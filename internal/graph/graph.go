@@ -73,13 +73,22 @@ type Precondition struct {
 // identity policy, the resource's policy, the role's trust, the workload,
 // RBAC, the mapping, the node group) and what it costs (SCORING.md §4).
 type Fix struct {
-	Side   string // identity, resource, trust, workload, rbac, mapping, node
+	Side string // identity, resource, trust, workload, rbac, mapping, node
+	// Kind: FixNarrow (make a broad grant specific) or FixRevoke (remove an
+	// explicit grant), SCORING.md §4.1.
+	Kind   string
 	Policy string // what to change: a policy ID or ARN, or a resource
 	// Resource: for a resource or trust side, the ARN of the resource whose
 	// policy changes (two cut edges on one resource policy can share a fix).
 	Resource string
 	Cost     int64
 }
+
+// Fix kinds.
+const (
+	FixNarrow = "narrow"
+	FixRevoke = "revoke"
+)
 
 // Fix sides.
 const (

@@ -75,16 +75,22 @@ func finding(p *printer, f *schema.Finding) {
 		p.printf("    no fix within the configured constraints\n")
 	}
 	for _, s := range f.Fix {
-		p.printf("      %s side: change %s (cost %d)\n", s.Side, s.Policy, s.Cost)
+		p.step("      ", &s)
 	}
 	for _, s := range f.OtherSideFix {
-		p.printf("      or the %s side: change %s (cost %d)\n", s.Side, s.Policy, s.Cost)
+		p.step("      or the ", &s)
 	}
 	for _, r := range f.SharedFixPossible {
 		p.printf("    shared fix possible: one change to the policy of %s breaks several cut edges; the cost counts edges\n", r)
 	}
-	for _, alt := range f.AlternativeFix {
-		p.printf("    alternative fix: %s\n", alt)
+	if len(f.AlternativeFixDetail) == 0 {
+		for _, alt := range f.AlternativeFix {
+			p.printf("    alternative fix: %s\n", alt)
+		}
+	}
+	for _, s := range f.AlternativeFixDetail {
+		p.printf("    alternative fix: %s\n", s.Edge)
+		p.step("      ", &s)
 	}
 	for _, d := range f.DefaultsUsed {
 		p.printf("    relies on a default: %s = %s (%s)\n", d.Setting, d.Value, d.Reference)
@@ -93,4 +99,13 @@ func finding(p *printer, f *schema.Finding) {
 		p.printf("    at %s:%d\n", f.Location.File, f.Location.StartLine)
 	}
 	p.printf("    fingerprint %s\n\n", f.Fingerprint)
+}
+
+// step prints one fix: its side and kind, the policy to change and its cost;
+// a revoke removes an explicit grant, so it carries a warning (SCORING.md §4.1).
+func (p *printer) step(prefix string, s *schema.FixStep) {
+	p.printf("%s%s side, %s: change %s (cost %d)\n", prefix, s.Side, s.Kind, s.Policy, s.Cost)
+	if s.Kind == "revoke" {
+		p.printf("%s  this removes an explicit grant; confirm it is not needed\n", strings.Repeat(" ", len(prefix)))
+	}
 }

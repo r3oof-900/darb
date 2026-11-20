@@ -50,12 +50,23 @@ type expectedFinding struct {
 	// Fix: the side the cut chose for each chokepoint edge and its cost
 	// (SCORING.md §4), compared where stated.
 	Fix []expectedFix `json:"fix"`
+	// AlternativeDetail: the cheapest fix of each alternative_fix edge.
+	AlternativeDetail []expectedFix `json:"alternative_fix_detail"`
 }
 
 type expectedFix struct {
 	Edge string `json:"edge"`
 	Side string `json:"side"`
+	Kind string `json:"fix_kind"`
 	Cost int64  `json:"cost"`
+}
+
+func fixSteps(steps []rules.FixStep) []expectedFix {
+	out := []expectedFix{}
+	for _, s := range steps {
+		out = append(out, expectedFix{Edge: s.Edge, Side: s.Side, Kind: s.Kind, Cost: s.Cost})
+	}
+	return out
 }
 
 // expectedNoEdge: no edge of any kind from one node to the other.
@@ -141,11 +152,10 @@ func compareFinding(e *expectedFinding, a *rules.Finding) []string {
 		diff("defaults_used", e.Defaults, a.DefaultsUsed)
 	}
 	if e.Fix != nil {
-		got := []expectedFix{}
-		for _, s := range a.Fix {
-			got = append(got, expectedFix{Edge: s.Edge, Side: s.Side, Cost: s.Cost})
-		}
-		diff("fix", e.Fix, got)
+		diff("fix", e.Fix, fixSteps(a.Fix))
+	}
+	if e.AlternativeDetail != nil {
+		diff("alternative_fix_detail", e.AlternativeDetail, fixSteps(a.AlternativeDetail))
 	}
 	if e.Entry != nil || e.Resource != "" {
 		diff("fingerprint (independent §8 formula)", fingerprint(e.Rule, e), a.Fingerprint)

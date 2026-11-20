@@ -150,18 +150,25 @@ func Posture(base int, c graph.Confidence) (score int, severity string) {
 // FixCost is the cost of removing an edge from one side (SCORING.md §4):
 // narrowing an identity policy is cheap (it affects one principal), a
 // resource policy or trust policy affects everyone who uses the resource,
-// and changing a workload's identity is very expensive. -1: no such fix.
-func FixCost(kind graph.Kind, sub, side string) int64 {
+// and changing a workload's identity is very expensive. On a policy side
+// (identity, resource, trust) revoking an explicit grant costs 2 more than
+// narrowing a broad one: the explicit grant is evidence of intent. Fact
+// sides have a fixed cost. -1: no such fix.
+func FixCost(kind graph.Kind, sub, side, fixKind string) int64 {
+	revoke := int64(0)
+	if fixKind == graph.FixRevoke {
+		revoke = RevokeExtra
+	}
 	switch side {
 	case graph.SideIdentity:
 		if kind == graph.CanEscalate {
-			return 2 // remove the escalation permission
+			return 2 + revoke // remove the escalation permission
 		}
-		return 1 // narrow Resource (or add a condition)
+		return 1 + revoke // narrow Resource (or add a condition)
 	case graph.SideResource:
-		return 2 // bucket policy or key policy
+		return 2 + revoke // bucket policy or key policy
 	case graph.SideTrust:
-		return 5 // tighten the trust: sub, aud, principal, ExternalId
+		return 5 + revoke // tighten the trust: sub, aud, principal, ExternalId
 	case graph.SideWorkload:
 		if kind == graph.CanEscalate && sub == "k8s-token" {
 			return 3 // automountServiceAccountToken: false
@@ -176,3 +183,6 @@ func FixCost(kind graph.Kind, sub, side string) int64 {
 	}
 	return -1
 }
+
+// RevokeExtra is what revoking an explicit grant costs over narrowing.
+const RevokeExtra = 2

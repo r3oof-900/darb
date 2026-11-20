@@ -105,7 +105,8 @@ func (b *builder) read(role *model.Principal, j *model.Resource) {
 	}
 	rewrite := b.canDo(role, "s3:PutBucketPolicy", j.ARN(), j.Account(), b.policies[j.ID()], false)
 	readEdge := b.edge(from, j.ID(), graph.CanRead, sub(role), &read, func(e *graph.Edge) {
-		e.Fixes = nonNil(b.policyFixes(graph.CanRead, req, set, role, j.ARN(), "bucket policy", rewrite))
+		e.Fixes = nonNil(b.policyFixes(graph.CanRead, req, set, role, j.ARN(), "bucket policy",
+			&grantTarget{action: "s3:GetObject", prefix: j.ARN() + "/", principal: identityOf(role)}, rewrite))
 	})
 	under := []graph.EdgeID{readEdge}
 	verdict := read.Verdict
@@ -194,7 +195,8 @@ func (b *builder) decrypt(role *model.Principal, principal match.RequestPrincipa
 		b.canDo(role, "kms:CreateGrant", key.ARN(), key.Account(), b.policies[key.ID()], true)
 	e := b.edge(role.ID(), key.ID(), graph.CanDecrypt, "", result, func(e *graph.Edge) {
 		e.For = b.node(j.ID())
-		e.Fixes = nonNil(b.policyFixes(graph.CanDecrypt, req, set, role, key.ARN(), "key policy", rewrite))
+		e.Fixes = nonNil(b.policyFixes(graph.CanDecrypt, req, set, role, key.ARN(), "key policy",
+			&grantTarget{action: "kms:Decrypt", principal: identityOf(role), context: j.ARN()}, rewrite))
 	})
 	return result.Verdict, e, true
 }
@@ -223,6 +225,15 @@ func (b *builder) readOnlyKeyEdge(role *model.Principal, j *model.Resource, v ev
 
 // nonNil marks "no single change breaks it" (an empty list) apart from
 // "not computed" (nil, which takes the default fixes).
+// identityOf: the principal's ARN; "" for the anonymous caller (nil), which
+// only a Principal "*" grants: never explicit.
+func identityOf(p *model.Principal) string {
+	if p == nil {
+		return ""
+	}
+	return p.Identity()
+}
+
 func nonNil(fs []graph.Fix) []graph.Fix {
 	if fs == nil {
 		return []graph.Fix{}

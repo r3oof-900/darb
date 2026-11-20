@@ -148,14 +148,15 @@ func (b *builder) edge(from, to model.ID, kind graph.Kind, sub string, d *eval.D
 		extra(e)
 	}
 	if e.Fixes == nil {
-		e.Fixes = b.factFixes(e)
+		e.Fixes = b.factFixes(e, factKind(e))
 	}
 	return b.g.Edge(e)
 }
 
-// factFixes: the one side of an edge that comes from facts; none for the
-// identity side of a principal that can grant itself anything again.
-func (b *builder) factFixes(e *graph.Edge) []graph.Fix {
+// factFixes: the one side of an edge that comes from facts, of the given
+// fix kind; none for the identity side of a principal that can grant itself
+// anything again.
+func (b *builder) factFixes(e *graph.Edge, kind string) []graph.Fix {
 	from, to := b.g.NodeOf(e.From), b.g.NodeOf(e.To)
 	label := from.Identity
 	switch e.Kind {
@@ -167,7 +168,7 @@ func (b *builder) factFixes(e *graph.Edge) []graph.Fix {
 		}
 	case graph.RunsAs, graph.CanRead, graph.CanDecrypt, graph.CanReadPlaintext, graph.ExposedTo, graph.Protects:
 	}
-	fixes := defaultFixes(e, label)
+	fixes := defaultFixes(e, label, kind)
 	if e.Kind == graph.Assumes {
 		for i := range fixes {
 			fixes[i].Resource = to.Identity
