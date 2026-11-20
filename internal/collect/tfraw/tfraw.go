@@ -52,8 +52,22 @@ type Value struct {
 // Ref is a symbolic reference to "<address>.<attr>".
 type Ref struct {
 	Address string // e.g. aws_kms_key.pii, data.aws_iam_policy_document.trust, module.m.aws_iam_role.r
-	Attr    string // e.g. arn, json, id
+	Attr    string // e.g. arn, json, id; "" when the plan does not say which
+	// Selector is set when the reference picks one instance of a count or
+	// for_each resource by an expression: a plan records
+	// aws_iam_role.r[each.key].id only as ["aws_iam_role.r", "each.key"].
+	// Address is then the resource without instance key, and Selector is
+	// "each.key", "count.index" (the referencing instance's own key),
+	// or anything else (each.value, a variable): an instance the plan does
+	// not reveal.
+	Selector string
 }
+
+// Instance selectors that name the referencing instance's own key.
+const (
+	SelectEachKey    = "each.key"
+	SelectCountIndex = "count.index"
+)
 
 // String renders "address.attr".
 func (r *Ref) String() string { return r.Address + "." + r.Attr }
@@ -116,6 +130,14 @@ func (o *Object) Blocks(key string) []*Object {
 
 // String returns a KString value.
 func String(s string) *Value { return &Value{Kind: KString, Str: s} }
+
+// ReasonComputed marks a KUnknownAfterApply value of an attribute the
+// configuration does not set: the provider computes it.
+const ReasonComputed = "computed by the provider: not set in the configuration"
+
+// Computed reports whether v is an unknown the provider computes for an
+// attribute the configuration does not set.
+func (v *Value) Computed() bool { return v.Kind == KUnknownAfterApply && v.Reason == ReasonComputed }
 
 // Unresolved returns a KUnresolved value.
 func Unresolved(expr, reason string, pos Pos) *Value {

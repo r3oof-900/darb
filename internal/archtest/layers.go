@@ -142,7 +142,7 @@ func pureRules() []*Rule {
 			Package: "internal/normalize/terraform", Layer: LayerPure,
 			Internal:     plus(normDeps, "internal/iampolicy", "internal/managedpolicies", "internal/collect/tfraw"),
 			External:     []string{extHCL, extTFJSON, extCty},
-			TestInternal: []string{"internal/collect", "internal/collect/terraform/hclstatic", "internal/safeio", "internal/eval", "internal/eval/match", "internal/eval/condition"},
+			TestInternal: []string{"internal/collect", "internal/collect/terraform/hclstatic", "internal/collect/terraform/plan", "internal/safeio", "internal/eval", "internal/eval/match", "internal/eval/condition"},
 		},
 		{
 			Package: "internal/normalize/k8s", Layer: LayerPure,

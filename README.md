@@ -35,6 +35,15 @@ The package dependency rules live in `internal/archtest/layers.go`. After
 changing them run `task gen`, which regenerates the depguard rules in
 `.golangci.yml` and the table in `docs/DESIGN.md`.
 
+The scenario 13 fixture uses a real Terraform plan. Regenerating it needs
+Terraform (not needed by CI or the tests) and no AWS account; details in
+[tests/fixtures/README.md](tests/fixtures/README.md#regenerating-the-scenario-13-plan):
+
+```powershell
+./scripts/generate-fixture-plan.ps1 -Variant vulnerable
+./scripts/generate-fixture-plan.ps1 -Variant fixed
+```
+
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).

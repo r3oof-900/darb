@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	tfjson "github.com/hashicorp/terraform-json"
+
 	"github.com/r3oof-900/clapa/internal/collect"
 	"github.com/r3oof-900/clapa/internal/collect/tfraw"
 	"github.com/r3oof-900/clapa/internal/coverage"
@@ -78,6 +80,65 @@ func TestCollectPlan(t *testing.T) {
 	}
 	if len(m.Providers) != 1 || m.Providers[0].Region.Str != "us-east-1" {
 		t.Errorf("providers: %+v", m.Providers)
+	}
+}
+
+// Real "terraform show -json" output (Terraform 1.17.1, hashicorp/aws 6.73.0)
+// for role = aws_iam_role.r[each.key].id and [each.value].id: the plan
+// records only ["aws_iam_role.r", "each.key"|"each.value"], no attribute.
+func TestForEachInstanceReferences(t *testing.T) {
+	root := filepath.Join("..", "..", "..", "..", "tests", "fixtures", "13_module_for_each", "vulnerable")
+	m, _, err := collectFile(t, root, "plan.json", &Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"etl", "bi", "ml"} {
+		r := byAddress(m)[`module.readers.aws_iam_role_policy.read["`+key+`"]`]
+		role, _ := r.Attrs.Get("role")
+		if role.Kind != tfraw.KRef || role.Ref.Address != `module.readers.aws_iam_role.r["`+key+`"]` || role.Ref.Selector != "" {
+			t.Errorf("each.key of %s must name its own instance: %+v %+v", key, role, role.Ref)
+		}
+	}
+	m, _, err = collectFile(t, "testdata", "for_each_value.plan.json", &Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	role, _ := byAddress(m)[`module.readers.aws_iam_role_policy.read["etl"]`].Attrs.Get("role")
+	if role.Kind != tfraw.KRef || role.Ref.Address != "module.readers.aws_iam_role.r" || role.Ref.Selector != "each.value" {
+		t.Errorf("each.value names an instance the plan does not reveal: %+v %+v", role, role.Ref)
+	}
+}
+
+func TestAttrRef(t *testing.T) {
+	cases := []struct {
+		refs []string
+		want string // "address.attr|selector", "" for nil
+	}{
+		{[]string{"aws_kms_key.pii.arn", "aws_kms_key.pii"}, "m.aws_kms_key.pii.arn|"},
+		{[]string{"data.aws_iam_policy_document.t.json", "data.aws_iam_policy_document.t"}, "m.data.aws_iam_policy_document.t.json|"},
+		{[]string{"aws_iam_role.r", "each.key"}, "m.aws_iam_role.r.|each.key"},
+		{[]string{"aws_iam_role.r", "count.index"}, "m.aws_iam_role.r.|count.index"},
+		{[]string{"aws_iam_role.r", "var.k"}, "m.aws_iam_role.r.|var.k"},
+		{[]string{"aws_kms_key.a.arn", "aws_kms_key.b.arn"}, ""},          // two attributes
+		{[]string{"aws_kms_key.a.arn", "aws_kms_key.b"}, ""},              // two resources
+		{[]string{"aws_s3_bucket.b.arn", "aws_s3_bucket.b", "var.p"}, ""}, // template
+		{[]string{"aws_iam_role.a", "aws_iam_role.b", "each.key"}, ""},    // which resource?
+		{[]string{"aws_iam_role.r", "module.m.out"}, ""},                  // module output
+		{[]string{"aws_iam_role.r"}, ""},                                  // whole resource
+		{[]string{"var.x"}, ""},                                           // no resource
+		{[]string{"aws_iam_role.r.inline_policy.0.name"}, ""},             // deeper path
+	}
+	for _, c := range cases {
+		got := ""
+		if r := attrRef(&tfjson.Expression{ExpressionData: &tfjson.ExpressionData{References: c.refs}}, "m"); r != nil {
+			got = r.String() + "|" + r.Selector
+		}
+		if got != c.want {
+			t.Errorf("attrRef(%q) = %q, want %q", c.refs, got, c.want)
+		}
+	}
+	if attrRef(nil, "") != nil || attrRef(&tfjson.Expression{}, "") != nil {
+		t.Error("no expression")
 	}
 }
 

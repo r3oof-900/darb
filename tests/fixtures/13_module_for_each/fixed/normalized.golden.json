@@ -40,7 +40,7 @@
       "Region": "",
       "Account": "",
       "API": "",
-      "Detail": "arn is only known after apply"
+      "Detail": "acceleration_status is only known after apply (computed by the provider: not set in the configuration)"
     },
     {
       "Kind": "unknown-after-apply",
@@ -52,7 +52,271 @@
       "Region": "",
       "Account": "",
       "API": "",
-      "Detail": "id is only known after apply"
+      "Detail": "acl is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "arn is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "bucket_domain_name is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "bucket_namespace is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "bucket_prefix is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "bucket_region is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "bucket_regional_domain_name is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "cors_rule is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "grant is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "hosted_zone_id is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "id is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "lifecycle_rule is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "logging is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "object_lock_configuration is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "object_lock_enabled is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "policy is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "replication_configuration is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "request_payer is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "server_side_encryption_configuration is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "versioning is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "website is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "website_domain is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "website_endpoint is only known after apply (computed by the provider: not set in the configuration)"
     },
     {
       "Kind": "unknown-after-apply",
@@ -64,7 +328,7 @@
       "Region": "",
       "Account": "",
       "API": "",
-      "Detail": "arn is only known after apply"
+      "Detail": "arn is only known after apply (computed by the provider: not set in the configuration)"
     },
     {
       "Kind": "unknown-after-apply",
@@ -76,7 +340,7 @@
       "Region": "",
       "Account": "",
       "API": "",
-      "Detail": "id is only known after apply"
+      "Detail": "create_date is only known after apply (computed by the provider: not set in the configuration)"
     },
     {
       "Kind": "unknown-after-apply",
@@ -88,7 +352,67 @@
       "Region": "",
       "Account": "",
       "API": "",
-      "Detail": "unique_id is only known after apply"
+      "Detail": "id is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"bi\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "inline_policy is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"bi\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "managed_policy_arns is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"bi\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "name_prefix is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"bi\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "tags_all is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"bi\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "unique_id is only known after apply (computed by the provider: not set in the configuration)"
     },
     {
       "Kind": "unknown-after-apply",
@@ -100,7 +424,7 @@
       "Region": "",
       "Account": "",
       "API": "",
-      "Detail": "arn is only known after apply"
+      "Detail": "arn is only known after apply (computed by the provider: not set in the configuration)"
     },
     {
       "Kind": "unknown-after-apply",
@@ -112,7 +436,7 @@
       "Region": "",
       "Account": "",
       "API": "",
-      "Detail": "id is only known after apply"
+      "Detail": "create_date is only known after apply (computed by the provider: not set in the configuration)"
     },
     {
       "Kind": "unknown-after-apply",
@@ -124,7 +448,67 @@
       "Region": "",
       "Account": "",
       "API": "",
-      "Detail": "unique_id is only known after apply"
+      "Detail": "id is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"etl\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "inline_policy is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"etl\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "managed_policy_arns is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"etl\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "name_prefix is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"etl\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "tags_all is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"etl\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "unique_id is only known after apply (computed by the provider: not set in the configuration)"
     },
     {
       "Kind": "unknown-after-apply",
@@ -136,7 +520,7 @@
       "Region": "",
       "Account": "",
       "API": "",
-      "Detail": "arn is only known after apply"
+      "Detail": "arn is only known after apply (computed by the provider: not set in the configuration)"
     },
     {
       "Kind": "unknown-after-apply",
@@ -148,7 +532,7 @@
       "Region": "",
       "Account": "",
       "API": "",
-      "Detail": "id is only known after apply"
+      "Detail": "create_date is only known after apply (computed by the provider: not set in the configuration)"
     },
     {
       "Kind": "unknown-after-apply",
@@ -160,7 +544,67 @@
       "Region": "",
       "Account": "",
       "API": "",
-      "Detail": "unique_id is only known after apply"
+      "Detail": "id is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"ml\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "inline_policy is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"ml\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "managed_policy_arns is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"ml\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "name_prefix is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"ml\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "tags_all is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role.r[\"ml\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "unique_id is only known after apply (computed by the provider: not set in the configuration)"
     },
     {
       "Kind": "unknown-after-apply",
@@ -172,7 +616,19 @@
       "Region": "",
       "Account": "",
       "API": "",
-      "Detail": "id is only known after apply"
+      "Detail": "id is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role_policy.read[\"bi\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "name_prefix is only known after apply (computed by the provider: not set in the configuration)"
     },
     {
       "Kind": "unknown-after-apply",
@@ -184,7 +640,19 @@
       "Region": "",
       "Account": "",
       "API": "",
-      "Detail": "id is only known after apply"
+      "Detail": "id is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role_policy.read[\"etl\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "name_prefix is only known after apply (computed by the provider: not set in the configuration)"
     },
     {
       "Kind": "unknown-after-apply",
@@ -196,7 +664,19 @@
       "Region": "",
       "Account": "",
       "API": "",
-      "Detail": "id is only known after apply"
+      "Detail": "id is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "module.readers.aws_iam_role_policy.read[\"ml\"]",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "name_prefix is only known after apply (computed by the provider: not set in the configuration)"
     }
   ],
   "mappings": [],

@@ -106,19 +106,19 @@
       "Kind": "unresolved",
       "Source": "terraform-hcl",
       "File": "terraform/modules/readers/main.tf",
-      "Line": 26,
+      "Line": 28,
       "Address": "aws_iam_role_policy.read",
       "Service": "",
       "Region": "",
       "Account": "",
       "API": "",
-      "Detail": "aws_iam_role.r[each.value].id: depends on aws_iam_role.r, which has no known value"
+      "Detail": "aws_iam_role.r[each.key].id: depends on aws_iam_role.r, which has no known value"
     },
     {
       "Kind": "unresolved",
       "Source": "terraform-hcl",
       "File": "terraform/modules/readers/main.tf",
-      "Line": 29,
+      "Line": 31,
       "Address": "aws_iam_role_policy.read",
       "Service": "",
       "Region": "",

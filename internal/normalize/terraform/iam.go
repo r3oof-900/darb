@@ -14,24 +14,22 @@ import (
 // managed_policy_arns, permissions_boundary), aws_iam_role_policy,
 // aws_iam_role_policy_attachment, aws_iam_policy_attachment, aws_iam_policy.
 func (n *norm) iam(rs []*tfraw.Resource) {
-	roles := map[string]model.ID{} // "root|role name" and "root|address" -> role node
+	roles := newRoleIndex()
 	for _, r := range rs {
 		if r.Type == "aws_iam_role" && r.Mode == "managed" {
-			id := n.role(r)
-			roles[r.Root+"|"+n.nameOf(r)] = id
-			roles[r.Root+"|"+r.Address] = id
+			roles.add(n, r, n.role(r))
 		}
 	}
 	for _, r := range rs {
 		switch r.Type {
 		case "aws_iam_role_policy":
-			if role, ok := n.roleRef(r, attr(r, "role"), roles); ok {
+			if targets := n.roleTargets(r, attr(r, "role"), roles); len(targets) > 0 {
 				text, ok := n.policyText(r.Root, attr(r, "policy"))
-				n.b.AddPolicy(&model.AttachedPolicy{Target: role, Doc: n.parsePolicy(r, r.Address, model.PolicyIdentity, text, ok)})
+				n.attach(r, targets, n.parsePolicy(r, r.Address, model.PolicyIdentity, text, ok))
 			}
 		case "aws_iam_role_policy_attachment":
-			if role, ok := n.roleRef(r, attr(r, "role"), roles); ok {
-				n.b.AddPolicy(&model.AttachedPolicy{Target: role, Doc: n.managed(r, attr(r, "policy_arn"), model.PolicyIdentity)})
+			if targets := n.roleTargets(r, attr(r, "role"), roles); len(targets) > 0 {
+				n.attach(r, targets, n.managed(r, attr(r, "policy_arn"), model.PolicyIdentity))
 			}
 		case "aws_iam_policy_attachment":
 			n.policyAttachment(r, roles)
@@ -45,13 +43,21 @@ func (n *norm) role(r *tfraw.Resource) model.ID {
 	n.b.AddPrincipal(p)
 	text, ok := n.policyText(r.Root, attr(r, "assume_role_policy"))
 	n.b.AddTrust(model.NewTrustRelationship(p.ID(), n.parsePolicy(r, r.Address+".assume_role_policy", model.PolicyResource, text, ok)))
+	// Unconfigured inline_policy and managed_policy_arns are computed by the
+	// provider and add nothing: "If this attribute is not configured,
+	// Terraform will ignore policy attachments to this resource" (AWS provider
+	// › aws_iam_role). A configured value that is not known stays unknown.
+	if v, ok := r.Attrs.Get("inline_policy"); ok && unknownBlock(v) {
+		n.gap(coverage.KindUnresolved, r, "inline_policy is not known statically; treated as unknown")
+		n.b.AddPolicy(&model.AttachedPolicy{Target: p.ID(), Doc: unknownDoc(r.Address+".inline_policy", model.PolicyIdentity, &s)})
+	}
 	for i, ip := range r.Attrs.Blocks("inline_policy") {
 		name, _ := n.str(r.Root, valueOf(ip, "name"))
 		text, ok := n.policyText(r.Root, valueOf(ip, "policy"))
 		id := fmt.Sprintf("%s.inline_policy[%d](%s)", r.Address, i, name)
 		n.b.AddPolicy(&model.AttachedPolicy{Target: p.ID(), Doc: n.parsePolicy(r, id, model.PolicyIdentity, text, ok)})
 	}
-	if v, ok := r.Attrs.Get("managed_policy_arns"); ok {
+	if v, ok := r.Attrs.Get("managed_policy_arns"); ok && !v.Computed() {
 		for _, item := range listItems(v) {
 			n.b.AddPolicy(&model.AttachedPolicy{Target: p.ID(), Doc: n.managed(r, item, model.PolicyIdentity)})
 		}
@@ -62,31 +68,14 @@ func (n *norm) role(r *tfraw.Resource) model.ID {
 	return p.ID()
 }
 
-// roleRef resolves a "role" attribute: a reference to a role resource, or a
-// role name. A role that is not in the input is a coverage gap.
-func (n *norm) roleRef(r *tfraw.Resource, v *tfraw.Value, roles map[string]model.ID) (model.ID, bool) {
-	if v != nil && v.Kind == tfraw.KRef {
-		if id, ok := roles[r.Root+"|"+v.Ref.Address]; ok {
-			return id, true
-		}
-	}
-	if name, ok := n.str(r.Root, v); ok {
-		if id, ok := roles[r.Root+"|"+name]; ok {
-			return id, true
-		}
-	}
-	n.gap(coverage.KindUnresolved, r, "attached role is not defined in the input; this policy is not attached to any analysed role")
-	return "", false
-}
-
-func (n *norm) policyAttachment(r *tfraw.Resource, roles map[string]model.ID) {
+func (n *norm) policyAttachment(r *tfraw.Resource, roles *roleIndex) {
 	v, ok := r.Attrs.Get("roles")
 	if !ok {
 		return
 	}
 	for _, item := range listItems(v) {
-		if role, ok := n.roleRef(r, item, roles); ok {
-			n.b.AddPolicy(&model.AttachedPolicy{Target: role, Doc: n.managed(r, attr(r, "policy_arn"), model.PolicyIdentity)})
+		if targets := n.roleTargets(r, item, roles); len(targets) > 0 {
+			n.attach(r, targets, n.managed(r, attr(r, "policy_arn"), model.PolicyIdentity))
 		}
 	}
 }
@@ -120,4 +109,10 @@ func (n *norm) managed(r *tfraw.Resource, v *tfraw.Value, kind model.PolicyKind)
 		n.gap(coverage.KindUnresolved, r, "managed policy "+policyARN+" is not defined in the input; treated as unknown")
 	}
 	return unknownDoc(policyARN, kind, &s)
+}
+
+// unknownBlock: a configured block whose content is not known (a dynamic
+// block, or an unknown planned value). Blocks() would silently skip it.
+func unknownBlock(v *tfraw.Value) bool {
+	return (v.Kind == tfraw.KUnknownAfterApply || v.Kind == tfraw.KUnresolved) && !v.Computed()
 }

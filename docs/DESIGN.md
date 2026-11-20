@@ -157,7 +157,7 @@ generates. Rules for reading the table:
 | `internal/normalize` | pure | `internal/model`, `internal/arn`, `internal/coverage` | — | — |
 | `internal/normalize/aws` | pure | `internal/model`, `internal/arn`, `internal/normalize`, `internal/coverage`, `internal/iampolicy`, `internal/managedpolicies`, `internal/collect/awsraw` | `github.com/aws/aws-sdk-go-v2` | std: `net/url`; tests: `internal/collect`, `internal/collect/awssnapshot`, `internal/safeio` |
 | `internal/normalize/k8s` | pure | `internal/model`, `internal/arn`, `internal/normalize`, `internal/coverage`, `internal/collect/k8sraw` | `k8s.io/api`, `k8s.io/apimachinery`, `sigs.k8s.io/yaml` | tests: `internal/collect`, `internal/collect/k8s/manifests`, `internal/safeio` |
-| `internal/normalize/terraform` | pure | `internal/model`, `internal/arn`, `internal/normalize`, `internal/coverage`, `internal/iampolicy`, `internal/managedpolicies`, `internal/collect/tfraw` | `github.com/hashicorp/hcl/v2`, `github.com/hashicorp/terraform-json`, `github.com/zclconf/go-cty` | tests: `internal/collect`, `internal/collect/terraform/hclstatic`, `internal/safeio`, `internal/eval`, `internal/eval/match`, `internal/eval/condition` |
+| `internal/normalize/terraform` | pure | `internal/model`, `internal/arn`, `internal/normalize`, `internal/coverage`, `internal/iampolicy`, `internal/managedpolicies`, `internal/collect/tfraw` | `github.com/hashicorp/hcl/v2`, `github.com/hashicorp/terraform-json`, `github.com/zclconf/go-cty` | tests: `internal/collect`, `internal/collect/terraform/hclstatic`, `internal/collect/terraform/plan`, `internal/safeio`, `internal/eval`, `internal/eval/match`, `internal/eval/condition` |
 | `internal/patch` | pure | `internal/model`, `internal/iampolicy`, `internal/remediate`, `internal/findings` | `github.com/hashicorp/hcl/v2`, `github.com/aymanbagabas/go-udiff` | — |
 | `internal/paths` | core | `internal/model`, `internal/graph` | — | — |
 | `internal/redact` | pure | — (leaf) | — | — |
@@ -375,6 +375,8 @@ prompts; missing config is a clear error.
 | Unknown account, region or name (**corrected after Phase 3 review**) | every unknown ARN segment carries an unresolved placeholder: `${clapa:unresolved:account_of_<root>}`, `…region_of_<root>}`, a name `"${var.env}-pii"` stays `<placeholder>-pii`, a `name_prefix`/`bucket_prefix` becomes `prefix<placeholder>`. The first version used `""` (a literal empty segment) and the pending ID for unresolved names, so `Resource = "arn:aws:s3:::prod-pii/*"` gave a definite IMPLICIT_DENY and a real path was lost silently. Each unknown account/region is still a coverage gap | review finding; nothing turns gaps into UNKNOWN later, so the placeholder itself must carry it |
 | Matching a partly unknown request value | `match.Value`: False only when **no** substitution of the unknown parts can match (pattern intersection, `arn.Pattern.Intersects`), True when the pattern matches whatever they are, otherwise UNKNOWN. An unknown account on either side makes same- vs cross-account UNKNOWN; an unresolved request value in a condition is UNKNOWN | evaluator, corpus file 18 |
 | End-to-end proof | `internal/normalize/terraform/unknown_parts_test.go`, from HCL through the normalizer to the evaluator: (a) bucket `"${var.env}-pii"` vs `arn:aws:s3:::prod-pii/*` → UNKNOWN; (b) unknown account vs `arn:aws:kms:us-east-1:111122223333:key/*` → UNKNOWN; (c) unknown account vs a bucket policy naming `arn:aws:iam::111122223333:role/app` → UNKNOWN; (d) with `env` set, or the account set in options: `prod`/`111122223333` → ALLOW, `dev`/`999999999999` → IMPLICIT_DENY | your Phase 3 review |
+| Instance references in a real plan (**found with real Terraform output, Phase 3 review**) | `terraform show -json` records `aws_iam_role.r[each.key].id` only as `["aws_iam_role.r", "each.key"]`: no attribute, no key. `each.key` and `count.index` name the referencing instance's own key, so the reference resolves exactly to `…aws_iam_role.r["etl"]`. Any other selector (`each.value`, a variable) names an instance the plan does not reveal (for a map, `each.value` is not the key): the policy is attached to **every** instance of the resource, each copy with an extra condition on an unresolved key, so every Allow and Deny there is UNKNOWN — never ALLOW for one instance and IMPLICIT_DENY for the others, never dropped — plus a gap. Limitation: the references cannot tell `r[each.key]` from `r[upper(each.key)]`; the plan has no expression text | Terraform 1.17.1 output, `internal/collect/terraform/plan/testdata/for_each_value.plan.json`; `TestForEachInstanceReferences`, `TestForEachRoleSelection` |
+| Provider-computed attributes | an attribute marked unknown in `after_unknown` that the configuration does not set is computed by the provider (`Reason: computed`). Unset `inline_policy` and `managed_policy_arns` of `aws_iam_role` add nothing ("If this attribute is not configured, Terraform will ignore policy attachments to this resource"); set but unknown (or a `dynamic` block in static mode) gives an unknown policy. Other computed attributes (`arn`, `id`) stay unknown and are gaps; the Phase 5 coverage tolerance must not count gaps that no decision used | AWS provider › `aws_iam_role` (argument reference, `managed_policy_arns`/`inline_policy`); `TestComputedPolicyAttributes` |
 | S3 default encryption | a bucket without an encryption configuration in Terraform is SSE-S3; in a snapshot without `get-bucket-encryption`, it is unknown | S3 User Guide › "Default encryption" (all new objects since January 2023) |
 | KMS key without `policy` | the documented default key policy (account root, `kms:*`) | KMS Developer Guide › "Default key policy" |
 | AWS managed policies | resolved from the vendored snapshot (`internal/managedpolicies`, 3 policies checked against the AWS Managed Policy Reference on 2026-11-20; refresh with `tools/refresh-managed-policies`). Any other managed policy is unknown and a gap | spec §4.1 |
@@ -851,14 +853,16 @@ rule ID + fingerprint). Immutability: the golden runner copies each fixture to
 `t.TempDir()` before anything runs; CI runs `git diff --exit-code -- tests/fixtures`
 after the test job; fixtures are LF-only via `.gitattributes`.
 
-Scenario 13 (module + `for_each`) needs a real plan JSON. **Flag**: it is generated
-once with Terraform using fake credentials and the AWS provider's `skip_*`
-validation settings, committed, and regenerated only by a documented script; CI
-never needs Terraform. *Phase 3 status:* Terraform is not installed on the
-development machine, so `plan.json` is hand-written to the terraform-json format
-(validated by `hashicorp/terraform-json`) to match `terraform/`, and the fixture
-README says so. It should be replaced by real `terraform show -json` output when
-Terraform is available.
+Scenario 13 (module + `for_each`) needs a real plan JSON. It is generated with
+Terraform using fake credentials and the AWS provider's `skip_*` validation
+settings, committed, and regenerated only by `scripts/generate-fixture-plan.ps1`;
+CI never needs Terraform. *Status (Phase 3 review):* the hand-written plan was
+replaced by real output (Terraform 1.17.1, `hashicorp/aws` 6.73.0). The real
+format showed two differences the hand-written file hid — instance references
+without attribute and provider-computed `managed_policy_arns`/`inline_policy` —
+both fixed in the reader and normalizer (section 4.6). The module uses
+`aws_iam_role.r[each.key]` (equal to `each.value` for a set); the
+`each.value` form is kept as real test data and gives UNKNOWN by design.
 
 *Phase 3 status:* every variant has `normalized.golden.json` (inventory, gaps,
 entry points; and `normalized.static.golden.json` when a plan is present),

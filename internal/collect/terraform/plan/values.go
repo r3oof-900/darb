@@ -83,38 +83,90 @@ func nested(expr *tfjson.Expression, i int) *tfjson.ConfigResource {
 // symbolic reference; otherwise it is unknown, and recorded as a gap.
 func (c *converter) unknownValue(expr *tfjson.Expression, r *tfraw.Resource, path string) *tfraw.Value {
 	if ref := attrRef(expr, r.Module); ref != nil {
+		// [each.key] and [count.index] name this instance's own key exactly.
+		if (ref.Selector == tfraw.SelectEachKey || ref.Selector == tfraw.SelectCountIndex) && r.Index != "" {
+			ref.Address, ref.Selector = ref.Address+"["+r.Index+"]", ""
+		}
 		return &tfraw.Value{Kind: tfraw.KRef, Ref: ref, Pos: tfraw.Pos{File: c.file}}
 	}
-	c.rec.Add(&coverage.Gap{
-		Kind: coverage.KindUnknownAfterApply, Source: Name, File: c.file, Address: r.Address,
-		Detail: path + " is only known after apply",
-	})
-	return &tfraw.Value{Kind: tfraw.KUnknownAfterApply, Expr: path, Pos: tfraw.Pos{File: c.file}}
+	detail, reason := path+" is only known after apply", ""
+	if expr == nil {
+		detail, reason = detail+" ("+tfraw.ReasonComputed+")", tfraw.ReasonComputed
+	}
+	c.rec.Add(&coverage.Gap{Kind: coverage.KindUnknownAfterApply, Source: Name, File: c.file, Address: r.Address, Detail: detail})
+	return &tfraw.Value{Kind: tfraw.KUnknownAfterApply, Expr: path, Reason: reason, Pos: tfraw.Pos{File: c.file}}
 }
 
 // attrRef picks the attribute reference ("type.name.attr" or
 // "data.type.name.attr") among an expression's references. Terraform lists
 // both the attribute and the bare resource; more than one distinct attribute
 // means a computed expression, which is not a plain reference.
+//
+// An index by expression is recorded differently: aws_iam_role.r[each.key].id
+// appears only as ["aws_iam_role.r", "each.key"] (verified with Terraform
+// 1.17 "terraform show -json"). That becomes an instance reference with a
+// Selector, and the normalizer decides which instance it can name.
 func attrRef(expr *tfjson.Expression, module string) *tfraw.Ref {
 	if expr == nil || expr.ExpressionData == nil {
 		return nil
 	}
-	var found *tfraw.Ref
+	var refs refSet
 	for _, ref := range expr.References {
-		parts := strings.Split(ref, ".")
-		n := 3
-		if parts[0] == "data" {
-			n = 4
-		}
-		if len(parts) != n || parts[0] == "var" || parts[0] == "local" || parts[0] == "module" {
-			continue
-		}
-		cand := &tfraw.Ref{Address: join(module, strings.Join(parts[:n-1], ".")), Attr: parts[n-1]}
-		if found != nil && found.String() != cand.String() {
+		if !refs.add(ref, module) {
 			return nil
 		}
-		found = cand
 	}
-	return found
+	return refs.result()
+}
+
+// refSet classifies an expression's references.
+type refSet struct {
+	attr, bare *tfraw.Ref // "type.name.attr" and "type.name"
+	selectors  []string   // each.*, count.*, var.*, local.*
+}
+
+// add records one reference; false means the expression is not a plain
+// reference (two attributes, two resources, a module output).
+func (s *refSet) add(ref, module string) bool {
+	parts := strings.Split(ref, ".")
+	n := 3
+	if parts[0] == "data" {
+		n = 4
+	}
+	switch {
+	case parts[0] == "module":
+		return false
+	case parts[0] == "each" || parts[0] == "count" || parts[0] == "var" || parts[0] == "local":
+		s.selectors = append(s.selectors, ref)
+	case len(parts) == n-1:
+		cand := &tfraw.Ref{Address: join(module, ref)}
+		if s.bare != nil && s.bare.Address != cand.Address {
+			return false
+		}
+		s.bare = cand
+	case len(parts) == n:
+		cand := &tfraw.Ref{Address: join(module, strings.Join(parts[:n-1], ".")), Attr: parts[n-1]}
+		if s.attr != nil && s.attr.String() != cand.String() {
+			return false
+		}
+		s.attr = cand
+	}
+	return true
+}
+
+func (s *refSet) result() *tfraw.Ref {
+	if s.attr != nil {
+		// Anything besides the attribute and its own resource makes it a
+		// computed expression ("${aws_s3_bucket.b.arn}/${var.p}").
+		if len(s.selectors) > 0 || (s.bare != nil && s.bare.Address != s.attr.Address) {
+			return nil
+		}
+		return s.attr
+	}
+	if s.bare == nil || len(s.selectors) == 0 {
+		return nil
+	}
+	// Only the bare resource and an index expression: an instance reference.
+	s.bare.Selector = strings.Join(s.selectors, ",")
+	return s.bare
 }

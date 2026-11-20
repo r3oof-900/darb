@@ -37,7 +37,7 @@ diff is a behaviour change.
 | 10 | `10_kms_principal_org_id` | key policy grants `kms:Decrypt` to `{"AWS": "*"}` with `aws:PrincipalOrgID` | UNKNOWN unless the org ID is configured | key policy names the role |
 | 11 | `11_boundary_deny` | scenario 1 + a permissions boundary with an explicit Deny on the PII objects | no path (boundary deny) | boundary that allows only queues and logs |
 | 12 | `12_public_bucket` | bucket policy `Principal "*"`, Block Public Access off, SSE-S3 | public read | Block Public Access on, policy names one role |
-| 13 | `13_module_for_each` | module + `for_each` → 3 IRSA roles reading PII. `plan.json` is hand-written to the terraform-json format to match `terraform/` (regenerate with `terraform show -json` when Terraform is available) | plan: 3 roles resolved; static: unresolved, reported | roles read a non-PII bucket |
+| 13 | `13_module_for_each` | module + `for_each` → 3 IRSA roles reading PII. `plan.json` is real `terraform show -json` output (see below) | plan: 3 roles resolved; static: unresolved, reported | roles read a non-PII bucket |
 | 14 | `14_same_names_two_accounts` | role `app` and bucket `data-<account>` in two accounts (snapshot) | two distinct nodes, no ID collision | account 444455556666's role can only list |
 | 15 | `15_empty_input` | nothing to scan | `collected: 0` → exit 3, never "0 findings" | one namespace manifest |
 | 16 | `16_malformed_inputs` | malformed YAML and HCL next to a valid copy of scenario 1 | both reported with file:line; the rest is loaded | valid files only |
@@ -45,3 +45,24 @@ diff is a behaviour change.
 For the "no path" scenarios (2, 3, 11) the vulnerable variant is the near-miss
 configuration that must *not* produce a path; the fixed variant is a hardened
 version that must not either.
+
+## Regenerating the scenario 13 plan
+
+`13_module_for_each/<variant>/plan.json` is real Terraform output, made without
+an AWS account:
+
+```powershell
+./scripts/generate-fixture-plan.ps1 -Variant vulnerable
+./scripts/generate-fixture-plan.ps1 -Variant fixed
+```
+
+The script copies `terraform/` to a temporary directory (the fixture is not
+touched), adds a `mock_override.tf` with fake credentials,
+`skip_credentials_validation`, `skip_requesting_account_id`,
+`skip_metadata_api_check`, `skip_region_validation` and
+`allowed_account_ids = null` (the provider cannot check the allowed account
+without looking it up; `clapa.yaml` sets the account), then runs
+`terraform init`, `terraform plan -refresh=false -out=plan.tfplan` and
+`terraform show -json plan.tfplan`. Nothing is applied and no AWS API is
+called. Committed files were made with Terraform 1.17.1 and `hashicorp/aws`
+6.73.0. Review the diff and the goldens (`task golden`) before committing.
