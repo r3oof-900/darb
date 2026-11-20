@@ -87,7 +87,9 @@ func coreRules() []*Rule {
 		{Package: "internal/model", Layer: LayerCore, Internal: []string{"internal/arn"}},
 		{Package: "internal/iampolicy", Layer: LayerCore, Internal: coreModel()},
 		{Package: "internal/eval/match", Layer: LayerCore, Internal: coreModel()},
-		{Package: "internal/eval/condition", Layer: LayerCore, Internal: coreModel()},
+		// net/netip is pure address parsing (IpAddress/NotIpAddress); the
+		// "net" denial exists to keep network I/O out of the core.
+		{Package: "internal/eval/condition", Layer: LayerCore, Internal: coreModel(), ExtraStd: []string{"net/netip"}},
 		{
 			Package: "internal/eval", Layer: LayerCore,
 			Internal:     coreModel("internal/eval/match", "internal/eval/condition"),

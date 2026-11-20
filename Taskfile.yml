@@ -8,14 +8,18 @@ vars:
   LEFTHOOK_VERSION: v2.2.2
   GOVULNCHECK_VERSION: v1.10.0
   GITLEAKS_VERSION: v8.30.1
+  GOBCO_VERSION: v1.3.4
   VERSION:
     sh: git describe --tags --always --dirty 2>/dev/null || echo dev
   COMMIT:
     sh: git rev-parse --verify --quiet HEAD || echo unknown
   LDFLAGS: -s -w -buildid= -X {{.MODULE}}/internal/version.version={{.VERSION}} -X {{.MODULE}}/internal/version.commit={{.COMMIT}}
-  # Fuzz targets, as "package:FuzzName". Added from Phase 2.
-  FUZZ_TARGETS: ""
+  # Fuzz targets, as "package-dir:FuzzName".
+  FUZZ_TARGETS: internal/arn:FuzzParse internal/arn:FuzzMatch internal/iampolicy:FuzzParse internal/eval:FuzzEvaluate
   FUZZTIME: 5m
+  # Packages gated at >= 95% branch coverage (gobco), docs/DESIGN.md section 6.4.
+  BRANCH_PKGS: internal/eval internal/eval/condition internal/eval/match internal/arn internal/iampolicy internal/model
+  BRANCH_MIN_PERMILLE: "950"
 
 env:
   GOFLAGS: -mod=readonly
@@ -34,6 +38,7 @@ tasks:
       - go install github.com/evilmartians/lefthook/v2@{{.LEFTHOOK_VERSION}}
       - go install golang.org/x/vuln/cmd/govulncheck@{{.GOVULNCHECK_VERSION}}
       - go install github.com/zricethezav/gitleaks/v8@{{.GITLEAKS_VERSION}}
+      - go install github.com/rillig/gobco@{{.GOBCO_VERSION}}
 
   gen:
     desc: Regenerate depguard rules and the DESIGN.md layer table from internal/archtest/layers.go
@@ -74,12 +79,25 @@ tasks:
       - go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
       - go tool cover -func=coverage.out
 
+  cover:branch:
+    desc: Branch coverage (gobco) of the core packages; fails below 95%
+    silent: true
+    cmds:
+      - for: { var: BRANCH_PKGS, split: " " }
+        cmd: |
+          out=$(cd {{.ITEM}} && gobco -branch . 2>&1)
+          cov=${out##*Branch coverage: }
+          cov=${cov%%[!0-9/]*}
+          num=${cov%/*}
+          den=${cov#*/}
+          echo "{{.ITEM}}: branch coverage $num/$den"
+          if [ $((num * 1000)) -lt $((den * {{.BRANCH_MIN_PERMILLE}})) ]; then echo "$out"; echo "FAIL: {{.ITEM}} is below 95% branch coverage"; exit 1; fi
+
   fuzz:
-    desc: Run every fuzz target for FUZZTIME each
+    desc: Run every fuzz target for FUZZTIME each (FUZZTIME=30s task fuzz for a quick pass)
     cmds:
       - for: { var: FUZZ_TARGETS, split: " " }
-        cmd: go test -run=^$ -fuzz=^{{splitList ":" .ITEM | last}}$ -fuzztime={{.FUZZTIME}} ./{{splitList ":" .ITEM | first}}
-      - echo "fuzz targets run{{if eq .FUZZ_TARGETS ""}} (none defined yet){{end}}"
+        cmd: go test -run='^$' -fuzz='^{{splitList ":" .ITEM | last}}$' -fuzztime={{.FUZZTIME}} ./{{splitList ":" .ITEM | first}}
 
   bench:
     desc: Run benchmarks (-benchmem, 10 samples) into bench.txt

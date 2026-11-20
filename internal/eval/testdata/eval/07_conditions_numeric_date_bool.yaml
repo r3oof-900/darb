@@ -1,0 +1,88 @@
+# Numeric, date, Boolean and binary condition operators.
+# IAM User Guide › "IAM JSON policy elements: Condition operators".
+defaults:
+  principal: {kind: assumed-role, arn: "arn:aws:sts::111122223333:assumed-role/app/s1", account: "111122223333", source: "arn:aws:iam::111122223333:role/app"}
+  action: "s3:GetObject"
+  resource: "arn:aws:s3:::data/k"
+  resource_account: "111122223333"
+  context:
+    default: absent
+    present: {"aws:MultiFactorAuthAge": "300", "aws:CurrentTime": "2026-11-20T10:00:00Z", "aws:SecureTransport": "true", "aws:MultiFactorAuthPresent": "false", "custom:blob": "aGVsbG8="}
+
+cases:
+  - name: iam-ug.condition-operators.numeric-less-than
+    doc: "IAM User Guide › Numeric condition operators: NumericLessThan"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {NumericLessThan: {"aws:MultiFactorAuthAge": "3600"}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.condition-operators.numeric-greater-than
+    doc: "IAM User Guide › Numeric condition operators: NumericGreaterThan false"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {NumericGreaterThan: {"aws:MultiFactorAuthAge": "3600"}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.condition-operators.numeric-equals-json-number
+    doc: "IAM User Guide › Numeric condition operators: a JSON number value"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {NumericEquals: {"aws:MultiFactorAuthAge": 300}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.condition-operators.numeric-not-equals
+    doc: "IAM User Guide › Numeric condition operators: NumericNotEquals"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {NumericNotEquals: {"aws:MultiFactorAuthAge": "300"}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.condition-operators.numeric-absent-key
+    doc: "IAM User Guide › Condition operators: a missing key makes NumericLessThan false"
+    context: {default: absent}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {NumericLessThan: {"aws:MultiFactorAuthAge": "3600"}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.condition-operators.numeric-if-exists-absent
+    doc: "IAM User Guide › ...IfExists condition operators: true when the key is missing"
+    context: {default: absent}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {NumericLessThanIfExists: {"aws:MultiFactorAuthAge": "3600"}}}]}
+    expect: ALLOW
+
+  - name: clapa.condition.numeric-unparsable-policy-value-is-unknown
+    doc: "docs/DESIGN.md section 6.2: a value the evaluator cannot parse is UNKNOWN, never guessed"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {NumericLessThan: {"aws:MultiFactorAuthAge": "one hour"}}}]}
+    expect: UNKNOWN
+
+  - name: iam-ug.condition-operators.date-less-than
+    doc: "IAM User Guide › Date condition operators: DateLessThan with ISO 8601"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {DateLessThan: {"aws:CurrentTime": "2027-01-01T00:00:00Z"}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.condition-operators.date-greater-than
+    doc: "IAM User Guide › Date condition operators: DateGreaterThan false"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {DateGreaterThan: {"aws:CurrentTime": "2027-01-01T00:00:00Z"}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.condition-operators.date-epoch
+    doc: "IAM User Guide › Date condition operators: epoch (UNIX) time values"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {DateGreaterThan: {"aws:CurrentTime": "1700000000"}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.condition-operators.bool-true
+    doc: "IAM User Guide › Boolean condition operators: Bool true"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {Bool: {"aws:SecureTransport": "true"}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.condition-operators.bool-json-boolean
+    doc: "IAM User Guide › Boolean condition operators: a JSON boolean value"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {Bool: {"aws:SecureTransport": true}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.condition-operators.bool-mismatch
+    doc: "IAM User Guide › Boolean condition operators: Bool false does not match true"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {Bool: {"aws:MultiFactorAuthPresent": "true"}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.condition-operators.bool-deny-without-mfa
+    doc: "IAM User Guide › Boolean condition operators: deny when MFA is not present"
+    policies: {identity: [[{Effect: Allow, Action: "s3:*", Resource: "*"}, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {Bool: {"aws:MultiFactorAuthPresent": "false"}}}]]}
+    expect: DENY
+
+  - name: iam-ug.condition-operators.binary-equals
+    doc: "IAM User Guide › Binary condition operators: BinaryEquals compares base64 values"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {BinaryEquals: {"custom:blob": "aGVsbG8="}}}]}
+    expect: ALLOW

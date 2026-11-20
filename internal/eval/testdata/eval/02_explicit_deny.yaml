@@ -1,0 +1,109 @@
+# Explicit deny precedence and implicit deny.
+# IAM User Guide › Policy evaluation logic › "How AWS enforcement code logic
+# evaluates requests to allow or deny access".
+anchors:
+  allowS3: &allowS3 {Sid: AllowS3, Effect: Allow, Action: "s3:*", Resource: "*"}
+
+defaults:
+  principal: {kind: assumed-role, arn: "arn:aws:sts::111122223333:assumed-role/app/s1", account: "111122223333", source: "arn:aws:iam::111122223333:role/app"}
+  action: "s3:GetObject"
+  resource: "arn:aws:s3:::data/k"
+  resource_account: "111122223333"
+  context: {default: absent}
+
+cases:
+  - name: iam-ug.policy-evaluation.explicit-deny.same-policy
+    doc: "IAM User Guide › Policy evaluation logic: an explicit deny overrides an allow in the same policy"
+    policies:
+      identity: [[*allowS3, {Sid: NoGet, Effect: Deny, Action: "s3:GetObject", Resource: "*"}]]
+    expect: DENY
+    expect_contributing: ["identity:NoGet"]
+
+  - name: iam-ug.policy-evaluation.explicit-deny.other-identity-policy
+    doc: "IAM User Guide › Policy evaluation logic: an explicit deny in any identity policy overrides allows in others"
+    policies:
+      identity: [*allowS3, {Effect: Deny, Action: "s3:Get*", Resource: "arn:aws:s3:::data/*"}]
+    expect: DENY
+
+  - name: iam-ug.policy-evaluation.explicit-deny.resource-policy-overrides-identity-allow
+    doc: "IAM User Guide › Policy evaluation logic: an explicit deny in a resource-based policy overrides an identity allow"
+    policies:
+      identity: [*allowS3]
+      resource: [{Sid: DenyAll, Effect: Deny, Principal: "*", Action: "s3:*", Resource: "arn:aws:s3:::data/*"}]
+    expect: DENY
+    expect_contributing: ["resource:DenyAll"]
+
+  - name: org-ug.scp.explicit-deny-overrides-identity-allow
+    doc: "AWS Organizations User Guide › SCP evaluation: an explicit deny in an SCP overrides any allow"
+    policies:
+      identity: [*allowS3]
+      scps: [[[{Effect: Allow, Action: "*", Resource: "*"}, {Sid: NoS3Get, Effect: Deny, Action: "s3:GetObject", Resource: "*"}]]]
+    expect: DENY
+    expect_contributing: ["scp:NoS3Get"]
+
+  - name: iam-ug.policy-evaluation.explicit-deny.session-policy
+    doc: "IAM User Guide › Session policies: an explicit deny in a session policy overrides the identity allow"
+    policies:
+      identity: [*allowS3]
+      session: [[{Effect: Allow, Action: "*", Resource: "*"}, {Effect: Deny, Action: "s3:GetObject", Resource: "*"}]]
+    expect: DENY
+
+  - name: iam-ug.policy-evaluation.implicit-deny.nothing-allows
+    doc: "IAM User Guide › Policy evaluation logic: a request is implicitly denied unless an applicable policy allows it"
+    policies:
+      identity: [{Effect: Allow, Action: "ec2:*", Resource: "*"}]
+    expect: IMPLICIT_DENY
+    expect_missing: ["identity policy"]
+
+  - name: iam-ug.policy-evaluation.implicit-deny.no-policies
+    doc: "IAM User Guide › Policy evaluation logic: with no policies at all, the request is implicitly denied"
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.condition.deny-with-false-condition-does-not-apply
+    doc: "IAM User Guide › Condition: a Deny whose condition is false does not apply"
+    context: {default: absent, present: {"aws:SecureTransport": "true"}}
+    policies:
+      identity: [[*allowS3, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {Bool: {"aws:SecureTransport": "false"}}}]]
+    expect: ALLOW
+
+  - name: iam-ug.condition.deny-with-true-condition-denies
+    doc: "IAM User Guide › Condition: a Deny whose condition is true applies"
+    context: {default: absent, present: {"aws:SecureTransport": "false"}}
+    policies:
+      identity: [[*allowS3, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {Bool: {"aws:SecureTransport": "false"}}}]]
+    expect: DENY
+
+  - name: clapa.unknown.deny-with-unknown-condition-blocks-allow
+    doc: "docs/DESIGN.md section 6.2: a Deny that may apply (unknown condition) makes an otherwise-allowed request UNKNOWN"
+    context: {default: unknown}
+    policies:
+      identity: [[*allowS3, {Sid: MaybeDeny, Effect: Deny, Action: "s3:*", Resource: "*", Condition: {Bool: {"aws:SecureTransport": "false"}}}]]
+    expect: UNKNOWN
+    expect_contributing: ["identity:MaybeDeny"]
+    expect_unresolved: ["Condition:aws:SecureTransport"]
+
+  - name: clapa.unknown.deny-with-unknown-condition-and-no-allow
+    doc: "docs/DESIGN.md section 6.2: an unknown Deny cannot create access; with no allow the result is IMPLICIT_DENY"
+    context: {default: unknown}
+    policies:
+      identity: [{Effect: Deny, Action: "s3:*", Resource: "*", Condition: {Bool: {"aws:SecureTransport": "false"}}}]
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.policy-evaluation.explicit-deny.other-action-ignored
+    doc: "IAM User Guide › Policy evaluation logic: a Deny for a different action does not apply"
+    policies:
+      identity: [[*allowS3, {Effect: Deny, Action: "s3:PutObject", Resource: "*"}]]
+    expect: ALLOW
+
+  - name: iam-ug.notaction.deny-notaction-denies-everything-else
+    doc: "IAM User Guide › NotAction: Deny with NotAction denies every action not listed"
+    policies:
+      identity: [[*allowS3, {Effect: Deny, NotAction: "s3:PutObject", Resource: "*"}]]
+    expect: DENY
+
+  - name: iam-ug.notaction.deny-notaction-spares-listed-action
+    doc: "IAM User Guide › NotAction: Deny with NotAction does not deny the listed actions"
+    action: "s3:PutObject"
+    policies:
+      identity: [[*allowS3, {Effect: Deny, NotAction: "s3:PutObject", Resource: "*"}]]
+    expect: ALLOW

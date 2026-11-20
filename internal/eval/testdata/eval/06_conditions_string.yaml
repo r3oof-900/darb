@@ -1,0 +1,88 @@
+# String condition operators and condition-block logic.
+# IAM User Guide › "IAM JSON policy elements: Condition operators" › String
+# condition operators, and › "Creating a condition with multiple keys or values".
+defaults:
+  principal: {kind: assumed-role, arn: "arn:aws:sts::111122223333:assumed-role/app/s1", account: "111122223333", source: "arn:aws:iam::111122223333:role/app"}
+  action: "s3:ListBucket"
+  resource: "arn:aws:s3:::data"
+  resource_account: "111122223333"
+  context:
+    default: absent
+    present: {"aws:PrincipalTag/team": "payments", "s3:prefix": "home/alice/docs", "aws:SecureTransport": "true", "aws:PrincipalTag/env": "dev"}
+
+cases:
+  - name: iam-ug.condition-operators.string-equals.match
+    doc: "IAM User Guide › String condition operators: StringEquals exact match"
+    policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "*", Condition: {StringEquals: {"aws:PrincipalTag/team": "payments"}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.condition-operators.string-equals.no-match
+    doc: "IAM User Guide › String condition operators: StringEquals mismatch"
+    policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "*", Condition: {StringEquals: {"aws:PrincipalTag/team": "billing"}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.condition-operators.string-equals.case-sensitive
+    doc: "IAM User Guide › String condition operators: StringEquals is case-sensitive"
+    policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "*", Condition: {StringEquals: {"aws:PrincipalTag/team": "Payments"}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.condition-operators.string-equals-ignore-case
+    doc: "IAM User Guide › String condition operators: StringEqualsIgnoreCase"
+    policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "*", Condition: {StringEqualsIgnoreCase: {"aws:PrincipalTag/team": "PAYMENTS"}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.condition-operators.condition-keys-case-insensitive
+    doc: "IAM User Guide › Condition: condition key names are case-insensitive"
+    policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "*", Condition: {StringEquals: {"AWS:PRINCIPALTAG/TEAM": "payments"}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.condition-operators.string-like.star-in-value
+    doc: "IAM User Guide › String condition operators: StringLike with * in the value"
+    policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "*", Condition: {StringLike: {"s3:prefix": "home/alice/*"}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.condition-operators.string-equals.star-is-literal
+    doc: "IAM User Guide › String condition operators: StringEquals treats * literally"
+    policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "*", Condition: {StringEquals: {"s3:prefix": "home/alice/*"}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.condition-operators.string-not-like
+    doc: "IAM User Guide › String condition operators: StringNotLike"
+    policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "*", Condition: {StringNotLike: {"s3:prefix": "home/bob/*"}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.condition.negated-operator-absent-key-is-true
+    doc: "IAM User Guide › Condition operators: a negated operator on a key missing from the request evaluates to true"
+    policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "*", Condition: {StringNotEquals: {"aws:PrincipalTag/project": "x"}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.condition.positive-operator-absent-key-is-false
+    doc: "IAM User Guide › Condition operators: a key missing from the request makes a positive operator false"
+    policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "*", Condition: {StringEquals: {"aws:PrincipalTag/project": "x"}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.condition.multiple-values-are-or
+    doc: "IAM User Guide › Multiple keys or values: several values for one key are ORed"
+    policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "*", Condition: {StringEquals: {"aws:PrincipalTag/team": ["billing", "payments"]}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.condition.multiple-keys-are-and
+    doc: "IAM User Guide › Multiple keys or values: several keys under one operator are ANDed"
+    policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "*", Condition: {StringEquals: {"aws:PrincipalTag/team": "payments", "aws:PrincipalTag/env": "prod"}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.condition.multiple-operators-are-and
+    doc: "IAM User Guide › Multiple keys or values: several operators are ANDed"
+    policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "*", Condition: {StringEquals: {"aws:PrincipalTag/team": "payments"}, Bool: {"aws:SecureTransport": "true"}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.condition.negated-multiple-values-are-nor
+    doc: "IAM User Guide › Multiple keys or values: several values of a negated operator are combined with NOR"
+    policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "*", Condition: {StringNotEquals: {"aws:PrincipalTag/team": ["billing", "payments"]}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: clapa.condition.empty-value-list-is-unknown
+    doc: "docs/DESIGN.md section 6.3 (flag): AWS does not document an empty condition value list, so it is UNKNOWN"
+    policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "*", Condition: {StringEquals: {"aws:PrincipalTag/team": []}}}]}
+    expect: UNKNOWN
+    expect_unresolved: ["Condition:aws:PrincipalTag/team"]

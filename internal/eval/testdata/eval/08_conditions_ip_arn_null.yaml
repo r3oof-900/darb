@@ -1,0 +1,83 @@
+# IP address, ARN and Null condition operators.
+# IAM User Guide › "IAM JSON policy elements: Condition operators".
+anchors:
+  allowAll: &allowAll {Effect: Allow, Action: "s3:*", Resource: "*"}
+
+defaults:
+  principal: {kind: assumed-role, arn: "arn:aws:sts::111122223333:assumed-role/app/s1", account: "111122223333", source: "arn:aws:iam::111122223333:role/app"}
+  action: "s3:GetObject"
+  resource: "arn:aws:s3:::data/k"
+  resource_account: "111122223333"
+  context:
+    default: absent
+    present: {"aws:SourceIp": "203.0.113.7", "aws:SourceArn": "arn:aws:sns:us-east-1:111122223333:topic-a", "aws:PrincipalTag/team": "payments"}
+
+cases:
+  - name: iam-ug.condition-operators.ip-address.in-range
+    doc: "IAM User Guide › IP address condition operators: IpAddress with a CIDR block"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {IpAddress: {"aws:SourceIp": "203.0.113.0/24"}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.condition-operators.ip-address.out-of-range
+    doc: "IAM User Guide › IP address condition operators: address outside the block"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {IpAddress: {"aws:SourceIp": "198.51.100.0/24"}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.condition-operators.not-ip-address.deny-outside-range
+    doc: "IAM User Guide › IP address condition operators: deny requests from outside the corporate range"
+    context: {default: absent, present: {"aws:SourceIp": "198.51.100.1"}}
+    policies: {identity: [[*allowAll, {Effect: Deny, Action: "*", Resource: "*", Condition: {NotIpAddress: {"aws:SourceIp": "203.0.113.0/24"}}}]]}
+    expect: DENY
+
+  - name: iam-ug.condition-operators.not-ip-address.inside-range-not-denied
+    doc: "IAM User Guide › IP address condition operators: NotIpAddress is false inside the range"
+    policies: {identity: [[*allowAll, {Effect: Deny, Action: "*", Resource: "*", Condition: {NotIpAddress: {"aws:SourceIp": "203.0.113.0/24"}}}]]}
+    expect: ALLOW
+
+  - name: iam-ug.condition-operators.ip-address.ipv6
+    doc: "IAM User Guide › IP address condition operators: IPv6 CIDR blocks"
+    context: {default: absent, present: {"aws:SourceIp": "2001:db8::42"}}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {IpAddress: {"aws:SourceIp": ["203.0.113.0/24", "2001:db8::/32"]}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.condition-operators.arn-like.wildcard-in-segment
+    doc: "IAM User Guide › ARN condition operators: ArnLike with a wildcard in the resource segment"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {ArnLike: {"aws:SourceArn": "arn:aws:sns:us-east-1:111122223333:topic-*"}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.condition-operators.arn-equals.accepts-wildcards
+    doc: "IAM User Guide › ARN condition operators: ArnEquals also checks each segment with wildcards"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {ArnEquals: {"aws:SourceArn": "arn:aws:sns:*:111122223333:topic-a"}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.condition-operators.arn-not-like.deny
+    doc: "IAM User Guide › ARN condition operators: ArnNotLike in a confused-deputy guard"
+    policies: {identity: [[*allowAll, {Effect: Deny, Action: "*", Resource: "*", Condition: {ArnNotLike: {"aws:SourceArn": "arn:aws:sns:us-east-1:111122223333:topic-b"}}}]]}
+    expect: DENY
+
+  - name: iam-ug.condition-operators.arn-like.wildcard-does-not-cross-segments
+    doc: "IAM User Guide › ARN condition operators: each of the six ARN components is checked separately"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {ArnLike: {"aws:SourceArn": "arn:aws:sns:*:topic-a"}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.condition-operators.null.true-when-absent
+    doc: "IAM User Guide › Condition operator to check existence of condition keys: Null true when the key is absent"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {"Null": {"aws:TokenIssueTime": "true"}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.condition-operators.null.false-when-present
+    doc: "IAM User Guide › Condition operator to check existence of condition keys: Null false requires the key"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {"Null": {"aws:PrincipalTag/team": "false"}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.condition-operators.null.true-but-present
+    doc: "IAM User Guide › Condition operator to check existence of condition keys: Null true is false when the key exists"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {"Null": {"aws:PrincipalTag/team": "true"}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: clapa.condition.null-on-unknown-key-is-unknown
+    doc: "docs/DESIGN.md section 6.3: whether an unknown key exists is itself unknown"
+    context: {default: unknown}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {"Null": {"aws:TokenIssueTime": "true"}}}]}
+    expect: UNKNOWN
+    expect_unresolved: ["Condition:aws:TokenIssueTime"]

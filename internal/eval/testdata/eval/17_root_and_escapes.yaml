@@ -1,0 +1,61 @@
+# The account root user, and policy-variable escapes.
+defaults:
+  principal: {kind: root, arn: "arn:aws:iam::111122223333:root", account: "111122223333"}
+  action: "s3:GetObject"
+  resource: "arn:aws:s3:::data/k"
+  resource_account: "111122223333"
+  context: {default: absent}
+
+cases:
+  - name: iam-ug.root-user.full-access-in-own-account
+    doc: "IAM User Guide › AWS account root user: identity policies do not apply; the root user has full access to its account's resources"
+    expect: ALLOW
+
+  - name: kms-dg.key-policies.root-user-needs-key-policy
+    doc: "KMS Developer Guide › Key policies: even the root user cannot use a key whose policy does not allow the account"
+    action: "kms:Decrypt"
+    resource: "arn:aws:kms:us-east-1:111122223333:key/k1"
+    policies: {resource_policy_required: true, resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:role/admin"}, Action: "kms:*", Resource: "*"}]}
+    expect: IMPLICIT_DENY
+
+  - name: kms-dg.key-policies.root-user-with-default-key-policy
+    doc: "KMS Developer Guide › Default key policy: the account statement allows the root user"
+    action: "kms:Decrypt"
+    resource: "arn:aws:kms:us-east-1:111122223333:key/k1"
+    policies: {resource_policy_required: true, resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:root"}, Action: "kms:*", Resource: "*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.root-user.cross-account-needs-resource-grant
+    doc: "IAM User Guide › Cross-account policy evaluation logic: another account's resource must grant the account"
+    resource_account: "444455556666"
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.root-user.cross-account-with-resource-grant
+    doc: "IAM User Guide › Cross-account policy evaluation logic: a resource policy granting the account lets its root user in"
+    resource_account: "444455556666"
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "111122223333"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: ALLOW
+
+  - name: clapa.root-user.unknown-resource-account
+    doc: "docs/DESIGN.md section 6: own-account and cross-account results differ, so with an unknown resource account the result is UNKNOWN"
+    resource_account: ""
+    expect: UNKNOWN
+
+  - name: org-ug.scp.applies-to-member-account-root
+    doc: "Organizations User Guide › SCPs: SCPs restrict the root user of member accounts"
+    policies: {scps: [[{Effect: Allow, Action: "*", Resource: "*"}, {Effect: Deny, Action: "s3:*", Resource: "*"}]]}
+    expect: DENY
+
+  - name: iam-ug.variables.escaped-question-mark
+    doc: "IAM User Guide › Policy variables › Special characters: ${?} is a literal question mark"
+    principal: {kind: iam-user, arn: "arn:aws:iam::111122223333:user/alice", account: "111122223333"}
+    resource: "arn:aws:s3:::data/what?"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/what${?}"}]}
+    expect: ALLOW
+
+  - name: iam-ug.variables.escaped-dollar
+    doc: "IAM User Guide › Policy variables › Special characters: ${$} is a literal dollar sign"
+    principal: {kind: iam-user, arn: "arn:aws:iam::111122223333:user/alice", account: "111122223333"}
+    resource: "arn:aws:s3:::data/$price"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/${$}price"}]}
+    expect: ALLOW

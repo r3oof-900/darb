@@ -1,8 +1,10 @@
 package archtest
 
 import (
+	"go/build"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -38,6 +40,29 @@ func TestLayerTableIsWellFormed(t *testing.T) {
 			}
 			if !strings.HasSuffix(dep, "/...") && !known[base] {
 				t.Errorf("%s: allows %s, which has no row (typo?)", r.Package, dep)
+			}
+		}
+	}
+}
+
+// TestStdSubpackagesComplete checks stdSubpackages against the installed Go
+// standard library, so a new net/* package cannot slip past depguard.
+func TestStdSubpackagesComplete(t *testing.T) {
+	for _, r := range Rules() {
+		for _, prefix := range DeniedStd(r.Layer) {
+			if !shadowsExtra(prefix, r.ExtraStd) {
+				continue // only prefixes with an allowed package below them are split
+			}
+			entries, err := os.ReadDir(filepath.Join(build.Default.GOROOT, "src", prefix))
+			if err != nil {
+				t.Fatal(err)
+			}
+			known := stdSubpackages(prefix)
+			for _, de := range entries {
+				pkg := prefix + "/" + de.Name()
+				if de.IsDir() && de.Name() != "testdata" && de.Name() != "internal" && !slices.Contains(known, pkg) {
+					t.Errorf("stdSubpackages(%q) is missing %s", prefix, pkg)
+				}
 			}
 		}
 	}

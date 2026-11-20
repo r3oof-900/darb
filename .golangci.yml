@@ -763,10 +763,23 @@ linters:
             - "$gostd"
             - "github.com/r3oof-900/clapa/internal/model$"
             - "github.com/r3oof-900/clapa/internal/arn$"
+            - "net/netip$"
           deny:
             - pkg: "os"
               desc: "forbidden in the core layer (docs/DESIGN.md section 3)"
-            - pkg: "net"
+            - pkg: "net$"
+              desc: "forbidden in the core layer (docs/DESIGN.md section 3)"
+            - pkg: "net/http"
+              desc: "forbidden in the core layer (docs/DESIGN.md section 3)"
+            - pkg: "net/mail"
+              desc: "forbidden in the core layer (docs/DESIGN.md section 3)"
+            - pkg: "net/rpc"
+              desc: "forbidden in the core layer (docs/DESIGN.md section 3)"
+            - pkg: "net/smtp"
+              desc: "forbidden in the core layer (docs/DESIGN.md section 3)"
+            - pkg: "net/textproto"
+              desc: "forbidden in the core layer (docs/DESIGN.md section 3)"
+            - pkg: "net/url"
               desc: "forbidden in the core layer (docs/DESIGN.md section 3)"
             - pkg: "io/fs"
               desc: "forbidden in the core layer (docs/DESIGN.md section 3)"
@@ -2075,6 +2088,12 @@ linters:
       - path: '_test\.go$'
         linters:
           - gochecknoglobals
+      # Table-driven tests are long and branchy by design; the size limits
+      # exist to keep production functions to one stage (DESIGN.md 3.3).
+      - path: '_test\.go$'
+        linters:
+          - revive
+        text: '^(function-length|cyclomatic|cognitive-complexity):'
       # The only os.Exit/deep exit is in main.
       - path: '^cmd/clapa/main\.go$'
         linters:

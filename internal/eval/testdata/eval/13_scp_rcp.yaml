@@ -1,0 +1,77 @@
+# Service control policies and resource control policies.
+# AWS Organizations User Guide › "SCP evaluation" and › "Resource control policies (RCPs)".
+anchors:
+  full: &full {Effect: Allow, Action: "*", Resource: "*"}
+  rcpFull: &rcpFull {Effect: Allow, Principal: "*", Action: "*", Resource: "*"}
+  idS3: &idS3 {Effect: Allow, Action: "s3:GetObject", Resource: "*"}
+
+defaults:
+  principal: {kind: assumed-role, arn: "arn:aws:sts::111122223333:assumed-role/app/s1", account: "111122223333", source: "arn:aws:iam::111122223333:role/app"}
+  action: "s3:GetObject"
+  resource: "arn:aws:s3:::data/k"
+  resource_account: "111122223333"
+  context: {default: absent}
+
+cases:
+  - name: org-ug.scp.must-allow
+    doc: "Organizations User Guide › SCP evaluation: an action the SCP does not allow is denied even with an identity allow"
+    policies: {identity: [*idS3], scps: [[{Effect: Allow, Action: "ec2:*", Resource: "*"}]]}
+    expect: IMPLICIT_DENY
+    expect_missing: ["service control policy"]
+
+  - name: org-ug.scp.full-access
+    doc: "Organizations User Guide › SCP evaluation: FullAWSAccess lets identity policies decide"
+    policies: {identity: [*idS3], scps: [[*full]]}
+    expect: ALLOW
+
+  - name: org-ug.scp.every-level-must-allow
+    doc: "Organizations User Guide › SCP evaluation: every level from the root to the account must allow"
+    policies: {identity: [*idS3], scps: [[*full], [{Effect: Allow, Action: "ec2:*", Resource: "*"}], [*full]]}
+    expect: IMPLICIT_DENY
+
+  - name: org-ug.scp.does-not-grant
+    doc: "Organizations User Guide › SCPs: SCPs never grant permissions on their own"
+    policies: {scps: [[*full]]}
+    expect: IMPLICIT_DENY
+
+  - name: org-ug.scp.not-applied-to-service-principals
+    doc: "Organizations User Guide › SCPs: SCPs do not affect AWS service principals"
+    principal: {kind: service, arn: "cloudtrail.amazonaws.com"}
+    action: "s3:PutObject"
+    policies:
+      resource: [{Effect: Allow, Principal: {Service: "cloudtrail.amazonaws.com"}, Action: "s3:PutObject", Resource: "arn:aws:s3:::data/*"}]
+      scps: [[*full, {Effect: Deny, Action: "s3:*", Resource: "*"}]]
+    expect: ALLOW
+
+  - name: org-ug.scp.condition-unknown
+    doc: "docs/DESIGN.md section 6.2: an SCP allow that depends on an unknown key is UNKNOWN"
+    context: {default: unknown}
+    policies: {identity: [*idS3], scps: [[{Effect: Allow, Action: "*", Resource: "*", Condition: {StringEquals: {"aws:RequestedRegion": "us-east-1"}}}]]}
+    expect: UNKNOWN
+
+  - name: org-ug.rcp.deny-outside-org
+    doc: "Organizations User Guide › RCPs: deny access to resources from principals outside the organization"
+    context: {default: absent, present: {"aws:PrincipalOrgID": "o-other"}}
+    policies:
+      identity: [*idS3]
+      rcps: [[*rcpFull, {Effect: Deny, Principal: "*", Action: "s3:*", Resource: "*", Condition: {StringNotEqualsIfExists: {"aws:PrincipalOrgID": "o-abc123"}}}]]
+    expect: DENY
+
+  - name: org-ug.rcp.inside-org-not-denied
+    doc: "Organizations User Guide › RCPs: principals inside the organization are not denied"
+    context: {default: absent, present: {"aws:PrincipalOrgID": "o-abc123"}}
+    policies:
+      identity: [*idS3]
+      rcps: [[*rcpFull, {Effect: Deny, Principal: "*", Action: "s3:*", Resource: "*", Condition: {StringNotEqualsIfExists: {"aws:PrincipalOrgID": "o-abc123"}}}]]
+    expect: ALLOW
+
+  - name: org-ug.rcp.must-allow
+    doc: "Organizations User Guide › RCPs: an RCP level that does not allow blocks access"
+    policies: {identity: [*idS3], rcps: [[{Effect: Allow, Principal: "*", Action: "kms:*", Resource: "*"}]]}
+    expect: IMPLICIT_DENY
+    expect_missing: ["resource control policy"]
+
+  - name: org-ug.rcp.full-access
+    doc: "Organizations User Guide › RCPs: RCPFullAWSAccess lets other policies decide"
+    policies: {identity: [*idS3], rcps: [[{Effect: Allow, Principal: "*", Action: "*", Resource: "*"}]]}
+    expect: ALLOW

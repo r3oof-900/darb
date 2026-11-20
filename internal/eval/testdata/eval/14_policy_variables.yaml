@@ -1,0 +1,82 @@
+# Policy variables. IAM User Guide › "IAM policy elements: Variables and tags".
+defaults:
+  principal: {kind: iam-user, arn: "arn:aws:iam::111122223333:user/alice", account: "111122223333"}
+  action: "s3:GetObject"
+  resource: "arn:aws:s3:::home/alice/notes.txt"
+  resource_account: "111122223333"
+  context: {default: absent, present: {"aws:username": "alice"}}
+
+cases:
+  - name: iam-ug.variables.username-in-resource
+    doc: "IAM User Guide › Policy variables: ${aws:username} in Resource scopes a user to their home prefix"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::home/${aws:username}/*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.variables.username-other-user-prefix
+    doc: "IAM User Guide › Policy variables: another user's prefix does not match"
+    resource: "arn:aws:s3:::home/bob/notes.txt"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::home/${aws:username}/*"}]}
+    expect: IMPLICIT_DENY
+
+  - name: clapa.variables.unknown-value-is-unknown
+    doc: "docs/DESIGN.md section 6.3: a variable whose value is not known makes the Resource match UNKNOWN"
+    context: {default: unknown}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::home/${aws:username}/*"}]}
+    expect: UNKNOWN
+    expect_unresolved: ["Resource"]
+
+  - name: iam-ug.variables.absent-key-without-default-matches-nothing
+    doc: "IAM User Guide › Policy variables: a variable for a missing key does not match"
+    context: {default: absent}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::home/${aws:username}/*"}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.variables.default-value
+    doc: "IAM User Guide › Policy variables › Specifying default values: ${key, 'default'} is used when the key is missing"
+    resource: "arn:aws:s3:::home/shared/notes.txt"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::home/${aws:PrincipalTag/team, 'shared'}/*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.variables.version-2008-is-literal
+    doc: "IAM User Guide › Policy variables: without Version 2012-10-17 the text ${aws:username} is literal"
+    policies: {identity: [{Version: "2008-10-17", Statement: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::home/${aws:username}/*"}]}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.variables.version-2008-literal-text-matches-literally
+    doc: "IAM User Guide › Policy variables: in a 2008-10-17 policy the variable text matches only itself"
+    resource: "arn:aws:s3:::home/${aws:username}/notes.txt"
+    policies: {identity: [{Statement: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::home/${aws:username}/*"}]}]}
+    expect: ALLOW
+
+  - name: iam-ug.variables.escaped-star-is-literal
+    doc: "IAM User Guide › Policy variables › Special characters: ${*} is a literal asterisk"
+    resource: "arn:aws:s3:::home/alice/x"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::home/${*}/*"}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.variables.substituted-star-is-literal
+    doc: "IAM User Guide › Policy variables: a substituted value is matched literally, so a username of * is not a wildcard"
+    context: {default: absent, present: {"aws:username": "*"}}
+    resource: "arn:aws:s3:::home/bob/notes.txt"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::home/${aws:username}/*"}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.variables.in-condition-value
+    doc: "IAM User Guide › Policy variables: variables in condition values"
+    action: "s3:ListBucket"
+    resource: "arn:aws:s3:::home"
+    context: {default: absent, present: {"aws:username": "alice", "s3:prefix": "home/alice/"}}
+    policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "arn:aws:s3:::home", Condition: {StringLike: {"s3:prefix": "home/${aws:username}/*"}}}]}
+    expect: ALLOW
+
+  - name: clapa.variables.multivalued-key-is-unknown
+    doc: "docs/DESIGN.md section 6.3: a variable over a key with several values cannot be substituted"
+    context: {default: absent, present: {"aws:username": ["alice", "bob"]}}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::home/${aws:username}/*"}]}
+    expect: UNKNOWN
+
+  - name: iam-ug.variables.unterminated-is-literal
+    doc: "IAM User Guide › Policy variables: text without a closing brace is not a variable"
+    resource: "arn:aws:s3:::home/${aws:username/notes.txt"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::home/${aws:username/*"}]}
+    expect: ALLOW

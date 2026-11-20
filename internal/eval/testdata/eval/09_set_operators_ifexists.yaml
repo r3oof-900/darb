@@ -1,0 +1,87 @@
+# Multivalued context keys and IfExists.
+# IAM User Guide › "Single-valued vs. multivalued context keys" and
+# › Condition operators › "...IfExists condition operators".
+anchors:
+  allowAll: &allowAll {Effect: Allow, Action: "*", Resource: "*"}
+
+defaults:
+  principal: {kind: assumed-role, arn: "arn:aws:sts::111122223333:assumed-role/app/s1", account: "111122223333", source: "arn:aws:iam::111122223333:role/app"}
+  action: "ec2:CreateTags"
+  resource: "arn:aws:ec2:us-east-1:111122223333:instance/i-1"
+  resource_account: "111122223333"
+  context:
+    default: absent
+    present: {"aws:TagKeys": ["team", "env"], "aws:RequestTag/env": "dev", "aws:EmptyTags": []}
+
+cases:
+  - name: iam-ug.multivalued.for-any-value.match
+    doc: "IAM User Guide › Multivalued context keys: ForAnyValue is true if any request value matches"
+    policies: {identity: [{Effect: Allow, Action: "ec2:CreateTags", Resource: "*", Condition: {"ForAnyValue:StringEquals": {"aws:TagKeys": ["team", "cost"]}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.multivalued.for-any-value.no-match
+    doc: "IAM User Guide › Multivalued context keys: ForAnyValue is false if no request value matches"
+    policies: {identity: [{Effect: Allow, Action: "ec2:CreateTags", Resource: "*", Condition: {"ForAnyValue:StringEquals": {"aws:TagKeys": ["cost"]}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.multivalued.for-any-value.absent-key-false
+    doc: "IAM User Guide › Multivalued context keys: ForAnyValue is false when the key is missing"
+    policies: {identity: [{Effect: Allow, Action: "ec2:CreateTags", Resource: "*", Condition: {"ForAnyValue:StringEquals": {"aws:ResourceTagKeys": ["team"]}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.multivalued.for-all-values.subset
+    doc: "IAM User Guide › Multivalued context keys: ForAllValues is true when every request value is in the list"
+    policies: {identity: [{Effect: Allow, Action: "ec2:CreateTags", Resource: "*", Condition: {"ForAllValues:StringEquals": {"aws:TagKeys": ["team", "env", "cost"]}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.multivalued.for-all-values.extra-request-value
+    doc: "IAM User Guide › Multivalued context keys: ForAllValues is false when a request value is not in the list"
+    policies: {identity: [{Effect: Allow, Action: "ec2:CreateTags", Resource: "*", Condition: {"ForAllValues:StringEquals": {"aws:TagKeys": ["team"]}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.multivalued.for-all-values.absent-key-is-true
+    doc: "IAM User Guide › Multivalued context keys: ForAllValues returns true when the key is missing (documented pitfall)"
+    policies: {identity: [{Effect: Allow, Action: "ec2:CreateTags", Resource: "*", Condition: {"ForAllValues:StringEquals": {"aws:ResourceTagKeys": ["team"]}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.multivalued.for-all-values.empty-set-is-true
+    doc: "IAM User Guide › Multivalued context keys: ForAllValues returns true for an empty set"
+    policies: {identity: [{Effect: Allow, Action: "ec2:CreateTags", Resource: "*", Condition: {"ForAllValues:StringEquals": {"aws:EmptyTags": ["team"]}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.multivalued.for-any-value-not-equals.deny-forbidden-tags
+    doc: "IAM User Guide › Multivalued context keys: ForAnyValue:StringNotEquals is true if some request value is outside the list"
+    policies: {identity: [[*allowAll, {Effect: Deny, Action: "ec2:CreateTags", Resource: "*", Condition: {"ForAnyValue:StringNotEquals": {"aws:TagKeys": ["team", "cost"]}}}]]}
+    expect: DENY
+
+  - name: iam-ug.multivalued.for-all-values-like
+    doc: "IAM User Guide › Multivalued context keys: ForAllValues with StringLike"
+    policies: {identity: [{Effect: Allow, Action: "ec2:CreateTags", Resource: "*", Condition: {"ForAllValues:StringLike": {"aws:TagKeys": ["t*", "e*"]}}}]}
+    expect: ALLOW
+
+  - name: clapa.multivalued.without-set-operator-is-unknown
+    doc: "IAM User Guide › Multivalued context keys (flag): a multivalued key needs ForAnyValue/ForAllValues; without one the result is UNKNOWN"
+    policies: {identity: [{Effect: Allow, Action: "ec2:CreateTags", Resource: "*", Condition: {StringEquals: {"aws:TagKeys": "team"}}}]}
+    expect: UNKNOWN
+    expect_unresolved: ["Condition:aws:TagKeys"]
+
+  - name: iam-ug.condition-operators.if-exists.absent-is-true
+    doc: "IAM User Guide › ...IfExists: true when the key is missing"
+    policies: {identity: [{Effect: Allow, Action: "ec2:CreateTags", Resource: "*", Condition: {StringEqualsIfExists: {"ec2:InstanceType": "t3.micro"}}}]}
+    expect: ALLOW
+
+  - name: iam-ug.condition-operators.if-exists.present-compares
+    doc: "IAM User Guide › ...IfExists: compares normally when the key is present"
+    policies: {identity: [{Effect: Allow, Action: "ec2:CreateTags", Resource: "*", Condition: {StringEqualsIfExists: {"aws:RequestTag/env": "prod"}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: clapa.condition.if-exists-on-unknown-key-is-unknown
+    doc: "docs/DESIGN.md section 6.3: IfExists cannot decide a key whose presence is unknown"
+    context: {default: unknown}
+    policies: {identity: [{Effect: Allow, Action: "ec2:CreateTags", Resource: "*", Condition: {StringEqualsIfExists: {"ec2:InstanceType": "t3.micro"}}}]}
+    expect: UNKNOWN
+
+  - name: iam-ug.multivalued.for-any-value-if-exists.absent-is-true
+    doc: "IAM User Guide › ...IfExists with ForAnyValue: true when the key is missing"
+    policies: {identity: [{Effect: Allow, Action: "ec2:CreateTags", Resource: "*", Condition: {"ForAnyValue:StringEqualsIfExists": {"aws:ResourceTagKeys": ["team"]}}}]}
+    expect: ALLOW

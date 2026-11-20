@@ -1,0 +1,117 @@
+# Same-account effect of a resource-based policy, by the principal it names.
+# IAM User Guide › Permissions boundaries for IAM entities › Evaluating
+# effective permissions with boundaries › Resource-based policies.
+# The first four cases are required by docs/DESIGN.md section 6.1.
+anchors:
+  user: &user {kind: iam-user, arn: "arn:aws:iam::111122223333:user/alice", account: "111122223333"}
+  fed: &fed {kind: federated-user, arn: "arn:aws:sts::111122223333:federated-user/bob", account: "111122223333", source: "arn:aws:iam::111122223333:user/alice"}
+  ec2only: &ec2only {Effect: Allow, Action: "ec2:*", Resource: "*"}
+  s3read: &s3read {Effect: Allow, Action: "s3:GetObject", Resource: "*"}
+
+defaults:
+  principal: {kind: assumed-role, arn: "arn:aws:sts::111122223333:assumed-role/app/s1", account: "111122223333", source: "arn:aws:iam::111122223333:role/app"}
+  action: "s3:GetObject"
+  resource: "arn:aws:s3:::data/report.csv"
+  resource_account: "111122223333"
+  context: {default: absent}
+
+cases:
+  - name: iam-ug.permissions-boundaries.resource-based-policies.iam-user-arn.not-limited-by-boundary
+    doc: "IAM User Guide › Permissions boundaries › Resource-based policies: IAM user ARN — not limited by an implicit deny in the identity policy or boundary"
+    principal: *user
+    policies:
+      resource: [{Sid: GrantUser, Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:user/alice"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]
+      boundary: *ec2only
+    expect: ALLOW
+    expect_contributing: ["resource:GrantUser"]
+
+  - name: iam-ug.permissions-boundaries.resource-based-policies.iam-role-arn.limited-by-boundary-and-session-policy
+    doc: "IAM User Guide › Permissions boundaries › Resource-based policies: IAM role ARN — limited by an implicit deny in the boundary or session policy"
+    policies:
+      resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:role/app"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]
+      boundary: *ec2only
+    expect: IMPLICIT_DENY
+    expect_missing: ["permissions boundary"]
+
+  - name: iam-ug.permissions-boundaries.resource-based-policies.role-session-arn.not-limited
+    doc: "IAM User Guide › Permissions boundaries › Resource-based policies: role session ARN — not limited by identity policy, boundary or session policy"
+    policies:
+      resource: [{Effect: Allow, Principal: {AWS: "arn:aws:sts::111122223333:assumed-role/app/s1"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]
+      boundary: *ec2only
+      session: [*ec2only]
+    expect: ALLOW
+
+  - name: iam-ug.permissions-boundaries.resource-based-policies.federated-user-session.limited-by-boundary-and-session-policy
+    doc: "IAM User Guide › Permissions boundaries › Resource-based policies: grant to the IAM user ARN that created a federated user session — limited by boundary and session policy"
+    principal: *fed
+    policies:
+      resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:user/alice"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]
+      boundary: *ec2only
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.permissions-boundaries.resource-based-policies.iam-role-arn.allowed-when-boundary-allows
+    doc: "IAM User Guide › Permissions boundaries › Resource-based policies: role ARN grant stands when the boundary allows"
+    policies:
+      resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:role/app"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]
+      boundary: *s3read
+    expect: ALLOW
+
+  - name: iam-ug.permissions-boundaries.resource-based-policies.iam-role-arn.limited-by-session-policy
+    doc: "IAM User Guide › Permissions boundaries › Resource-based policies: role ARN grant limited by an implicit deny in the session policy"
+    policies:
+      resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:role/app"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]
+      session: [*ec2only]
+    expect: IMPLICIT_DENY
+    expect_missing: ["session policy"]
+
+  - name: iam-ug.policy-evaluation.single-account.iam-role-arn.no-identity-policy-needed
+    doc: "IAM User Guide › Policy evaluation for requests within a single account: a resource policy grant to the role ARN suffices without an identity policy"
+    policies:
+      resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:role/app"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]
+    expect: ALLOW
+
+  - name: iam-ug.permissions-boundaries.resource-based-policies.iam-user-arn.not-limited-by-identity-policy
+    doc: "IAM User Guide › Permissions boundaries › Resource-based policies: IAM user ARN grant not limited by an implicit deny in the identity policy"
+    principal: *user
+    policies:
+      identity: [*ec2only]
+      resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:user/alice"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]
+    expect: ALLOW
+
+  - name: iam-ug.permissions-boundaries.resource-based-policies.federated-user-session.allowed-when-boundary-allows
+    doc: "IAM User Guide › Permissions boundaries › Resource-based policies: federated session via the creating user's ARN, boundary allows"
+    principal: *fed
+    policies:
+      resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:user/alice"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]
+      boundary: *s3read
+    expect: ALLOW
+
+  - name: iam-ug.permissions-boundaries.resource-based-policies.federated-session-arn.not-limited
+    doc: "IAM User Guide › Permissions boundaries › Resource-based policies: permissions granted directly to the federated user session are not limited by the boundary"
+    principal: *fed
+    policies:
+      resource: [{Effect: Allow, Principal: {AWS: "arn:aws:sts::111122223333:federated-user/bob"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]
+      boundary: *ec2only
+    expect: ALLOW
+
+  - name: iam-ug.permissions-boundaries.resource-based-policies.explicit-deny-in-boundary-wins
+    doc: "IAM User Guide › Policy evaluation logic: an explicit deny in any policy, including a boundary, overrides a session ARN grant"
+    policies:
+      resource: [{Effect: Allow, Principal: {AWS: "arn:aws:sts::111122223333:assumed-role/app/s1"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]
+      boundary: [{Effect: Allow, Action: "*", Resource: "*"}, {Sid: NoS3, Effect: Deny, Action: "s3:*", Resource: "*"}]
+    expect: DENY
+    expect_contributing: ["boundary:NoS3"]
+
+  - name: iam-ug.policy-evaluation.single-account.account-principal-delegates-to-iam
+    doc: "IAM User Guide › Policy evaluation for requests within a single account: a grant to the account (root) delegates to IAM; without an identity allow there is no access"
+    policies:
+      resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:root"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]
+    expect: IMPLICIT_DENY
+    expect_missing: ["identity policy"]
+
+  - name: iam-ug.policy-evaluation.single-account.account-principal-with-identity-allow
+    doc: "IAM User Guide › Policy evaluation for requests within a single account: account delegation plus an identity allow grants access"
+    policies:
+      identity: [*s3read]
+      resource: [{Effect: Allow, Principal: {AWS: "111122223333"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]
+    expect: ALLOW

@@ -1,0 +1,71 @@
+# NotPrincipal. IAM User Guide › "AWS JSON policy elements: NotPrincipal".
+anchors:
+  identityAllow: &identityAllow {Effect: Allow, Action: "s3:GetObject", Resource: "*"}
+
+defaults:
+  principal: {kind: assumed-role, arn: "arn:aws:sts::111122223333:assumed-role/app/s1", account: "111122223333", source: "arn:aws:iam::111122223333:role/app"}
+  action: "s3:GetObject"
+  resource: "arn:aws:s3:::data/k"
+  resource_account: "111122223333"
+  context: {default: absent}
+
+cases:
+  - name: iam-ug.notprincipal.deny-applies-to-unlisted
+    doc: "IAM User Guide › NotPrincipal: Deny with NotPrincipal denies every principal not listed"
+    policies:
+      identity: [*identityAllow]
+      resource: [{Effect: Deny, NotPrincipal: {AWS: ["arn:aws:iam::111122223333:user/admin", "111122223333"]}, Action: "s3:*", Resource: "arn:aws:s3:::data/*"}]
+    expect: DENY
+
+  - name: iam-ug.notprincipal.deny-excludes-session-role-and-account
+    doc: "IAM User Guide › NotPrincipal › Specifying NotPrincipal with Deny: the documented list for a role session (session ARN, role ARN, account) excludes the caller"
+    policies:
+      identity: [*identityAllow]
+      resource: [{Effect: Deny, NotPrincipal: {AWS: ["arn:aws:sts::111122223333:assumed-role/app/s1", "arn:aws:iam::111122223333:role/app", "arn:aws:iam::111122223333:root"]}, Action: "s3:*", Resource: "arn:aws:s3:::data/*"}]
+    expect: ALLOW
+
+  - name: iam-ug.notprincipal.role-arn-does-not-exclude-sessions
+    doc: "IAM User Guide › NotPrincipal › Specifying NotPrincipal with Deny: the role ARN (even with the account) does not exclude the role's sessions"
+    policies:
+      identity: [*identityAllow]
+      resource: [{Effect: Deny, NotPrincipal: {AWS: ["arn:aws:iam::111122223333:role/app", "111122223333"]}, Action: "s3:*", Resource: "arn:aws:s3:::data/*"}]
+    expect: DENY
+
+  - name: clapa.notprincipal.session-and-account-without-role-is-unknown
+    doc: "IAM User Guide › NotPrincipal (flag): the documented example also lists the role ARN; without it the effect is not documented, so UNKNOWN"
+    policies:
+      identity: [*identityAllow]
+      resource: [{Effect: Deny, NotPrincipal: {AWS: ["arn:aws:sts::111122223333:assumed-role/app/s1", "111122223333"]}, Action: "s3:*", Resource: "arn:aws:s3:::data/*"}]
+    expect: UNKNOWN
+    expect_unresolved: ["Principal"]
+
+  - name: iam-ug.notprincipal.caller-without-account-not-excluded
+    doc: "IAM User Guide › NotPrincipal › Specifying NotPrincipal with Deny: listing the user without its account does not exclude the user"
+    principal: {kind: iam-user, arn: "arn:aws:iam::111122223333:user/admin", account: "111122223333"}
+    policies:
+      identity: [*identityAllow]
+      resource: [{Effect: Deny, NotPrincipal: {AWS: "arn:aws:iam::111122223333:user/admin"}, Action: "s3:*", Resource: "arn:aws:s3:::data/*"}]
+    expect: DENY
+
+  - name: iam-ug.notprincipal.wildcard-excludes-everyone
+    doc: "IAM User Guide › NotPrincipal: NotPrincipal * excludes every principal, so the Deny applies to nobody"
+    policies:
+      identity: [*identityAllow]
+      resource: [{Effect: Deny, NotPrincipal: "*", Action: "s3:*", Resource: "arn:aws:s3:::data/*"}]
+    expect: ALLOW
+
+  - name: iam-ug.notprincipal.allow-grants-everyone-else
+    doc: "IAM User Guide › NotPrincipal: Allow with NotPrincipal grants every principal not listed (as broad as a wildcard)"
+    policies:
+      resource: [{Effect: Allow, NotPrincipal: {AWS: ["arn:aws:iam::111122223333:user/blocked", "444455556666"]}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]
+    expect: ALLOW
+
+  - name: iam-ug.notprincipal.service-excluded
+    doc: "IAM User Guide › NotPrincipal: a listed service principal is excluded from the Deny"
+    principal: {kind: service, arn: "logging.s3.amazonaws.com"}
+    action: "s3:PutObject"
+    policies:
+      resource:
+        - {Effect: Allow, Principal: {Service: "logging.s3.amazonaws.com"}, Action: "s3:PutObject", Resource: "arn:aws:s3:::data/*"}
+        - {Effect: Deny, NotPrincipal: {Service: "logging.s3.amazonaws.com"}, Action: "s3:PutObject", Resource: "arn:aws:s3:::data/*"}
+    expect: ALLOW

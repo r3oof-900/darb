@@ -1,0 +1,100 @@
+# Principal matching in resource-based policies (same account, no identity
+# policy unless stated). IAM User Guide › "AWS JSON policy elements: Principal".
+anchors:
+  read: &read {Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}
+
+defaults:
+  principal: {kind: assumed-role, arn: "arn:aws:sts::111122223333:assumed-role/app/s1", account: "111122223333", source: "arn:aws:iam::111122223333:role/app"}
+  action: "s3:GetObject"
+  resource: "arn:aws:s3:::data/k"
+  resource_account: "111122223333"
+  context: {default: absent}
+
+cases:
+  - name: iam-ug.principal.wildcard-string-grants-session
+    doc: "IAM User Guide › Principal: \"Principal\": \"*\" matches every principal"
+    policies: {resource: [{Effect: Allow, Principal: "*", Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.principal.aws-wildcard-grants-session
+    doc: "IAM User Guide › Principal: {\"AWS\": \"*\"} matches every AWS principal"
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "*"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.principal.wildcard-grants-anonymous
+    doc: "IAM User Guide › Principal: \"*\" grants anonymous access (public)"
+    principal: {kind: anonymous}
+    policies: {resource: [{Effect: Allow, Principal: "*", Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.principal.aws-wildcard-equivalent-for-anonymous
+    doc: "IAM User Guide › Principal: \"*\" and {\"AWS\": \"*\"} are equivalent"
+    principal: {kind: anonymous}
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "*"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.principal.account-id-delegates
+    doc: "IAM User Guide › Principal: an account ID means the account (root); IAM must also allow"
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "111122223333"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.principal.account-id-with-identity-allow
+    doc: "IAM User Guide › Principal: account delegation plus an identity allow"
+    policies:
+      identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*"}]
+      resource: [{Effect: Allow, Principal: {AWS: "111122223333"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]
+    expect: ALLOW
+
+  - name: iam-ug.principal.other-account-not-matched
+    doc: "IAM User Guide › Principal: a grant to another account does not match this account's principals"
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::444455556666:root"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.principal.role-arn-includes-path
+    doc: "IAM User Guide › Principal: a role ARN must match exactly, including its path"
+    principal: {kind: assumed-role, arn: "arn:aws:sts::111122223333:assumed-role/app/s1", account: "111122223333", source: "arn:aws:iam::111122223333:role/team/app"}
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:role/app"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.principal.role-arn-matches-session
+    doc: "IAM User Guide › Principal: a role ARN matches sessions of that role"
+    principal: {kind: assumed-role, arn: "arn:aws:sts::111122223333:assumed-role/app/s1", account: "111122223333", source: "arn:aws:iam::111122223333:role/team/app"}
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:role/team/app"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.principal.no-partial-wildcards
+    doc: "IAM User Guide › Principal: wildcards cannot match part of a principal ARN"
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:role/*"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.principal.service
+    doc: "IAM User Guide › Principal: AWS service principals"
+    principal: {kind: service, arn: "cloudtrail.amazonaws.com"}
+    action: "s3:PutObject"
+    policies: {resource: [{Effect: Allow, Principal: {Service: "cloudtrail.amazonaws.com"}, Action: "s3:PutObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.principal.service-other
+    doc: "IAM User Guide › Principal: a different service principal does not match"
+    principal: {kind: service, arn: "config.amazonaws.com"}
+    action: "s3:PutObject"
+    policies: {resource: [{Effect: Allow, Principal: {Service: "cloudtrail.amazonaws.com"}, Action: "s3:PutObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: IMPLICIT_DENY
+
+  - name: clapa.principal.unique-id-is-unknown
+    doc: "IAM User Guide › Principal (role unique IDs after deletion): an AROA... ID cannot be resolved offline, so the grant is UNKNOWN"
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "AROAEXAMPLEROLEID01"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: UNKNOWN
+    expect_unresolved: ["Principal"]
+
+  - name: iam-ug.principal.anonymous-not-matched-by-account
+    doc: "IAM User Guide › Principal: an account principal does not match anonymous callers"
+    principal: {kind: anonymous}
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "111122223333"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: IMPLICIT_DENY
+
+  - name: s3-ug.principal.canonical-user
+    doc: "S3 User Guide › Bucket policies: CanonicalUser principals"
+    principal: {kind: anonymous, canonical: "79a59df900b949e55d96a1e698fbacedfd6e09d98eacf8f8d5218e7cd47ef2be"}
+    policies: {resource: [{Effect: Allow, Principal: {CanonicalUser: "79a59df900b949e55d96a1e698fbacedfd6e09d98eacf8f8d5218e7cd47ef2be"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: ALLOW

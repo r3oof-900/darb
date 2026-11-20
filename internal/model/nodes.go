@@ -1,0 +1,206 @@
+package model
+
+import (
+	"cmp"
+	"slices"
+)
+
+// Tag is a resource tag.
+type Tag struct {
+	Key   string
+	Value string
+}
+
+// Principal is an identity that can act: an IAM role or user, an account
+// root, an AWS service, the anonymous principal, or a Kubernetes subject.
+type Principal struct {
+	id       ID
+	kind     NodeKind
+	identity string
+	account  string
+	source   SourceLocation
+}
+
+// NewPrincipal builds a principal. identity is the canonical identity
+// (ARN, service name, or K8sIdentity); account may be empty.
+func NewPrincipal(kind NodeKind, identity, account string, src *SourceLocation) *Principal {
+	return &Principal{id: NewID(kind, identity), kind: kind, identity: identity, account: account, source: *src}
+}
+
+// ID returns the stable node ID.
+func (p *Principal) ID() ID { return p.id }
+
+// Kind returns the node kind.
+func (p *Principal) Kind() NodeKind { return p.kind }
+
+// Identity returns the canonical identity.
+func (p *Principal) Identity() string { return p.identity }
+
+// Account returns the AWS account ID, if any.
+func (p *Principal) Account() string { return p.account }
+
+// Source returns where the principal was defined.
+func (p *Principal) Source() *SourceLocation { s := p.source; return &s }
+
+// ResourceInput is the mutable input to NewResource.
+type ResourceInput struct {
+	Kind           NodeKind
+	ARN            string
+	Account        string
+	Region         string
+	Tags           map[string]string
+	Classification string // e.g. "pii"; empty when not a crown jewel
+	ClassifiedBy   string // which rule marked it: "tag:DataClass", "config", "heuristic:..."
+	Source         SourceLocation
+}
+
+// Resource is a protected AWS or Kubernetes resource.
+type Resource struct {
+	id             ID
+	kind           NodeKind
+	arn            string
+	account        string
+	region         string
+	tags           []Tag
+	classification string
+	classifiedBy   string
+	source         SourceLocation
+}
+
+// NewResource copies in; tags are sorted by key.
+func NewResource(in *ResourceInput) *Resource {
+	tags := make([]Tag, 0, len(in.Tags))
+	for k, v := range in.Tags {
+		tags = append(tags, Tag{Key: k, Value: v})
+	}
+	slices.SortFunc(tags, func(a, b Tag) int { return cmp.Compare(a.Key, b.Key) })
+	return &Resource{
+		id: NewID(in.Kind, in.ARN), kind: in.Kind, arn: in.ARN, account: in.Account, region: in.Region,
+		tags: tags, classification: in.Classification, classifiedBy: in.ClassifiedBy, source: in.Source,
+	}
+}
+
+// ID returns the stable node ID.
+func (r *Resource) ID() ID { return r.id }
+
+// Kind returns the node kind.
+func (r *Resource) Kind() NodeKind { return r.kind }
+
+// ARN returns the resource's canonical identity (an ARN for AWS resources).
+func (r *Resource) ARN() string { return r.arn }
+
+// Account returns the owning account ID, if known.
+func (r *Resource) Account() string { return r.account }
+
+// Region returns the region, if any.
+func (r *Resource) Region() string { return r.region }
+
+// Tags returns a copy of the tags, sorted by key.
+func (r *Resource) Tags() []Tag { return slices.Clone(r.tags) }
+
+// Classification returns the data classification and which rule set it.
+func (r *Resource) Classification() (class, by string) { return r.classification, r.classifiedBy }
+
+// Source returns where the resource was defined.
+func (r *Resource) Source() *SourceLocation { s := r.source; return &s }
+
+// WorkloadInput is the mutable input to NewWorkload.
+type WorkloadInput struct {
+	Cluster        string
+	Namespace      string
+	Kind           string // Deployment, Pod, ...
+	Name           string
+	ServiceAccount string
+	HostNetwork    bool
+	AutomountToken Tri // Unknown when not stated and not derivable
+	Source         SourceLocation
+}
+
+// Workload is a Kubernetes workload.
+type Workload struct {
+	id             ID
+	cluster        string
+	namespace      string
+	kind           string
+	name           string
+	serviceAccount string
+	hostNetwork    bool
+	automountToken Tri
+	source         SourceLocation
+}
+
+// NewWorkload copies in. The ID derives from K8sIdentity.
+func NewWorkload(in *WorkloadInput) *Workload {
+	identity := K8sIdentity(in.Cluster, in.Namespace, in.Kind, in.Name)
+	return &Workload{
+		id: NewID(KindK8sWorkload, identity), cluster: in.Cluster, namespace: in.Namespace, kind: in.Kind,
+		name: in.Name, serviceAccount: in.ServiceAccount, hostNetwork: in.HostNetwork,
+		automountToken: in.AutomountToken, source: in.Source,
+	}
+}
+
+// ID returns the stable node ID.
+func (w *Workload) ID() ID { return w.id }
+
+// Identity returns the canonical K8s identity.
+func (w *Workload) Identity() string {
+	return K8sIdentity(w.cluster, w.namespace, w.kind, w.name)
+}
+
+// Namespace returns the namespace.
+func (w *Workload) Namespace() string { return w.namespace }
+
+// ServiceAccount returns the service account name the pods run as.
+func (w *Workload) ServiceAccount() string { return w.serviceAccount }
+
+// HostNetwork reports hostNetwork: true.
+func (w *Workload) HostNetwork() bool { return w.hostNetwork }
+
+// AutomountToken reports whether the SA token is mounted.
+func (w *Workload) AutomountToken() Tri { return w.automountToken }
+
+// Source returns where the workload was defined.
+func (w *Workload) Source() *SourceLocation { s := w.source; return &s }
+
+// TrustRelationship binds a role to its trust policy (a resource-based
+// policy on the role).
+type TrustRelationship struct {
+	role   ID
+	policy *PolicyDocument
+}
+
+// NewTrustRelationship links a role node to its trust policy.
+func NewTrustRelationship(role ID, policy *PolicyDocument) *TrustRelationship {
+	return &TrustRelationship{role: role, policy: policy}
+}
+
+// Role returns the role's node ID.
+func (t *TrustRelationship) Role() ID { return t.role }
+
+// Policy returns the trust policy.
+func (t *TrustRelationship) Policy() *PolicyDocument { return t.policy }
+
+// NetworkExposure records how a workload is reachable from outside.
+type NetworkExposure struct {
+	workload ID
+	via      string // "Service/LoadBalancer", "Service/NodePort", "Ingress"
+	public   Tri    // Unknown when e.g. an internal-LB annotation cannot be read
+	source   SourceLocation
+}
+
+// NewNetworkExposure records an exposure of a workload.
+func NewNetworkExposure(workload ID, via string, public Tri, src *SourceLocation) *NetworkExposure {
+	return &NetworkExposure{workload: workload, via: via, public: public, source: *src}
+}
+
+// Workload returns the exposed workload's ID.
+func (e *NetworkExposure) Workload() ID { return e.workload }
+
+// Via names the exposing object kind.
+func (e *NetworkExposure) Via() string { return e.via }
+
+// Public reports whether the exposure is internet-facing.
+func (e *NetworkExposure) Public() Tri { return e.public }
+
+// Source returns where the exposure was defined.
+func (e *NetworkExposure) Source() *SourceLocation { s := e.source; return &s }

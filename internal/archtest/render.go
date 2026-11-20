@@ -111,15 +111,47 @@ func depguardAllow(r *Rule) []string {
 	return out
 }
 
+// depguardDeny lists the denied std prefixes. depguard lets a deny prefix win
+// over a more specific allow, so when an ExtraStd package lies below a
+// denied prefix (net/netip below net), the prefix is replaced by its exact
+// form and its other known subpackages; archtest applies the same rule
+// natively (ExtraStd is checked before the denials).
 func depguardDeny(r *Rule) []string {
 	var out []string
 	for _, d := range DeniedStd(r.Layer) {
 		if d == "C" || slices.Contains(r.ExtraStd, d) {
 			continue // cgo is not an import depguard sees; ExtraStd overrides.
 		}
-		out = append(out, d)
+		if !shadowsExtra(d, r.ExtraStd) {
+			out = append(out, d)
+			continue
+		}
+		out = append(out, d+"$")
+		for _, sub := range stdSubpackages(d) {
+			if !slices.Contains(r.ExtraStd, sub) {
+				out = append(out, sub)
+			}
+		}
 	}
 	return out
+}
+
+func shadowsExtra(prefix string, extra []string) bool {
+	for _, e := range extra {
+		if strings.HasPrefix(e, prefix+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// stdSubpackages lists the direct std subpackages of the prefixes that an
+// ExtraStd entry can sit below. TestStdSubpackagesComplete keeps it honest.
+func stdSubpackages(prefix string) []string {
+	if prefix == "net" {
+		return []string{"net/http", "net/mail", "net/netip", "net/rpc", "net/smtp", "net/textproto", "net/url"}
+	}
+	return nil
 }
 
 // RenderCorePaths renders golangci-lint exclusion rules that scope

@@ -145,7 +145,7 @@ generates. Rules for reading the table:
 | `internal/config` | pure | `internal/model`, `internal/arn`, `internal/classify` | `sigs.k8s.io/yaml` | — |
 | `internal/coverage` | core | — (leaf) | — | — |
 | `internal/eval` | core | `internal/model`, `internal/arn`, `internal/eval/match`, `internal/eval/condition` | — | tests: `internal/iampolicy` |
-| `internal/eval/condition` | core | `internal/model`, `internal/arn` | — | — |
+| `internal/eval/condition` | core | `internal/model`, `internal/arn` | — | std: `net/netip` |
 | `internal/eval/match` | core | `internal/model`, `internal/arn` | — | — |
 | `internal/findings` | core | `internal/model`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/scoring` | — | — |
 | `internal/graph` | core | `internal/model`, `internal/eval` | — | — |
@@ -532,14 +532,46 @@ condition key, policy variable, or principal). Combination:
   (spec says `testdata/eval/`; Go resolves `testdata` per package, so it lives under
   the evaluator). Each case is named after the doc rule it encodes. New cases need no
   code.
-- Fuzz targets (`testing.F`): policy-JSON parser (`internal/iampolicy`), ARN parser
-  and wildcard matcher (`internal/arn`, `internal/eval/match`). Must not panic.
+- Fuzz targets (`testing.F`): policy-JSON parser (`iampolicy.FuzzParse`), ARN
+  parser and wildcard matcher (`arn.FuzzParse`, `arn.FuzzMatch`), and the
+  evaluator end to end (`eval.FuzzEvaluate`). Must not panic. CI runs each for
+  20 s on every change and 5 minutes nightly (`.github/workflows/fuzz.yml`).
 - `rapid` properties: adding an unconditional Deny never increases access;
   narrowing `Resource` never increases access; evaluation is deterministic and
   statement-order independent.
 - **Flag — branch coverage.** `go test -cover` measures statements, not branches.
   We gate `internal/eval` and `internal/paths` with `gobco` (branch/condition
   coverage) at ≥ 95%, and the rest with statement coverage (≥ 90% overall).
+  *Implemented (Phase 2):* `task cover:branch` gates `eval`, `eval/condition`,
+  `eval/match`, `arn`, `iampolicy` and `model`; all at 100% when Phase 2 closed.
+  A switch over every member of an enum leaves its last case impossible to be
+  false, so such dispatches are written as if-chains; this keeps the
+  `exhaustive` linter and branch coverage from contradicting each other.
+
+### 6.5 Decisions made while implementing (Phase 2)
+
+Each item is encoded by corpus cases (file in parentheses).
+
+| Topic | Decision | Why |
+|---|---|---|
+| Signature | `Evaluate(*Request, *PolicySet) Decision` (pointers instead of the spec's values) | `gocritic hugeParam`; semantics unchanged, inputs are never mutated |
+| Duplicate JSON keys | rejected by the parser | `encoding/json` silently keeps the last; AWS's handling is not something to guess (iampolicy tests) |
+| RCP syntax | RCP statements require `"Principal": "*"` | AWS Organizations › RCP syntax; first draft wrongly forbade it (13) |
+| SCP scope | SCPs are not applied to AWS service principals, web identities or anonymous callers | Organizations › SCPs govern principals in member accounts (13) |
+| RCP scope | RCPs are applied to every caller except where policies do not match | **Flag:** whether RCPs exempt service principals is not modelled; applying them can only hide access the RCP really blocks |
+| Empty condition value list | `UNKNOWN` | AWS does not document it (06) |
+| Multivalued key without `ForAnyValue`/`ForAllValues` | `UNKNOWN` | IAM › multivalued context keys warns against it; behaviour not pinned (09) |
+| `Principal: "*"` grant + boundary/session policy that does not allow | `UNKNOWN` | the boundary table (§6.1) does not cover the wildcard principal (05) |
+| `{"AWS": "*"}` vs service / web-identity callers | `UNKNOWN` | equivalence with `"*"` is documented for AWS principals and anonymous only |
+| NotPrincipal | caller excluded only if its own ARN **and** account are listed; for a role session the documented list also has the role ARN — session + account without role ARN is `UNKNOWN` | IAM › NotPrincipal › "Specifying NotPrincipal with Deny" (16); the first draft treated partial lists as UNKNOWN, the corpus showed the documentation decides most of them |
+| Policy variables | interpreted only in `2012-10-17`; `${key, 'default'}` supported; absent key without default → the element matches nothing; multivalued or unknown key → `UNKNOWN`; unterminated `${` is literal; substituted values are literal (a `*` in a value is not a wildcard) | IAM › Policy variables (14, 17) |
+| ArnEquals vs ArnLike | identical: each of the six ARN components is matched with wildcards | IAM › ARN condition operators (08) |
+| Root user | identity policies do not apply; full access in its own account unless the resource policy must allow (KMS); cross-account needs a resource grant; SCPs apply | IAM › root user; KMS › key policies (17) |
+| Context | keys are **unknown** unless stated; "absent" must be stated (or set as the default) | an unstated key is not evidence of absence |
+
+Property tests (`rapid`, 5000 cases each locally) caught one test-harness bug:
+`rapid.Permutation` turns an empty slice into `nil`, which changes "empty
+boundary (allows nothing)" into "no boundary". The harness now preserves it.
 
 ---
 
@@ -874,3 +906,7 @@ Dependabot needs no GitHub App installation and covers `gomod` and
 | actions/checkout | v7.0.1 @ `3d3c42e5aac5ba805825da76410c181273ba90b1` |
 | actions/setup-go | v7.1.0 @ `d8cbb8045d7f43706b9177cceb36c1f91a6644d5` |
 | golangci/golangci-lint-action | v9.3.0 @ `ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a` |
+| actions/upload-artifact (Phase 2) | v7.0.2 @ `cf430e030ddbb5b0abf93d22962f4752f3646cd9` |
+| gobco (Phase 2) | v1.3.4 |
+| sigs.k8s.io/yaml (tests, Phase 2) | v1.6.0 |
+| pgregory.net/rapid (tests, Phase 2) | v1.3.0 |

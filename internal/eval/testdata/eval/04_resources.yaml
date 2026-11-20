@@ -1,0 +1,94 @@
+# Resource matching. IAM User Guide › "IAM JSON policy elements: Resource" and
+# "IAM JSON policy elements: NotResource".
+defaults:
+  principal: {kind: assumed-role, arn: "arn:aws:sts::111122223333:assumed-role/app/s1", account: "111122223333", source: "arn:aws:iam::111122223333:role/app"}
+  action: "s3:GetObject"
+  resource: "arn:aws:s3:::data/report.csv"
+  resource_account: "111122223333"
+  context: {default: absent}
+
+cases:
+  - name: iam-ug.resource.object-wildcard-matches-object
+    doc: "IAM User Guide › Resource: arn:aws:s3:::bucket/* matches objects in the bucket"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.resource.bucket-arn-does-not-match-object
+    doc: "S3 User Guide › Policy resources: the bucket ARN is not an object ARN"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::data"}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.resource.object-wildcard-does-not-match-bucket
+    doc: "S3 User Guide › Policy resources: arn:aws:s3:::bucket/* does not match the bucket itself"
+    action: "s3:ListBucket"
+    resource: "arn:aws:s3:::data"
+    policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "arn:aws:s3:::data/*"}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.resource.bucket-arn-matches-bucket
+    doc: "S3 User Guide › Policy resources: ListBucket is authorized on the bucket ARN"
+    action: "s3:ListBucket"
+    resource: "arn:aws:s3:::data"
+    policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "arn:aws:s3:::data"}]}
+    expect: ALLOW
+
+  - name: iam-ug.resource.case-sensitive
+    doc: "IAM User Guide › Resource: ARNs are case-sensitive"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::DATA/*"}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.resource.star-matches-all
+    doc: "IAM User Guide › Resource: * matches every resource"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.resource.question-mark
+    doc: "IAM User Guide › Resource: ? matches one character within a segment"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::dat?/*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.resource.prefix-scoped
+    doc: "IAM User Guide › Resource: a prefix pattern does not match objects outside the prefix"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/reports/*"}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.notresource.allow-excludes-listed
+    doc: "IAM User Guide › NotResource: Allow with NotResource does not allow the listed resources"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", NotResource: "arn:aws:s3:::data/*"}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.notresource.allow-includes-others
+    doc: "IAM User Guide › NotResource: Allow with NotResource allows every resource not listed"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", NotResource: "arn:aws:s3:::secret/*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.notresource.deny-protects-everything-else
+    doc: "IAM User Guide › NotResource: Deny with NotResource denies every resource not listed"
+    policies: {identity: [[{Effect: Allow, Action: "*", Resource: "*"}, {Effect: Deny, Action: "s3:*", NotResource: "arn:aws:s3:::public/*"}]]}
+    expect: DENY
+
+  - name: iam-ug.resource.wildcard-at-segment-end-spans-colons
+    doc: "IAM User Guide › Resource: a * that is the last character of a segment can expand beyond colon boundaries"
+    action: "logs:GetLogEvents"
+    resource: "arn:aws:logs:us-east-1:111122223333:log-group:app:log-stream:s1"
+    policies: {identity: [{Effect: Allow, Action: "logs:GetLogEvents", Resource: "arn:aws:logs:us-east-1:111122223333:log-group:*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.resource.wildcard-inside-segment-stays-in-segment
+    doc: "IAM User Guide › Resource: a * inside a segment does not match a colon"
+    action: "logs:GetLogEvents"
+    resource: "arn:aws:logs:us-east-1:111122223333:log-group:app:log-stream:s1"
+    policies: {identity: [{Effect: Allow, Action: "logs:GetLogEvents", Resource: "arn:aws:logs:us-east-1:111122223333:log-group:a*1"}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.resource.wildcard-region-and-account
+    doc: "IAM User Guide › Resource: wildcards in the region and account segments"
+    action: "dynamodb:GetItem"
+    resource: "arn:aws:dynamodb:us-east-1:111122223333:table/orders"
+    policies: {identity: [{Effect: Allow, Action: "dynamodb:GetItem", Resource: "arn:aws:dynamodb:*:*:table/orders"}]}
+    expect: ALLOW
+
+  - name: iam-ug.resource.list-any-element-matches
+    doc: "IAM User Guide › Resource: an array matches if any element matches"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: ["arn:aws:s3:::logs/*", "arn:aws:s3:::data/*"]}]}
+    expect: ALLOW

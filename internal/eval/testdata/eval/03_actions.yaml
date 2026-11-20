@@ -1,0 +1,92 @@
+# Action matching. IAM User Guide › "IAM JSON policy elements: Action" and
+# "IAM JSON policy elements: NotAction".
+anchors:
+  keyPolicy: &keyPolicy {Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:root"}, Action: "kms:*", Resource: "*"}
+
+defaults:
+  principal: {kind: assumed-role, arn: "arn:aws:sts::111122223333:assumed-role/app/s1", account: "111122223333", source: "arn:aws:iam::111122223333:role/app"}
+  action: "s3:GetObject"
+  resource: "arn:aws:s3:::data/k"
+  resource_account: "111122223333"
+  context: {default: absent}
+
+cases:
+  - name: iam-ug.action.case-insensitive
+    doc: "IAM User Guide › Action: action names are case-insensitive"
+    policies: {identity: [{Effect: Allow, Action: "S3:GETOBJECT", Resource: "*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.action.service-wildcard
+    doc: "IAM User Guide › Action: s3:* matches every S3 action"
+    policies: {identity: [{Effect: Allow, Action: "s3:*", Resource: "*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.action.prefix-wildcard
+    doc: "IAM User Guide › Action: s3:Get* matches GetObject"
+    policies: {identity: [{Effect: Allow, Action: "s3:Get*", Resource: "*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.action.question-mark
+    doc: "IAM User Guide › Action: ? matches one character"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObjec?", Resource: "*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.action.other-service-not-matched
+    doc: "IAM User Guide › Action: ec2:* does not match an S3 action"
+    policies: {identity: [{Effect: Allow, Action: "ec2:*", Resource: "*"}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.action.star-matches-all
+    doc: "IAM User Guide › Action: * matches every action of every service"
+    policies: {identity: [{Effect: Allow, Action: "*", Resource: "*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.action.list-any-element-matches
+    doc: "IAM User Guide › Action: an array matches if any element matches"
+    policies: {identity: [{Effect: Allow, Action: ["ec2:*", "s3:GetObject"], Resource: "*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.notaction.allow-grants-everything-else
+    doc: "IAM User Guide › NotAction: Allow with NotAction allows every action not listed"
+    policies: {identity: [{Effect: Allow, NotAction: "iam:*", Resource: "*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.notaction.allow-does-not-grant-listed
+    doc: "IAM User Guide › NotAction: Allow with NotAction does not allow the listed actions"
+    action: "iam:PassRole"
+    resource: "arn:aws:iam::111122223333:role/admin"
+    policies: {identity: [{Effect: Allow, NotAction: "iam:*", Resource: "*"}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.notaction.allow-scoped-by-resource
+    doc: "IAM User Guide › NotAction: NotAction with a Resource still requires the resource to match"
+    policies: {identity: [{Effect: Allow, NotAction: "iam:*", Resource: "arn:aws:s3:::other/*"}]}
+    expect: IMPLICIT_DENY
+
+  - name: kms-dg.actions.kms-star-includes-decrypt
+    doc: "IAM User Guide › Action: kms:* matches kms:Decrypt (KMS key policy delegates to IAM)"
+    action: "kms:Decrypt"
+    resource: "arn:aws:kms:us-east-1:111122223333:key/k1"
+    policies: {identity: [{Effect: Allow, Action: "kms:*", Resource: "*"}], resource: [*keyPolicy], resource_policy_required: true}
+    expect: ALLOW
+
+  - name: kms-dg.actions.kms-decrypt-star-includes-decrypt
+    doc: "IAM User Guide › Action: kms:Decrypt* matches kms:Decrypt"
+    action: "kms:Decrypt"
+    resource: "arn:aws:kms:us-east-1:111122223333:key/k1"
+    policies: {identity: [{Effect: Allow, Action: "kms:Decrypt*", Resource: "*"}], resource: [*keyPolicy], resource_policy_required: true}
+    expect: ALLOW
+
+  - name: kms-dg.actions.kms-decrypt-star-excludes-reencrypt
+    doc: "IAM User Guide › Action: kms:Decrypt* does not match kms:ReEncryptFrom"
+    action: "kms:ReEncryptFrom"
+    resource: "arn:aws:kms:us-east-1:111122223333:key/k1"
+    policies: {identity: [{Effect: Allow, Action: "kms:Decrypt*", Resource: "*"}], resource: [*keyPolicy], resource_policy_required: true}
+    expect: IMPLICIT_DENY
+
+  - name: kms-dg.actions.kms-decrypt-excludes-generate-data-key
+    doc: "IAM User Guide › Action: kms:Decrypt does not match kms:GenerateDataKey"
+    action: "kms:GenerateDataKey"
+    resource: "arn:aws:kms:us-east-1:111122223333:key/k1"
+    policies: {identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*"}], resource: [*keyPolicy], resource_policy_required: true}
+    expect: IMPLICIT_DENY

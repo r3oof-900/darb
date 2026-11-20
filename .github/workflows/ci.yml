@@ -65,6 +65,38 @@ jobs:
         with:
           version: v2.15.0
 
+  branch-coverage:
+    # docs/DESIGN.md section 6.4: >= 95% branch coverage (gobco) on the core.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version: "1.27.x"
+      - name: Install task and gobco
+        run: |
+          go install github.com/go-task/task/v3/cmd/task@v3.54.0
+          go install github.com/rillig/gobco@v1.3.4
+      - name: Branch coverage gate
+        run: task cover:branch
+
+  fuzz-smoke:
+    # Short pass on every change; the 5-minute runs are in fuzz.yml (nightly).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version: "1.27.x"
+      - name: Install task
+        run: go install github.com/go-task/task/v3/cmd/task@v3.54.0
+      - name: Fuzz each target for 20s
+        run: task fuzz FUZZTIME=20s
+
   security:
     runs-on: ubuntu-latest
     steps:

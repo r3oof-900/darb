@@ -1,0 +1,74 @@
+# Cross-account access: both the identity side and the resource side must allow.
+# IAM User Guide › "Cross-account policy evaluation logic".
+anchors:
+  idAllow: &idAllow {Sid: IdentityAllow, Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::partner-data/*"}
+  grantRole: &grantRole {Sid: GrantRole, Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:role/app"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::partner-data/*"}
+
+defaults:
+  principal: {kind: assumed-role, arn: "arn:aws:sts::111122223333:assumed-role/app/s1", account: "111122223333", source: "arn:aws:iam::111122223333:role/app"}
+  action: "s3:GetObject"
+  resource: "arn:aws:s3:::partner-data/k"
+  resource_account: "444455556666"
+  context: {default: absent}
+
+cases:
+  - name: iam-ug.cross-account.both-sides-allow
+    doc: "IAM User Guide › Cross-account policy evaluation logic: identity allow in the trusted account and resource allow in the trusting account"
+    policies: {identity: [*idAllow], resource: [*grantRole]}
+    expect: ALLOW
+    expect_contributing: ["identity:IdentityAllow", "resource:GrantRole"]
+
+  - name: iam-ug.cross-account.identity-only-is-denied
+    doc: "IAM User Guide › Cross-account policy evaluation logic: an identity allow alone is not enough"
+    policies: {identity: [*idAllow]}
+    expect: IMPLICIT_DENY
+    expect_missing: ["resource-based policy"]
+
+  - name: iam-ug.cross-account.resource-only-is-denied
+    doc: "IAM User Guide › Cross-account policy evaluation logic: a resource grant to the role ARN alone is not enough across accounts"
+    policies: {resource: [*grantRole]}
+    expect: IMPLICIT_DENY
+    expect_missing: ["identity policy"]
+
+  - name: iam-ug.cross-account.session-arn-grant-still-needs-identity
+    doc: "IAM User Guide › Cross-account policy evaluation logic: even a session ARN grant needs the identity side across accounts"
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "arn:aws:sts::111122223333:assumed-role/app/s1"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::partner-data/*"}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.cross-account.account-root-grant-plus-identity
+    doc: "IAM User Guide › Cross-account policy evaluation logic: trusting the other account's root plus an identity allow"
+    policies: {identity: [*idAllow], resource: [{Effect: Allow, Principal: {AWS: "111122223333"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::partner-data/*"}]}
+    expect: ALLOW
+
+  - name: iam-ug.cross-account.grant-to-other-account
+    doc: "IAM User Guide › Cross-account policy evaluation logic: a grant to a third account does not help"
+    policies: {identity: [*idAllow], resource: [{Effect: Allow, Principal: {AWS: "777788889999"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::partner-data/*"}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.cross-account.boundary-limits
+    doc: "IAM User Guide › Cross-account policy evaluation logic: the requester's permissions boundary still applies"
+    policies: {identity: [*idAllow], resource: [*grantRole], boundary: {Effect: Allow, Action: "ec2:*", Resource: "*"}}
+    expect: IMPLICIT_DENY
+    expect_missing: ["permissions boundary"]
+
+  - name: iam-ug.cross-account.resource-policy-explicit-deny
+    doc: "IAM User Guide › Cross-account policy evaluation logic: an explicit deny in the resource policy wins"
+    policies: {identity: [*idAllow], resource: [*grantRole, {Effect: Deny, Principal: "*", Action: "s3:GetObject", Resource: "arn:aws:s3:::partner-data/*"}]}
+    expect: DENY
+
+  - name: iam-ug.cross-account.wildcard-principal-plus-identity
+    doc: "IAM User Guide › Cross-account policy evaluation logic: a public grant plus an identity allow"
+    policies: {identity: [*idAllow], resource: [{Effect: Allow, Principal: "*", Action: "s3:GetObject", Resource: "arn:aws:s3:::partner-data/*"}]}
+    expect: ALLOW
+
+  - name: clapa.cross-account.unknown-resource-account-both-agree
+    doc: "docs/DESIGN.md section 6: with the resource account unknown, a decision is made only when same- and cross-account logic agree"
+    resource_account: ""
+    policies: {identity: [*idAllow], resource: [*grantRole]}
+    expect: ALLOW
+
+  - name: clapa.cross-account.unknown-resource-account-disagree
+    doc: "docs/DESIGN.md section 6: same-account would allow (role ARN grant), cross-account would not, so the result is UNKNOWN"
+    resource_account: ""
+    policies: {resource: [*grantRole]}
+    expect: UNKNOWN

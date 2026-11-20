@@ -1,0 +1,115 @@
+# Role trust policies are resource-based policies on the role; they must allow.
+# IAM User Guide › "Roles terms and concepts" › Trust policy, › "Create a role
+# for OpenID Connect federation", and EKS User Guide › IRSA / EKS Pod Identity.
+anchors:
+  irsaSA: &irsaSA {kind: web-identity, arn: "arn:aws:iam::111122223333:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE"}
+  irsaCtx: &irsaCtx {default: absent, present: {"oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE:sub": "system:serviceaccount:payments:api", "oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE:aud": "sts.amazonaws.com"}}
+  federated: &federated {Federated: "arn:aws:iam::111122223333:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE"}
+
+defaults:
+  principal: {kind: assumed-role, arn: "arn:aws:sts::111122223333:assumed-role/app/s1", account: "111122223333", source: "arn:aws:iam::111122223333:role/app"}
+  action: "sts:AssumeRole"
+  resource: "arn:aws:iam::111122223333:role/target"
+  resource_account: "111122223333"
+  context: {default: absent}
+  policies: {resource_policy_required: true}
+
+cases:
+  - name: iam-ug.roles.trust.same-account-role-principal
+    doc: "IAM User Guide › Trust policy: a same-account trust policy naming the caller's role suffices"
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:role/app"}, Action: "sts:AssumeRole"}]}
+    expect: ALLOW
+
+  - name: iam-ug.roles.trust.account-root-needs-identity
+    doc: "IAM User Guide › Trust policy: trusting the account root delegates to IAM; the caller needs sts:AssumeRole"
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:root"}, Action: "sts:AssumeRole"}]}
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.roles.trust.account-root-with-identity
+    doc: "IAM User Guide › Trust policy: account root trust plus sts:AssumeRole in the identity policy"
+    policies:
+      resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:root"}, Action: "sts:AssumeRole"}]
+      identity: [{Effect: Allow, Action: "sts:AssumeRole", Resource: "arn:aws:iam::111122223333:role/target"}]
+    expect: ALLOW
+
+  - name: iam-ug.roles.trust.identity-allow-without-trust
+    doc: "IAM User Guide › Trust policy: sts:AssumeRole in the identity policy is useless if the trust policy does not trust the caller"
+    policies:
+      resource: [{Effect: Allow, Principal: {Service: "ec2.amazonaws.com"}, Action: "sts:AssumeRole"}]
+      identity: [{Effect: Allow, Action: "sts:AssumeRole", Resource: "*"}]
+    expect: IMPLICIT_DENY
+
+  - name: iam-ug.roles.trust.cross-account-root-and-identity
+    doc: "IAM User Guide › Cross-account access with roles: the target trusts the source account's root, and the source role may assume (scenario 6)"
+    principal: {kind: assumed-role, arn: "arn:aws:sts::444455556666:assumed-role/sa-role/s", account: "444455556666", source: "arn:aws:iam::444455556666:role/sa-role"}
+    policies:
+      resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::444455556666:root"}, Action: "sts:AssumeRole"}]
+      identity: [{Effect: Allow, Action: "sts:AssumeRole", Resource: "*"}]
+    expect: ALLOW
+
+  - name: iam-ug.roles.trust.cross-account-without-identity
+    doc: "IAM User Guide › Cross-account access with roles: the source side must also allow"
+    principal: {kind: assumed-role, arn: "arn:aws:sts::444455556666:assumed-role/sa-role/s", account: "444455556666", source: "arn:aws:iam::444455556666:role/sa-role"}
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::444455556666:role/sa-role"}, Action: "sts:AssumeRole"}]}
+    expect: IMPLICIT_DENY
+
+  - name: eks-ug.irsa.trust.sub-and-aud-match
+    doc: "EKS User Guide › IAM roles for service accounts: trust policy pinned to one service account"
+    principal: *irsaSA
+    action: "sts:AssumeRoleWithWebIdentity"
+    context: *irsaCtx
+    policies: {resource: [{Effect: Allow, Principal: *federated, Action: "sts:AssumeRoleWithWebIdentity", Condition: {StringEquals: {"oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE:sub": "system:serviceaccount:payments:api", "oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE:aud": "sts.amazonaws.com"}}}]}
+    expect: ALLOW
+
+  - name: eks-ug.irsa.trust.other-service-account
+    doc: "EKS User Guide › IAM roles for service accounts: a different service account does not match :sub"
+    principal: *irsaSA
+    action: "sts:AssumeRoleWithWebIdentity"
+    context: {default: absent, present: {"oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE:sub": "system:serviceaccount:default:default", "oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE:aud": "sts.amazonaws.com"}}
+    policies: {resource: [{Effect: Allow, Principal: *federated, Action: "sts:AssumeRoleWithWebIdentity", Condition: {StringEquals: {"oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE:sub": "system:serviceaccount:payments:api"}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: eks-ug.irsa.trust.wildcard-sub-matches-any-sa
+    doc: "EKS User Guide › IAM roles for service accounts: StringLike :sub system:serviceaccount:*:* lets any service account assume the role (scenario 4)"
+    principal: *irsaSA
+    action: "sts:AssumeRoleWithWebIdentity"
+    context: {default: absent, present: {"oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE:sub": "system:serviceaccount:default:default"}}
+    policies: {resource: [{Effect: Allow, Principal: *federated, Action: "sts:AssumeRoleWithWebIdentity", Condition: {StringLike: {"oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE:sub": "system:serviceaccount:*:*"}}}]}
+    expect: ALLOW
+
+  - name: eks-ug.irsa.trust.aud-only
+    doc: "EKS User Guide › IAM roles for service accounts: a trust policy checking only :aud lets every service account of the cluster assume the role (scenario 5)"
+    principal: *irsaSA
+    action: "sts:AssumeRoleWithWebIdentity"
+    context: {default: absent, present: {"oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE:sub": "system:serviceaccount:kube-system:anything", "oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE:aud": "sts.amazonaws.com"}}
+    policies: {resource: [{Effect: Allow, Principal: *federated, Action: "sts:AssumeRoleWithWebIdentity", Condition: {StringEquals: {"oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE:aud": "sts.amazonaws.com"}}}]}
+    expect: ALLOW
+
+  - name: clapa.irsa.trust.sub-unknown
+    doc: "docs/DESIGN.md section 4.2: when the service account is not known, the :sub condition is UNKNOWN"
+    principal: *irsaSA
+    action: "sts:AssumeRoleWithWebIdentity"
+    context: {default: unknown}
+    policies: {resource: [{Effect: Allow, Principal: *federated, Action: "sts:AssumeRoleWithWebIdentity", Condition: {StringEquals: {"oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE:sub": "system:serviceaccount:payments:api"}}}]}
+    expect: UNKNOWN
+
+  - name: eks-ug.irsa.trust.other-oidc-provider
+    doc: "EKS User Guide › IAM roles for service accounts: a different cluster's OIDC provider does not match"
+    principal: {kind: web-identity, arn: "arn:aws:iam::111122223333:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/OTHER"}
+    action: "sts:AssumeRoleWithWebIdentity"
+    context: *irsaCtx
+    policies: {resource: [{Effect: Allow, Principal: *federated, Action: "sts:AssumeRoleWithWebIdentity"}]}
+    expect: IMPLICIT_DENY
+
+  - name: eks-ug.pod-identity.trust
+    doc: "EKS User Guide › EKS Pod Identity: the role trusts pods.eks.amazonaws.com for sts:AssumeRole and sts:TagSession"
+    principal: {kind: service, arn: "pods.eks.amazonaws.com"}
+    policies: {resource: [{Effect: Allow, Principal: {Service: "pods.eks.amazonaws.com"}, Action: ["sts:AssumeRole", "sts:TagSession"]}]}
+    expect: ALLOW
+
+  - name: iam-ug.roles.trust.wildcard-assume-identity-plus-trust
+    doc: "IAM User Guide › Trust policy: sts:AssumeRole on * in the identity policy plus a trusting target role"
+    policies:
+      identity: [{Effect: Allow, Action: "sts:AssumeRole", Resource: "*"}]
+      resource: [{Effect: Allow, Principal: {AWS: "111122223333"}, Action: "sts:AssumeRole"}]
+    expect: ALLOW

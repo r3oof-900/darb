@@ -1,0 +1,109 @@
+# KMS: the key policy must allow, directly or by delegating to IAM.
+# AWS KMS Developer Guide › "Key policies in AWS KMS" › "Default key policy",
+# and › "Encryption context" / "kms:ViaService".
+anchors:
+  rootKeyPolicy: &rootKeyPolicy {Sid: EnableIAM, Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:root"}, Action: "kms:*", Resource: "*"}
+  decrypt: &decrypt {Sid: Decrypt, Effect: Allow, Action: "kms:Decrypt", Resource: "*"}
+
+defaults:
+  principal: {kind: assumed-role, arn: "arn:aws:sts::111122223333:assumed-role/app/s1", account: "111122223333", source: "arn:aws:iam::111122223333:role/app"}
+  action: "kms:Decrypt"
+  resource: "arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab"
+  resource_account: "111122223333"
+  context: {default: absent}
+  policies: {resource_policy_required: true}
+
+cases:
+  - name: kms-dg.key-policies.default-key-policy-delegates-to-iam
+    doc: "KMS Developer Guide › Default key policy: the account-root statement lets IAM policies grant access"
+    policies: {identity: [*decrypt], resource: [*rootKeyPolicy]}
+    expect: ALLOW
+    expect_contributing: ["identity:Decrypt", "resource:EnableIAM"]
+
+  - name: kms-dg.key-policies.root-delegation-without-identity-allow
+    doc: "KMS Developer Guide › Default key policy: delegation alone does not grant access"
+    policies: {resource: [*rootKeyPolicy]}
+    expect: IMPLICIT_DENY
+    expect_missing: ["identity policy"]
+
+  - name: kms-dg.key-policies.iam-alone-cannot-grant
+    doc: "KMS Developer Guide › Key policies: an IAM policy alone never grants access to a key whose policy does not allow it"
+    policies: {identity: [{Effect: Allow, Action: "kms:*", Resource: "*"}], resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:role/other"}, Action: "kms:*", Resource: "*"}]}
+    expect: IMPLICIT_DENY
+    expect_missing: ["resource-based policy"]
+
+  - name: kms-dg.key-policies.no-key-policy-statement
+    doc: "KMS Developer Guide › Key policies: without any key policy grant there is no access"
+    policies: {identity: [{Effect: Allow, Action: "kms:*", Resource: "*"}], resource: []}
+    expect: IMPLICIT_DENY
+
+  - name: kms-dg.key-policies.direct-role-grant
+    doc: "KMS Developer Guide › Key policies: a key policy can grant a role directly, without an IAM policy"
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:role/app"}, Action: "kms:Decrypt", Resource: "*"}]}
+    expect: ALLOW
+
+  - name: kms-dg.key-policies.direct-role-grant-limited-by-boundary
+    doc: "IAM User Guide › Permissions boundaries › Resource-based policies: a role ARN grant in a key policy is limited by the boundary"
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:role/app"}, Action: "kms:Decrypt", Resource: "*"}], boundary: {Effect: Allow, Action: "s3:*", Resource: "*"}}
+    expect: IMPLICIT_DENY
+
+  - name: kms-dg.encryption-context.scoped-grant-matches
+    doc: "KMS Developer Guide › Encryption context: kms:EncryptionContext:aws:s3:arn scoped to the bucket being read"
+    context: {default: absent, present: {"kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::payments"}}
+    policies: {resource: [*rootKeyPolicy], identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {StringEquals: {"kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::payments"}}}]}
+    expect: ALLOW
+
+  - name: kms-dg.encryption-context.scoped-to-other-bucket
+    doc: "KMS Developer Guide › Encryption context: a grant scoped to another bucket's context does not decrypt this bucket's objects (scenario 3)"
+    context: {default: absent, present: {"kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::pii"}}
+    policies: {resource: [*rootKeyPolicy], identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {StringEquals: {"kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::payments"}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: clapa.kms.encryption-context-unknown
+    doc: "docs/DESIGN.md section 7.3: without the target's encryption context the decrypt edge is UNKNOWN"
+    context: {default: unknown}
+    policies: {resource: [*rootKeyPolicy], identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {StringEquals: {"kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::payments"}}}]}
+    expect: UNKNOWN
+    expect_unresolved: ["Condition:kms:EncryptionContext:aws:s3:arn"]
+
+  - name: kms-dg.condition-keys.via-service
+    doc: "KMS Developer Guide › kms:ViaService: allow only when the request comes through S3"
+    context: {default: absent, present: {"kms:ViaService": "s3.us-east-1.amazonaws.com"}}
+    policies: {resource: [*rootKeyPolicy], identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {StringEquals: {"kms:ViaService": "s3.us-east-1.amazonaws.com"}}}]}
+    expect: ALLOW
+
+  - name: kms-dg.condition-keys.via-service-direct-call
+    doc: "KMS Developer Guide › kms:ViaService: a direct call has no kms:ViaService, so the condition is false"
+    policies: {resource: [*rootKeyPolicy], identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {StringEquals: {"kms:ViaService": "s3.us-east-1.amazonaws.com"}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: kms-dg.key-policies.principal-org-id-unknown
+    doc: "IAM User Guide › aws:PrincipalOrgID; scenario 10: a key policy granting {\"AWS\": \"*\"} with aws:PrincipalOrgID is UNKNOWN unless the org ID is configured"
+    context: {default: absent, unknown: ["aws:PrincipalOrgID"]}
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "*"}, Action: "kms:Decrypt", Resource: "*", Condition: {StringEquals: {"aws:PrincipalOrgID": "o-abc123"}}}]}
+    expect: UNKNOWN
+    expect_unresolved: ["Condition:aws:PrincipalOrgID"]
+
+  - name: kms-dg.key-policies.principal-org-id-configured-match
+    doc: "IAM User Guide › aws:PrincipalOrgID: with the org ID supplied as a context assumption the grant applies"
+    context: {default: absent, present: {"aws:PrincipalOrgID": "o-abc123"}}
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "*"}, Action: "kms:Decrypt", Resource: "*", Condition: {StringEquals: {"aws:PrincipalOrgID": "o-abc123"}}}]}
+    expect: ALLOW
+
+  - name: kms-dg.key-policies.principal-org-id-configured-mismatch
+    doc: "IAM User Guide › aws:PrincipalOrgID: a caller from another organization is not granted"
+    context: {default: absent, present: {"aws:PrincipalOrgID": "o-other"}}
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "*"}, Action: "kms:Decrypt", Resource: "*", Condition: {StringEquals: {"aws:PrincipalOrgID": "o-abc123"}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: kms-dg.key-policies.cross-account-delegation
+    doc: "KMS Developer Guide › Allowing users in other accounts to use a KMS key: key policy names the other account and its IAM policy allows"
+    principal: {kind: assumed-role, arn: "arn:aws:sts::444455556666:assumed-role/reader/s", account: "444455556666", source: "arn:aws:iam::444455556666:role/reader"}
+    policies: {resource: [*rootKeyPolicy, {Effect: Allow, Principal: {AWS: "arn:aws:iam::444455556666:root"}, Action: "kms:Decrypt", Resource: "*"}], identity: [*decrypt]}
+    expect: ALLOW
+
+  - name: kms-dg.key-policies.cross-account-without-key-policy-grant
+    doc: "KMS Developer Guide › Allowing users in other accounts: the other account's IAM policy alone is not enough"
+    principal: {kind: assumed-role, arn: "arn:aws:sts::444455556666:assumed-role/reader/s", account: "444455556666", source: "arn:aws:iam::444455556666:role/reader"}
+    policies: {resource: [*rootKeyPolicy], identity: [*decrypt]}
+    expect: IMPLICIT_DENY
