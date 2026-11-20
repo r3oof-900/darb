@@ -37,7 +37,7 @@ func TestAction(t *testing.T) {
 		{[]string{"ec2:*"}, "s3:GetObject", false},
 	}
 	for _, c := range cases {
-		if got := Action(c.patterns, c.action); got != c.want {
+		if got := Action(c.patterns, c.action); got != model.TriOf(c.want) {
 			t.Errorf("Action(%v, %q) = %v, want %v", c.patterns, c.action, got, c.want)
 		}
 	}
@@ -175,5 +175,26 @@ func TestNotPrincipal(t *testing.T) {
 		if got.Value == model.Unknown && got.Reason == "" {
 			t.Errorf("%s: Unknown without reason", c.name)
 		}
+	}
+}
+
+func TestUnresolvedSourceValues(t *testing.T) {
+	u := model.UnresolvedPlaceholder("var.x")
+	if got := Action([]string{u}, "s3:GetObject"); got != model.Unknown {
+		t.Errorf("unresolved action: %v", got)
+	}
+	if got := Action([]string{u, "s3:*"}, "s3:GetObject"); got != model.True {
+		t.Errorf("a resolved match decides: %v", got)
+	}
+	ps := principals()
+	if m := Principal(spec(model.PrincipalRef{Type: model.PrincipalService, Value: u}), ps["service"]); m.Value != model.Unknown || m.Reason == "" {
+		t.Errorf("unresolved principal: %+v", m)
+	}
+	if m := NotPrincipal(spec(aws(u), aws(acct)), ps["session"]); m.Value != model.Unknown {
+		t.Errorf("unresolved NotPrincipal entry: %+v", m)
+	}
+	excluded := spec(aws(session), aws(roleARN), aws(acct), aws(u))
+	if m := NotPrincipal(excluded, ps["session"]); m.Value != model.False {
+		t.Errorf("already excluded: %+v", m)
 	}
 }

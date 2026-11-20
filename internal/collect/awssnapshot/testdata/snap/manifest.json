@@ -1,0 +1,8 @@
+{"format": "clapa-snapshot/v1",
+ "accounts": [{"id": "111122223333", "partition": "aws"}],
+ "calls": [
+  {"account": "111122223333", "service": "iam", "region": "", "api": "GetAccountAuthorizationDetails", "target": "", "status": "ok"},
+  {"account": "111122223333", "service": "kms", "region": "us-east-1", "api": "GetKeyPolicy", "target": "k2", "status": "AccessDenied", "error": "not authorized"},
+  {"account": "111122223333", "service": "s3", "region": "", "api": "GetBucketPolicy", "target": "logs", "status": "Throttling"},
+  {"account": "111122223333", "service": "eks", "region": "eu-west-1", "api": "ListClusters", "target": "", "status": "Weird"}
+ ]}

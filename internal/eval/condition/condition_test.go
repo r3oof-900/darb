@@ -229,3 +229,10 @@ func TestParseOperator(t *testing.T) {
 		}
 	}
 }
+
+func TestUnresolvedConditionKey(t *testing.T) {
+	c := model.NewCondition("StringEquals", model.UnresolvedPlaceholder("local.oidc")+":sub", []string{"x"})
+	if res := Evaluate(&c, ctx(), stubExpander{}); res.Value != model.Unknown || res.Reason == "" {
+		t.Fatalf("got %+v", res)
+	}
+}

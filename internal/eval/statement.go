@@ -33,9 +33,16 @@ func evalStatement(doc *model.PolicyDocument, s *model.Statement, req *Request, 
 		Effect: s.Effect(), Source: *doc.Source(), Applies: model.True,
 	}}
 	acts, notAction := s.Actions()
-	if match.Action(acts, req.Action) == notAction {
+	action := match.Action(acts, req.Action)
+	if notAction {
+		action = action.Not()
+	}
+	if action == model.False {
 		res.ref.Applies = model.False
 		return res
+	}
+	if action == model.Unknown {
+		res.and(doc, s, "Action", "", "", condition.Result{Value: model.Unknown, Reason: "Action was not resolved in the source"})
 	}
 	res.and(doc, s, "Principal", "", "", principalApplies(s, &req.Principal, &res))
 	res.and(doc, s, "Resource", "", "", resourceApplies(s, req.Resource, x))

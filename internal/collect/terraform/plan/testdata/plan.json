@@ -1,0 +1,113 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.9.0",
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_iam_role.app",
+          "mode": "managed", "type": "aws_iam_role", "name": "app",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "values": {
+            "name": "app",
+            "assume_role_policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}",
+            "max_session_duration": 3600,
+            "force_detach_policies": false,
+            "tags": {"team": "payments"}
+          }
+        },
+        {
+          "address": "aws_iam_role_policy.decrypt",
+          "mode": "managed", "type": "aws_iam_role_policy", "name": "decrypt",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "values": {"name": "decrypt", "role": "app"}
+        },
+        {
+          "address": "aws_kms_key.pii",
+          "mode": "managed", "type": "aws_kms_key", "name": "pii",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "values": {"enable_key_rotation": true, "rule": [{"enabled": true}]}
+        }
+      ],
+      "child_modules": [
+        {
+          "address": "module.roles",
+          "resources": [
+            {
+              "address": "module.roles.aws_iam_role.r[\"a\"]",
+              "mode": "managed", "type": "aws_iam_role", "name": "r", "index": "a",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "values": {"name": "role-a"}
+            },
+            {
+              "address": "module.roles.aws_iam_role.r[0]",
+              "mode": "managed", "type": "aws_iam_role", "name": "r", "index": 0,
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "values": {"name": "role-0"}
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "aws_iam_role_policy.decrypt",
+      "mode": "managed", "type": "aws_iam_role_policy", "name": "decrypt",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {"actions": ["create"], "before": null, "after": {"name": "decrypt", "role": "app"},
+                 "after_unknown": {"policy": true, "id": true}}
+    },
+    {
+      "address": "aws_kms_key.pii",
+      "mode": "managed", "type": "aws_kms_key", "name": "pii",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {"actions": ["create"], "before": null, "after": {"enable_key_rotation": true},
+                 "after_unknown": {"arn": true, "rule": [{"enabled": false}]}}
+    }
+  ],
+  "prior_state": {
+    "format_version": "1.0",
+    "values": {
+      "root_module": {
+        "resources": [
+          {
+            "address": "data.aws_caller_identity.me",
+            "mode": "data", "type": "aws_caller_identity", "name": "me",
+            "provider_name": "registry.terraform.io/hashicorp/aws",
+            "values": {"account_id": "111122223333"}
+          },
+          {
+            "address": "aws_kms_key.pii",
+            "mode": "managed", "type": "aws_kms_key", "name": "pii",
+            "provider_name": "registry.terraform.io/hashicorp/aws",
+            "values": {}
+          }
+        ]
+      }
+    }
+  },
+  "configuration": {
+    "provider_config": {
+      "aws": {"name": "aws", "full_name": "registry.terraform.io/hashicorp/aws", "expressions": {"region": {"constant_value": "us-east-1"}}},
+      "random": {"name": "random", "full_name": "registry.terraform.io/hashicorp/random"}
+    },
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_iam_role_policy.decrypt", "mode": "managed", "type": "aws_iam_role_policy", "name": "decrypt",
+          "provider_config_key": "aws",
+          "expressions": {
+            "policy": {"references": ["aws_kms_key.pii.arn", "aws_kms_key.pii"]},
+            "id": {"references": ["var.x", "aws_kms_key.pii.arn", "aws_s3_bucket.b.arn"]}
+          }
+        }
+      ],
+      "module_calls": {
+        "roles": {"source": "./roles", "module": {"resources": [
+          {"address": "aws_iam_role.r", "mode": "managed", "type": "aws_iam_role", "name": "r", "provider_config_key": "aws", "expressions": {}}
+        ]}}
+      }
+    }
+  }
+}

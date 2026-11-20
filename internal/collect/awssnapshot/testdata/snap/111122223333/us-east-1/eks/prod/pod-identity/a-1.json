@@ -1,0 +1,1 @@
+{"association": {"clusterName": "prod", "namespace": "payments", "serviceAccount": "api", "roleArn": "arn:aws:iam::111122223333:role/app", "associationArn": "arn:aws:eks:us-east-1:111122223333:podidentityassociation/prod/a-1"}}

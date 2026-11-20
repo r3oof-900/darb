@@ -1,0 +1,9 @@
+{"RoleDetailList": [{"Path": "/", "RoleName": "app", "RoleId": "AROAEXAMPLE", "Arn": "arn:aws:iam::111122223333:role/app",
+  "AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Service": "ec2.amazonaws.com"}, "Action": "sts:AssumeRole"}]},
+  "RolePolicyList": [{"PolicyName": "inline", "PolicyDocument": "%7B%22Version%22%3A%222012-10-17%22%7D"}],
+  "AttachedManagedPolicies": [{"PolicyName": "AdministratorAccess", "PolicyArn": "arn:aws:iam::aws:policy/AdministratorAccess"}],
+  "PermissionsBoundary": {"PermissionsBoundaryType": "Policy", "PermissionsBoundaryArn": "arn:aws:iam::111122223333:policy/boundary"},
+  "Tags": [{"Key": "team", "Value": "payments"}]}],
+ "UserDetailList": [], "GroupDetailList": [],
+ "Policies": [{"PolicyName": "boundary", "Arn": "arn:aws:iam::111122223333:policy/boundary", "DefaultVersionId": "v2",
+  "PolicyVersionList": [{"VersionId": "v2", "IsDefaultVersion": true, "Document": {"Version": "2012-10-17", "Statement": []}}]}]}

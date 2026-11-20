@@ -16,15 +16,19 @@ type Expander interface {
 // Action reports whether action matches any pattern. Matching is
 // case-insensitive with '*' and '?' wildcards over the whole
 // "service:action" string (IAM User Guide › "IAM JSON policy elements: Action").
-// Policy variables are not interpreted in Action.
-func Action(patterns []string, action string) bool {
+// Policy variables are not interpreted in Action; a pattern that was not
+// resolved in the source (model.ContainsUnresolved) matches Unknown.
+func Action(patterns []string, action string) model.Tri {
 	a := strings.ToLower(action)
+	acc := model.False
 	for _, p := range patterns {
-		if arn.Compile(strings.ToLower(p), arn.Plain).Match(a) {
-			return true
+		if model.ContainsUnresolved(p) {
+			acc = acc.Or(model.Unknown)
+			continue
 		}
+		acc = acc.Or(model.TriOf(arn.Compile(strings.ToLower(p), arn.Plain).Match(a)))
 	}
-	return false
+	return acc
 }
 
 // Resource reports whether resource matches any pattern, using Resource-mode

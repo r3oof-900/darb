@@ -1,0 +1,90 @@
+# Values a collector could not resolve (e.g. var.x without a value in static
+# HCL) reach the evaluator as ${clapa:unresolved:<id>} and are UNKNOWN in
+# every element, never literal text. docs/DESIGN.md section 4.1 and model/unresolved.go.
+anchors:
+  allowS3: &allowS3 {Effect: Allow, Action: "s3:GetObject", Resource: "*"}
+
+defaults:
+  principal: {kind: assumed-role, arn: "arn:aws:sts::111122223333:assumed-role/app/s1", account: "111122223333", source: "arn:aws:iam::111122223333:role/app"}
+  action: "s3:GetObject"
+  resource: "arn:aws:s3:::data/k"
+  resource_account: "111122223333"
+  context: {default: absent}
+
+cases:
+  - name: clapa.unresolved.resource
+    doc: "docs/DESIGN.md section 4.1: Resource = var.bucket_arn (unresolved) is UNKNOWN, not a literal pattern"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "${clapa:unresolved:var.bucket_arn}/*"}]}
+    expect: UNKNOWN
+    expect_unresolved: ["Resource"]
+
+  - name: clapa.unresolved.resource-in-2008-policy
+    doc: "docs/DESIGN.md section 4.1: the placeholder is UNKNOWN even where policy variables are disabled"
+    policies: {identity: [{Statement: [{Effect: Allow, Action: "s3:GetObject", Resource: "${clapa:unresolved:var.bucket_arn}"}]}]}
+    expect: UNKNOWN
+
+  - name: clapa.unresolved.resource-other-literal-matches
+    doc: "docs/DESIGN.md section 6.2: one resolved pattern that matches decides the Resource element"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: ["${clapa:unresolved:var.extra}", "arn:aws:s3:::data/*"]}]}
+    expect: ALLOW
+
+  - name: clapa.unresolved.action
+    doc: "docs/DESIGN.md section 4.1: Action = var.action (unresolved) is UNKNOWN"
+    policies: {identity: [{Effect: Allow, Action: "${clapa:unresolved:var.action}", Resource: "*"}]}
+    expect: UNKNOWN
+    expect_unresolved: ["Action"]
+
+  - name: clapa.unresolved.notaction
+    doc: "docs/DESIGN.md section 4.1: NotAction with an unresolved entry is UNKNOWN"
+    policies: {identity: [{Effect: Allow, NotAction: "${clapa:unresolved:var.excluded}", Resource: "*"}]}
+    expect: UNKNOWN
+
+  - name: clapa.unresolved.deny-action-blocks-allow
+    doc: "docs/DESIGN.md section 6.2: a Deny whose Action is unresolved may apply, so the result is UNKNOWN"
+    policies: {identity: [*allowS3, {Effect: Deny, Action: "${clapa:unresolved:local.denied}", Resource: "*"}]}
+    expect: UNKNOWN
+
+  - name: clapa.unresolved.principal
+    doc: "docs/DESIGN.md section 4.1: Principal = var.reader_arn (unresolved) is UNKNOWN"
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "${clapa:unresolved:var.reader_arn}"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: UNKNOWN
+    expect_unresolved: ["Principal"]
+
+  - name: clapa.unresolved.service-principal
+    doc: "docs/DESIGN.md section 4.1: an unresolved Service principal is UNKNOWN, not a mismatch"
+    principal: {kind: service, arn: "cloudtrail.amazonaws.com"}
+    action: "s3:PutObject"
+    policies: {resource: [{Effect: Allow, Principal: {Service: "${clapa:unresolved:var.svc}"}, Action: "s3:PutObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: UNKNOWN
+
+  - name: clapa.unresolved.notprincipal-deny
+    doc: "docs/DESIGN.md section 4.1: an unresolved NotPrincipal entry might name the caller, so the Deny is UNKNOWN"
+    policies:
+      identity: [*allowS3]
+      resource: [{Effect: Deny, NotPrincipal: {AWS: ["${clapa:unresolved:var.admin}", "111122223333"]}, Action: "s3:*", Resource: "arn:aws:s3:::data/*"}]
+    expect: UNKNOWN
+
+  - name: clapa.unresolved.notprincipal-already-excluded
+    doc: "docs/DESIGN.md section 4.1: when the resolved entries already exclude the caller, an unresolved entry changes nothing"
+    policies:
+      identity: [*allowS3]
+      resource: [{Effect: Deny, NotPrincipal: {AWS: ["arn:aws:sts::111122223333:assumed-role/app/s1", "arn:aws:iam::111122223333:role/app", "111122223333", "${clapa:unresolved:var.extra}"]}, Action: "s3:*", Resource: "arn:aws:s3:::data/*"}]
+    expect: ALLOW
+
+  - name: clapa.unresolved.condition-value
+    doc: "docs/DESIGN.md section 4.1: an unresolved condition value is UNKNOWN even though the key is known"
+    context: {default: absent, present: {"aws:SourceVpce": "vpce-1"}}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {StringEquals: {"aws:SourceVpce": "${clapa:unresolved:var.vpce}"}}}]}
+    expect: UNKNOWN
+
+  - name: clapa.unresolved.condition-key
+    doc: "docs/DESIGN.md section 4.1: an IRSA trust key built from an unresolved issuer (\"${local.oidc}:sub\") is UNKNOWN"
+    principal: {kind: web-identity, arn: "arn:aws:iam::111122223333:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE"}
+    action: "sts:AssumeRoleWithWebIdentity"
+    resource: "arn:aws:iam::111122223333:role/target"
+    context: {default: absent, present: {"oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE:sub": "system:serviceaccount:payments:api"}}
+    policies:
+      resource_policy_required: true
+      resource: [{Effect: Allow, Principal: {Federated: "arn:aws:iam::111122223333:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE"}, Action: "sts:AssumeRoleWithWebIdentity", Condition: {StringEquals: {"${clapa:unresolved:local.oidc}:sub": "system:serviceaccount:payments:api"}}}]
+    expect: UNKNOWN
+    expect_unresolved: ["Condition"]

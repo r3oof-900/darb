@@ -228,3 +228,13 @@ func TestNodes(t *testing.T) {
 		t.Error("exposure getters")
 	}
 }
+
+func TestUnresolvedPlaceholder(t *testing.T) {
+	p := UnresolvedPlaceholder("var.x")
+	if p != "${clapa:unresolved:var.x}" || !ContainsUnresolved("arn:"+p+"/*") || ContainsUnresolved("${aws:username}") {
+		t.Fatal("placeholder")
+	}
+	if !AnyUnresolved([]string{"a", p}) || AnyUnresolved([]string{"a"}) {
+		t.Fatal("AnyUnresolved")
+	}
+}

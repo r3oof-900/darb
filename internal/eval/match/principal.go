@@ -81,6 +81,9 @@ func Principal(spec *model.PrincipalSpec, p *RequestPrincipal) PrincipalMatch {
 }
 
 func matchRef(ref model.PrincipalRef, p *RequestPrincipal) PrincipalMatch {
+	if model.ContainsUnresolved(ref.Value) {
+		return PrincipalMatch{Value: model.Unknown, Reason: "principal was not resolved in the source"}
+	}
 	switch ref.Type {
 	case model.PrincipalAWS:
 		return matchAWS(ref.Value, p)
@@ -176,6 +179,15 @@ func accountOf(v string) (string, bool) {
 // and account but without the role ARN is not documented and is Unknown.
 func NotPrincipal(spec *model.PrincipalSpec, p *RequestPrincipal) PrincipalMatch {
 	l := listed(spec, p)
+	m := notPrincipalListed(&l, p)
+	if m.Value == model.True && l.unresolved {
+		// An entry that was not resolved in the source might name the caller.
+		return PrincipalMatch{Value: model.Unknown, Reason: "NotPrincipal contains an entry that was not resolved in the source"}
+	}
+	return m
+}
+
+func notPrincipalListed(l *listing, p *RequestPrincipal) PrincipalMatch {
 	switch {
 	case l.everyone:
 		return PrincipalMatch{Value: model.False}
@@ -191,12 +203,16 @@ func NotPrincipal(spec *model.PrincipalSpec, p *RequestPrincipal) PrincipalMatch
 
 // listing records which facets of the caller a NotPrincipal element names.
 type listing struct {
-	everyone, self, account, role bool
+	everyone, self, account, role, unresolved bool
 }
 
 func listed(spec *model.PrincipalSpec, p *RequestPrincipal) listing {
 	l := listing{everyone: spec.Wildcard()}
 	for _, ref := range spec.Refs() {
+		if model.ContainsUnresolved(ref.Value) {
+			l.unresolved = true
+			continue
+		}
 		isAWS := ref.Type == model.PrincipalAWS
 		if acct, ok := accountOf(ref.Value); ok && isAWS {
 			l.account = l.account || (hasAccount(p.Kind) && acct == p.Account)

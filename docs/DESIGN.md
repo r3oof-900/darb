@@ -126,7 +126,7 @@ generates. Rules for reading the table:
 | Package | Layer | May import (module) | May import (external) | Extra std / test-only |
 |---|---|---|---|---|
 | `cmd/clapa` | entry | `internal/cli` | — | — |
-| `internal/access` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/graph` | — | — |
+| `internal/access` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/eval/match`, `internal/eval/condition`, `internal/graph` | — | — |
 | `internal/app` | entry | `internal/config`, `internal/collect/...`, `internal/normalize/...`, `internal/model`, `internal/classify`, `internal/iampolicy`, `internal/eval`, `internal/access`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/rules/catalog`, `internal/scoring`, `internal/findings`, `internal/remediate`, `internal/verify`, `internal/patch`, `internal/report/...`, `internal/llm/...`, `internal/coverage`, `internal/redact`, `internal/safeio`, `internal/version`, `internal/managedpolicies`, `pkg/schema` | `golang.org/x/sync` | — |
 | `internal/archtest` | tooling | — (leaf) | — | — |
 | `internal/arn` | core | — (leaf) | — | — |
@@ -137,7 +137,7 @@ generates. Rules for reading the table:
 | `internal/collect/awsraw` | pure | — (leaf) | `github.com/aws/aws-sdk-go-v2` | — |
 | `internal/collect/awssnapshot` | io | `internal/collect`, `internal/coverage`, `internal/safeio`, `internal/collect/awsraw` | `github.com/aws/aws-sdk-go-v2` | — |
 | `internal/collect/k8s/live` | io | `internal/collect`, `internal/coverage`, `internal/collect/k8sraw` | `k8s.io/api`, `k8s.io/apimachinery`, `k8s.io/client-go`, `github.com/aws/aws-sdk-go-v2`, `github.com/aws/smithy-go`, `golang.org/x/sync` | — |
-| `internal/collect/k8s/manifests` | io | `internal/collect`, `internal/coverage`, `internal/safeio`, `internal/collect/k8sraw` | `k8s.io/api`, `k8s.io/apimachinery`, `k8s.io/client-go`, `sigs.k8s.io/yaml` | — |
+| `internal/collect/k8s/manifests` | io | `internal/collect`, `internal/coverage`, `internal/safeio`, `internal/collect/k8sraw` | `k8s.io/api`, `k8s.io/apimachinery`, `k8s.io/client-go`, `sigs.k8s.io/yaml`, `go.yaml.in/yaml/v3` | — |
 | `internal/collect/k8sraw` | pure | — (leaf) | `k8s.io/api`, `k8s.io/apimachinery` | — |
 | `internal/collect/terraform/hclstatic` | io | `internal/collect`, `internal/coverage`, `internal/safeio`, `internal/collect/tfraw` | `github.com/hashicorp/hcl/v2`, `github.com/zclconf/go-cty` | — |
 | `internal/collect/terraform/plan` | io | `internal/collect`, `internal/coverage`, `internal/safeio`, `internal/collect/tfraw` | `github.com/hashicorp/terraform-json` | std: `os/exec` |

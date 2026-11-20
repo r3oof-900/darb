@@ -56,6 +56,7 @@ const (
 	extSmithy    = "github.com/aws/smithy-go"
 	extXSync     = "golang.org/x/sync"
 	extUnifiedDF = "github.com/aymanbagabas/go-udiff"
+	extYAMLv3    = "go.yaml.in/yaml/v3"
 )
 
 // coreModel is the set of core packages most rule-layer packages build on.
@@ -96,7 +97,7 @@ func coreRules() []*Rule {
 			TestInternal: []string{"internal/iampolicy"},
 		},
 		{Package: "internal/graph", Layer: LayerCore, Internal: []string{"internal/model", "internal/eval"}},
-		{Package: "internal/access", Layer: LayerCore, Internal: coreModel("internal/eval", "internal/graph")},
+		{Package: "internal/access", Layer: LayerCore, Internal: coreModel("internal/eval", "internal/eval/match", "internal/eval/condition", "internal/graph")},
 		{Package: "internal/paths", Layer: LayerCore, Internal: []string{"internal/model", "internal/graph"}},
 		{Package: "internal/classify", Layer: LayerCore, Internal: coreModel()},
 		{Package: "internal/rules", Layer: LayerCore, Internal: coreModel("internal/eval", "internal/graph", "internal/paths")},
@@ -188,7 +189,7 @@ func ioRules() []*Rule {
 		{
 			Package: "internal/collect/k8s/manifests", Layer: LayerIO,
 			Internal: plus(collectDeps, "internal/collect/k8sraw"),
-			External: plus(k8sExt, extSigsYAML),
+			External: plus(k8sExt, extSigsYAML, extYAMLv3),
 		},
 		{
 			Package: "internal/collect/k8s/live", Layer: LayerIO,

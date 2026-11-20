@@ -50,6 +50,9 @@ func (e expander) ExpandPattern(s string, m arn.Mode) (arn.Pattern, model.Tri) {
 // to an absent key without a default (the value then matches nothing), and
 // Unknown when a referenced value is not known.
 func (e expander) expand(s string) ([]part, model.Tri) {
+	if model.ContainsUnresolved(s) {
+		return nil, model.Unknown // a value the collector could not resolve, in any policy version
+	}
 	if !e.enabled {
 		return []part{{text: s}}, model.True
 	}

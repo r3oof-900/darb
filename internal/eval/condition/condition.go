@@ -36,6 +36,9 @@ func Evaluate(c *model.Condition, ctx *Context, x Expander) Result {
 	if !ok {
 		return unknown("unsupported condition operator %q", c.Operator())
 	}
+	if model.ContainsUnresolved(c.Key()) {
+		return unknown("condition key %s was not resolved in the source", c.Key())
+	}
 	policy := c.Values()
 	if len(policy) == 0 {
 		return unknown("%s on %s has an empty value list; AWS behaviour for this is not documented", c.Operator(), c.Key())
