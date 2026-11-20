@@ -14,16 +14,30 @@ import (
 // identity (docs/DESIGN.md section 5: never "keep first, drop second").
 var ErrDuplicate = errors.New("normalize: duplicate definition")
 
+// ErrUnregisteredPlaceholder is returned when the inventory contains an
+// unresolved placeholder that no normalizer created through Placeholder.
+// Input containing the reserved text is rejected earlier, with its file:line;
+// this is the last line of defence, and it fails closed.
+var ErrUnregisteredPlaceholder = errors.New("normalize: unresolved placeholder not created by a normalizer")
+
 // Builder accumulates an Inventory and rejects duplicate node definitions.
 type Builder struct {
-	inv  model.Inventory
-	seen map[model.ID]model.SourceLocation
-	errs []error
+	inv          model.Inventory
+	seen         map[model.ID]model.SourceLocation
+	placeholders map[string]bool
+	errs         []error
 }
 
 // NewBuilder returns an empty builder.
 func NewBuilder() *Builder {
-	return &Builder{seen: map[model.ID]model.SourceLocation{}}
+	return &Builder{seen: map[model.ID]model.SourceLocation{}, placeholders: map[string]bool{}}
+}
+
+// Placeholder returns the unresolved placeholder for id and registers it.
+// Normalizers create every placeholder through it; Build rejects any other.
+func (b *Builder) Placeholder(id string) string {
+	b.placeholders[id] = true
+	return model.UnresolvedPlaceholder(id)
 }
 
 func (b *Builder) claim(id model.ID, identity string, src *model.SourceLocation) bool {
@@ -113,6 +127,7 @@ func (b *Builder) AddMapping(m *model.IdentityMapping) { b.inv.Mappings = append
 // Build sorts everything into a deterministic order and returns the
 // inventory, or every duplicate-definition error found.
 func (b *Builder) Build() (*model.Inventory, error) {
+	b.checkPlaceholders()
 	if len(b.errs) > 0 {
 		return nil, errors.Join(b.errs...)
 	}

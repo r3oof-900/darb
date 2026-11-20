@@ -19,7 +19,9 @@ import (
 // carrying the source text and position, and recorded as a coverage gap.
 func (m *rootModule) exprValue(e hclsyntax.Expression, address string) *tfraw.Value {
 	if v, ok := known(e, m.ctx); ok {
-		return fromCty(v)
+		out := fromCty(v)
+		out.Pos = pos(e.Range()) // nested values report this position
+		return out
 	}
 	switch x := e.(type) {
 	case *hclsyntax.ObjectConsExpr:

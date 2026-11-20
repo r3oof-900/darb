@@ -22,11 +22,11 @@ func FuzzEvaluate(f *testing.F) {
 			return
 		}
 		ps := &PolicySet{ResourcePolicyRequired: kind%2 == 0}
-		if d, err := iampolicy.Parse(policy, &iampolicy.Options{ID: "id", Kind: model.PolicyIdentity}); err == nil {
+		if d, err := iampolicy.Parse(policy, &iampolicy.Options{ID: "id", Kind: model.PolicyIdentity, Placeholders: true}); err == nil {
 			ps.Identity = []*model.PolicyDocument{d}
 			ps.Boundary = d
 		}
-		if d, err := iampolicy.Parse(policy, &iampolicy.Options{ID: "res", Kind: model.PolicyResource}); err == nil {
+		if d, err := iampolicy.Parse(policy, &iampolicy.Options{ID: "res", Kind: model.PolicyResource, Placeholders: true}); err == nil {
 			ps.Resource = []*model.PolicyDocument{d}
 		}
 		kinds := []match.PrincipalKind{

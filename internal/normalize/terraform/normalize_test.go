@@ -140,10 +140,10 @@ func TestPolicyDocumentRendering(t *testing.T) {
 }
 
 func TestPlaceholderAndHelpers(t *testing.T) {
-	if p := placeholder(`var.a "b"/c`); p != "${clapa:unresolved:var.a__b__c}" {
+	if p := placeholderID(`var.a "b"/c`); p != "var.a__b__c" {
 		t.Errorf("placeholder %q", p)
 	}
-	if !strings.Contains(defaultKeyPolicy("aws", placeholder("account_of_x")), ":iam::${clapa:unresolved:account_of_x}:root") {
+	if !strings.Contains(defaultKeyPolicy("aws", model.UnresolvedPlaceholder("account_of_x")), ":iam::${clapa:unresolved:account_of_x}:root") {
 		t.Error("an unknown account keeps the default key policy's delegation unresolved")
 	}
 	if kindName(99) != "value" || kindName(0) != "null" {

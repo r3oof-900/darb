@@ -10,7 +10,15 @@ import "strings"
 // evaluator always treats as UNKNOWN, wherever it appears (Action, Resource,
 // Principal, condition key or value) and whatever the policy Version. The
 // "clapa:" namespace cannot collide with AWS condition keys.
+//
+// Only the normalizer creates placeholders (normalize.Builder.Placeholder
+// registers each one). Input text that contains the prefix is rejected as
+// invalid input with its file:line, so a file cannot turn a definite answer
+// into UNKNOWN by writing the reserved text (docs/DESIGN.md section 4.6).
 const unresolvedPrefix = "${clapa:unresolved:"
+
+// UnresolvedPrefix is the reserved text every placeholder starts with.
+const UnresolvedPrefix = unresolvedPrefix
 
 // UnresolvedPlaceholder returns the placeholder for unresolved value id.
 func UnresolvedPlaceholder(id string) string {
@@ -20,6 +28,28 @@ func UnresolvedPlaceholder(id string) string {
 // ContainsUnresolved reports whether s contains an unresolved placeholder.
 func ContainsUnresolved(s string) bool {
 	return strings.Contains(s, unresolvedPrefix)
+}
+
+// CountUnresolved counts the placeholders in s.
+func CountUnresolved(s string) int { return strings.Count(s, unresolvedPrefix) }
+
+// UnresolvedIDs returns the ids of the placeholders in s, in order. An
+// unterminated placeholder's id runs to the end of s.
+func UnresolvedIDs(s string) []string {
+	var out []string
+	for {
+		i := strings.Index(s, unresolvedPrefix)
+		if i < 0 {
+			return out
+		}
+		s = s[i+len(unresolvedPrefix):]
+		j := strings.IndexByte(s, '}')
+		if j < 0 {
+			return append(out, s)
+		}
+		out = append(out, s[:j])
+		s = s[j+1:]
+	}
 }
 
 // SplitUnresolved returns the known pieces of s around its placeholders:

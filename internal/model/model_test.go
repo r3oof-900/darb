@@ -240,6 +240,23 @@ func TestUnresolvedPlaceholder(t *testing.T) {
 	}
 }
 
+func TestUnresolvedIDs(t *testing.T) {
+	u := UnresolvedPlaceholder
+	cases := map[string][]string{
+		"plain":                            nil,
+		"a" + u("x") + "b" + u("y.z"):      {"x", "y.z"},
+		u("x") + UnresolvedPrefix + "open": {"x", "open"},
+	}
+	for in, want := range cases {
+		if got := UnresolvedIDs(in); strings.Join(got, "|") != strings.Join(want, "|") || len(got) != len(want) {
+			t.Errorf("UnresolvedIDs(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if CountUnresolved(u("a")+u("b")) != 2 || CountUnresolved("x") != 0 {
+		t.Error("CountUnresolved")
+	}
+}
+
 func TestSplitUnresolved(t *testing.T) {
 	u := UnresolvedPlaceholder("x")
 	cases := map[string][]string{

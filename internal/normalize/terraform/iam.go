@@ -49,7 +49,7 @@ func (n *norm) role(r *tfraw.Resource) model.ID {
 	// › aws_iam_role). A configured value that is not known stays unknown.
 	if v, ok := r.Attrs.Get("inline_policy"); ok && unknownBlock(v) {
 		n.gap(coverage.KindUnresolved, r, "inline_policy is not known statically; treated as unknown")
-		n.b.AddPolicy(&model.AttachedPolicy{Target: p.ID(), Doc: unknownDoc(r.Address+".inline_policy", model.PolicyIdentity, &s)})
+		n.b.AddPolicy(&model.AttachedPolicy{Target: p.ID(), Doc: n.unknownDoc(r.Address+".inline_policy", model.PolicyIdentity, &s)})
 	}
 	for i, ip := range r.Attrs.Blocks("inline_policy") {
 		name, _ := n.str(r.Root, valueOf(ip, "name"))
@@ -108,7 +108,7 @@ func (n *norm) managed(r *tfraw.Resource, v *tfraw.Value, kind model.PolicyKind)
 	if !ok || !managedpolicies.IsAWSManaged(policyARN) {
 		n.gap(coverage.KindUnresolved, r, "managed policy "+policyARN+" is not defined in the input; treated as unknown")
 	}
-	return unknownDoc(policyARN, kind, &s)
+	return n.unknownDoc(policyARN, kind, &s)
 }
 
 // unknownBlock: a configured block whose content is not known (a dynamic

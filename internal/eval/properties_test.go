@@ -108,7 +108,7 @@ func mustDoc(t fataler, id string, kind model.PolicyKind, stmts []map[string]any
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	d, err := iampolicy.Parse(js, &iampolicy.Options{ID: id, Kind: kind})
+	d, err := iampolicy.Parse(js, &iampolicy.Options{ID: id, Kind: kind, Placeholders: true})
 	if err != nil {
 		t.Fatalf("%s: %v\n%s", id, err, js)
 	}

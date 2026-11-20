@@ -343,6 +343,7 @@ linters:
             - "$gostd"
             - "github.com/r3oof-900/clapa/internal/coverage$"
             - "github.com/r3oof-900/clapa/internal/safeio$"
+            - "net/url$"
           deny:
             - pkg: "os/exec"
               desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
@@ -659,6 +660,8 @@ linters:
             - "github.com/r3oof-900/clapa/internal/classify$"
             - "sigs.k8s.io/yaml$"
             - "sigs.k8s.io/yaml/"
+            - "go.yaml.in/yaml/v3$"
+            - "go.yaml.in/yaml/v3/"
           deny:
             - pkg: "os"
               desc: "forbidden in the pure layer (docs/DESIGN.md section 3)"

@@ -42,13 +42,13 @@ func (n *norm) policyDocJSON(r *tfraw.Resource) string {
 
 // withUnknownStatements appends the unknown allow and deny to a rendered
 // policy document that is incomplete.
-func withUnknownStatements(text, id string, resourcePolicy bool) string {
+func (n *norm) withUnknownStatements(text, id string, resourcePolicy bool) string {
 	var doc map[string]any
 	if json.Unmarshal([]byte(text), &doc) != nil {
 		return text
 	}
 	stmts, _ := doc["Statement"].([]any)
-	doc["Statement"] = append(stmts, unknownStatements(id, resourcePolicy)...)
+	doc["Statement"] = append(stmts, n.unknownStatements(id, resourcePolicy)...)
 	js, _ := json.Marshal(doc)
 	return string(js)
 }
@@ -116,8 +116,8 @@ func valueOf(o *tfraw.Object, key string) *tfraw.Value {
 // unknownStatements stand for policy content that is not available: an
 // allow and a deny that may apply to anything. They make every decision
 // they touch UNKNOWN, never ALLOW and never "safe".
-func unknownStatements(id string, resourcePolicy bool) []any {
-	p := placeholder(id)
+func (n *norm) unknownStatements(id string, resourcePolicy bool) []any {
+	p := n.placeholder(id)
 	allow := map[string]any{"Effect": "Allow", "Action": p, "Resource": p}
 	deny := map[string]any{"Effect": "Deny", "Action": p, "Resource": "*"}
 	if resourcePolicy {
@@ -132,10 +132,10 @@ func unknownStatements(id string, resourcePolicy bool) []any {
 func (n *norm) parsePolicy(r *tfraw.Resource, id string, kind model.PolicyKind, text string, ok bool) *model.PolicyDocument {
 	s := src(r)
 	if from, merged := n.incomplete[text]; ok && merged {
-		text = withUnknownStatements(text, from+".merged", kind == model.PolicyResource)
+		text = n.withUnknownStatements(text, from+".merged", kind == model.PolicyResource)
 	}
 	if ok {
-		d, err := iampolicy.Parse([]byte(text), &iampolicy.Options{ID: id, Kind: kind, Source: s})
+		d, err := iampolicy.Parse([]byte(text), &iampolicy.Options{ID: id, Kind: kind, Source: s, Placeholders: true})
 		if err == nil {
 			return d
 		}
@@ -143,13 +143,13 @@ func (n *norm) parsePolicy(r *tfraw.Resource, id string, kind model.PolicyKind, 
 	} else {
 		n.gap(coverage.KindUnresolved, r, id+": policy content is not available statically")
 	}
-	return unknownDoc(id, kind, &s)
+	return n.unknownDoc(id, kind, &s)
 }
 
-func unknownDoc(id string, kind model.PolicyKind, s *model.SourceLocation) *model.PolicyDocument {
+func (n *norm) unknownDoc(id string, kind model.PolicyKind, s *model.SourceLocation) *model.PolicyDocument {
 	js, _ := json.Marshal(map[string]any{
-		"Version": model.Version2012, "Statement": unknownStatements(id, kind == model.PolicyResource),
+		"Version": model.Version2012, "Statement": n.unknownStatements(id, kind == model.PolicyResource),
 	})
-	d, _ := iampolicy.Parse(js, &iampolicy.Options{ID: id, Kind: kind, Source: *s}) // always valid
+	d, _ := iampolicy.Parse(js, &iampolicy.Options{ID: id, Kind: kind, Source: *s, Placeholders: true}) // always valid
 	return d
 }

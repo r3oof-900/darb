@@ -1,7 +1,9 @@
 package iampolicy
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/r3oof-900/clapa/internal/model"
@@ -12,7 +14,16 @@ type Options struct {
 	ID     string // ARN, Terraform address, or a label used in evidence
 	Kind   model.PolicyKind
 	Source model.SourceLocation
+	// Placeholders: the caller wrote unresolved placeholders into the text
+	// itself, as plain text. Every placeholder in the decoded document must
+	// then be one of those; one produced by JSON escapes ("${clapa:...")
+	// is input. Without it, any placeholder is input.
+	Placeholders bool
 }
+
+// ErrReservedText is returned when a document contains CLAPA's reserved
+// placeholder text that the caller did not write: it is invalid input.
+var ErrReservedText = errors.New("iampolicy: input contains the reserved text " + model.UnresolvedPrefix + "...}")
 
 // Parse decodes an IAM policy JSON document. It never panics: any input that
 // is not a valid policy yields an error wrapping ErrMalformed (structure) or
@@ -21,6 +32,9 @@ func Parse(data []byte, opts *Options) (*model.PolicyDocument, error) {
 	v, err := decode(data)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", opts.ID, err)
+	}
+	if n := countReserved(v); n > 0 && (!opts.Placeholders || n > bytes.Count(data, []byte(model.UnresolvedPrefix))) {
+		return nil, fmt.Errorf("%s: %w", opts.ID, ErrReservedText)
 	}
 	in, err := toPolicyInput(v, opts)
 	if err != nil {
@@ -230,4 +244,28 @@ func stringList(v any, name string) ([]string, error) {
 		out = append(out, s)
 	}
 	return out, nil
+}
+
+// countReserved counts the placeholders in a decoded document's keys and
+// string values. A placeholder the caller wrote appears as plain text in the
+// input too, so it is counted once in each; one that only decoding produced
+// is counted here alone.
+func countReserved(v any) int {
+	switch x := v.(type) {
+	case string:
+		return model.CountUnresolved(x)
+	case []any:
+		n := 0
+		for _, item := range x {
+			n += countReserved(item)
+		}
+		return n
+	case *object:
+		n := 0
+		for _, f := range x.fields {
+			n += model.CountUnresolved(f.key) + countReserved(f.val)
+		}
+		return n
+	}
+	return 0
 }

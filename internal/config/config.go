@@ -6,9 +6,11 @@ import (
 	"slices"
 	"strings"
 
+	yamlv3 "go.yaml.in/yaml/v3"
 	"sigs.k8s.io/yaml"
 
 	"github.com/r3oof-900/clapa/internal/arn"
+	"github.com/r3oof-900/clapa/internal/model"
 )
 
 // ErrInvalid is returned for configuration that fails validation (exit code 2).
@@ -101,6 +103,9 @@ func Default() *Config {
 // typo cannot silently disable a setting.
 func Parse(data []byte) (*Config, error) {
 	c := Default()
+	if line, found := reservedLine(data); found {
+		return nil, fmt.Errorf("%w: clapa.yaml:%d contains the reserved text %s...}", ErrInvalid, line, model.UnresolvedPrefix)
+	}
 	if err := yaml.UnmarshalStrict(data, c); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
@@ -183,4 +188,27 @@ func (c *Config) Cluster(name string) (Cluster, bool) {
 		}
 	}
 	return Cluster{}, false
+}
+
+// reservedLine finds a key or value (as YAML decodes it) that contains the
+// placeholder text only the normalizer may create (docs/DESIGN.md 4.6).
+// Undecodable YAML is left to UnmarshalStrict to report.
+func reservedLine(data []byte) (int, bool) {
+	var doc yamlv3.Node
+	if yamlv3.Unmarshal(data, &doc) != nil {
+		return 0, false
+	}
+	return reservedNode(&doc)
+}
+
+func reservedNode(n *yamlv3.Node) (int, bool) {
+	if n.Kind == yamlv3.ScalarNode && model.ContainsUnresolved(n.Value) {
+		return n.Line, true
+	}
+	for _, c := range n.Content {
+		if line, ok := reservedNode(c); ok {
+			return line, true
+		}
+	}
+	return 0, false
 }

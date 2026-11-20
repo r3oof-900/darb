@@ -69,13 +69,13 @@ func (n *norm) attach(r *tfraw.Resource, targets []roleTarget, d *model.PolicyDo
 	for _, t := range targets {
 		doc := d
 		if t.uncertain {
-			doc = onlyIfSelected(d, placeholder("selects."+r.Address+"->"+string(t.id)))
+			doc = n.onlyIfSelected(d, n.placeholder("selects."+r.Address+"->"+string(t.id)))
 		}
 		n.b.AddPolicy(&model.AttachedPolicy{Target: t.id, Doc: doc})
 	}
 }
 
-func onlyIfSelected(d *model.PolicyDocument, key string) *model.PolicyDocument {
+func (n *norm) onlyIfSelected(d *model.PolicyDocument, key string) *model.PolicyDocument {
 	in := &model.PolicyInput{ID: d.ID(), Kind: d.Kind(), Version: d.Version(), Source: *d.Source()}
 	for _, s := range d.Statements() {
 		st := &model.StatementInput{Sid: s.Sid(), Effect: s.Effect(), Conditions: s.Conditions()}
@@ -99,7 +99,7 @@ func onlyIfSelected(d *model.PolicyDocument, key string) *model.PolicyDocument {
 	}
 	out, err := model.NewPolicyDocument(in)
 	if err != nil { // unreachable: the statements came from a valid document
-		return unknownDoc(d.ID(), d.Kind(), d.Source())
+		return n.unknownDoc(d.ID(), d.Kind(), d.Source())
 	}
 	return out
 }

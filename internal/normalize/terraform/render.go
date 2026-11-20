@@ -5,13 +5,17 @@ import (
 	"strings"
 
 	"github.com/r3oof-900/clapa/internal/collect/tfraw"
+	"github.com/r3oof-900/clapa/internal/coverage"
 	"github.com/r3oof-900/clapa/internal/model"
 )
 
-// placeholder renders an unresolved value; the id is the source expression,
-// restricted to a safe alphabet so it cannot break the surrounding JSON or
-// the ${...} syntax.
-func placeholder(expr string) string {
+// placeholder renders an unresolved value and registers it with the
+// builder (only registered placeholders may reach the inventory).
+func (n *norm) placeholder(expr string) string { return n.b.Placeholder(placeholderID(expr)) }
+
+// placeholderID is the source expression restricted to a safe alphabet, so
+// it cannot break the surrounding JSON or the ${...} syntax.
+func placeholderID(expr string) string {
 	var b strings.Builder
 	for _, r := range expr {
 		if r == '.' || r == '-' || r == '_' || r == '[' || r == ']' || ('a' <= r && r <= 'z') || ('A' <= r && r <= 'Z') || ('0' <= r && r <= '9') {
@@ -20,7 +24,7 @@ func placeholder(expr string) string {
 			b.WriteByte('_')
 		}
 	}
-	return model.UnresolvedPlaceholder(b.String())
+	return b.String()
 }
 
 // str renders a value as a string. ok is false when any part is unresolved
@@ -40,19 +44,36 @@ func (n *norm) str(root string, v *tfraw.Value) (string, bool) {
 	case tfraw.KRef:
 		return n.resolveRef(root, v.Ref)
 	case tfraw.KTemplate:
-		var b strings.Builder
-		ok := true
-		for _, p := range v.List {
-			s, pok := n.str(root, p)
-			b.WriteString(s)
-			ok = ok && pok
-		}
-		return b.String(), ok
+		return n.template(root, v)
 	case tfraw.KUnresolved, tfraw.KUnknownAfterApply:
-		return placeholder(v.Expr), false
+		return n.placeholder(v.Expr), false
 	case tfraw.KNull, tfraw.KList, tfraw.KObject:
 	}
-	return placeholder("<" + kindName(v.Kind) + ">"), false
+	return n.placeholder("<" + kindName(v.Kind) + ">"), false
+}
+
+// template joins a template's parts. Each part was checked on its own, but
+// the reserved text can also be assembled from input pieces
+// ("$${cla" + var.x + "pa:unresolved:...}"): the parts are joined again with
+// every placeholder this normalizer made blanked out, and if the input text
+// alone contains the reserved prefix, the template is rejected.
+func (n *norm) template(root string, v *tfraw.Value) (string, bool) {
+	var b, input strings.Builder
+	ok := true
+	for _, p := range v.List {
+		s, pok := n.str(root, p)
+		b.WriteString(s)
+		ok = ok && pok
+		input.WriteString(strings.Join(model.SplitUnresolved(s), " "))
+	}
+	if model.ContainsUnresolved(input.String()) {
+		n.rec.Add(&coverage.Gap{
+			Kind: coverage.KindParseError, Source: Name, File: v.Pos.File, Line: v.Pos.StartLine,
+			Detail: "template builds the reserved text " + model.UnresolvedPrefix + "...}: rejected as invalid input, treated as unknown",
+		})
+		return n.placeholder("rejected_input"), false
+	}
+	return b.String(), ok
 }
 
 func kindName(k tfraw.Kind) string {
@@ -74,7 +95,7 @@ func kindName(k tfraw.Kind) string {
 func (n *norm) resolveRef(root string, ref *tfraw.Ref) (string, bool) {
 	t := n.lookup(root, ref.Address)
 	if t == nil {
-		return placeholder(ref.String()), false
+		return n.placeholder(ref.String()), false
 	}
 	switch ref.Attr {
 	case "arn":
@@ -89,7 +110,7 @@ func (n *norm) resolveRef(root string, ref *tfraw.Ref) (string, bool) {
 	if s, ok := t.Attrs.Str(ref.Attr); ok {
 		return s, true
 	}
-	return placeholder(ref.String()), false
+	return n.placeholder(ref.String()), false
 }
 
 // nameLike: role/policy "id" is the name; bucket "id" is the bucket name;

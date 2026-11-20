@@ -137,3 +137,45 @@ func TestParseSizeLimit(t *testing.T) {
 		t.Fatalf("want ErrMalformed for oversized input, got %v", err)
 	}
 }
+
+// Reserved placeholder text in input is rejected (docs/DESIGN.md section
+// 4.6); a caller that wrote placeholders itself may keep exactly those.
+func TestReservedText(t *testing.T) {
+	ph := model.UnresolvedPlaceholder("var.env")
+	// JSON escapes are built here, so no tool that writes this file can turn
+	// them into the characters they stand for.
+	esc := func(hex string) string { return string(rune(0x5c)) + "u" + hex }
+	dollar, brace := esc("0024"), esc("007b")
+	doc := func(action, resource string) string {
+		return `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"` + action + `","Resource":"` + resource + `"}]}`
+	}
+	cases := []struct {
+		name, text   string
+		placeholders bool
+		ok           bool
+	}{
+		{"no placeholder", doc("s3:GetObject", "*"), false, true},
+		{"input placeholder", doc(ph, "*"), false, false},
+		{"caller placeholder", doc(ph, "*"), true, true},
+		{"JSON-escaped placeholder", doc(dollar+"{clapa:unresolved:var.env}", "*"), true, false},
+		{"escaped next to a caller one", doc(ph, dollar+"{clapa:unresolved:var.env}"), true, false},
+		{"escaped brace", doc("$"+brace+"clapa:unresolved:x}", "*"), true, false},
+		{"in a condition key", `{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Action":"*","Resource":"*",` +
+			`"Condition":{"StringEquals":{"` + dollar + `{clapa:unresolved:k}":"v"}}}]}`, true, false},
+		{"in a principal list", `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"*","Resource":"*",` +
+			`"Principal":{"AWS":["arn:aws:iam::1:root","` + dollar + `{clapa:unresolved:p}"]}}]}`, true, false},
+	}
+	if !strings.Contains(cases[3].text, string(rune(0x5c))+"u0024") {
+		t.Fatal("the escape must reach the parser as an escape")
+	}
+	for _, c := range cases {
+		kind := model.PolicyIdentity
+		if strings.Contains(c.text, "Principal") {
+			kind = model.PolicyResource
+		}
+		_, err := Parse([]byte(c.text), &Options{ID: "p", Kind: kind, Placeholders: c.placeholders})
+		if (err == nil) != c.ok || (err != nil && !errors.Is(err, ErrReservedText)) {
+			t.Errorf("%s: err = %v, want ok=%v", c.name, err, c.ok)
+		}
+	}
+}

@@ -38,6 +38,7 @@ func Normalize(m *tfraw.Module, opts *Options, mp *managedpolicies.Snapshot, b *
 	for _, r := range m.Resources {
 		n.byAddr[r.Root+"|"+r.Address] = r
 	}
+	n.rejectReserved(m)
 	n.iam(m.Resources)
 	n.data(m.Resources)
 }
@@ -94,7 +95,7 @@ func (n *norm) account(r *tfraw.Resource) string {
 		return n.opts.Account
 	}
 	n.gap(coverage.KindUnresolved, r, "account unknown: set terraform.account in clapa.yaml or allowed_account_ids on the provider")
-	return placeholder("account_of_" + r.Root)
+	return n.placeholder("account_of_" + r.Root)
 }
 
 func (n *norm) region(r *tfraw.Resource) string {
@@ -105,7 +106,7 @@ func (n *norm) region(r *tfraw.Resource) string {
 		return n.opts.Region
 	}
 	n.gap(coverage.KindUnresolved, r, "region unknown: set terraform.region in clapa.yaml or region on the provider")
-	return placeholder("region_of_" + r.Root)
+	return n.placeholder("region_of_" + r.Root)
 }
 
 // pendingID is the deterministic stand-in for a value AWS generates at apply
@@ -158,7 +159,7 @@ func (n *norm) nameOf(r *tfraw.Resource) string {
 	}
 	if v, ok := r.Attrs.Get(key + "_prefix"); ok && v.Kind != tfraw.KNull {
 		prefix, _ := n.str(r.Root, v)
-		return prefix + placeholder(r.Address+".generated_suffix")
+		return prefix + n.placeholder(r.Address+".generated_suffix")
 	}
 	return pendingID(r)
 }

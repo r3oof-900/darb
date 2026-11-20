@@ -77,11 +77,11 @@ func (n *norm) parse(raw json.RawMessage, id string, kind model.PolicyKind, loc 
 		err = perr
 	}
 	n.gap(coverage.KindParseError, id, err.Error())
-	return unknownDoc(id, kind, loc)
+	return n.unknownDoc(id, kind, loc)
 }
 
-func unknownDoc(id string, kind model.PolicyKind, loc *model.SourceLocation) *model.PolicyDocument {
-	p := model.UnresolvedPlaceholder(strings.NewReplacer(":", "_", "/", "_").Replace(id))
+func (n *norm) unknownDoc(id string, kind model.PolicyKind, loc *model.SourceLocation) *model.PolicyDocument {
+	p := n.b.Placeholder(strings.NewReplacer(":", "_", "/", "_").Replace(id))
 	allow := map[string]any{"Effect": "Allow", "Action": p, "Resource": p}
 	deny := map[string]any{"Effect": "Deny", "Action": p, "Resource": "*"}
 	if kind == model.PolicyResource {
@@ -89,7 +89,7 @@ func unknownDoc(id string, kind model.PolicyKind, loc *model.SourceLocation) *mo
 		deny["Principal"] = map[string]any{"AWS": p}
 	}
 	js, _ := json.Marshal(map[string]any{"Version": model.Version2012, "Statement": []any{allow, deny}})
-	d, _ := iampolicy.Parse(js, &iampolicy.Options{ID: id, Kind: kind, Source: *loc}) // always valid
+	d, _ := iampolicy.Parse(js, &iampolicy.Options{ID: id, Kind: kind, Source: *loc, Placeholders: true}) // always valid
 	return d
 }
 

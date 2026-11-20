@@ -18,7 +18,7 @@ vars:
   FUZZ_TARGETS: >-
     internal/arn:FuzzParse internal/arn:FuzzMatch internal/iampolicy:FuzzParse internal/eval:FuzzEvaluate
     internal/collect/terraform/plan:FuzzPlanJSON internal/collect/terraform/hclstatic:FuzzModule
-    internal/collect/k8s/manifests:FuzzDocuments
+    internal/collect/k8s/manifests:FuzzDocuments internal/normalize/terraform:FuzzReservedText
   FUZZTIME: 5m
   # Packages gated at >= 95% branch coverage (gobco), docs/DESIGN.md section 6.4.
   BRANCH_PKGS: internal/eval internal/eval/condition internal/eval/match internal/arn internal/iampolicy internal/model

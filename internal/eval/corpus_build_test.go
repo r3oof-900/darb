@@ -129,7 +129,7 @@ func doc(t *testing.T, id string, kind model.PolicyKind, raw json.RawMessage) *m
 	if err != nil {
 		t.Fatal(err)
 	}
-	d, err := iampolicy.Parse(js, &iampolicy.Options{ID: id, Kind: kind})
+	d, err := iampolicy.Parse(js, &iampolicy.Options{ID: id, Kind: kind, Placeholders: true}) // the corpus stands in for the normalizer
 	if err != nil {
 		t.Fatalf("%s: %v", id, err)
 	}

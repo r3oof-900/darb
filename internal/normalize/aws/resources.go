@@ -63,7 +63,7 @@ func (n *norm) managedDoc(policyARN string, kind model.PolicyKind) *model.Policy
 		}
 	}
 	n.gap(coverage.KindNotModelled, policyARN, "managed policy document not available; treated as unknown")
-	return unknownDoc(policyARN, kind, &loc)
+	return n.unknownDoc(policyARN, kind, &loc)
 }
 
 func (n *norm) keys() {

@@ -133,7 +133,7 @@ func pureRules() []*Rule {
 		{Package: "internal/redact", Layer: LayerPure},
 		{Package: "internal/version", Layer: LayerPure},
 		{Package: "internal/managedpolicies", Layer: LayerPure},
-		{Package: "internal/config", Layer: LayerPure, Internal: coreModel("internal/classify"), External: []string{extSigsYAML}},
+		{Package: "internal/config", Layer: LayerPure, Internal: coreModel("internal/classify"), External: []string{extSigsYAML, extYAMLv3}},
 		{Package: "internal/collect/tfraw", Layer: LayerPure, External: []string{extHCL, extTFJSON, extCty}},
 		{Package: "internal/collect/k8sraw", Layer: LayerPure, External: []string{extK8sAPI, extK8sMach}},
 		{Package: "internal/collect/awsraw", Layer: LayerPure, External: []string{extAWSSDK}},
@@ -183,7 +183,7 @@ func ioRules() []*Rule {
 	k8sExt := []string{extK8sAPI, extK8sMach, extClientGo}
 	return []*Rule{
 		{Package: "internal/safeio", Layer: LayerIO},
-		{Package: "internal/collect", Layer: LayerIO, Internal: []string{"internal/coverage", "internal/safeio"}},
+		{Package: "internal/collect", Layer: LayerIO, Internal: []string{"internal/coverage", "internal/safeio"}, ExtraStd: []string{"net/url"}, TestInternal: []string{"internal/model"}},
 		{
 			Package: "internal/collect/terraform/plan", Layer: LayerIO,
 			Internal: plus(collectDeps, "internal/collect/tfraw"),

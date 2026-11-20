@@ -93,6 +93,9 @@ func (r *reader) json(rel string, v any) error {
 	if err := safeio.CheckJSONDepth(data, r.in.Limits.MaxDepth); err != nil {
 		return err
 	}
+	if line, found := collect.FindReservedJSON(data); found {
+		return &collect.ReservedTextError{Line: line} // the file is rejected
+	}
 	if err := json.Unmarshal(data, v); err != nil {
 		return fmt.Errorf("%s: %w", rel, err)
 	}
@@ -142,7 +145,11 @@ func (r *reader) account(a *awsraw.Account, files []string) {
 			err = errUnknownFile
 		}
 		if err != nil {
-			r.gap(&coverage.Gap{Kind: kindFor(err), Account: a.ID, File: path.Join(r.in.Path, f), Detail: err.Error()})
+			line := 0
+			if re := (*collect.ReservedTextError)(nil); errors.As(err, &re) {
+				line = re.Line
+			}
+			r.gap(&coverage.Gap{Kind: kindFor(err), Account: a.ID, File: path.Join(r.in.Path, f), Line: line, Detail: err.Error()})
 		}
 	}
 	a.Buckets, a.Keys, a.Clusters = sortedValues(buckets), sortedValues(keys), sortedValues(clusters)

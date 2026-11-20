@@ -115,6 +115,11 @@ func (d *decoder) document(name string, doc *yaml.Node) *k8sraw.Object {
 		d.gap(coverage.KindParseError, name, root.Line, fmt.Sprintf("document exceeds limits (depth %d, aliases %d)", depth, aliases))
 		return nil
 	}
+	if line, found := reserved(root); found {
+		// Rejected as invalid input: the document is not loaded.
+		d.gap(coverage.KindParseError, name, line, collect.ErrReservedText.Error()+"; document rejected")
+		return nil
+	}
 	js, err := toJSON(root)
 	if err != nil {
 		d.gap(coverage.KindParseError, name, root.Line, err.Error())
@@ -174,4 +179,18 @@ func toJSON(n *yaml.Node) ([]byte, error) {
 		return nil, fmt.Errorf("convert document to JSON: %w", err)
 	}
 	return js, nil
+}
+
+// reserved finds a key or value (decoded by YAML, escapes included) that
+// contains the reserved placeholder text, and returns its line.
+func reserved(n *yaml.Node) (int, bool) {
+	if n.Kind == yaml.ScalarNode && collect.ContainsReserved(n.Value) {
+		return n.Line, true
+	}
+	for _, c := range n.Content {
+		if line, ok := reserved(c); ok {
+			return line, true
+		}
+	}
+	return 0, false
 }

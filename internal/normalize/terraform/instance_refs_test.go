@@ -104,7 +104,7 @@ resource "aws_s3_bucket_policy" "b" {
 	if d == nil {
 		t.Fatal("bucket policy not found")
 	}
-	got := onlyIfSelected(d, placeholder("k")).Statements()
+	got := (&norm{b: normalize.NewBuilder()}).onlyIfSelected(d, model.UnresolvedPlaceholder("k")).Statements()
 	deny, allow := got[0], got[1]
 	acts, negA := deny.Actions()
 	res, negR := deny.Resources()
@@ -112,7 +112,7 @@ resource "aws_s3_bucket_policy" "b" {
 	if deny.Sid() != "N" || deny.Effect() != model.EffectDeny || acts[0] != "s3:Get*" || !negA || res[0] != "arn:aws:s3:::b/x" || !negR || !negP {
 		t.Errorf("negated statement changed: %+v", deny)
 	}
-	if c := deny.Conditions(); len(c) != 2 || c[1].Key() != placeholder("k") {
+	if c := deny.Conditions(); len(c) != 2 || c[1].Key() != model.UnresolvedPlaceholder("k") {
 		t.Errorf("conditions: %+v", c)
 	}
 	if p, neg := allow.Principal(); neg || !p.Wildcard() || len(allow.Conditions()) != 1 {
