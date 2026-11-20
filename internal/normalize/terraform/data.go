@@ -27,7 +27,7 @@ func (n *norm) data(rs []*tfraw.Resource) {
 		if r.Type == "aws_s3_bucket" && r.Mode == "managed" {
 			// Since January 2023 S3 encrypts new objects with SSE-S3 by default
 			// (S3 User Guide › "Default encryption"); a config resource overrides it.
-			f := &bucketFacts{r: r, enc: model.Encryption{Type: "AES256"}, encDefault: true, restrict: model.Unknown}
+			f := &bucketFacts{r: r, enc: model.Encryption{Type: "AES256", BucketKey: model.Unknown}, encDefault: true, restrict: model.Unknown}
 			buckets[r.Root+"|"+n.nameOf(r)], buckets[r.Root+"|"+r.Address] = f, f
 		}
 	}
@@ -67,7 +67,11 @@ func (n *norm) bucketPart(r *tfraw.Resource, buckets map[string]*bucketFacts) {
 		f.policies = append(f.policies, n.parsePolicy(r, r.Address, model.PolicyResource, text, ok))
 	case "aws_s3_bucket_server_side_encryption_configuration":
 		f.encDefault = false
+		f.enc.BucketKey = model.Unknown
 		for _, rule := range r.Attrs.Blocks("rule") {
+			if v, ok := rule.Get("bucket_key_enabled"); ok && v.Kind == tfraw.KBool {
+				f.enc.BucketKey = model.TriOf(v.Bool)
+			}
 			for _, d := range rule.Blocks("apply_server_side_encryption_by_default") {
 				f.enc.Type, _ = n.str(r.Root, valueOf(d, "sse_algorithm"))
 				// Unset (or computed by the provider in a plan) means no key:

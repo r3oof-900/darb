@@ -47,6 +47,7 @@
     }
   ],
   "mappings": [],
+  "network_policies": [],
   "node_groups": [],
   "pod_identity": [
     {
@@ -127,7 +128,8 @@
       "defaulted": [],
       "encryption": {
         "Type": "aws:kms",
-        "KeyARN": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii"
+        "KeyARN": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+        "BucketKey": "unknown"
       },
       "kind": "aws:s3:bucket",
       "region": "us-east-1",
@@ -142,7 +144,8 @@
       "defaulted": [],
       "encryption": {
         "Type": "aws:kms",
-        "KeyARN": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.receipts"
+        "KeyARN": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.receipts",
+        "BucketKey": "unknown"
       },
       "kind": "aws:s3:bucket",
       "region": "us-east-1",

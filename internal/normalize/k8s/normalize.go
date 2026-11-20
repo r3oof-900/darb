@@ -4,6 +4,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 
 	"github.com/r3oof-900/clapa/internal/collect/k8sraw"
 	"github.com/r3oof-900/clapa/internal/coverage"
@@ -57,6 +58,30 @@ func Normalize(objs *k8sraw.Objects, b *normalize.Builder, rec *coverage.Recorde
 	n.rbac(objs.Items)
 	n.awsAuth(objs.Items)
 	n.secrets(objs.Items)
+	n.networkPolicies(objs.Items)
+}
+
+// networkPolicies: an unspecified policyTypes affects ingress (documented
+// default, model.DefaultNetPolTypes).
+func (n *norm) networkPolicies(items []*k8sraw.Object) {
+	for _, o := range items {
+		np, ok := o.Obj.(*networkingv1.NetworkPolicy)
+		if !ok {
+			continue
+		}
+		p := &model.NetworkPolicy{
+			Cluster: n.cluster, Namespace: o.Namespace, Name: o.Name, IngressRules: len(np.Spec.Ingress),
+			SelectsAll: len(np.Spec.PodSelector.MatchLabels) == 0 && len(np.Spec.PodSelector.MatchExpressions) == 0,
+			Source:     loc(o),
+		}
+		if len(np.Spec.PolicyTypes) == 0 {
+			p.Ingress, p.Defaulted = true, []string{model.DefaultNetPolTypes}
+		}
+		for _, t := range np.Spec.PolicyTypes {
+			p.Ingress = p.Ingress || t == networkingv1.PolicyTypeIngress
+		}
+		n.b.AddNetworkPolicy(p)
+	}
 }
 
 func loc(o *k8sraw.Object) model.SourceLocation {

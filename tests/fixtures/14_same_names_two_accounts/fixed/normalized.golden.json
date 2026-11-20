@@ -7,6 +7,7 @@
   "exposures": [],
   "gaps": [],
   "mappings": [],
+  "network_policies": [],
   "node_groups": [],
   "pod_identity": [],
   "policies": [
@@ -55,7 +56,8 @@
       "defaulted": [],
       "encryption": {
         "Type": "AES256",
-        "KeyARN": ""
+        "KeyARN": "",
+        "BucketKey": "unknown"
       },
       "kind": "aws:s3:bucket",
       "region": "us-east-1",
@@ -70,7 +72,8 @@
       "defaulted": [],
       "encryption": {
         "Type": "AES256",
-        "KeyARN": ""
+        "KeyARN": "",
+        "BucketKey": "unknown"
       },
       "kind": "aws:s3:bucket",
       "region": "us-east-1",

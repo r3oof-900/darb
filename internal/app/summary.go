@@ -53,6 +53,12 @@ func Summary(l *Loaded) ([]byte, error) {
 			"defaulted": nonNil(p.Defaulted), "source": loc(&p.Source),
 		}
 	})
+	s["network_policies"] = mapSlice(inv.NetworkPolicies, func(p *model.NetworkPolicy) any {
+		return map[string]any{
+			"cluster": p.Cluster, "namespace": p.Namespace, "name": p.Name, "default_deny_ingress": p.DefaultDenyIngress(),
+			"defaulted": nonNil(p.Defaulted), "source": loc(&p.Source),
+		}
+	})
 	s["addons"] = mapSlice(inv.Addons, func(a *model.ClusterAddon) any {
 		return map[string]any{"cluster": a.Cluster, "name": a.Name, "source": loc(&a.Source)}
 	})

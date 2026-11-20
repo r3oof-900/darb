@@ -197,3 +197,20 @@ func TestComputedPolicyAttributes(t *testing.T) {
 		}
 	}
 }
+
+func TestReferencesAddress(t *testing.T) {
+	cases := map[string]bool{
+		"aws_iam_role.r[each.value].id":          true,
+		"aws_iam_role.r.id":                      true,
+		"aws_iam_role.r":                         true,
+		"aws_iam_role.reader.id":                 false,
+		"data.aws_iam_role.r.id":                 false,
+		"x = aws_iam_role.rr, aws_iam_role.r[0]": true,
+		"other":                                  false,
+	}
+	for expr, want := range cases {
+		if got := referencesAddress(expr, "aws_iam_role.r"); got != want {
+			t.Errorf("referencesAddress(%q) = %v, want %v", expr, got, want)
+		}
+	}
+}

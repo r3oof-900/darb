@@ -112,6 +112,11 @@ func (b *Builder) AddPodIdentity(p *model.PodIdentityAssociation) {
 	b.inv.PodIdentity = append(b.inv.PodIdentity, p)
 }
 
+// AddNetworkPolicy records a Kubernetes NetworkPolicy.
+func (b *Builder) AddNetworkPolicy(p *model.NetworkPolicy) {
+	b.inv.NetworkPolicies = append(b.inv.NetworkPolicies, p)
+}
+
 // AddAddon records a cluster add-on.
 func (b *Builder) AddAddon(a *model.ClusterAddon) { b.inv.Addons = append(b.inv.Addons, a) }
 
@@ -145,6 +150,9 @@ func (b *Builder) Build() (*model.Inventory, error) {
 	})
 	slices.SortFunc(inv.PodIdentity, func(a, c *model.PodIdentityAssociation) int {
 		return strings.Compare(a.Cluster+"/"+a.Namespace+"/"+a.ServiceAccount, c.Cluster+"/"+c.Namespace+"/"+c.ServiceAccount)
+	})
+	slices.SortFunc(inv.NetworkPolicies, func(a, c *model.NetworkPolicy) int {
+		return strings.Compare(a.Cluster+"/"+a.Namespace+"/"+a.Name, c.Cluster+"/"+c.Namespace+"/"+c.Name)
 	})
 	slices.SortFunc(inv.Addons, func(a, c *model.ClusterAddon) int { return strings.Compare(a.Cluster+"/"+a.Name, c.Cluster+"/"+c.Name) })
 	slices.SortFunc(inv.NodeGroups, func(a, c *model.NodeGroup) int { return strings.Compare(a.Cluster+"/"+a.Name, c.Cluster+"/"+c.Name) })

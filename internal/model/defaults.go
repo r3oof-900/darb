@@ -22,6 +22,7 @@ const (
 	DefaultS3Encryption      = "s3.default-encryption"
 	DefaultPodIdentitySTags  = "eks.pod-identity.disableSessionTags"
 	DefaultUnsetRoleBindings = "terraform.aws_iam_role.managed_policy_arns"
+	DefaultNetPolTypes       = "k8s.networkPolicy.policyTypes"
 )
 
 // DocumentedDefault is one deterministic default and where it is documented.
@@ -76,6 +77,11 @@ func DocumentedDefaults() []DocumentedDefault {
 			DefaultPodIdentitySTags, "Pod Identity association disableSessionTags", "false",
 			"https://docs.aws.amazon.com/eks/latest/APIReference/API_CreatePodIdentityAssociation.html",
 			"Disable the automatic sessions tags that are appended by EKS Pod Identity.",
+		},
+		{
+			DefaultNetPolTypes, "NetworkPolicy policyTypes", "includes Ingress",
+			"https://kubernetes.io/docs/reference/kubernetes-api/networking/network-policy-v1/",
+			"all policies (whether or not they contain an ingress section) are assumed to affect ingress",
 		},
 		{
 			DefaultUnsetRoleBindings, "Terraform aws_iam_role managed_policy_arns and inline_policy, not configured", "no attachments added",

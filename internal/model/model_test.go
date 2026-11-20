@@ -286,3 +286,11 @@ func TestDocumentedDefaultsTable(t *testing.T) {
 		t.Error("unknown key")
 	}
 }
+
+func TestTriMarshalText(t *testing.T) {
+	for tri, want := range map[Tri]string{True: "true", False: "false", Unknown: "unknown"} {
+		if b, err := tri.MarshalText(); err != nil || string(b) != want {
+			t.Errorf("%d: %q %v", tri, b, err)
+		}
+	}
+}

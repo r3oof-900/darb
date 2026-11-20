@@ -28,6 +28,8 @@ const (
 	KindK8sSecret        NodeKind = "k8s:secret"
 	KindInternet         NodeKind = "net:internet"
 	KindTerraformPending NodeKind = "tf:pending" // resource whose ARN is unknown until apply
+	KindK8sNamespace     NodeKind = "k8s:namespace"
+	KindEKSNodeGroup     NodeKind = "aws:eks:nodegroup"
 )
 
 // ID is a node's stable identifier: the lowercase hex SHA-256 of

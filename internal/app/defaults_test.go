@@ -192,6 +192,35 @@ resource "aws_eks_pod_identity_association" "a" {
 				t.Errorf("unset: %s %v", a.SessionTagsDisabled, a.Defaulted)
 			}
 		}},
+		{model.DefaultNetPolTypes, func(t *testing.T) {
+			inv := loadTree(t, map[string]string{"k8s/np.yaml": `apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: unset
+  namespace: payments
+spec:
+  podSelector: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: egress-only
+  namespace: payments
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+`}, k8sOnly).Inventory
+			got := map[string]*model.NetworkPolicy{}
+			for _, p := range inv.NetworkPolicies {
+				got[p.Name] = p
+			}
+			if p := got["unset"]; p == nil || !p.DefaultDenyIngress() || !slices.Contains(p.Defaulted, model.DefaultNetPolTypes) {
+				t.Errorf("unset policyTypes affects ingress: %+v", p)
+			}
+			if p := got["egress-only"]; p == nil || p.Ingress || p.DefaultDenyIngress() || len(p.Defaulted) != 0 {
+				t.Errorf("stated Egress only: %+v", p)
+			}
+		}},
 		{model.DefaultUnsetRoleBindings, func(t *testing.T) {
 			inv := loadTree(t, map[string]string{"terraform/r.tf": roleHCL}, tfOnly).Inventory
 			if len(inv.Policies) != 0 {

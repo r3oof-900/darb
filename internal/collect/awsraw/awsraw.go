@@ -136,8 +136,9 @@ type Bucket struct {
 
 // Encryption is the default encryption rule (get-bucket-encryption).
 type Encryption struct {
-	SSEAlgorithm   string // "AES256", "aws:kms", "aws:kms:dsse"
-	KMSMasterKeyID string // key ARN, key ID or alias; "" for the AWS managed key
+	SSEAlgorithm     string // "AES256", "aws:kms", "aws:kms:dsse"
+	KMSMasterKeyID   string // key ARN, key ID or alias; "" for the AWS managed key
+	BucketKeyEnabled *bool  // the rule's BucketKeyEnabled; nil when not in the response
 }
 
 // PublicAccessBlock is get-public-access-block.

@@ -86,9 +86,9 @@ func (n *norm) buckets() {
 	for _, b := range n.acct.Buckets {
 		arn := "arn:" + n.acct.Partition + ":s3:::" + b.Name
 		loc := apiLoc(arn, "s3:GetBucketPolicy")
-		enc := model.Encryption{} // unknown unless get-bucket-encryption was collected
+		enc := model.Encryption{BucketKey: model.Unknown} // unknown unless get-bucket-encryption was collected
 		if b.Encryption != nil {
-			enc = model.Encryption{Type: b.Encryption.SSEAlgorithm, KeyARN: b.Encryption.KMSMasterKeyID}
+			enc = model.Encryption{Type: b.Encryption.SSEAlgorithm, KeyARN: b.Encryption.KMSMasterKeyID, BucketKey: optionalTri(b.Encryption.BucketKeyEnabled)}
 		}
 		restrict := model.Unknown
 		if b.PublicAccessBlock != nil {

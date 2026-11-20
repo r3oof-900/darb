@@ -195,6 +195,9 @@ func (w *Workload) Identity() string {
 	return K8sIdentity(w.cluster, w.namespace, w.kind, w.name)
 }
 
+// Cluster returns the cluster name.
+func (w *Workload) Cluster() string { return w.cluster }
+
 // Namespace returns the namespace.
 func (w *Workload) Namespace() string { return w.namespace }
 

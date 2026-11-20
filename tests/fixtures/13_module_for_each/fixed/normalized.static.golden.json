@@ -53,7 +53,7 @@
       "Region": "",
       "Account": "",
       "API": "",
-      "Detail": "attached role is not defined in the input; this policy is not attached to any analysed role"
+      "Detail": "role (aws_iam_role.r[each.value].id) is not known statically; the policy may apply to each instance it names (UNKNOWN)"
     },
     {
       "Kind": "unresolved",
@@ -141,9 +141,21 @@
     }
   ],
   "mappings": [],
+  "network_policies": [],
   "node_groups": [],
   "pod_identity": [],
-  "policies": [],
+  "policies": [
+    {
+      "kind": "identity",
+      "policy": "aws_iam_role_policy.read[*]",
+      "source": "terraform/modules/readers/main.tf:23-31 (aws_iam_role_policy.read[*])",
+      "statements": [
+        "Allow s3:GetObject on arn:aws:s3:::${clapa:unresolved:var.bucket}/* (1 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
+      "unresolved_statements": 1
+    }
+  ],
   "principals": [
     {
       "account": "111122223333",
@@ -162,7 +174,8 @@
       "defaulted": [],
       "encryption": {
         "Type": "AES256",
-        "KeyARN": ""
+        "KeyARN": "",
+        "BucketKey": "unknown"
       },
       "kind": "aws:s3:bucket",
       "region": "us-east-1",

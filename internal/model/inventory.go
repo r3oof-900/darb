@@ -9,6 +9,10 @@ package model
 type Encryption struct {
 	Type   string // "aws:kms", "aws:kms:dsse", "AES256", "none", or "" when unknown
 	KeyARN string // KMS key ARN, when Type is aws:kms*; "" means the AWS managed key
+	// BucketKey: S3 Bucket Key enabled. It decides the KMS encryption context
+	// (the bucket ARN with it, the object ARN without — S3 User Guide ›
+	// "Encryption context"); no default is documented, so unstated is Unknown.
+	BucketKey Tri
 }
 
 // S3Settings are the S3 facts the evaluator needs.
@@ -72,6 +76,28 @@ type PodIdentityAssociation struct {
 	SessionTagsDisabled Tri
 	Defaulted           []string // settings that took a documented default
 	Source              SourceLocation
+}
+
+// NetworkPolicy is the part of a Kubernetes NetworkPolicy the posture rules
+// read: whether it is a default deny for ingress in its namespace.
+type NetworkPolicy struct {
+	Cluster   string
+	Namespace string
+	Name      string
+	// SelectsAll: an empty podSelector (every pod of the namespace).
+	SelectsAll bool
+	// Ingress: the policy affects ingress (stated, or the documented default
+	// when policyTypes is not specified).
+	Ingress      bool
+	IngressRules int
+	Defaulted    []string
+	Source       SourceLocation
+}
+
+// DefaultDenyIngress reports whether the policy denies all ingress to every
+// pod of its namespace.
+func (p *NetworkPolicy) DefaultDenyIngress() bool {
+	return p.SelectsAll && p.Ingress && p.IngressRules == 0
 }
 
 // ClusterAddon is an EKS add-on installed on a cluster (for example the
@@ -139,6 +165,7 @@ type Inventory struct {
 	Exposures       []*NetworkExposure
 	PodIdentity     []*PodIdentityAssociation
 	Addons          []*ClusterAddon
+	NetworkPolicies []*NetworkPolicy
 	NodeGroups      []*NodeGroup
 	RBAC            []*RBACGrant
 	Mappings        []*IdentityMapping

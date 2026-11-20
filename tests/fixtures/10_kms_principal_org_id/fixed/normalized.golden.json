@@ -41,6 +41,7 @@
     }
   ],
   "mappings": [],
+  "network_policies": [],
   "node_groups": [],
   "pod_identity": [],
   "policies": [
@@ -97,7 +98,8 @@
       "defaulted": [],
       "encryption": {
         "Type": "aws:kms",
-        "KeyARN": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.shared"
+        "KeyARN": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.shared",
+        "BucketKey": "unknown"
       },
       "kind": "aws:s3:bucket",
       "region": "us-east-1",

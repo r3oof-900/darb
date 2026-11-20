@@ -68,3 +68,6 @@ func (t Tri) String() string {
 	}
 	return "unknown"
 }
+
+// MarshalText renders the value as "true", "false" or "unknown" in JSON.
+func (t Tri) MarshalText() ([]byte, error) { return []byte(t.String()), nil }

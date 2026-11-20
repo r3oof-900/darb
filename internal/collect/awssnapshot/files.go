@@ -19,13 +19,14 @@ func (r *reader) bucketFile(b *awsraw.Bucket, f, name string) error {
 						SSEAlgorithm   string `json:"SSEAlgorithm"`
 						KMSMasterKeyID string `json:"KMSMasterKeyID"`
 					} `json:"ApplyServerSideEncryptionByDefault"`
+					BucketKeyEnabled *bool `json:"BucketKeyEnabled"`
 				} `json:"Rules"`
 			} `json:"ServerSideEncryptionConfiguration"`
 		}
 		err := r.json(f, &v)
 		if rules := v.ServerSideEncryptionConfiguration.Rules; err == nil && len(rules) > 0 {
 			d := rules[0].ApplyServerSideEncryptionByDefault
-			b.Encryption = &awsraw.Encryption{SSEAlgorithm: d.SSEAlgorithm, KMSMasterKeyID: d.KMSMasterKeyID}
+			b.Encryption = &awsraw.Encryption{SSEAlgorithm: d.SSEAlgorithm, KMSMasterKeyID: d.KMSMasterKeyID, BucketKeyEnabled: rules[0].BucketKeyEnabled}
 		}
 		return err
 	case "get-public-access-block.json":
