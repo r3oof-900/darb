@@ -159,7 +159,7 @@ generates. Rules for reading the table:
 | `internal/normalize/k8s` | pure | `internal/model`, `internal/arn`, `internal/normalize`, `internal/coverage`, `internal/collect/k8sraw` | `k8s.io/api`, `k8s.io/apimachinery`, `sigs.k8s.io/yaml` | tests: `internal/collect`, `internal/collect/k8s/manifests`, `internal/safeio` |
 | `internal/normalize/terraform` | pure | `internal/model`, `internal/arn`, `internal/normalize`, `internal/coverage`, `internal/iampolicy`, `internal/managedpolicies`, `internal/collect/tfraw` | `github.com/hashicorp/hcl/v2`, `github.com/hashicorp/terraform-json`, `github.com/zclconf/go-cty` | tests: `internal/collect`, `internal/collect/terraform/hclstatic`, `internal/collect/terraform/plan`, `internal/safeio`, `internal/eval`, `internal/eval/match`, `internal/eval/condition` |
 | `internal/patch` | pure | `internal/model`, `internal/iampolicy`, `internal/remediate`, `internal/findings` | `github.com/hashicorp/hcl/v2`, `github.com/aymanbagabas/go-udiff` | — |
-| `internal/paths` | core | `internal/model`, `internal/graph` | — | — |
+| `internal/paths` | core | `internal/model`, `internal/graph` | — | tests: `internal/eval` |
 | `internal/redact` | pure | — (leaf) | — | — |
 | `internal/remediate` | core | `internal/model`, `internal/arn`, `internal/iampolicy`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/findings` | — | — |
 | `internal/report` | pure | `pkg/schema`, `internal/model`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/scoring`, `internal/findings`, `internal/coverage`, `internal/version` | — | — |
@@ -169,17 +169,18 @@ generates. Rules for reading the table:
 | `internal/report/junit` | pure | `internal/report`, `pkg/schema` | — | — |
 | `internal/report/markdown` | pure | `internal/report`, `pkg/schema` | — | — |
 | `internal/report/sarif` | pure | `internal/report`, `pkg/schema` | — | — |
-| `internal/rules` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/graph`, `internal/paths` | — | — |
+| `internal/rules` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/scoring` | — | — |
 | `internal/rules/catalog` | core | `internal/rules`, `internal/rules/pathrules`, `internal/rules/posture`, `internal/rules/escalation` | — | — |
-| `internal/rules/escalation` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/rules` | — | — |
-| `internal/rules/pathrules` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/rules` | — | — |
-| `internal/rules/posture` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/rules` | — | — |
+| `internal/rules/escalation` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/scoring`, `internal/access` | — | — |
+| `internal/rules/pathrules` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/scoring`, `internal/access` | — | — |
+| `internal/rules/posture` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/scoring`, `internal/access` | — | tests: `internal/iampolicy` |
 | `internal/safeio` | io | — (leaf) | — | — |
-| `internal/scoring` | core | `internal/model`, `internal/graph`, `internal/paths` | — | — |
+| `internal/scoring` | core | `internal/model`, `internal/graph`, `internal/paths` | — | tests: `internal/eval` |
 | `internal/verify` | core | `internal/model`, `internal/eval`, `internal/graph`, `internal/access`, `internal/paths`, `internal/rules`, `internal/remediate`, `internal/findings` | — | — |
 | `internal/version` | pure | — (leaf) | — | — |
 | `pkg/schema` | pure | — (leaf) | — | — |
 | `tools/archgen` | tooling | `internal/archtest` | — | — |
+| `tools/benchgate` | tooling | — (leaf) | — | — |
 | `tools/refresh-managed-policies` | tooling | — (leaf) | `github.com/aws/aws-sdk-go-v2` | — |
 
 Standard-library packages denied in non-test files, by layer (an entry also denies its subpackages):
@@ -709,7 +710,23 @@ independently of the attack path to Z.
    approximation.
 5. Chokepoints are ranked by the number of paths they break, then by cost.
 
-Performance target: 50k nodes / 500k edges in < 60 s and < 2 GB. `internal/paths`
+**Implementation (Phase 4).** The search runs over (node, mode) states: after
+`RUNS_AS` a pod holds its cloud identity but not its Kubernetes token, after
+`CAN_ESCALATE[k8s-token]` only the token, after creating a pod both (§7.2). Per
+entry: one breadth-first reachability, one depth-first walk that collects the
+paths to all of its jewels (100 per jewel, depth 10; a jewel is marked
+truncated when a cap or the depth bound stops a walk that could still reach
+it), and one flow network shared by its jewels — each graph edge is a single
+capacity arc shared by its mode copies, so a cut is exact; per jewel only its
+states' arcs to the sink are added. The representative path of a finding is
+its highest-scoring path (ties: fewer edges). A rapid property compares Dinic
+with brute force on random graphs of up to 8 nodes.
+
+Performance target: 50k nodes / 500k edges in < 60 s and < 2 GB.
+**Measured (2026-11-20, i7-10850H, Go 1.27):** 50,000 nodes, 542,000 edges,
+30,000 entries, 1,136,630 (entry, jewel) pairs: 22.5 s, at most 755 MiB
+obtained from the OS (`TestPerformanceTarget`, `CLAPA_PERF=1`; run by
+`bench.yml` on every pull request). `internal/paths`
 ships `-benchmem` benchmarks with a synthetic graph generator (Phase 4).
 **Flag — CI benchmark noise.** Shared runners are noisy; the bench job runs base and
 head on the **same runner in the same job**, `-count=10`, compares with `benchstat`,
@@ -986,6 +1003,37 @@ a hint.
 | 5 | Remediation + verifier + patches | diff → rescan → exit 0 on fixtures |
 | 6 | Live collectors + `collect-snapshot` | fakes, smithy stubs, LocalStack/kind jobs |
 | 7 | HTML, LLM layer, docs, packaging | spec §15 definition of done |
+
+### 12.0 Phase 4 status
+
+Done: access graph (`internal/graph`, CSR), access builder (`internal/access`:
+RUNS_AS, CAN_ESCALATE[k8s-token|rbac|iam], ASSUMES[irsa|pod-identity|sts],
+NODE_ROLE, CAN_READ, CAN_DECRYPT[for J], CAN_READ_PLAINTEXT), path search and
+weighted min-cut (`internal/paths`), scoring (`internal/scoring`), the ten rules
+of §8.1 (`internal/rules/...`), fingerprints, suppressions, baseline and exit
+code (`internal/findings`), the versioned report (`pkg/schema`
+`clapa-report/v1`) with console, JSON and SARIF 2.1.0 writers, the CLI
+(`clapa scan | rules list | rules show | version`), benchmarks and `bench.yml`
+(base vs head on one runner, `benchstat` for people, `tools/benchgate` for the
+decision: median > +20% and Mann-Whitney p < 0.05).
+
+`expected.json` comparison: `TestExpectedFindings` passes only while the
+engine's differences from the hand-written files are exactly those listed in
+`internal/app/testdata/open_mismatches.txt`, which wait for review (groups A–D
+there). The expected files are not edited to match the engine.
+
+Not built in Phase 4. Unlike an unknown value, these produce no UNKNOWN: the
+engine is silent about them. Every scan therefore lists them as coverage notes
+(`not-modelled`, `app.notModelled`), so a clean result is not read as "no
+risk":
+
+| Missing | Effect | When |
+|---|---|---|
+| IAM escalation primitives other than PassRole + Lambda (`CreatePolicyVersion`, `Attach/PutRolePolicy`, `UpdateAssumeRolePolicy`, `sts:AssumeRole` on `*` as escalation) | such escalations produce no CAN_ESCALATE edge, so paths through them are not found | before Phase 5 remediation relies on the graph being complete for escalation |
+| `MAPS_TO` edges from `aws-auth` / access entries | IAM → Kubernetes RBAC paths are not followed (mappings are normalized) | same |
+| `EXPOSED_TO` as a graph edge | exposure is a scoring factor of the entry, not a cuttable edge, so "remove internet exposure" (cost 20) is never proposed as a fix | Phase 5 (remediation) |
+| Secrets Manager and SSM SecureString jewels | only S3 buckets are read targets | Phase 6 (live collectors) |
+| Suppression file (`.clapa-ignore.yaml`) and `--baseline` flags | the logic exists in `internal/findings`; the CLI does not read the files yet | Phase 5 |
 
 ### 12.1 Known constraints carried between phases
 

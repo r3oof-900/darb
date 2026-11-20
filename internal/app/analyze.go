@@ -1,0 +1,279 @@
+package app
+
+import (
+	"slices"
+	"strings"
+
+	"github.com/r3oof-900/clapa/internal/access"
+	"github.com/r3oof-900/clapa/internal/collect/tfraw"
+	"github.com/r3oof-900/clapa/internal/config"
+	"github.com/r3oof-900/clapa/internal/coverage"
+	"github.com/r3oof-900/clapa/internal/eval"
+	"github.com/r3oof-900/clapa/internal/findings"
+	"github.com/r3oof-900/clapa/internal/graph"
+	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/clapa/internal/paths"
+	"github.com/r3oof-900/clapa/internal/rules"
+	"github.com/r3oof-900/clapa/internal/rules/catalog"
+	"github.com/r3oof-900/clapa/internal/scoring"
+)
+
+// DefaultFailOn is the default --fail-on threshold (DESIGN.md §8.2).
+const DefaultFailOn = "high"
+
+// IntendedResult is the verification of one intended_access entry.
+type IntendedResult struct {
+	Principal string `json:"principal"`
+	Action    string `json:"action"`
+	Resource  string `json:"resource"`
+	// Status: "verified" (a confirmed path), "unconfirmed" (only paths that
+	// rest on UNKNOWN), "absent" (no path), "not-modelled" (an action or
+	// resource the engine does not evaluate).
+	Status string `json:"status"`
+	Detail string `json:"detail,omitempty"`
+}
+
+// Analysis is the result of a scan.
+type Analysis struct {
+	Findings       []rules.Finding  `json:"findings"`
+	IntendedAccess []IntendedResult `json:"intended_access"`
+	Notes          []access.Note    `json:"coverage_notes"`
+	Gaps           []coverage.Gap   `json:"gaps"`
+	Collected      int              `json:"collected"`
+	GapsCounted    int              `json:"gaps_over_tolerance"`
+	ExitCode       int              `json:"exit_code"`
+	Graph          GraphStats       `json:"graph"`
+	CatalogVersion string           `json:"rule_catalog_version"`
+	Registry       *rules.Registry  `json:"-"`
+	AccessGraph    *graph.Graph     `json:"-"`
+}
+
+// GraphStats summarise the access graph.
+type GraphStats struct {
+	Nodes int `json:"nodes"`
+	Edges int `json:"edges"`
+	Pairs int `json:"entry_jewel_pairs"`
+}
+
+// Analyze builds the access graph, searches paths and runs every rule.
+func Analyze(l *Loaded, cfg *config.Config, failOn string) (*Analysis, error) {
+	reg, err := catalog.New()
+	if err != nil {
+		return nil, err
+	}
+	inv := l.Inventory
+	var jewels, targets []*model.Resource
+	for _, r := range inv.Resources {
+		if class, _ := r.Classification(); class != "" {
+			jewels = append(jewels, r)
+		}
+	}
+	targets = append(targets, jewels...)
+	intended := intendedTargets(inv, cfg)
+	for _, r := range intended {
+		if r != nil && !slices.Contains(targets, r) {
+			targets = append(targets, r)
+		}
+	}
+	built := access.Build(inv, &access.Options{Partition: partition(cfg), Jewels: targets, Assume: cfg.Assume})
+	g := built.Graph
+	entries, entryInfo := entryPoints(g, l)
+	uncuttable := intendedEdges(g, cfg, intended)
+	opts := paths.Options{Cost: costs(g, cfg, uncuttable)}
+
+	jewelNodes := map[graph.NodeID]*model.Resource{}
+	var dataJewels []graph.NodeID
+	for _, j := range jewels {
+		if n, ok := g.Lookup(j.ID()); ok && j.Kind() != model.KindKMSKey {
+			jewelNodes[n] = j
+			dataJewels = append(dataJewels, n)
+		}
+	}
+	pairs := paths.Analyze(g, entries, dataJewels, opts)
+	in := &rules.Input{Inventory: inv, Graph: g, Pairs: pairs, Entries: entryInfo, Jewels: jewelNodes, Partition: partition(cfg)}
+	fs := findings.Finish(reg.Evaluate(in), reg)
+	a := &Analysis{
+		Findings: fs, Notes: append(built.Notes, notModelled()...), Gaps: l.Gaps, Collected: l.Collected,
+		IntendedAccess: verifyIntended(g, cfg, intended, entries, opts),
+		Graph:          GraphStats{Nodes: g.NumNodes(), Edges: g.NumEdges(), Pairs: len(pairs)},
+		CatalogVersion: catalog.Version, Registry: reg, AccessGraph: g,
+	}
+	a.GapsCounted = gapsOverTolerance(l.Gaps, cfg)
+	a.ExitCode = findings.ExitCode(fs, failOn, l.Collected, a.GapsCounted)
+	return a, nil
+}
+
+// notModelled lists what the engine does not analyse yet (DESIGN.md §12.0).
+// The engine is silent about these, rather than UNKNOWN, so every report
+// states them.
+func notModelled() []access.Note {
+	n := func(subject, detail string) access.Note {
+		return access.Note{Kind: "not-modelled", Subject: subject, Detail: detail}
+	}
+	return []access.Note{
+		n("IAM escalation", "only iam:PassRole into Lambda is an escalation edge; CreatePolicyVersion, Attach/PutRolePolicy, UpdateAssumeRolePolicy are not analysed"),
+		n("MAPS_TO", "IAM principals mapped to Kubernetes users (aws-auth, access entries) are not followed into RBAC"),
+		n("EXPOSED_TO", "internet exposure is a score factor, not a cuttable edge"),
+		n("crown jewels", "only S3 buckets are read targets; Secrets Manager and SSM SecureString are not analysed"),
+	}
+}
+
+func partition(cfg *config.Config) string {
+	if cfg.Terraform.Partition != "" {
+		return cfg.Terraform.Partition
+	}
+	return "aws"
+}
+
+// entryPoints: every entry workload, plus the anonymous principal when the
+// graph has it (a public grant).
+func entryPoints(g *graph.Graph, l *Loaded) (nodes []graph.NodeID, info map[graph.NodeID]rules.Entry) {
+	info = map[graph.NodeID]rules.Entry{}
+	for _, e := range l.EntryPoints {
+		n, ok := g.Lookup(e.Workload)
+		if !ok {
+			continue
+		}
+		exp := scoring.Exposure(e.Reason, e.Public)
+		if prev, seen := info[n]; !seen || exp > prev.Exposure {
+			info[n] = rules.Entry{Reason: e.Reason, Public: e.Public, Exposure: exp}
+		}
+	}
+	if n, ok := g.Lookup(access.AnonymousID()); ok {
+		info[n] = rules.Entry{Reason: "anonymous", Public: model.True, Exposure: scoring.Exposure("anonymous", model.True)}
+	}
+	nodes = make([]graph.NodeID, 0, len(info))
+	for n := range info {
+		nodes = append(nodes, n)
+	}
+	slices.Sort(nodes)
+	return nodes, info
+}
+
+// costs: SCORING.md §4 defaults, clapa.yaml overrides per kind, and
+// uncuttable edges (configured, or on a path of declared intended access).
+func costs(g *graph.Graph, cfg *config.Config, uncuttable map[graph.EdgeID]bool) func(graph.EdgeID) int64 {
+	return func(id graph.EdgeID) int64 {
+		e := g.Edge(id)
+		if uncuttable[id] {
+			return paths.Uncuttable
+		}
+		for _, u := range cfg.Remediation.UncuttableEdges {
+			if u.Kind == string(e.Kind) && u.From == g.Node(e.From).Identity && u.To == g.Node(e.To).Identity {
+				return paths.Uncuttable
+			}
+		}
+		if c, ok := cfg.Remediation.CutCosts[string(e.Kind)]; ok {
+			return int64(c)
+		}
+		return scoring.CutCost(e)
+	}
+}
+
+// intendedTargets resolves each intended_access resource to a bucket of the
+// inventory ("arn:aws:s3:::B/*" names bucket B); nil when not modelled.
+func intendedTargets(inv *model.Inventory, cfg *config.Config) []*model.Resource {
+	out := make([]*model.Resource, len(cfg.IntendedAccess))
+	for i, ia := range cfg.IntendedAccess {
+		if ia.Action != "s3:GetObject" {
+			continue
+		}
+		bucket, _, _ := strings.Cut(ia.Resource, "/")
+		for _, r := range inv.Resources {
+			if r.ARN() == bucket && r.Kind() == model.KindS3Bucket {
+				out[i] = r
+			}
+		}
+	}
+	return out
+}
+
+// intendedEdges: every edge on a path that realises an intended access is
+// uncuttable (SCORING.md §4).
+func intendedEdges(g *graph.Graph, cfg *config.Config, targets []*model.Resource) map[graph.EdgeID]bool {
+	out := map[graph.EdgeID]bool{}
+	for i, ia := range cfg.IntendedAccess {
+		from, ok1 := g.Lookup(model.NewID(model.KindK8sWorkload, ia.Principal))
+		if targets[i] == nil || !ok1 {
+			continue
+		}
+		to, ok2 := g.Lookup(targets[i].ID())
+		if !ok2 {
+			continue
+		}
+		pairs := paths.Analyze(g, []graph.NodeID{from}, []graph.NodeID{to}, paths.Options{Cost: func(graph.EdgeID) int64 { return 1 }})
+		for _, p := range pairs {
+			markPaths(g, p.Paths, out)
+		}
+	}
+	return out
+}
+
+// markPaths marks every edge of the paths, and the edges a derived edge
+// stands for.
+func markPaths(g *graph.Graph, ps []paths.Path, out map[graph.EdgeID]bool) {
+	for _, path := range ps {
+		for _, id := range path {
+			out[id] = true
+			for _, u := range g.Edge(id).Under {
+				out[u] = true
+			}
+		}
+	}
+}
+
+func verifyIntended(g *graph.Graph, cfg *config.Config, targets []*model.Resource, _ []graph.NodeID, opts paths.Options) []IntendedResult {
+	out := []IntendedResult{}
+	for i, ia := range cfg.IntendedAccess {
+		r := IntendedResult{Principal: ia.Principal, Action: ia.Action, Resource: ia.Resource, Status: "absent"}
+		from, ok := g.Lookup(model.NewID(model.KindK8sWorkload, ia.Principal))
+		switch {
+		case targets[i] == nil:
+			r.Status, r.Detail = "not-modelled", "only s3:GetObject on a bucket in the input is verified"
+		case !ok:
+			r.Detail = "the principal is not a workload in the input"
+		default:
+			to, _ := g.Lookup(targets[i].ID())
+			for _, p := range paths.Analyze(g, []graph.NodeID{from}, []graph.NodeID{to}, opts) {
+				r.Status = "unconfirmed"
+				for _, path := range p.Paths {
+					if confirmed(g, path) {
+						r.Status = "verified"
+					}
+				}
+			}
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
+func confirmed(g *graph.Graph, path paths.Path) bool {
+	for _, id := range path {
+		e := g.Edge(id)
+		if e.Verdict != eval.Allow || (e.Precondition != nil && e.Precondition.State != model.True) {
+			return false
+		}
+	}
+	return true
+}
+
+// gapsOverTolerance counts gaps beyond the per-kind tolerance (default 0).
+// Plan attributes the provider computes are informational: no decision
+// rests on them unless an edge does, which then carries its own UNKNOWN.
+func gapsOverTolerance(gaps []coverage.Gap, cfg *config.Config) int {
+	count := map[coverage.Kind]int{}
+	for i := range gaps {
+		if strings.Contains(gaps[i].Detail, tfraw.ReasonComputed) {
+			continue
+		}
+		count[gaps[i].Kind]++
+	}
+	over := 0
+	for k, n := range count {
+		if n > cfg.Coverage.Tolerance[string(k)] {
+			over += n - cfg.Coverage.Tolerance[string(k)]
+		}
+	}
+	return over
+}

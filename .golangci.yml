@@ -1708,6 +1708,7 @@ linters:
             - "github.com/r3oof-900/clapa/internal/eval$"
             - "github.com/r3oof-900/clapa/internal/graph$"
             - "github.com/r3oof-900/clapa/internal/paths$"
+            - "github.com/r3oof-900/clapa/internal/scoring$"
           deny:
             - pkg: "os"
               desc: "forbidden in the core layer (docs/DESIGN.md section 3)"
@@ -1786,6 +1787,8 @@ linters:
             - "github.com/r3oof-900/clapa/internal/graph$"
             - "github.com/r3oof-900/clapa/internal/paths$"
             - "github.com/r3oof-900/clapa/internal/rules$"
+            - "github.com/r3oof-900/clapa/internal/scoring$"
+            - "github.com/r3oof-900/clapa/internal/access$"
           deny:
             - pkg: "os"
               desc: "forbidden in the core layer (docs/DESIGN.md section 3)"
@@ -1826,6 +1829,8 @@ linters:
             - "github.com/r3oof-900/clapa/internal/graph$"
             - "github.com/r3oof-900/clapa/internal/paths$"
             - "github.com/r3oof-900/clapa/internal/rules$"
+            - "github.com/r3oof-900/clapa/internal/scoring$"
+            - "github.com/r3oof-900/clapa/internal/access$"
           deny:
             - pkg: "os"
               desc: "forbidden in the core layer (docs/DESIGN.md section 3)"
@@ -1866,6 +1871,8 @@ linters:
             - "github.com/r3oof-900/clapa/internal/graph$"
             - "github.com/r3oof-900/clapa/internal/paths$"
             - "github.com/r3oof-900/clapa/internal/rules$"
+            - "github.com/r3oof-900/clapa/internal/scoring$"
+            - "github.com/r3oof-900/clapa/internal/access$"
           deny:
             - pkg: "os"
               desc: "forbidden in the core layer (docs/DESIGN.md section 3)"
@@ -2068,6 +2075,26 @@ linters:
           allow:
             - "$gostd"
             - "github.com/r3oof-900/clapa/internal/archtest$"
+          deny:
+            - pkg: "os/exec"
+              desc: "forbidden in the tooling layer (docs/DESIGN.md section 3)"
+            - pkg: "syscall"
+              desc: "forbidden in the tooling layer (docs/DESIGN.md section 3)"
+            - pkg: "plugin"
+              desc: "forbidden in the tooling layer (docs/DESIGN.md section 3)"
+            - pkg: "unsafe"
+              desc: "forbidden in the tooling layer (docs/DESIGN.md section 3)"
+            - pkg: "text/template"
+              desc: "forbidden in the tooling layer (docs/DESIGN.md section 3)"
+            - pkg: "testing"
+              desc: "forbidden in the tooling layer (docs/DESIGN.md section 3)"
+        tools-benchgate:
+          list-mode: strict
+          files:
+            - "**/tools/benchgate/*.go"
+            - "!$test"
+          allow:
+            - "$gostd"
           deny:
             - pkg: "os/exec"
               desc: "forbidden in the tooling layer (docs/DESIGN.md section 3)"

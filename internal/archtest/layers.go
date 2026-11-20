@@ -82,7 +82,7 @@ func Rules() []*Rule {
 }
 
 func coreRules() []*Rule {
-	ruleDeps := coreModel("internal/eval", "internal/graph", "internal/paths", "internal/rules")
+	ruleDeps := coreModel("internal/eval", "internal/graph", "internal/paths", "internal/rules", "internal/scoring", "internal/access")
 	return []*Rule{
 		{Package: "internal/arn", Layer: LayerCore},
 		{Package: "internal/model", Layer: LayerCore, Internal: []string{"internal/arn"}},
@@ -102,16 +102,16 @@ func coreRules() []*Rule {
 			Internal:     coreModel("internal/eval", "internal/eval/match", "internal/eval/condition", "internal/graph"),
 			TestInternal: []string{"internal/iampolicy"},
 		},
-		{Package: "internal/paths", Layer: LayerCore, Internal: []string{"internal/model", "internal/graph"}},
+		{Package: "internal/paths", Layer: LayerCore, Internal: []string{"internal/model", "internal/graph"}, TestInternal: []string{"internal/eval"}},
 		{Package: "internal/classify", Layer: LayerCore, Internal: coreModel()},
-		{Package: "internal/rules", Layer: LayerCore, Internal: coreModel("internal/eval", "internal/graph", "internal/paths")},
+		{Package: "internal/rules", Layer: LayerCore, Internal: coreModel("internal/eval", "internal/graph", "internal/paths", "internal/scoring")},
 		{Package: "internal/rules/pathrules", Layer: LayerCore, Internal: ruleDeps},
-		{Package: "internal/rules/posture", Layer: LayerCore, Internal: ruleDeps},
+		{Package: "internal/rules/posture", Layer: LayerCore, Internal: ruleDeps, TestInternal: []string{"internal/iampolicy"}},
 		{Package: "internal/rules/escalation", Layer: LayerCore, Internal: ruleDeps},
 		{Package: "internal/rules/catalog", Layer: LayerCore, Internal: []string{
 			"internal/rules", "internal/rules/pathrules", "internal/rules/posture", "internal/rules/escalation",
 		}},
-		{Package: "internal/scoring", Layer: LayerCore, Internal: []string{"internal/model", "internal/graph", "internal/paths"}},
+		{Package: "internal/scoring", Layer: LayerCore, Internal: []string{"internal/model", "internal/graph", "internal/paths"}, TestInternal: []string{"internal/eval"}},
 		{Package: "internal/findings", Layer: LayerCore, Internal: []string{
 			"internal/model", "internal/graph", "internal/paths", "internal/rules", "internal/scoring",
 		}},
@@ -251,5 +251,6 @@ func toolingRules() []*Rule {
 		{Package: "internal/archtest", Layer: LayerTooling},
 		{Package: "tools/archgen", Layer: LayerTooling, Internal: []string{"internal/archtest"}},
 		{Package: "tools/refresh-managed-policies", Layer: LayerTooling, External: []string{extAWSSDK}},
+		{Package: "tools/benchgate", Layer: LayerTooling},
 	}
 }

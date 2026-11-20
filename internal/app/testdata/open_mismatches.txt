@@ -1,0 +1,51 @@
+# Open differences between tests/fixtures/*/expected*.json (written by hand
+# before the rules existed) and the engine, waiting for review. The expected
+# files are never edited to match the engine; TestExpectedFindings passes
+# only while the engine's differences are exactly these lines, so a new
+# difference, or one that disappears, fails it.
+#
+# A - expected file omission: the paths rely on documented defaults
+#     (DESIGN.md 4.7) that the hand-written files did not list:
+#     eks.irsa.audience (no eks.amazonaws.com/audience annotation) and
+#     eks.pod-identity.disableSessionTags.
+# B - scenario 2: the decrypt grant uses StringEquals
+#     kms:EncryptionContext:aws:s3:arn = the bucket ARN, which S3 sends only
+#     with an S3 Bucket Key; without one the context is the object ARN
+#     (S3 User Guide > Encryption context). No Bucket Key default is
+#     documented, so the intended access is unconfirmed, not verified.
+# C - scenarios 4 and 5: tools/debug runs as tools/default, which has no
+#     eks.amazonaws.com/role-arn annotation, so its pods get no
+#     sts.amazonaws.com token; STS checks the token audience against the
+#     OIDC provider's client IDs whatever the trust says.
+# D - scenario 14: the snapshot has no workload and the roles trust only
+#     ec2.amazonaws.com, so no entry point reaches either role.
+01_classic/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience"]
+04_wildcard_sub/fixed: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience"]
+04_wildcard_sub/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience"]
+05_aud_only/fixed: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience"]
+05_aud_only/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience"]
+06_role_chain_cross_account/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-analytics-warehouse: defaults_used: want [], got ["eks.irsa.audience"]
+07_passrole_lambda/vulnerable: CLAPA-PATH-002 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience"]
+08_rbac_create_pods/fixed: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience"]
+08_rbac_create_pods/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience"]
+08_rbac_create_pods/vulnerable: CLAPA-PATH-002 k8s:prod/payments/Deployment/ci-runner -> arn:aws:s3:::acme-customer-pii: defaults_used: want ["k8s.automountServiceAccountToken"], got ["eks.irsa.audience","k8s.automountServiceAccountToken"]
+10_kms_principal_org_id/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience"]
+13_module_for_each/fixed (static): CLAPA-PATH-001 k8s:prod/analytics/CronJob/bi -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience"]
+13_module_for_each/fixed (static): CLAPA-PATH-001 k8s:prod/analytics/CronJob/etl -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience"]
+13_module_for_each/fixed (static): CLAPA-PATH-001 k8s:prod/analytics/CronJob/ml -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience"]
+13_module_for_each/vulnerable (static): CLAPA-PATH-001 k8s:prod/analytics/CronJob/bi -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience"]
+13_module_for_each/vulnerable (static): CLAPA-PATH-001 k8s:prod/analytics/CronJob/etl -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience"]
+13_module_for_each/vulnerable (static): CLAPA-PATH-001 k8s:prod/analytics/CronJob/ml -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience"]
+13_module_for_each/vulnerable: CLAPA-PATH-001 k8s:prod/analytics/CronJob/bi -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience"]
+13_module_for_each/vulnerable: CLAPA-PATH-001 k8s:prod/analytics/CronJob/etl -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience"]
+13_module_for_each/vulnerable: CLAPA-PATH-001 k8s:prod/analytics/CronJob/ml -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience"]
+16_malformed_inputs/fixed: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience"]
+16_malformed_inputs/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience"]
+17_pod_identity_classic/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.pod-identity.disableSessionTags"]
+02_ec_scoped_to_legit_bucket/fixed: intended access k8s:prod/payments/Deployment/api s3:GetObject arn:aws:s3:::acme-payment-receipts/*: want verified, got unconfirmed
+02_ec_scoped_to_legit_bucket/vulnerable: intended access k8s:prod/payments/Deployment/api s3:GetObject arn:aws:s3:::acme-payment-receipts/*: want verified, got unconfirmed
+04_wildcard_sub/vulnerable: missing finding: CLAPA-PATH-001 k8s:prod/tools/Deployment/debug -> arn:aws:s3:::acme-customer-pii
+05_aud_only/vulnerable: missing finding: CLAPA-PATH-001 k8s:prod/tools/Deployment/debug -> arn:aws:s3:::acme-customer-pii
+14_same_names_two_accounts/fixed: missing finding: CLAPA-PATH-001 <any entry> -> arn:aws:s3:::data-111122223333
+14_same_names_two_accounts/vulnerable: missing finding: CLAPA-PATH-001 <any entry> -> arn:aws:s3:::data-111122223333
+14_same_names_two_accounts/vulnerable: missing finding: CLAPA-PATH-001 <any entry> -> arn:aws:s3:::data-444455556666
