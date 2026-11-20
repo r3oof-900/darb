@@ -1,0 +1,65 @@
+name: bench
+
+# Benchmarks of the path engine (DESIGN.md §7.4). Shared runners are noisy,
+# so the base and the head run on the same runner in the same job, 10
+# samples each; benchstat shows the comparison and tools/benchgate fails on
+# a statistically significant (p < 0.05) slowdown of more than 20%. The
+# 50k-node / 500k-edge target runs once on the head (CLAPA_PERF=1) and fails
+# above 60 s or 2 GB.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bench-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GOFLAGS: -mod=readonly
+  GOTOOLCHAIN: local
+  # golang.org/x/perf has no release tags; this pseudo-version is the newest
+  # commit at the time of pinning (2026-11-17).
+  BENCHSTAT: golang.org/x/perf/cmd/benchstat@v0.0.0-20261117185222-4febdb082b2c
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version: "1.27.x"
+      - name: Install benchstat
+        run: go install "$BENCHSTAT"
+      - name: Benchmark the head
+        run: go test -run='^$' -bench='Analyze/small' -benchmem -count=10 ./internal/paths/ | tee "$RUNNER_TEMP/head.txt"
+      - name: Benchmark the base
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git worktree add "$RUNNER_TEMP/base" "$BASE_SHA"
+          if [ -f "$RUNNER_TEMP/base/internal/paths/bench_test.go" ]; then
+            (cd "$RUNNER_TEMP/base" && go test -run='^$' -bench='Analyze/small' -benchmem -count=10 ./internal/paths/) | tee "$RUNNER_TEMP/base.txt"
+          else
+            echo "the base has no path benchmarks yet; nothing to compare"
+          fi
+      - name: Compare
+        if: github.event_name == 'pull_request'
+        run: |
+          if [ -s "$RUNNER_TEMP/base.txt" ]; then
+            benchstat "$RUNNER_TEMP/base.txt" "$RUNNER_TEMP/head.txt"
+            go run ./tools/benchgate "$RUNNER_TEMP/base.txt" "$RUNNER_TEMP/head.txt"
+          fi
+      - name: Performance target (50k nodes, 500k edges)
+        env:
+          CLAPA_PERF: "1"
+        run: go test -count=1 -run TestPerformanceTarget -v -timeout 15m ./internal/paths/
