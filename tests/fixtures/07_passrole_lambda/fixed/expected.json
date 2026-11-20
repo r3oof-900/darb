@@ -20,5 +20,5 @@
       "jewel": "arn:aws:s3:::acme-customer-pii"
     }
   ],
-  "intended_access_verified": []
+  "intended_access": []
 }

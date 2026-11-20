@@ -26,7 +26,9 @@ diff is a behaviour change.
 | # | Directory | Tests | Vulnerable | Fixed |
 |---|---|---|---|---|
 | 1 | `01_classic` | IRSA → role → `kms:Decrypt` on `*` + `s3:GetObject` → CMK → PII bucket | path | reads only the receipts bucket, decrypt scoped by encryption context |
-| 2 | `02_ec_scoped_to_legit_bucket` | read + decrypt on bucket A, `kms:EncryptionContext:aws:s3:arn` = A; A is `intended_access`; PII bucket B has its own key | no path to B; access to A "intended access verified" | additionally a Deny bucket policy on B |
+| 2a | `02a_ec_bucket_key` | Bucket Key on; decrypt on key A with `StringEquals` context = bucket A; A is `intended_access` | no path to B; intended access verified | plus a Deny bucket policy on B |
+| 2b | `02b_ec_object_arn` | no Bucket Key; decrypt on key A with `StringLike` context = `A/*` | no path to B; intended access verified | plus a Deny bucket policy on B |
+| 2c | `02c_ec_mismatch` | no Bucket Key; `StringEquals` context = bucket A (never sent) | no path to B; intended access **not satisfied** | the `StringLike` form |
 | 3 | `03_ec_other_bucket` | `s3:GetObject` on PII bucket B, decrypt on B's key only with another bucket's encryption context | no path to B | no read on B at all |
 | 4 | `04_wildcard_sub` | trust `StringLike :sub = system:serviceaccount:*:*` | any SA → role → PII | `:sub` pinned |
 | 5 | `05_aud_only` | trust with `:aud` only | any SA → role → PII | `:sub` pinned |

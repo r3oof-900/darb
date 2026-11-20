@@ -74,12 +74,25 @@ E["01_classic/vulnerable"] = {"derived_from": "13.2 row 1; 13.1",
 E["01_classic/fixed"] = {"derived_from": "13.2 row 1 fixed: reads only the receipts bucket, decrypt scoped by encryption context",
                          "findings": [rotation_off(RECEIPTS_KEY), no_default_deny(NS_PAYMENTS)], "absent": ABSENT_PII}
 
-# 2 - read + decrypt on A only; A is intended access; nothing reaches B.
-INTENDED_A = [{"principal": API, "action": "s3:GetObject", "resource": "arn:aws:s3:::acme-payment-receipts/*"}]
-for v, why in (("vulnerable", "13.2 row 2"), ("fixed", "13.2 row 2 fixed: plus a Deny bucket policy on B")):
-    E[f"02_ec_scoped_to_legit_bucket/{v}"] = {
-        "derived_from": why, "findings": [rotation_off(RECEIPTS_KEY), no_default_deny(NS_PAYMENTS)],
-        "absent": ABSENT_PII, "intended_access_verified": INTENDED_A}
+# 2 - split in the Phase 4 review into 2a, 2b, 2c. Read + decrypt on A
+# only; A is intended access; nothing reaches B. The decrypt grant must use
+# the encryption context S3 actually sends: the bucket ARN with an S3
+# Bucket Key, the object ARN without one (S3 User Guide, Encryption context).
+def intended(status):
+    return [{"principal": API, "action": "s3:GetObject", "resource": "arn:aws:s3:::acme-payment-receipts/*", "status": status}]
+
+
+SCENARIO2 = {
+    "02a_ec_bucket_key": ("13.2 row 2a: Bucket Key on, StringEquals on bucket A's ARN", "verified", "verified"),
+    "02b_ec_object_arn": ("13.2 row 2b: no Bucket Key, StringLike on arn:aws:s3:::A/*", "verified", "verified"),
+    "02c_ec_mismatch": ("13.2 row 2c: no Bucket Key, StringEquals on bucket A's ARN: the declared access is not satisfied", "not-satisfied", "verified"),
+}
+for name, (why, vulnerable, fixed) in SCENARIO2.items():
+    for v, status in (("vulnerable", vulnerable), ("fixed", fixed)):
+        E[f"{name}/{v}"] = {
+            "derived_from": why + ("" if v == "vulnerable" else " (fixed)"),
+            "findings": [rotation_off(RECEIPTS_KEY), no_default_deny(NS_PAYMENTS)],
+            "absent": ABSENT_PII, "intended_access": intended(status)}
 
 # 3 - decrypt on B's key only with another bucket's encryption context: no path.
 for v in ("vulnerable", "fixed"):
@@ -280,7 +293,7 @@ def write(name, doc):
     out = {"format": "clapa-expected/v1"}
     out.update(doc)
     out.setdefault("absent", [])
-    out.setdefault("intended_access_verified", [])
+    out.setdefault("intended_access", [])
     p = pathlib.Path(__file__).parent / name
     p.write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8", newline="\n")
 

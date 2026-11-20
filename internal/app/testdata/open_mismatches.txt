@@ -6,17 +6,10 @@
 #
 # A - expected file omission: the paths rely on documented defaults
 #     (DESIGN.md 4.7) that the hand-written files did not list:
-#     eks.irsa.audience (no eks.amazonaws.com/audience annotation) and
+#     eks.irsa.audience (no eks.amazonaws.com/audience annotation),
+#     eks.irsa.oidc-provider-audience (no OIDC provider in the input; added
+#     with the token modelling of the review, C) and
 #     eks.pod-identity.disableSessionTags.
-# B - scenario 2: the decrypt grant uses StringEquals
-#     kms:EncryptionContext:aws:s3:arn = the bucket ARN, which S3 sends only
-#     with an S3 Bucket Key; without one the context is the object ARN
-#     (S3 User Guide > Encryption context). No Bucket Key default is
-#     documented, so the intended access is unconfirmed, not verified.
-# C - scenarios 4 and 5: tools/debug runs as tools/default, which has no
-#     eks.amazonaws.com/role-arn annotation, so its pods get no
-#     sts.amazonaws.com token; STS checks the token audience against the
-#     OIDC provider's client IDs whatever the trust says.
 # E - found after the review, outside A-D: scenario 6. analytics-admin has
 #     AdministratorAccess, so it can rewrite its own policies
 #     (iam:PutRolePolicy on itself): narrowing its decrypt grant alone no
@@ -27,8 +20,6 @@
 # D - scenario 14: the snapshot has no workload and the roles trust only
 #     ec2.amazonaws.com, so no entry point reaches either role.
 01_classic/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience","eks.irsa.oidc-provider-audience"]
-02_ec_scoped_to_legit_bucket/fixed: intended access k8s:prod/payments/Deployment/api s3:GetObject arn:aws:s3:::acme-payment-receipts/*: want verified, got unconfirmed
-02_ec_scoped_to_legit_bucket/vulnerable: intended access k8s:prod/payments/Deployment/api s3:GetObject arn:aws:s3:::acme-payment-receipts/*: want verified, got unconfirmed
 04_wildcard_sub/fixed: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience","eks.irsa.oidc-provider-audience"]
 04_wildcard_sub/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience","eks.irsa.oidc-provider-audience"]
 04_wildcard_sub/vulnerable: CLAPA-PATH-001 k8s:prod/tools/Deployment/debug -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience","eks.irsa.oidc-provider-audience"]

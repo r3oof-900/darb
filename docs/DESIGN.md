@@ -849,7 +849,7 @@ the tool.
     "defaults_used": []
   }],
   "absent": [{"rule": "CLAPA-PATH-001", "jewel": "arn:aws:s3:::acme-payment-receipts"}],
-  "intended_access_verified": []
+  "intended_access": [{"principal": "...", "action": "s3:GetObject", "resource": "...", "status": "verified"}]
 }
 ```
 
@@ -907,7 +907,19 @@ intended_access:
 - Every proposed fix lists, per cut edge: kind, cost, the cost source (default table
   or config override) and the total cost.
 
+**Encryption-context fixes (decided in the Phase 4 review, scenarios 2a–2c).**
+A fix that scopes `kms:Decrypt` to one bucket must use the context S3 sends:
+with an S3 Bucket Key, `StringEquals kms:EncryptionContext:aws:s3:arn =
+<bucket ARN>`; without one, `StringLike … = <bucket ARN>/*` (the object ARN);
+with the Bucket Key setting unknown, both forms (`ForAnyValue` over the two
+values, or two statements), so the fix works either way. The generator reads
+the bucket's Bucket Key setting to choose.
+
 ### 9.2 Verification
+
+**Intended access is a hard constraint.** The verifier rescans the patched
+input and rejects any fix after which a declared `intended_access` entry is
+not `verified` (not-satisfied or unconfirmed), whatever it removes.
 
 For each candidate: apply in memory to a copy of the canonical model → re-run
 evaluator, access builder and path engine → prove the targeted paths are gone →
@@ -1004,7 +1016,7 @@ a hint.
 | 1 | Design docs, threat model, skeleton, CI on empty tests | lint + vet + tests + archtest + govulncheck green |
 | 2 | Model + evaluator, ≥ 150 cases, fuzz, properties | ≥ 95% branch coverage (gobco) on `eval` |
 | 3 | Offline collectors + normalizers | golden fixtures, no ID collisions |
-| 4 | Graph, paths, rules, scoring, findings, JSON/SARIF/console | 17 scenarios match, benchmarks within target |
+| 4 | Graph, paths, rules, scoring, findings, JSON/SARIF/console | every scenario matches its expected.json, benchmarks within target |
 | 5 | Remediation + verifier + patches | diff → rescan → exit 0 on fixtures |
 | 6 | Live collectors + `collect-snapshot` | fakes, smithy stubs, LocalStack/kind jobs |
 | 7 | HTML, LLM layer, docs, packaging | spec §15 definition of done |
@@ -1093,7 +1105,9 @@ Encryption type of every jewel bucket is stated explicitly in the fixture
 | # | Scenario | Read grant in the vulnerable variant | Expected (vulnerable) |
 |---|---|---|---|
 | 1 | IRSA → role → `kms:Decrypt` on `*` → CMK → PII bucket (SSE-KMS) | role policy: `s3:GetObject` on `arn:aws:s3:::<pii>/*` **and** `kms:Decrypt` on `*` | path found (`CAN_READ` + `CAN_DECRYPT` → `CAN_READ_PLAINTEXT`) |
-| 2 | Two buckets, two keys: **A** = legitimate payments bucket (key A), **B** = PII bucket (key B), both SSE-KMS. Workload role: `s3:GetObject` on `A/*`; `kms:Decrypt` on key A with `StringEquals kms:EncryptionContext:aws:s3:arn = arn:aws:s3:::A`. `clapa.yaml` declares A as `intended_access` | read + decrypt on A only (the scenario tests that nothing reaches B) | **no path to B**; access to A is reported as **"intended access verified"**, not as a finding |
+| 2a | (split in the Phase 4 review) Two buckets, two keys: **A** = legitimate payments bucket (key A), **B** = PII bucket (key B), both SSE-KMS. A has an **S3 Bucket Key**, so S3's KMS encryption context is A's bucket ARN; the role decrypts key A with `StringEquals kms:EncryptionContext:aws:s3:arn = arn:aws:s3:::A`. `clapa.yaml` declares A as `intended_access` | read + decrypt on A only | **no path to B**; intended access to A **verified** |
+| 2b | As 2a, **without** a Bucket Key (stated `bucket_key_enabled = false`): the context is the object ARN, and the grant uses `StringLike … = arn:aws:s3:::A/*` | read + decrypt on A only | no path to B; intended access to A **verified** |
+| 2c | Negative case: no Bucket Key, but the grant uses `StringEquals` on A's bucket ARN, which S3 never sends without a Bucket Key | none that works | no path to B; the declared intended access is **not satisfied**, an explicit result of the report (fixed: the `StringLike` form of 2b) |
 | 3 | Role has `s3:GetObject` on PII bucket B (SSE-KMS, key K) and `kms:Decrypt` on K with `kms:EncryptionContext:aws:s3:arn` = a **different** bucket's ARN | `s3:GetObject` on `B/*` is present on purpose, so the encryption context is the only deciding factor | **no path to B** (`CAN_READ` yes, `CAN_DECRYPT[for B]` no) |
 | 4 | Trust `StringLike :sub = system:serviceaccount:*:*`; `tools/default` carries an IRSA annotation for a low-privilege role (so its pods hold an STS token) | role policy: `s3:GetObject` on PII bucket (SSE-KMS) + `kms:Decrypt` on its key | path from **every** SA's workload → role → jewel; plus posture finding "wildcard OIDC sub" |
 | 5 | Trust with `:aud` only, no `:sub` | same as 4 | same as 4 (any SA of that issuer) |

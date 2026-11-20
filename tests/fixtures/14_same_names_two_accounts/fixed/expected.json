@@ -14,5 +14,5 @@
       "jewel": "arn:aws:s3:::data-444455556666"
     }
   ],
-  "intended_access_verified": []
+  "intended_access": []
 }

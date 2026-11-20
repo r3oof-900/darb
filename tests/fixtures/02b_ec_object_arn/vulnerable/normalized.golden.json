@@ -127,7 +127,7 @@
       "encryption": {
         "Type": "aws:kms",
         "KeyARN": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.receipts",
-        "BucketKey": "unknown"
+        "BucketKey": "false"
       },
       "kind": "aws:s3:bucket",
       "region": "us-east-1",

@@ -11,7 +11,7 @@
       "source": "clapa.yaml (clusters.prod)"
     }
   ],
-  "collected": 15,
+  "collected": 14,
   "entry_points": [
     {
       "public": "true",
@@ -54,16 +54,6 @@
         "Allow kms:* on * (0 conditions)"
       ],
       "target": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.receipts",
-      "unresolved_statements": 0
-    },
-    {
-      "kind": "resource",
-      "policy": "aws_s3_bucket_policy.customer_pii",
-      "source": "terraform/pii_guard.tf:1-13 (aws_s3_bucket_policy.customer_pii)",
-      "statements": [
-        "Deny s3:* on arn:aws:s3:::acme-customer-pii,arn:aws:s3:::acme-customer-pii/* (0 conditions)"
-      ],
-      "target": "arn:aws:s3:::acme-customer-pii",
       "unresolved_statements": 0
     },
     {
@@ -137,7 +127,7 @@
       "encryption": {
         "Type": "aws:kms",
         "KeyARN": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.receipts",
-        "BucketKey": "unknown"
+        "BucketKey": "false"
       },
       "kind": "aws:s3:bucket",
       "region": "us-east-1",

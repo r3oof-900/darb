@@ -27,7 +27,8 @@ type IntendedResult struct {
 	Action    string `json:"action"`
 	Resource  string `json:"resource"`
 	// Status: "verified" (a confirmed path), "unconfirmed" (only paths that
-	// rest on UNKNOWN), "absent" (no path), "not-modelled" (an action or
+	// rest on UNKNOWN), "not-satisfied" (no path: the declared access does
+	// not work as configured), "not-modelled" (an action or
 	// resource the engine does not evaluate).
 	Status string `json:"status"`
 	Detail string `json:"detail,omitempty"`
@@ -223,7 +224,7 @@ func markPaths(g *graph.Graph, ps []paths.Path, out map[graph.EdgeID]bool) {
 func verifyIntended(g *graph.Graph, cfg *config.Config, targets []*model.Resource, _ []graph.NodeID, opts paths.Options) []IntendedResult {
 	out := []IntendedResult{}
 	for i, ia := range cfg.IntendedAccess {
-		r := IntendedResult{Principal: ia.Principal, Action: ia.Action, Resource: ia.Resource, Status: "absent"}
+		r := IntendedResult{Principal: ia.Principal, Action: ia.Action, Resource: ia.Resource, Status: "not-satisfied"}
 		from, ok := g.Lookup(model.NewID(model.KindK8sWorkload, ia.Principal))
 		switch {
 		case targets[i] == nil:

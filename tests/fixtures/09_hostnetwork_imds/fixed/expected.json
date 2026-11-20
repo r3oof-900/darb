@@ -20,5 +20,5 @@
       "resource": "eks-nodegroup:prod/default"
     }
   ],
-  "intended_access_verified": []
+  "intended_access": []
 }

@@ -22,15 +22,15 @@ import (
 // edited to match the engine.
 
 type expectedFile struct {
-	Format               string             `json:"format"`
-	DerivedFrom          string             `json:"derived_from"`
-	ExitCode             *int               `json:"exit_code"`
-	Collected            *int               `json:"collected"`
-	ParseErrors          []string           `json:"parse_errors"`
-	Distinct             bool               `json:"distinct_fingerprints"`
-	Findings             []expectedFinding  `json:"findings"`
-	Absent               []expectedFinding  `json:"absent"`
-	IntendedAccessVerify []expectedIntended `json:"intended_access_verified"`
+	Format         string             `json:"format"`
+	DerivedFrom    string             `json:"derived_from"`
+	ExitCode       *int               `json:"exit_code"`
+	Collected      *int               `json:"collected"`
+	ParseErrors    []string           `json:"parse_errors"`
+	Distinct       bool               `json:"distinct_fingerprints"`
+	Findings       []expectedFinding  `json:"findings"`
+	Absent         []expectedFinding  `json:"absent"`
+	IntendedAccess []expectedIntended `json:"intended_access"`
 }
 
 type expectedFinding struct {
@@ -49,7 +49,7 @@ type expectedFinding struct {
 }
 
 type expectedIntended struct {
-	Principal, Action, Resource string
+	Principal, Action, Resource, Status string
 }
 
 // kindOf maps a canonical identity to its node kind, for the independent
@@ -194,15 +194,15 @@ func compareExpected(t *testing.T, exp *expectedFile, a *Analysis) []string {
 			}
 		}
 	}
-	for _, ia := range exp.IntendedAccessVerify {
+	for _, ia := range exp.IntendedAccess {
 		status := "missing"
 		for _, r := range a.IntendedAccess {
 			if r.Principal == ia.Principal && r.Resource == ia.Resource && r.Action == ia.Action {
 				status = r.Status
 			}
 		}
-		if status != "verified" {
-			out = append(out, fmt.Sprintf("intended access %s %s %s: want verified, got %s", ia.Principal, ia.Action, ia.Resource, status))
+		if status != ia.Status {
+			out = append(out, fmt.Sprintf("intended access %s %s %s: want %s, got %s", ia.Principal, ia.Action, ia.Resource, ia.Status, status))
 		}
 	}
 	if exp.ExitCode != nil && *exp.ExitCode != a.ExitCode {

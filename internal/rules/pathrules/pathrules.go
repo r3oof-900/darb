@@ -38,7 +38,7 @@ func Rules() []rules.Rule {
 			Techniques: []string{"T1078.004", "T1530"},
 			References: []rules.Reference{ref("EKS › IAM roles for service accounts", "https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html"), s3enc},
 			Failing:    []string{"01_classic/vulnerable", "06_role_chain_cross_account/vulnerable", "09_hostnetwork_imds/vulnerable"},
-			Passing:    []string{"01_classic/fixed", "02_ec_scoped_to_legit_bucket/vulnerable", "11_boundary_deny/vulnerable"},
+			Passing:    []string{"01_classic/fixed", "02a_ec_bucket_key/vulnerable", "02c_ec_mismatch/vulnerable", "11_boundary_deny/vulnerable"},
 		}},
 		&pathRule{rules.Meta{
 			ID: EscalationToJewel, Version: "1.0.0", Kind: rules.KindPath,

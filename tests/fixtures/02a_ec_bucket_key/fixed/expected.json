@@ -1,6 +1,6 @@
 {
   "format": "clapa-expected/v1",
-  "derived_from": "13.2 row 2 fixed: plus a Deny bucket policy on B",
+  "derived_from": "13.2 row 2a: Bucket Key on, StringEquals on bucket A's ARN (fixed)",
   "findings": [
     {
       "rule": "CLAPA-POST-006",
@@ -29,11 +29,12 @@
       "jewel": "arn:aws:s3:::acme-customer-pii"
     }
   ],
-  "intended_access_verified": [
+  "intended_access": [
     {
       "principal": "k8s:prod/payments/Deployment/api",
       "action": "s3:GetObject",
-      "resource": "arn:aws:s3:::acme-payment-receipts/*"
+      "resource": "arn:aws:s3:::acme-payment-receipts/*",
+      "status": "verified"
     }
   ]
 }
