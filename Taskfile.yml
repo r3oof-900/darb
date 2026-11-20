@@ -1,0 +1,126 @@
+# https://taskfile.dev — run `task --list`.
+version: "3"
+
+vars:
+  MODULE: github.com/r3oof-900/clapa
+  GOLANGCI_LINT_VERSION: v2.15.0
+  TASK_VERSION: v3.54.0
+  LEFTHOOK_VERSION: v2.2.2
+  GOVULNCHECK_VERSION: v1.10.0
+  GITLEAKS_VERSION: v8.30.1
+  VERSION:
+    sh: git describe --tags --always --dirty 2>/dev/null || echo dev
+  COMMIT:
+    sh: git rev-parse --verify --quiet HEAD || echo unknown
+  LDFLAGS: -s -w -buildid= -X {{.MODULE}}/internal/version.version={{.VERSION}} -X {{.MODULE}}/internal/version.commit={{.COMMIT}}
+  # Fuzz targets, as "package:FuzzName". Added from Phase 2.
+  FUZZ_TARGETS: ""
+  FUZZTIME: 5m
+
+env:
+  GOFLAGS: -mod=readonly
+
+tasks:
+  default:
+    cmds:
+      - task --list
+    silent: true
+
+  tools:
+    desc: Install pinned developer tools into GOBIN
+    cmds:
+      - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.GOLANGCI_LINT_VERSION}}
+      - go install github.com/go-task/task/v3/cmd/task@{{.TASK_VERSION}}
+      - go install github.com/evilmartians/lefthook/v2@{{.LEFTHOOK_VERSION}}
+      - go install golang.org/x/vuln/cmd/govulncheck@{{.GOVULNCHECK_VERSION}}
+      - go install github.com/zricethezav/gitleaks/v8@{{.GITLEAKS_VERSION}}
+
+  gen:
+    desc: Regenerate depguard rules and the DESIGN.md layer table from internal/archtest/layers.go
+    cmds:
+      - go run ./tools/archgen
+
+  fmt:
+    desc: Format code (gofumpt via golangci-lint)
+    cmds:
+      - golangci-lint fmt ./...
+
+  lint:
+    desc: Run golangci-lint (includes formatting checks and depguard)
+    cmds:
+      - golangci-lint run ./...
+
+  vet:
+    cmds:
+      - go vet ./...
+
+  test:
+    desc: Run all tests with the race detector (needs cgo and a C toolchain)
+    env:
+      CGO_ENABLED: "1"
+    cmds:
+      - go test -race -count=1 ./...
+
+  test:norace:
+    desc: Run all tests without -race (only for machines without a C toolchain; CI always uses -race)
+    cmds:
+      - go test -count=1 ./...
+
+  cover:
+    desc: Tests with a statement-coverage profile
+    env:
+      CGO_ENABLED: "1"
+    cmds:
+      - go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+      - go tool cover -func=coverage.out
+
+  fuzz:
+    desc: Run every fuzz target for FUZZTIME each
+    cmds:
+      - for: { var: FUZZ_TARGETS, split: " " }
+        cmd: go test -run=^$ -fuzz=^{{splitList ":" .ITEM | last}}$ -fuzztime={{.FUZZTIME}} ./{{splitList ":" .ITEM | first}}
+      - echo "fuzz targets run{{if eq .FUZZ_TARGETS ""}} (none defined yet){{end}}"
+
+  bench:
+    desc: Run benchmarks (-benchmem, 10 samples) into bench.txt
+    cmds:
+      - go test -run=^$ -bench=. -benchmem -count=10 ./... > bench.txt
+
+  build:
+    desc: Build a static, reproducible clapa binary into bin/
+    env:
+      CGO_ENABLED: "0"
+    cmds:
+      - go build -trimpath -ldflags "{{.LDFLAGS}}" -o bin/clapa{{exeExt}} ./cmd/clapa
+
+  vuln:
+    desc: Check dependencies for known vulnerabilities
+    cmds:
+      - govulncheck ./...
+
+  secrets:
+    desc: Scan git history for secrets
+    cmds:
+      - gitleaks git --redact --no-banner
+
+  fixtures:check:
+    desc: Fail if any test modified tests/fixtures
+    cmds:
+      - git diff --exit-code -- tests/fixtures
+
+  release:
+    desc: Build release artefacts with goreleaser (configuration lands in Phase 7)
+    preconditions:
+      - sh: test -f .goreleaser.yaml
+        msg: ".goreleaser.yaml does not exist yet; packaging is Phase 7"
+    cmds:
+      - goreleaser release --clean
+
+  ci:
+    desc: Everything CI runs, in order
+    cmds:
+      - task: vet
+      - task: lint
+      - task: test
+      - task: vuln
+      - task: fixtures:check

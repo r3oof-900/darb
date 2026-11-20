@@ -1,0 +1,876 @@
+# CLAPA — Design
+
+Cross-Layer Cloud Attack-Path Analyzer. This document records **what** we build,
+**how**, and **why**, for every section of the build specification
+(`cspm_build_prompt.md`, referred to as *the spec*; section numbers below mirror it).
+
+Status: **Phase 1 (design + skeleton)**. Nothing described here is implemented yet
+unless explicitly marked *implemented*.
+
+Conventions used in this document:
+
+- **Decision** — a choice we made, with the trade-off we accepted.
+- **Flag** — an ambiguity or conflict in the spec, or an AWS/Kubernetes behaviour we
+  are not certain about. Every flag names the safer option we picked and, where it is
+  AWS/K8s behaviour, the documentation section we rely on. Each such behaviour becomes
+  a test case named after that section (spec §0.6).
+- **UNKNOWN** — the tool's explicit "could not evaluate" verdict. Never rendered as
+  "safe".
+
+---
+
+## 1. Problem and non-goals
+
+Single-layer scanners each see one layer. Real breaches chain them:
+internet-facing pod → ServiceAccount → IRSA/Pod Identity → IAM role → `kms:Decrypt`
+on `*` → CMK → PII bucket. CLAPA builds **one graph** of identity and permission flow
+across Kubernetes and AWS, finds feasible entry → crown-jewel paths, explains each hop
+with evidence, and proposes the minimal **verified** fix.
+
+Non-goals (MVP): runtime detection, agent deployment, auto-applying fixes to live
+cloud accounts, CVE/vulnerability scanning of images, compliance reporting.
+
+## 2. Scope
+
+MVP: AWS (IAM, STS, KMS, S3, EKS, EC2 instance profiles/IMDS, Secrets Manager, SSM
+Parameter Store) + Kubernetes/EKS. Inputs: Terraform plan JSON, static HCL, K8s
+manifests, offline AWS snapshots, live read-only AWS and K8s.
+
+**Decision — extension without touching the core.** A provider or service is a
+`collector` (raw types) + `normalizer` (raw → canonical model) + `rules`, registered
+in `internal/app`. The core (`model`, `eval`, `graph`, `access`, `paths`, `rules`)
+is provider-agnostic: it sees `Principal`, `Resource`, `PolicyDocument`, edges.
+AWS-specific *semantics* that the evaluator must know (e.g. KMS key-policy
+requirement, S3 bucket vs object ARNs) are expressed as **data** on the canonical
+model (`Resource.AuthzTraits`), not as `if service == "kms"` in the core.
+`docs/EXTENDING.md` (Phase 7) walks through adding a service end to end.
+
+**Flag — EKS access entries.** The spec lists the `aws-auth` ConfigMap only. EKS
+*access entries* (EKS API `ListAccessEntries`/`ListAssociatedAccessPolicies`) are
+now the AWS-recommended way to map IAM principals to cluster permissions (EKS User
+Guide › "Grant IAM users access to Kubernetes with EKS access entries"). Missing them
+would produce false negatives. Decision: model both; access entries are collected in
+Phase 6 (live/snapshot) and from `aws_eks_access_entry` / `aws_eks_access_policy_association`
+in Terraform (Phase 3).
+
+---
+
+## 3. Architecture
+
+```
+collectors → normalizers → canonical model → policy evaluator → access graph
+                                                                    ↓
+reporters ← findings + evidence ← remediation verifier ← path engine + rules
+```
+
+### 3.1 Packages
+
+| Stage | Package(s) | Purity |
+|---|---|---|
+| Collect | `internal/collect` (interfaces), `collect/terraform/{plan,hclstatic}`, `collect/k8s/{manifests,live}`, `collect/awssnapshot`, `collect/awslive` | I/O |
+| Raw types | `collect/tfraw`, `collect/k8sraw`, `collect/awsraw` | pure |
+| Normalize | `internal/normalize` (+ `terraform`, `k8s`, `aws`) | pure |
+| Model | `internal/model`, `internal/arn`, `internal/iampolicy`, `internal/classify` | core |
+| Evaluate | `internal/eval` (+ `match`, `condition`) | core |
+| Graph | `internal/graph` (structure), `internal/access` (builds edges using `eval`) | core |
+| Paths | `internal/paths` | core |
+| Rules | `internal/rules` (+ `pathrules`, `posture`, `escalation`, `catalog`) | core |
+| Findings | `internal/scoring`, `internal/findings` | core |
+| Remediate | `internal/remediate` (candidates), `internal/verify` (proofs) | core |
+| Patch | `internal/patch` (hclwrite edits, policy rewrite, unified diff) | pure |
+| Report | `internal/report` (+ `console`, `jsonreport`, `sarif`, `htmlreport`, `junit`, `markdown`), `pkg/schema` | pure |
+| Support | `internal/coverage`, `internal/redact`, `internal/config`, `internal/safeio`, `internal/version`, `internal/managedpolicies`, `internal/llm` (+ `pseudonymize`) | mixed |
+| Wiring | `internal/app`, `internal/cli`, `cmd/clapa` | entry |
+| Tooling | `internal/archtest`, `tools/archgen`, `tools/refresh-managed-policies` | tooling |
+
+Layers, and what each may use from the standard library:
+
+- **core** — pure functions over data. No I/O, no network, no logging/printing, no
+  package-level mutable state, no wall clock (`time.Now` is forbidden; callers pass
+  "now" in), no randomness. The std packages `os`, `net`, `io/fs`, `io/ioutil`,
+  `log`, `syscall`, `math/rand`, `crypto/rand`, `runtime/debug`, `plugin`, `unsafe`,
+  `text/template`, `testing` and cgo are forbidden.
+- **pure** — same std restrictions as core, but may use vetted external parsing
+  libraries (HCL, k8s API types, YAML) and may hold immutable package-level tables
+  (e.g. compiled redaction patterns).
+- **io** — may do I/O. Still forbidden: `os/exec` (one exception, see §4.1),
+  `unsafe`, `plugin`, `text/template`, `syscall`, `testing`, cgo.
+- **entry** — wiring only; same std rules as io.
+- **tooling** — repository tooling, never linked into the `clapa` binary.
+
+### 3.2 Dependency table (authoritative)
+
+The table below is **generated** from `internal/archtest/layers.go` by
+`task gen` (`go run ./tools/archgen`). The same Go table drives:
+
+1. `internal/archtest` — a test that parses every `.go` file in the module and fails
+   on any import not allowed by the table (**authoritative**; covers test files too);
+2. the `depguard` rules in `.golangci.yml` (also generated, IDE/CI mirror);
+3. the `gochecknoglobals` / `time.Now` scoping in `.golangci.yml` (core packages).
+
+A drift test fails CI if this section or `.golangci.yml` is not what the table
+generates. Rules for reading the table:
+
+- "Module imports" are exact packages; `x/...` means `x` and every package below it.
+- "External" entries match the module path exactly or as a `path/` prefix
+  (`k8s.io/api` does **not** match `k8s.io/apimachinery`).
+- Every package in the module must have a row; a new package without a row fails
+  `archtest`.
+- Test files (`_test.go`) may additionally import: the package under test, the
+  row's "test-only" packages, `pgregory.net/rapid`, `github.com/stretchr/testify`,
+  `sigs.k8s.io/yaml`, `github.com/santhosh-tekuri/jsonschema`, and any std package
+  except `unsafe`, `os/exec`, `plugin`, `text/template` and cgo.
+- `internal/arn` is a **leaf**: it imports nothing from the module.
+
+<!-- BEGIN GENERATED: layer-table (task gen) — DO NOT EDIT -->
+| Package | Layer | May import (module) | May import (external) | Extra std / test-only |
+|---|---|---|---|---|
+| `cmd/clapa` | entry | `internal/cli` | — | — |
+| `internal/access` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/graph` | — | — |
+| `internal/app` | entry | `internal/config`, `internal/collect/...`, `internal/normalize/...`, `internal/model`, `internal/classify`, `internal/iampolicy`, `internal/eval`, `internal/access`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/rules/catalog`, `internal/scoring`, `internal/findings`, `internal/remediate`, `internal/verify`, `internal/patch`, `internal/report/...`, `internal/llm/...`, `internal/coverage`, `internal/redact`, `internal/safeio`, `internal/version`, `internal/managedpolicies`, `pkg/schema` | `golang.org/x/sync` | — |
+| `internal/archtest` | tooling | — (leaf) | — | — |
+| `internal/arn` | core | — (leaf) | — | — |
+| `internal/classify` | core | `internal/model`, `internal/arn` | — | — |
+| `internal/cli` | entry | `internal/app`, `internal/config`, `internal/rules`, `internal/rules/catalog`, `internal/version`, `internal/redact`, `pkg/schema` | `github.com/spf13/cobra` | — |
+| `internal/collect` | io | `internal/coverage`, `internal/safeio` | — | — |
+| `internal/collect/awslive` | io | `internal/collect`, `internal/coverage`, `internal/collect/awsraw` | `github.com/aws/aws-sdk-go-v2`, `github.com/aws/smithy-go`, `golang.org/x/sync` | — |
+| `internal/collect/awsraw` | pure | — (leaf) | `github.com/aws/aws-sdk-go-v2` | — |
+| `internal/collect/awssnapshot` | io | `internal/collect`, `internal/coverage`, `internal/safeio`, `internal/collect/awsraw` | `github.com/aws/aws-sdk-go-v2` | — |
+| `internal/collect/k8s/live` | io | `internal/collect`, `internal/coverage`, `internal/collect/k8sraw` | `k8s.io/api`, `k8s.io/apimachinery`, `k8s.io/client-go`, `github.com/aws/aws-sdk-go-v2`, `github.com/aws/smithy-go`, `golang.org/x/sync` | — |
+| `internal/collect/k8s/manifests` | io | `internal/collect`, `internal/coverage`, `internal/safeio`, `internal/collect/k8sraw` | `k8s.io/api`, `k8s.io/apimachinery`, `k8s.io/client-go`, `sigs.k8s.io/yaml` | — |
+| `internal/collect/k8sraw` | pure | — (leaf) | `k8s.io/api`, `k8s.io/apimachinery` | — |
+| `internal/collect/terraform/hclstatic` | io | `internal/collect`, `internal/coverage`, `internal/safeio`, `internal/collect/tfraw` | `github.com/hashicorp/hcl/v2`, `github.com/zclconf/go-cty` | — |
+| `internal/collect/terraform/plan` | io | `internal/collect`, `internal/coverage`, `internal/safeio`, `internal/collect/tfraw` | `github.com/hashicorp/terraform-json` | std: `os/exec` |
+| `internal/collect/tfraw` | pure | — (leaf) | `github.com/hashicorp/hcl/v2`, `github.com/hashicorp/terraform-json`, `github.com/zclconf/go-cty` | — |
+| `internal/config` | pure | `internal/model`, `internal/arn`, `internal/classify` | `sigs.k8s.io/yaml` | — |
+| `internal/coverage` | core | — (leaf) | — | — |
+| `internal/eval` | core | `internal/model`, `internal/arn`, `internal/eval/match`, `internal/eval/condition` | — | tests: `internal/iampolicy` |
+| `internal/eval/condition` | core | `internal/model`, `internal/arn` | — | — |
+| `internal/eval/match` | core | `internal/model`, `internal/arn` | — | — |
+| `internal/findings` | core | `internal/model`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/scoring` | — | — |
+| `internal/graph` | core | `internal/model`, `internal/eval` | — | — |
+| `internal/iampolicy` | core | `internal/model`, `internal/arn` | — | — |
+| `internal/llm` | pure | `pkg/schema`, `internal/redact` | — | — |
+| `internal/llm/pseudonymize` | pure | — (leaf) | — | — |
+| `internal/managedpolicies` | pure | — (leaf) | — | — |
+| `internal/model` | core | `internal/arn` | — | — |
+| `internal/normalize` | pure | `internal/model`, `internal/arn`, `internal/coverage` | — | — |
+| `internal/normalize/aws` | pure | `internal/model`, `internal/arn`, `internal/normalize`, `internal/coverage`, `internal/iampolicy`, `internal/managedpolicies`, `internal/collect/awsraw` | `github.com/aws/aws-sdk-go-v2` | — |
+| `internal/normalize/k8s` | pure | `internal/model`, `internal/arn`, `internal/normalize`, `internal/coverage`, `internal/collect/k8sraw` | `k8s.io/api`, `k8s.io/apimachinery` | — |
+| `internal/normalize/terraform` | pure | `internal/model`, `internal/arn`, `internal/normalize`, `internal/coverage`, `internal/iampolicy`, `internal/managedpolicies`, `internal/collect/tfraw` | `github.com/hashicorp/hcl/v2`, `github.com/hashicorp/terraform-json`, `github.com/zclconf/go-cty` | — |
+| `internal/patch` | pure | `internal/model`, `internal/iampolicy`, `internal/remediate`, `internal/findings` | `github.com/hashicorp/hcl/v2`, `github.com/aymanbagabas/go-udiff` | — |
+| `internal/paths` | core | `internal/model`, `internal/graph` | — | — |
+| `internal/redact` | pure | — (leaf) | — | — |
+| `internal/remediate` | core | `internal/model`, `internal/arn`, `internal/iampolicy`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/findings` | — | — |
+| `internal/report` | pure | `pkg/schema`, `internal/model`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/scoring`, `internal/findings`, `internal/coverage`, `internal/version` | — | — |
+| `internal/report/console` | pure | `internal/report`, `pkg/schema` | — | — |
+| `internal/report/htmlreport` | pure | `internal/report`, `pkg/schema` | — | — |
+| `internal/report/jsonreport` | pure | `internal/report`, `pkg/schema` | — | — |
+| `internal/report/junit` | pure | `internal/report`, `pkg/schema` | — | — |
+| `internal/report/markdown` | pure | `internal/report`, `pkg/schema` | — | — |
+| `internal/report/sarif` | pure | `internal/report`, `pkg/schema` | — | — |
+| `internal/rules` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/graph`, `internal/paths` | — | — |
+| `internal/rules/catalog` | core | `internal/rules`, `internal/rules/pathrules`, `internal/rules/posture`, `internal/rules/escalation` | — | — |
+| `internal/rules/escalation` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/rules` | — | — |
+| `internal/rules/pathrules` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/rules` | — | — |
+| `internal/rules/posture` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/rules` | — | — |
+| `internal/safeio` | io | — (leaf) | — | — |
+| `internal/scoring` | core | `internal/model`, `internal/graph`, `internal/paths` | — | — |
+| `internal/verify` | core | `internal/model`, `internal/eval`, `internal/graph`, `internal/access`, `internal/paths`, `internal/rules`, `internal/remediate`, `internal/findings` | — | — |
+| `internal/version` | pure | — (leaf) | — | — |
+| `pkg/schema` | pure | — (leaf) | — | — |
+| `tools/archgen` | tooling | `internal/archtest` | — | — |
+| `tools/refresh-managed-policies` | tooling | — (leaf) | `github.com/aws/aws-sdk-go-v2` | — |
+
+Standard-library packages denied in non-test files, by layer (an entry also denies its subpackages):
+
+| Layer | Denied std packages |
+|---|---|
+| core | `os`, `net`, `io/fs`, `io/ioutil`, `log`, `syscall`, `math/rand`, `crypto/rand`, `runtime/debug`, `plugin`, `unsafe`, `text/template`, `testing`, `C` |
+| pure | `os`, `net`, `io/fs`, `io/ioutil`, `log`, `syscall`, `math/rand`, `crypto/rand`, `runtime/debug`, `plugin`, `unsafe`, `text/template`, `testing`, `C` |
+| io | `os/exec`, `syscall`, `plugin`, `unsafe`, `text/template`, `testing`, `C` |
+| entry | `os/exec`, `syscall`, `plugin`, `unsafe`, `text/template`, `testing`, `C` |
+| tooling | `os/exec`, `syscall`, `plugin`, `unsafe`, `text/template`, `testing`, `C` |
+<!-- END GENERATED: layer-table -->
+
+**Decision — `go/parser` instead of `go/packages` for archtest.** `go/packages`
+shells out to `go list` and applies build constraints for one GOOS/GOARCH. Parsing
+every file with `go/parser` (imports only) checks *all* platform variants at once,
+needs no external dependency and no subprocess. Trade-off: no type information —
+not needed for import rules.
+
+**Flag — depguard semantics.** depguard v2 allow/deny entries are prefix matches;
+we generate `pkg$` (exact) and `pkg/` (descendants) pairs to avoid
+`k8s.io/api` ⊂ `k8s.io/apimachinery` false allows, and use `!$test` so depguard
+checks only non-test files. depguard's behaviour when an import matches both an allow
+(`$gostd`) and a deny entry is verified empirically in Phase 1 (see the Phase 1
+report); `archtest` remains authoritative regardless.
+
+### 3.3 Go conventions
+
+- Go: `go 1.26.0` in `go.mod` (oldest of the two latest stable releases, verified
+  2026-11-20: go1.27.4 and go1.26.11). CI matrix: 1.26.x and 1.27.x × Linux, macOS,
+  Windows.
+- `context.Context` is the first parameter of every collector method and every
+  operation that may block or run long.
+- Errors: wrapped with `%w`; sentinel errors (`var ErrX = errors.New(...)`) or typed
+  errors for anything a caller branches on. No `panic` in library code; `recover`
+  only in `cmd/clapa`, mapped to exit code 4.
+- Canonical model types: unexported fields + constructors (or small value types);
+  constructors copy input slices; getters return copies or read-only views;
+  collections sorted by canonical ID wherever order can reach output.
+- Logging: `log/slog` only in io/entry layers; core returns data, never logs.
+- Limits, enforced by `archtest` and `revive`: no `.go` file over 400 lines;
+  functions ≤ 50 statements / 80 lines; cyclomatic complexity ≤ 15; cognitive
+  complexity ≤ 20. A function does one pipeline stage.
+
+### 3.4 Determinism
+
+Same inputs ⇒ byte-identical JSON (spec §11.4). Mechanisms:
+
+- No map iteration reaches output; maps are converted to slices sorted by a total
+  order (canonical ID, then a tiebreak on every remaining field).
+- All scores are **integers in fixed point** (per-mille), see `docs/SCORING.md`.
+  Rationale: Go permits fused multiply-add on some architectures (e.g. arm64), so
+  float results can differ across platforms.
+- No timestamps, durations or absolute paths in output unless `--timestamps`
+  (timing data is gated by the same flag — **Flag**: the spec asks for "timing" in
+  JSON *and* byte-identical output; we keep timing behind `--timestamps`).
+- Input paths are reported relative to the scan root with `/` separators.
+- `.gitattributes` forces LF line endings so fixtures and goldens are identical on
+  Windows.
+- A test runs every golden scan twice (and with shuffled input order) and compares
+  bytes.
+
+---
+
+## 4. Ingestion
+
+All collectors implement:
+
+```go
+type Collector interface {
+    Name() string
+    Collect(ctx context.Context, in Input, gaps *coverage.Recorder) (Bundle, error)
+}
+```
+
+Collectors return **raw** provider types (`tfraw`, `k8sraw`, `awsraw`), never
+canonical model types. Every read goes through `internal/safeio`: size cap (default
+16 MiB per file, configurable), JSON/YAML nesting depth cap (default 64), refusal to
+follow symlinks out of the scan root, and regular files only.
+
+### 4.1 Terraform
+
+**Plan JSON (primary).** `terraform show -json <planfile>` output, parsed with
+`hashicorp/terraform-json`. Resolves modules, `for_each`, `count`, variables,
+locals, data sources. Values "known after apply" (e.g. a new role's ARN) become
+symbolic references (`tfref{address, attribute}`) — **never** guessed strings.
+
+**Decision — the one `os/exec`.** If the user passes a binary plan *file* (not JSON),
+`collect/terraform/plan` runs `terraform show -json <file>` with an argument slice
+(no shell), a timeout, a stdout size cap and a scrubbed environment. The binary is
+resolved with `exec.LookPath` (which since Go 1.19 refuses results relative to the
+current directory) or an explicit `--terraform-bin`. This is the only package
+allowed to import `os/exec` (enforced by the table).
+
+**Static HCL (secondary).** `hcl/v2` + `hclsyntax`. An `hcl.EvalContext` built from
+`variables.tf` defaults, `*.tfvars`, `*.auto.tfvars`, `locals`, and the function
+whitelist `jsonencode, format, concat, merge, lookup, join, replace, lower, upper,
+tostring, tolist, toset` taken from `go-cty`'s `function/stdlib` — nothing else
+is callable. Resource attribute references become symbolic references linked by the
+normalizer. Anything else becomes `Unresolved{Expr, Range}` (with the `hcl.Range`),
+never a guess, never dropped. Findings depending on an `Unresolved` value get
+`confidence: low` and the value is listed in the coverage section.
+
+Policy documents in every form: `jsonencode(...)`, heredoc JSON,
+`data "aws_iam_policy_document"` (incl. `principals`, `condition`, `not_actions`,
+`not_resources`, `source_policy_documents`/`override_policy_documents`), inline
+role policies, `aws_iam_role_policy_attachment`, `aws_iam_policy_attachment`,
+`managed_policy_arns`, `permissions_boundary`.
+
+**AWS managed policies** resolve by ARN from a vendored, versioned snapshot embedded
+in `internal/managedpolicies` (with snapshot date and source). `tools/refresh-managed-policies`
+regenerates it from `iam:ListPolicies(Scope=AWS)` + `iam:GetPolicyVersion`. An
+attached managed policy that is not in the snapshot is an explicit coverage gap.
+
+### 4.2 Kubernetes
+
+Manifests (multi-doc YAML, Helm-rendered and Kustomize-built output — CLAPA never
+runs `helm`/`kustomize`) are decoded with client-go's universal deserializer into
+`k8s.io/api` types, so field semantics match the API server.
+
+**Decision — line numbers.** The deserializer loses positions, so each document is
+also parsed with `sigs.k8s.io/yaml/goyaml.v3` into a `yaml.Node` tree to map objects
+(and selected fields) to `file:line`. Unknown kinds or fields are warnings with
+`file:line`, never fatal.
+
+Kinds: Deployment, StatefulSet, DaemonSet, Job, CronJob, Pod, ReplicaSet,
+ServiceAccount, Role, ClusterRole, RoleBinding, ClusterRoleBinding, NetworkPolicy,
+Service (`LoadBalancer`/`NodePort`), Ingress, Namespace, the `aws-auth` ConfigMap.
+
+Workload identity:
+
+- **IRSA**: `eks.amazonaws.com/role-arn` on the ServiceAccount. The trust policy is
+  evaluated with `sts:AssumeRoleWithWebIdentity`, principal `Federated = <OIDC
+  provider ARN>`, context `<issuer>:sub = system:serviceaccount:<ns>:<sa>` and
+  `<issuer>:aud = sts.amazonaws.com`. **Flag**: the audience can be changed with the
+  `eks.amazonaws.com/audience` annotation (EKS User Guide › "Configure Kubernetes
+  service accounts to assume an IAM role"); we read it, and default to
+  `sts.amazonaws.com` only when absent, recording that assumption.
+- **EKS Pod Identity**: associations (cluster, namespace, service account → role).
+  Trust evaluated with principal `Service = pods.eks.amazonaws.com`, actions
+  `sts:AssumeRole` and `sts:TagSession` (EKS User Guide › "EKS Pod Identity").
+- **Node instance role via IMDS** — `NODE_ROLE` edge with an explicit precondition:
+  reachable when `hostNetwork: true`, **or** IMDSv1 is allowed (`HttpTokens=optional`),
+  **or** `HttpPutResponseHopLimit ≥ 2` (IMDSv2 from a pod needs one extra hop) — and
+  `HttpEndpoint` is enabled. **Flag**: IMDS settings often live in launch templates
+  not present in the input; then the precondition is UNKNOWN and the edge gets
+  `confidence: low` (EC2 User Guide › "Configure the instance metadata options").
+  NetworkPolicy egress rules that block `169.254.169.254/32` are honoured when the
+  CNI enforces NetworkPolicy; whether it does is a config assumption.
+- **Default ServiceAccount** — modelled like any other SA; pods without
+  `serviceAccountName` run as `default`.
+
+### 4.3 AWS offline snapshots
+
+Bundle layout (written by `clapa collect-snapshot`, Phase 6; hand-made fixtures in
+Phase 3): one directory per account, files named after the CLI command, e.g.
+`<account>/global/iam-get-account-authorization-details.json`,
+`<account>/<region>/kms-get-key-policy/<key-id>.json`, plus `manifest.json`
+listing every API call attempted, its outcome and any error (the coverage source).
+
+### 4.4 Live AWS
+
+Read-only. `docs/PERMISSIONS.md` (Phase 6) lists a minimal custom policy; AWS
+managed `SecurityAudit` + `ViewOnlyAccess` suffice. SDK paginators everywhere,
+`retry.NewAdaptiveMode`, `errgroup.SetLimit` per service (configurable), per-call
+`context` timeout, multi-region, multi-account via `sts:AssumeRole` (optionally
+enumerating accounts with AWS Organizations).
+
+**Partial failure is first-class.** Each `AccessDenied`, throttle or timeout is a
+`coverage.Gap{Service, Region, Account, API, Reason}`. Coverage per service =
+completed collection units ÷ known units. If a list call fails, the denominator is
+unknown and that service-region reports `coverage: unknown` (never 100%). Nothing
+collected ⇒ exit 3; "0 findings" is never printed for an empty scan.
+
+### 4.5 Live Kubernetes
+
+`client-go` only (never `kubectl`); kubeconfig contexts or in-memory EKS token
+(SigV4-presigned `sts:GetCallerIdentity` with the `x-k8s-aws-id` header). List with
+`Limit`/`Continue` pagination. Tokens are never logged. TLS verification on;
+`--insecure` prints a loud warning and is recorded in the report. Non-TTY never
+prompts; missing config is a clear error.
+
+---
+
+## 5. Canonical model
+
+Types: `Principal` (kinds: IAMRole, IAMUser, AssumedRoleSession, FederatedSession,
+K8sServiceAccount, K8sUser, K8sGroup, AWSService, Anonymous/Public, AccountRoot),
+`Workload`, `Resource` (`kind`, `arn`, `account`, `region`, `tags`,
+`data_classification`, `AuthzTraits`), `PolicyDocument`, `Statement`, `Condition`,
+`TrustRelationship`, `NetworkExposure`, `SourceLocation` (file + line range +
+resource address, or ARN + API call for live data).
+
+**Stable IDs.** `ID = sha256("clapa/v1\x00" + kind + "\x00" + canonicalIdentity)`,
+hex-encoded (64 chars; reports may abbreviate for display only). Canonical
+identities:
+
+- AWS: full ARN including partition and account (S3 bucket ARNs carry no account,
+  which is fine: names are unique per partition).
+- Kubernetes: `k8s:{cluster}/{namespace}/{kind}/{name}`; `{cluster}` is the EKS
+  cluster ARN when known, else the user-supplied `--k8s-cluster` name. Scanning
+  more than one cluster without distinct names is a usage error (exit 2).
+- Terraform resources with an unknown ARN: `tf:{root-module-digest}/{provider-config}/{address}`;
+  the normalizer links them to ARN nodes when the ARN becomes known.
+
+**Duplicates are errors.** Two definitions with the same canonical identity fail the
+normalize stage with both `SourceLocation`s. **Flag**: scanning Terraform *and* a
+live snapshot of the same account yields legitimate duplicates. Safer option for
+MVP: error, and advise scanning one source of truth per account. A future
+`--merge-sources` mode would need explicit precedence rules.
+
+**Crown jewels** come from (a) classification tags (configurable keys and values,
+default `DataClass ∈ {pii, pci, phi, secret}`), (b) explicit config entries, or
+(c) the default heuristic (KMS keys, buckets, secrets and SecureString parameters
+tagged sensitive). Each crown jewel records **which** of these marked it.
+
+**Entry points**: workloads exposed via `Service` `LoadBalancer`/`NodePort` or
+`Ingress`; plus every workload under the "assume any pod compromised" threat model
+(`--assume-compromised`, default **on**; the report states which model was used).
+
+---
+
+## 6. Policy evaluator
+
+```go
+func Evaluate(req Request, policies PolicySet) Decision
+```
+
+`Request` = principal + action + resource + context. `PolicySet` = identity,
+resource, permission boundary, SCPs, RCPs and session policies. `Decision` ∈
+{`ALLOW`, `DENY`, `IMPLICIT_DENY`, `UNKNOWN`} with the contributing statements
+(policy, `Sid` or index, `SourceLocation`) and the unresolved conditions.
+
+### 6.1 Evaluation logic — corrected against the AWS documentation
+
+The spec's precedence list (§6.1) is a simplification. We implement the documented
+flow instead (IAM User Guide › "Policy evaluation logic" › "How AWS enforcement code
+logic evaluates requests to allow or deny access" and "Policy evaluation for requests
+within a single account"):
+
+1. **Explicit deny** in any applicable policy ⇒ `DENY`.
+2. **RCPs** (resource control policies, AWS Organizations User Guide › "Resource
+   control policies") — if present and the resource's account is under them, they
+   must allow. **SCPs** — if present, the principal's account must be allowed.
+   (RCPs are not in the spec; they are part of AWS's current logic, so the model
+   accepts them. Absent input = "not modelled", recorded as an assumption.)
+3. **Resource-based policy** — whether a same-account resource-policy allow is
+   sufficient on its own **depends on the principal type it names** (next table).
+4. **Identity-based policy** must allow (unless step 3 already decided).
+5. **Permissions boundary** — if present, must allow.
+6. **Session policy** — if present, must allow.
+
+Same-account effect of a resource-based policy that allows the request, by the
+principal named in it (IAM User Guide › "Permissions boundaries for IAM entities" ›
+"Evaluating effective permissions with boundaries" › "Resource-based policies"):
+
+| Principal named in the resource-based policy | Implicit deny in identity policy | Implicit deny in permissions boundary | Implicit deny in session policy |
+|---|---|---|---|
+| **IAM user ARN** | does not limit | does not limit | n/a |
+| **IAM role ARN** | does not limit | **limits** | **limits** |
+| **Role session ARN** (`arn:aws:sts::ACCOUNT:assumed-role/ROLE/SESSION`) | does not limit | does not limit | does not limit |
+| **IAM user ARN that created a federated user session** (request made by the federated session) | — | **limits** | **limits** |
+
+Notes:
+
+- Explicit denies always win; SCPs and RCPs apply in every row.
+- A resource policy naming the **account** (`arn:aws:iam::ACCOUNT:root` or
+  `"AWS": "ACCOUNT"`) delegates to IAM: the identity side must allow.
+- The spec's statement "a resource policy grant to a role ARN can suffice on its own"
+  (§6.1) is therefore only half right: it bypasses the identity policy but **not** a
+  permissions boundary or session policy. An earlier draft of the plan had the
+  role-ARN row inverted; it was corrected in plan review and this table is the
+  design of record.
+- **Phase 2 commitment:** the first four cases in `internal/eval/testdata/eval/` are
+  exactly these four rows, named after the documentation section:
+  - `iam-ug.permissions-boundaries.resource-based-policies.iam-user-arn.not-limited-by-boundary`
+  - `iam-ug.permissions-boundaries.resource-based-policies.iam-role-arn.limited-by-boundary-and-session-policy`
+  - `iam-ug.permissions-boundaries.resource-based-policies.role-session-arn.not-limited`
+  - `iam-ug.permissions-boundaries.resource-based-policies.federated-user-session.limited-by-boundary-and-session-policy`
+
+**Cross-account** (IAM User Guide › "Cross-account policy evaluation logic"): the
+identity side (identity policy, boundary, session policy, the principal's SCPs) and
+the resource side (resource policy, the resource's RCPs) must **both** allow.
+
+**KMS** (AWS KMS Developer Guide › "Key policies in AWS KMS" › "Default key policy"):
+the key policy must allow, either directly or by naming the account root, which
+enables IAM policies to grant access. An IAM policy alone never grants access to a
+key whose policy does not delegate. KMS **grants** are not in the MVP input list;
+**Flag**: unmodelled grants can only *add* access, so their absence is reported as a
+coverage gap ("KMS grants not evaluated") rather than silently ignored.
+
+**Role trust policies** are resource-based policies on the role and follow the same
+table for `sts:AssumeRole*`. **Flag**: AWS stores role principals by unique ID; a
+trust policy referring to a deleted-then-recreated role shows an `AROA…` ID in live
+data. Such principals are unresolved → `UNKNOWN`.
+
+**S3 Block Public Access** (S3 User Guide › "Blocking public access to your Amazon
+S3 storage"): with `RestrictPublicBuckets`, a public bucket policy only grants access
+to AWS service principals and authorised users in the bucket owner's account. Applied
+at account and bucket level. **Flag**: S3 ACLs are not modelled; reported as a gap
+unless Object Ownership is `BucketOwnerEnforced` (ACLs disabled).
+
+**Session policies** are rarely visible in static inputs. When a chain does not show
+one, we assume none; this is listed in the finding's assumptions.
+
+### 6.2 Three-valued logic (UNKNOWN)
+
+Each statement evaluates to *applies*, *does not apply*, or *unknown* (an unresolved
+condition key, policy variable, or principal). Combination:
+
+- A definite applicable Deny ⇒ `DENY`.
+- Otherwise, an *unknown* Deny ⇒ the result is at most `UNKNOWN` (it cannot be
+  `ALLOW`); if nothing would allow anyway ⇒ `IMPLICIT_DENY`.
+- Otherwise an allow requirement satisfied only by *unknown* statements ⇒ `UNKNOWN`.
+- Information order: `DENY`, `IMPLICIT_DENY` < `UNKNOWN` < `ALLOW` for access
+  purposes. Property tests (§6.4) are stated against this order.
+
+### 6.3 Matching and conditions
+
+- **Actions**: case-insensitive, `*` and `?` over the full `service:action`,
+  `NotAction`.
+- **Resources**: ARN parsed into partition/service/region/account/resource; `*`/`?`
+  are matched per segment for the first five; the resource part is matched as a
+  whole (it may contain `/` and `:`). `NotResource`. `arn:aws:s3:::b` ≠
+  `arn:aws:s3:::b/*`. **Flag**: whether `*` may span `:`-separated segments is
+  pinned by tests citing IAM User Guide › "IAM JSON policy elements: Resource".
+- **Principals**: `"*"`, `{"AWS":"*"}`, account root / bare account ID, role ARN,
+  assumed-role session ARN, `Service`, `Federated`, `CanonicalUser`, `NotPrincipal`.
+- **Policy variables** (`${aws:username}`, `${aws:PrincipalTag/x}`, …) — not in the
+  spec. **Flag**: substituted when the context provides the value, otherwise the
+  match is *unknown*. Never treated as literal text.
+- **Conditions** (IAM User Guide › "IAM JSON policy elements: Condition operators"
+  and "…: Condition"):
+  - Families: String, Numeric, Date, Bool, Binary, IpAddress, Arn, Null.
+  - Different operators and different keys in a block: AND. Several values for one
+    key: OR — but **NOR for negated operators** (`StringNotEquals`, …).
+  - Key **known absent**: positive operators ⇒ false; negated operators ⇒ true;
+    `…IfExists` ⇒ true; `Null:true` ⇒ true.
+  - Key **unknown to the analyzer** (distinct from "absent") ⇒ *unknown*, with the
+    condition attached. Never guessed.
+  - `ForAllValues` is true for an empty or absent key (a documented pitfall);
+    `ForAnyValue` is false for it.
+  - Context assumptions from config (`assume: {"aws:SourceVpce": "vpce-123"}`)
+    turn unknown keys into known values; every assumption used is listed in the
+    finding.
+
+### 6.4 Correctness
+
+- Corpus ≥ 150 table-driven cases in `internal/eval/testdata/eval/*.yaml`
+  (spec says `testdata/eval/`; Go resolves `testdata` per package, so it lives under
+  the evaluator). Each case is named after the doc rule it encodes. New cases need no
+  code.
+- Fuzz targets (`testing.F`): policy-JSON parser (`internal/iampolicy`), ARN parser
+  and wildcard matcher (`internal/arn`, `internal/eval/match`). Must not panic.
+- `rapid` properties: adding an unconditional Deny never increases access;
+  narrowing `Resource` never increases access; evaluation is deterministic and
+  statement-order independent.
+- **Flag — branch coverage.** `go test -cover` measures statements, not branches.
+  We gate `internal/eval` and `internal/paths` with `gobco` (branch/condition
+  coverage) at ≥ 95%, and the rest with statement coverage (≥ 90% overall).
+
+---
+
+## 7. Access graph and path engine
+
+### 7.1 Graph
+
+`internal/graph`: a typed directed multigraph in compressed-sparse-row form
+(`int32` node indices, edges sorted by (from, kind, to, edge-ID)) for deterministic
+iteration and low memory. Each edge carries `kind`, the evaluator `Decision` with
+justifying statements, preconditions, `confidence ∈ {high, medium, low}` and a
+**cut cost** (§9.1, `docs/SCORING.md`). No third-party graph library: we need typed
+edges, stable ordering and a max-flow over our own representation.
+
+### 7.2 Edge kinds
+
+`RUNS_AS`, `ASSUMES` (SA → role via IRSA/Pod Identity; role → role via
+`sts:AssumeRole`), `NODE_ROLE` (precondition-gated), `CAN_ESCALATE` (PassRole +
+compute-create, `CreatePolicyVersion`, `Attach/PutRolePolicy`,
+`UpdateAssumeRolePolicy`, `sts:AssumeRole` on `*`, K8s `create pods`/`pods/exec`/
+`impersonate`/`bind`/`escalate`), `CAN_READ`, `CAN_DECRYPT`, `PROTECTS`,
+`EXPOSED_TO`, plus `MAPS_TO` (IAM principal → K8s user/group via `aws-auth` or
+access entries).
+
+### 7.3 Encrypted data access
+
+Reading encrypted data needs `CAN_READ` on the object **and** `CAN_DECRYPT` on its
+key, each evaluated with the right context (`kms:EncryptionContext:aws:s3:arn`,
+`kms:ViaService`, …).
+
+The conjunction applies only when the data is protected by a **KMS key** (S3
+SSE-KMS / DSSE-KMS, Secrets Manager, SSM SecureString). For S3 objects that are
+unencrypted or use SSE-S3 (`AES256`, S3-managed keys), there is no KMS
+authorization step, so `CAN_READ` alone yields plaintext (S3 User Guide › "Using
+server-side encryption with Amazon S3 managed keys"). When the encryption
+configuration is unknown (not in the input), the edge to plaintext is `UNKNOWN`
+with a recorded gap, never assumed in either direction.
+
+**Decision.** `CAN_DECRYPT` edges are **qualified by the protected resource**: the
+edge `role —CAN_DECRYPT[for bucket Z]→ key K` is evaluated with Z's encryption
+context. A grant scoped to bucket Y's context yields no edge for Z. The `access`
+builder derives `CAN_READ_PLAINTEXT` (principal → jewel) only when both edges exist,
+and records both as evidence. A cut on the derived edge maps to the cheaper of its
+two underlying edges, which keeps legitimate access to Y through the same key cuttable
+independently of the attack path to Z.
+
+### 7.4 Path search and chokepoints
+
+**Flag (accepted in plan review) — "find every path" is exponential.** Decision:
+
+1. **Reachability** from all entry points (multi-source BFS) decides *whether* a
+   jewel is reachable. This is exact and linear.
+2. **Path enumeration** for explanation: depth-first, cycle-safe, deterministic,
+   max depth (default 10), and a per-(entry, jewel) cap (default 100). When a cap
+   is hit the report says so; it is never silent.
+3. **Chokepoints** are computed by **weighted minimum cut** (Dinic max-flow,
+   integer capacities = cut costs, `∞` for uncuttable edges) between a super-source
+   over the entries and the jewel. We choose the canonical cut closest to the source
+   (residual reachability) for determinism.
+4. **Grouping across jewels** is greedy (exact minimum multicut is NP-hard): repeatedly
+   take the cut that breaks the most uncovered paths per unit cost. Documented as an
+   approximation.
+5. Chokepoints are ranked by the number of paths they break, then by cost.
+
+Performance target: 50k nodes / 500k edges in < 60 s and < 2 GB. `internal/paths`
+ships `-benchmem` benchmarks with a synthetic graph generator (Phase 4).
+**Flag — CI benchmark noise.** Shared runners are noisy; the bench job runs base and
+head on the **same runner in the same job**, `-count=10`, compares with `benchstat`,
+and fails on a statistically significant regression > 20%.
+
+---
+
+## 8. Rules and findings
+
+```go
+type Rule interface {
+    Meta() Meta                         // ID, semver, title, rationale, references, fixtures
+    Evaluate(in Input) []Finding        // pure
+}
+```
+
+Rules are registered in an explicit `*rules.Registry` built by `catalog.New()` —
+no package-level mutable registry, no `init()` side effects. The catalog version is
+a semver bumped when any rule's ID set or version changes (checked by a test).
+Each rule has: stable ID, semver, title, rationale, severity logic, references
+(MITRE ATT&CK technique, CIS control, AWS/K8s doc), at least one passing and one
+failing fixture. `clapa rules list|show`.
+
+**Fingerprint** = `sha256(rule ID, rule major version, canonical IDs of entry and
+jewel, sorted canonical IDs of the chokepoint edges)`. It excludes file lines, so
+moving code does not reset suppressions; it changes when the root cause changes.
+
+**Suppressions** (`.clapa-ignore.yaml`): keyed by fingerprint, each with mandatory
+`reason`, `owner`, `expires` (date). Missing fields = config error (exit 2).
+Expired suppressions re-fire and are listed. `--baseline previous.json` reports only
+new and resolved findings.
+
+Scoring: `docs/SCORING.md`.
+
+---
+
+## 9. Remediation
+
+### 9.1 Candidates and cut costs
+
+For each chokepoint, deterministic candidate generators per edge kind: scope
+`Resource` to exact ARNs; add `kms:EncryptionContext`/`kms:ViaService`; tighten
+trust `:sub`/`:aud`; replace a public principal; remove an escalation permission;
+disable token automount; require IMDSv2 with hop limit 1.
+
+Every edge kind has a **cut cost** reflecting how disruptive its fix is (table in
+`docs/SCORING.md` §4): narrowing a resource or adding a condition is cheap, changing
+a trust policy is medium, removing a workload's identity (`RUNS_AS`) is very
+expensive, and `PROTECTS` (a structural fact) is uncuttable. This keeps the min-cut
+from "fixing" a path by breaking the application's own identity.
+
+**Uncuttable edges.**
+
+```yaml
+# clapa.yaml
+remediation:
+  uncuttable_edges:
+    - kind: ASSUMES
+      from: "k8s:prod-cluster/payments/ServiceAccount/api"
+      to:   "arn:aws:iam::111122223333:role/payments-api"
+      reason: "payments API identity; owned by team-payments"
+intended_access:
+  - principal: "k8s:prod-cluster/payments/Deployment/api"
+    action: "s3:GetObject"
+    resource: "arn:aws:s3:::payments-receipts/*"
+```
+
+- Edges listed in `uncuttable_edges` get capacity `∞` (selectors match canonical
+  identities; globs allowed; `reason` mandatory).
+- **Every edge on any path that realises a declared `intended_access` is treated as
+  uncuttable automatically.** Trade-off: conservative — it can leave no finite cut,
+  in which case the report says "no fix within constraints" and names the blocking
+  constraints, rather than proposing a fix that breaks intended access.
+- Every proposed fix lists, per cut edge: kind, cost, the cost source (default table
+  or config override) and the total cost.
+
+### 9.2 Verification
+
+For each candidate: apply in memory to a copy of the canonical model → re-run
+evaluator, access builder and path engine → prove the targeted paths are gone →
+prove every declared intended access still evaluates to `ALLOW`. Without declared
+intended access, the fix is labelled **"unverified against intended access"**.
+
+### 9.3 Output
+
+Unified diff against the original Terraform at the original file/line, made with
+`hclwrite` (never regex); policies in `jsonencode(...)` or heredocs get a
+policy-aware rewrite; every edited file is re-parsed to prove validity. JSON
+policy documents for live-scanned resources. **No invented names**: every ARN in a
+fix must exist in the input; otherwise the fix is templated and marked `TODO`. A
+test asserts this for every generated fix.
+
+---
+
+## 10. LLM integration (Phase 7; interface only now)
+
+Off by default; enabled only with `--llm <provider>` plus an API key. Provider is
+deferred to Phase 7. The generic interface:
+
+```go
+type Explainer interface {
+    Explain(ctx context.Context, req ExplainRequest) (Explanation, error)
+}
+// ExplainRequest carries only structured evidence from pkg/schema
+// (already redacted and optionally pseudonymised); never raw files.
+```
+
+Allowed: natural-language explanation of an already-computed finding, executive
+summary. Never: verdicts, scores, fixes. Redaction via `internal/redact` (≥ 40 secret
+formats + false-positive corpus; shared with log redaction). `--llm-redact-identifiers`
+pseudonymises account IDs, ARNs and names with a reversible mapping kept locally.
+Structured output against a JSON schema, timeout, retries, token cap; any failure ⇒
+template text plus a note that the fallback happened. Output labelled "AI-generated
+explanation" and HTML-escaped like any other untrusted string.
+
+---
+
+## 11. CLI and output
+
+Commands: `scan`, `explain`, `graph`, `remediate`, `rules list|show`,
+`collect-snapshot`, `doctor`, `version` (spec §11.1).
+
+**Flag — `doctor` vs "no os/exec".** `doctor` does not run external binaries; it
+reports the Go runtime, kubeconfig/AWS config presence, and probes read-only API
+permissions (`sts:GetCallerIdentity`, `iam:SimulatePrincipalPolicy` when allowed).
+
+### Exit codes
+
+| Code | Meaning |
+|---|---|
+| 0 | No findings at or above `--fail-on`, **and** coverage complete within tolerance |
+| 1 | Findings at or above `--fail-on` |
+| 2 | Usage or configuration error |
+| 3 | Scan incomplete: coverage gaps above tolerance, or nothing collected |
+| 4 | Internal error (including recovered panics) |
+
+**Decision — precedence when several apply:** 4 > 2 > 1 > 3 > 0. Rationale:
+confirmed findings are actionable even when coverage is partial; incompleteness only
+undermines a *clean* result. The report always states the coverage either way.
+
+**Flag — default tolerance.** Exit 0 requires "coverage complete", so the default
+gap tolerance is **0** for every gap kind, including `Unresolved` Terraform values.
+Users can raise it per gap kind in `clapa.yaml`; the report shows the tolerance used.
+
+### Formats
+
+- **JSON** — `schema_version`, published JSON Schema in `schemas/`, validated in
+  tests; tool version, rule-catalog version, input digests (sha256), coverage,
+  findings, graph stats, timing (behind `--timestamps`, §3.4).
+- **SARIF 2.1.0** — validated against the official schema; `physicalLocation` to
+  TF/K8s lines (`%SRCROOT%`-relative), attack paths as `codeFlows`, our fingerprint
+  in `partialFingerprints`.
+- **HTML** — single file, `html/template`, assets via `embed`, strict CSP
+  (`default-src 'none'`, hashed inline script/style), data embedded as escaped JSON;
+  test with a resource named `<script>`.
+- **Console** — concise by default, `-v` for detail, `NO_COLOR`, plain when not a
+  TTY. **All untrusted strings are stripped of control characters** before printing
+  (terminal escape injection via resource names; see THREAT_MODEL.md).
+- JUnit and Markdown for CI systems.
+
+Logging: `slog`, `--log-format json`, a redacting handler (keys and value patterns
+from `internal/redact`), `--debug` for stack traces, otherwise one-line errors with
+a hint.
+
+---
+
+## 12. Delivery phases
+
+| # | Phase | Gate |
+|---|---|---|
+| 1 | Design docs, threat model, skeleton, CI on empty tests | lint + vet + tests + archtest + govulncheck green |
+| 2 | Model + evaluator, ≥ 150 cases, fuzz, properties | ≥ 95% branch coverage (gobco) on `eval` |
+| 3 | Offline collectors + normalizers | golden fixtures, no ID collisions |
+| 4 | Graph, paths, rules, scoring, findings, JSON/SARIF/console | 16 scenarios match, benchmarks within target |
+| 5 | Remediation + verifier + patches | diff → rescan → exit 0 on fixtures |
+| 6 | Live collectors + `collect-snapshot` | fakes, smithy stubs, LocalStack/kind jobs |
+| 7 | HTML, LLM layer, docs, packaging | spec §15 definition of done |
+
+Workflows that only make sense once their subject exists (`bench.yml` — Phase 4,
+`integration.yml` — Phase 6, `release.yml` + `.goreleaser.yaml` — Phase 7) are
+added in those phases rather than as placeholders.
+
+## 13. Test fixtures
+
+`tests/fixtures/<NN_scenario>/{vulnerable,fixed}/` + `expected.json` (findings by
+rule ID + fingerprint). Immutability: the golden runner copies each fixture to
+`t.TempDir()` before anything runs; CI runs `git diff --exit-code -- tests/fixtures`
+after the test job; fixtures are LF-only via `.gitattributes`.
+
+Scenario 13 (module + `for_each`) needs a real plan JSON. **Flag**: it is generated
+once with Terraform using fake credentials and the AWS provider's `skip_*`
+validation settings, committed, and regenerated only by a documented script; CI
+never needs Terraform.
+
+### 13.1 Read-permission audit (decided after Phase 1 review)
+
+Every scenario whose expected result is "path found" must actually grant the
+read. By §7.3, a path to KMS-protected data needs **both** `CAN_READ` and
+`CAN_DECRYPT`; to SSE-S3 / unencrypted data, `CAN_READ` alone. A fixture whose
+only defect is a missing read permission would test nothing. Common to all
+fixtures unless stated: every KMS key's policy contains the default statement
+that delegates to the account root (`arn:aws:iam::<acct>:root`, `kms:*`), so IAM
+policies can grant `kms:Decrypt` (KMS Developer Guide › "Default key policy").
+Encryption type of every jewel bucket is stated explicitly in the fixture
+(`aws_s3_bucket_server_side_encryption_configuration`), never left unknown.
+
+### 13.2 Scenarios
+
+"Read grant" = what gives `CAN_READ` (and `CAN_DECRYPT` where needed) on the jewel.
+
+| # | Scenario | Read grant in the vulnerable variant | Expected (vulnerable) |
+|---|---|---|---|
+| 1 | IRSA → role → `kms:Decrypt` on `*` → CMK → PII bucket (SSE-KMS) | role policy: `s3:GetObject` on `arn:aws:s3:::<pii>/*` **and** `kms:Decrypt` on `*` | path found (`CAN_READ` + `CAN_DECRYPT` → `CAN_READ_PLAINTEXT`) |
+| 2 | Two buckets, two keys: **A** = legitimate payments bucket (key A), **B** = PII bucket (key B), both SSE-KMS. Workload role: `s3:GetObject` on `A/*`; `kms:Decrypt` on key A with `StringEquals kms:EncryptionContext:aws:s3:arn = arn:aws:s3:::A`. `clapa.yaml` declares A as `intended_access` | read + decrypt on A only (the scenario tests that nothing reaches B) | **no path to B**; access to A is reported as **"intended access verified"**, not as a finding |
+| 3 | Role has `s3:GetObject` on PII bucket B (SSE-KMS, key K) and `kms:Decrypt` on K with `kms:EncryptionContext:aws:s3:arn` = a **different** bucket's ARN | `s3:GetObject` on `B/*` is present on purpose, so the encryption context is the only deciding factor | **no path to B** (`CAN_READ` yes, `CAN_DECRYPT[for B]` no) |
+| 4 | Trust `StringLike :sub = system:serviceaccount:*:*` | role policy: `s3:GetObject` on PII bucket (SSE-KMS) + `kms:Decrypt` on its key | path from **every** SA's workload → role → jewel; plus posture finding "wildcard OIDC sub" |
+| 5 | Trust with `:aud` only, no `:sub` | same as 4 | same as 4 (any SA of that issuer) |
+| 6 | SA role in account A → `sts:AssumeRole` on `*` → role in account B with `AdministratorAccess`, trusting A's root; jewel: PII bucket in B (SSE-KMS, key policy delegates to B's root) | `AdministratorAccess` (`*` on `*`) gives `s3:GetObject` and `kms:Decrypt` in B | cross-account path (identity side in A and trust in B both allow) |
+| 7 | `iam:PassRole` + `lambda:CreateFunction` + `lambda:InvokeFunction` on a role with read on the jewel | passed role: `s3:GetObject` on PII bucket (SSE-KMS) + `kms:Decrypt` on its key | escalation path via `CAN_ESCALATE` to the passed role, then to the jewel. **Flag:** `CreateFunction` alone does not execute code; the rule requires an execution primitive (`InvokeFunction`, `CreateEventSourceMapping`, or `CreateFunctionUrlConfig`). The fixed variant drops `InvokeFunction` *and* scopes `PassRole`; a test checks that `PassRole + CreateFunction` alone is reported as a lower-confidence escalation |
+| 8 | RBAC `create pods` in namespace N; SA `s` in N has IRSA role R | R: `s3:GetObject` on PII bucket (SSE-KMS) + `kms:Decrypt` on its key | escalation: entry workload's SA → (`CAN_ESCALATE`, create pod as `s`) → R → jewel |
+| 9 | `hostNetwork` pod + IMDSv1 → node role → `s3:GetObject` on `*` | node role: `s3:GetObject` on `*`; jewel bucket is **SSE-S3**, so no decrypt is needed (keeps the spec's "`s3:GetObject` on `*`" literal) | path with `NODE_ROLE` precondition (satisfied: hostNetwork, IMDSv1) |
+| 10 | KMS key policy grants `kms:Decrypt` to `{"AWS":"*"}` with `aws:PrincipalOrgID`; bucket SSE-KMS with that key | workload role: `s3:GetObject` on the bucket; decrypt comes only from the key policy | path is **UNKNOWN** (unconfirmed, `confidence: low`) unless `aws:PrincipalOrgID` is configured; with a matching org ID configured → path found; non-matching → no path |
+| 11 | Same grants as scenario 1, plus a permissions boundary with an explicit `Deny s3:GetObject` | as scenario 1 (so only the boundary blocks) | **no path**; evidence names the boundary statement |
+| 12 | Bucket policy `Principal "*"`, `s3:GetObject`, no conditions; Block Public Access off; bucket **SSE-S3** | the bucket policy itself (anonymous read; SSE-KMS would not be readable anonymously) | path internet/anonymous → jewel (public read) |
+| 13 | Module + `for_each` → 3 IRSA roles for 3 SAs | each role: `s3:GetObject` on an SSE-S3 PII bucket | plan mode: 3 roles resolved, 3 paths; static mode: role ARNs/policies `Unresolved`, findings `confidence: low`, listed in coverage, exit 3 at default tolerance |
+| 14 | Same role name (and same bucket-name suffix) in two accounts | each role reads its own account's SSE-S3 bucket | two distinct node IDs, two findings with distinct fingerprints; no collision |
+| 15 | Empty directory | — | exit 3, no "secure"/"0 findings" claim |
+| 16 | One malformed YAML file and one malformed HCL file next to a valid copy of scenario 1 | as scenario 1 in the valid files | both errors reported with `file:line`; the scenario-1 path is still found (proves the scan continued) |
+
+Fixed variants remove exactly the cause the scenario tests (e.g. scenario 1 scopes
+`s3:GetObject` and `kms:Decrypt` to the workload's legitimate bucket and key, with an
+encryption-context condition, so nothing reaches the PII bucket; scenario 4 pins
+`:sub`), and their `expected.json` must show the targeted path gone.
+
+## 14. Security of the tool itself
+
+See `docs/THREAT_MODEL.md`. Summary of controls: no `os/exec` except §4.1, no
+`unsafe`, no `text/template`, input size and depth caps, symlink and path-traversal
+protection on every input and output path, `go.sum` committed, `GOFLAGS=-mod=readonly`
+in CI, Dependabot, `govulncheck`, `gosec`, `gitleaks`, GitHub Actions pinned by
+commit SHA, no network egress except the cloud APIs being read and the explicitly
+enabled LLM provider.
+
+**Decision — Dependabot instead of Renovate.** The plan mentioned `renovate.json`;
+Dependabot needs no GitHub App installation and covers `gomod` and
+`github-actions`. Either satisfies the spec.
+
+## 15. Definition of done — measurement notes
+
+- "CI green on the two latest Go releases" is re-evaluated at each release.
+- `-race` requires cgo; on Windows that needs a C toolchain (CI runners have one; a
+  developer machine may not — `task test:norace` exists for that case and is never
+  used by CI).
+- Fuzz targets run ≥ 5 minutes each in a scheduled/nightly job, not on every PR.
+
+## Appendix A — Toolchain pinned in Phase 1 (verified 2026-11-20)
+
+| Tool | Version |
+|---|---|
+| Go | 1.27.4 (local), CI 1.26.x / 1.27.x, `go.mod` `go 1.26.0` |
+| golangci-lint | v2.15.0 |
+| gofumpt | v0.12.0 (via golangci-lint formatters) |
+| go-task | v3.54.0 |
+| lefthook | v2.2.2 |
+| govulncheck (`golang.org/x/vuln`) | v1.10.0 |
+| gitleaks | v8.30.1 |
+| actions/checkout | v7.0.1 @ `3d3c42e5aac5ba805825da76410c181273ba90b1` |
+| actions/setup-go | v7.1.0 @ `d8cbb8045d7f43706b9177cceb36c1f91a6644d5` |
+| golangci/golangci-lint-action | v9.3.0 @ `ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a` |

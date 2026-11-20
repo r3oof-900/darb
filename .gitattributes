@@ -1,0 +1,5 @@
+# LF everywhere so fixtures, goldens and generated files are byte-identical on
+# every OS (docs/DESIGN.md section 3.4).
+* text=auto eol=lf
+*.png binary
+*.gz binary

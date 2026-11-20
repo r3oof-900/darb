@@ -1,0 +1,11 @@
+/bin/
+/dist/
+*.test
+*.out
+coverage.*
+bench*.txt
+/tmp/
+.idea/
+.vscode/
+.DS_Store
+# Fuzz corpora found locally are reviewed before being committed under testdata/fuzz.

@@ -1,0 +1,14 @@
+# Git hooks (https://lefthook.dev). Install once: lefthook install
+pre-commit:
+  parallel: true
+  jobs:
+    - name: lint
+      glob: "*.go"
+      run: golangci-lint run ./...
+    - name: secrets
+      run: gitleaks git --pre-commit --staged --redact --no-banner
+
+pre-push:
+  jobs:
+    - name: test
+      run: go test -count=1 ./...
