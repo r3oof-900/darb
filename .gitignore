@@ -1,9 +1,10 @@
 /bin/
 /dist/
 *.test
-*.out
-coverage.*
-bench*.txt
+/*.out
+# coverage reports only at the root: a bare "coverage.*" also matched internal/coverage/coverage.go
+/coverage.*
+/bench*.txt
 /tmp/
 .idea/
 .vscode/
