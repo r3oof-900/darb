@@ -33,26 +33,21 @@ func (n *norm) data(rs []*tfraw.Resource) {
 		}
 	}
 	templates := map[string]*tfraw.Resource{}
+	single := map[string]func(*tfraw.Resource){
+		"aws_kms_key": n.kmsKey, "aws_eks_cluster": n.cluster, "aws_eks_pod_identity_association": n.podIdentity,
+		"aws_eks_addon": n.addon, "aws_iam_openid_connect_provider": n.oidcProvider,
+		"aws_eks_access_entry": n.accessEntry, "aws_eks_access_policy_association": n.accessPolicy,
+	}
 	for _, r := range rs {
 		switch r.Type {
 		case "aws_s3_bucket_policy", "aws_s3_bucket_server_side_encryption_configuration", "aws_s3_bucket_public_access_block":
 			n.bucketPart(r, buckets)
-		case "aws_kms_key":
-			n.kmsKey(r)
-		case "aws_eks_cluster":
-			n.cluster(r)
-		case "aws_eks_pod_identity_association":
-			n.podIdentity(r)
-		case "aws_eks_addon":
-			n.addon(r)
-		case "aws_iam_openid_connect_provider":
-			n.oidcProvider(r)
-		case "aws_eks_access_entry":
-			n.accessEntry(r)
-		case "aws_eks_access_policy_association":
-			n.accessPolicy(r)
 		case "aws_launch_template":
 			templates[r.Root+"|"+r.Address] = r
+		default:
+			if f, ok := single[r.Type]; ok {
+				f(r)
+			}
 		}
 	}
 	for _, r := range rs {

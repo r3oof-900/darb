@@ -171,7 +171,7 @@ func TestTokenRequestIsLikePodCreation(t *testing.T) {
 
 // deployerSetup adds, to a copy of scenario 8 fixed (ci can only read), a
 // workload whose IRSA role "deployer" is given Kubernetes access by mapAccess.
-func deployerSetup(t *testing.T, mapAccess string, tf string) func(dir string) {
+func deployerSetup(t *testing.T, mapAccess, tf string) func(dir string) {
 	t.Helper()
 	return func(dir string) {
 		k8s := `apiVersion: v1
