@@ -36,5 +36,6 @@
       "resource": "arn:aws:s3:::acme-payment-receipts/*",
       "status": "verified"
     }
-  ]
+  ],
+  "no_edges": []
 }

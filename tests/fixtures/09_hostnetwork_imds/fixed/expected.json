@@ -20,5 +20,6 @@
       "resource": "eks-nodegroup:prod/default"
     }
   ],
-  "intended_access": []
+  "intended_access": [],
+  "no_edges": []
 }

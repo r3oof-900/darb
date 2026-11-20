@@ -1,9 +1,29 @@
 {
   "addons": [],
   "boundaries": [],
-  "clusters": [],
-  "collected": 2,
-  "entry_points": [],
+  "clusters": [
+    {
+      "account": "111122223333",
+      "arn": "",
+      "name": "prod",
+      "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
+      "region": "us-east-1",
+      "source": "clapa.yaml (clusters.prod)"
+    }
+  ],
+  "collected": 7,
+  "entry_points": [
+    {
+      "public": "unknown",
+      "reason": "assume-compromised",
+      "workload": "k8s:prod/apps/Deployment/app-a"
+    },
+    {
+      "public": "unknown",
+      "reason": "assume-compromised",
+      "workload": "k8s:prod/apps/Deployment/app-b"
+    }
+  ],
   "exposures": [],
   "gaps": [],
   "mappings": [],
@@ -81,14 +101,39 @@
       "source": "arn:aws:s3:::data-444455556666 via s3:GetBucketPolicy"
     }
   ],
-  "service_accounts": [],
+  "service_accounts": [
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
+      "role_arn": "arn:aws:iam::111122223333:role/app",
+      "source": "k8s/apps.yaml:6 (ServiceAccount/apps/app-a)",
+      "subject": "system:serviceaccount:apps:app-a"
+    },
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
+      "role_arn": "arn:aws:iam::444455556666:role/app",
+      "source": "k8s/apps.yaml:33 (ServiceAccount/apps/app-b)",
+      "subject": "system:serviceaccount:apps:app-b"
+    }
+  ],
   "trusts": [
     {
       "kind": "resource",
       "policy": "arn:aws:iam::111122223333:role/app#trust",
       "source": "arn:aws:iam::111122223333:role/app via iam:GetAccountAuthorizationDetails",
       "statements": [
-        "Allow sts:AssumeRole on \u003cno Resource element\u003e (0 conditions)"
+        "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (2 conditions)"
       ],
       "target": "arn:aws:iam::111122223333:role/app",
       "unresolved_statements": 0
@@ -98,11 +143,34 @@
       "policy": "arn:aws:iam::444455556666:role/app#trust",
       "source": "arn:aws:iam::444455556666:role/app via iam:GetAccountAuthorizationDetails",
       "statements": [
-        "Allow sts:AssumeRole on \u003cno Resource element\u003e (0 conditions)"
+        "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (2 conditions)"
       ],
       "target": "arn:aws:iam::444455556666:role/app",
       "unresolved_statements": 0
     }
   ],
-  "workloads": []
+  "workloads": [
+    {
+      "automount_token": "true",
+      "defaulted": [
+        "k8s.automountServiceAccountToken"
+      ],
+      "host_network": false,
+      "identity": "k8s:prod/apps/Deployment/app-a",
+      "privileged": false,
+      "service_account": "app-a",
+      "source": "k8s/apps.yaml:14 (Deployment/apps/app-a)"
+    },
+    {
+      "automount_token": "true",
+      "defaulted": [
+        "k8s.automountServiceAccountToken"
+      ],
+      "host_network": false,
+      "identity": "k8s:prod/apps/Deployment/app-b",
+      "privileged": false,
+      "service_account": "app-b",
+      "source": "k8s/apps.yaml:41 (Deployment/apps/app-b)"
+    }
+  ]
 }

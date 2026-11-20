@@ -1,1 +1,6 @@
 version: 1
+# One cluster in account 111122223333. app-a's IRSA role is that account's
+# role "app"; app-b's is account 444455556666's role "app" (a cross-account
+# IRSA role trusting its own account's OIDC provider for the cluster).
+clusters:
+  - {name: prod, account: "111122223333", region: us-east-1, oidc_issuer: "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E"}

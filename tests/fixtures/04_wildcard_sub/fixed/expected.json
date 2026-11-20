@@ -49,5 +49,6 @@
       "resource": "arn:aws:iam::111122223333:role/payments-api"
     }
   ],
-  "intended_access": []
+  "intended_access": [],
+  "no_edges": []
 }

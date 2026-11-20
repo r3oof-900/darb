@@ -25,5 +25,6 @@
       "jewel": "arn:aws:s3:::acme-analytics-warehouse"
     }
   ],
-  "intended_access": []
+  "intended_access": [],
+  "no_edges": []
 }

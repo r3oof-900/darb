@@ -17,8 +17,6 @@
 #     both the role and "the role with any permission" (cost 2, a new
 #     fingerprint). One key-policy change would cut both; edge costs do
 #     not express a fix shared by several edges. Waiting for a decision.
-# D - scenario 14: the snapshot has no workload and the roles trust only
-#     ec2.amazonaws.com, so no entry point reaches either role.
 01_classic/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience","eks.irsa.oidc-provider-audience"]
 04_wildcard_sub/fixed: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience","eks.irsa.oidc-provider-audience"]
 04_wildcard_sub/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience","eks.irsa.oidc-provider-audience"]
@@ -44,9 +42,6 @@
 13_module_for_each/vulnerable: CLAPA-PATH-001 k8s:prod/analytics/CronJob/bi -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience","eks.irsa.oidc-provider-audience"]
 13_module_for_each/vulnerable: CLAPA-PATH-001 k8s:prod/analytics/CronJob/etl -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience","eks.irsa.oidc-provider-audience"]
 13_module_for_each/vulnerable: CLAPA-PATH-001 k8s:prod/analytics/CronJob/ml -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience","eks.irsa.oidc-provider-audience"]
-14_same_names_two_accounts/fixed: missing finding: CLAPA-PATH-001 <any entry> -> arn:aws:s3:::data-111122223333
-14_same_names_two_accounts/vulnerable: missing finding: CLAPA-PATH-001 <any entry> -> arn:aws:s3:::data-111122223333
-14_same_names_two_accounts/vulnerable: missing finding: CLAPA-PATH-001 <any entry> -> arn:aws:s3:::data-444455556666
 16_malformed_inputs/fixed: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience","eks.irsa.oidc-provider-audience"]
 16_malformed_inputs/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience","eks.irsa.oidc-provider-audience"]
 17_pod_identity_classic/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.pod-identity.disableSessionTags"]

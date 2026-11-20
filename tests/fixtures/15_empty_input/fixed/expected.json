@@ -3,5 +3,6 @@
   "derived_from": "13.2 row 15 fixed: one namespace manifest, no workloads",
   "findings": [],
   "absent": [],
-  "intended_access": []
+  "intended_access": [],
+  "no_edges": []
 }

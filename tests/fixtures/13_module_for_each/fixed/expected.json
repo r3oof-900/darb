@@ -16,5 +16,6 @@
       "jewel": "arn:aws:s3:::acme-customer-pii"
     }
   ],
-  "intended_access": []
+  "intended_access": [],
+  "no_edges": []
 }

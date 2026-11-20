@@ -1,7 +1,1 @@
-{"UserDetailList": [], "GroupDetailList": [], "Policies": [],
- "RoleDetailList": [{
-   "Path": "/", "RoleName": "app", "RoleId": "AROA444455556666", "Arn": "arn:aws:iam::444455556666:role/app",
-   "AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Service": "ec2.amazonaws.com"}, "Action": "sts:AssumeRole"}]},
-   "RolePolicyList": [{"PolicyName": "data", "PolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "s3:ListBucket", "Resource": "arn:aws:s3:::data-444455556666/*"}]}}],
-   "AttachedManagedPolicies": [], "Tags": []
- }]}
+{"UserDetailList": [], "GroupDetailList": [], "Policies": [], "RoleDetailList": [{"Path": "/", "RoleName": "app", "RoleId": "AROA444455556666", "Arn": "arn:aws:iam::444455556666:role/app", "AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Federated": "arn:aws:iam::444455556666:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E"}, "Action": "sts:AssumeRoleWithWebIdentity", "Condition": {"StringEquals": {"oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E:sub": "system:serviceaccount:apps:app-b", "oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E:aud": "sts.amazonaws.com"}}}]}, "RolePolicyList": [{"PolicyName": "data", "PolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "s3:ListBucket", "Resource": "arn:aws:s3:::data-444455556666/*"}]}}], "AttachedManagedPolicies": [], "Tags": []}]}

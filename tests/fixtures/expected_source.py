@@ -261,15 +261,37 @@ for v, why in (("vulnerable", "13.2 row 13 (static mode)"),
     STATIC[f"13_module_for_each/{v}"] = {"derived_from": why, "exit_code": 3,
                                          "findings": [reader(n, static=True) for n in READERS] + [no_default_deny(NS_ANALYTICS)]}
 
-# 14 - same role name in two accounts, each reading its own account's bucket:
-# two findings with distinct fingerprints. The scenario names no entry point.
-def own_bucket(acct):
-    return {"rule": "CLAPA-PATH-001", "entry": None, "jewel": f"arn:aws:s3:::data-{acct}"}
-E["14_same_names_two_accounts/vulnerable"] = {"derived_from": "13.2 row 14", "distinct_fingerprints": True,
-                                              "findings": [own_bucket(ACCT), own_bucket(B)]}
+# 14 - same role name (and bucket-name suffix) in two accounts, each role
+# reading its own account's SSE-S3 bucket: two distinct nodes, two findings
+# with distinct fingerprints, and (Phase 4 review, D) nothing crossing from
+# one account to the other account's same-named resources. app-a and app-b
+# are not exposed (400), 3 edges (810): 324; 324 x 900 = 291, medium; the
+# cut is the read (SSE-S3, no decrypt). Both IRSA paths rely on the
+# documented audience defaults.
+IRSA_DEFAULTS = ["eks.irsa.audience", OIDC_DEFAULT]
+def own(acct, sa):
+    role, bucket = f"arn:aws:iam::{acct}:role/app", f"arn:aws:s3:::data-{acct}"
+    return path_finding("CLAPA-PATH-001", f"k8s:prod/apps/Deployment/{sa}", bucket,
+                        [f"RUNS_AS k8s:prod/apps/ServiceAccount/{sa}", f"ASSUMES {role}", f"CAN_READ_PLAINTEXT {bucket}"],
+                        291, "medium", [f"CAN_READ {role} -> {bucket}"], defaults=IRSA_DEFAULTS)
+NO_CROSSING = [
+    {"from": f"arn:aws:iam::{ACCT}:role/app", "to": f"arn:aws:s3:::data-{B}"},
+    {"from": f"arn:aws:iam::{B}:role/app", "to": f"arn:aws:s3:::data-{ACCT}"},
+    {"from": "k8s:prod/apps/ServiceAccount/app-a", "to": f"arn:aws:iam::{B}:role/app"},
+    {"from": "k8s:prod/apps/ServiceAccount/app-b", "to": f"arn:aws:iam::{ACCT}:role/app"},
+]
+CROSS_ABSENT = [
+    {"rule": "CLAPA-PATH-001", "entry": "k8s:prod/apps/Deployment/app-a", "jewel": f"arn:aws:s3:::data-{B}"},
+    {"rule": "CLAPA-PATH-001", "entry": "k8s:prod/apps/Deployment/app-b", "jewel": f"arn:aws:s3:::data-{ACCT}"},
+]
+NS_APPS = "k8s:prod//Namespace/apps"
+E["14_same_names_two_accounts/vulnerable"] = {"derived_from": "13.2 row 14 (entries added in the Phase 4 review)", "distinct_fingerprints": True,
+                                              "findings": [own(ACCT, "app-a"), own(B, "app-b"), no_default_deny(NS_APPS)],
+                                              "absent": CROSS_ABSENT, "no_edges": NO_CROSSING}
 E["14_same_names_two_accounts/fixed"] = {"derived_from": "13.2 row 14 fixed: account 444455556666's role can only list",
-                                         "findings": [own_bucket(ACCT)],
-                                         "absent": [{"rule": "CLAPA-PATH-001", "jewel": f"arn:aws:s3:::data-{B}"}]}
+                                         "findings": [own(ACCT, "app-a"), no_default_deny(NS_APPS)],
+                                         "absent": CROSS_ABSENT + [{"rule": "CLAPA-PATH-001", "jewel": f"arn:aws:s3:::data-{B}"}],
+                                         "no_edges": NO_CROSSING}
 
 # 15 - empty input: exit 3, nothing collected, never "0 findings".
 E["15_empty_input/vulnerable"] = {"derived_from": "13.2 row 15", "exit_code": 3, "collected": 0, "findings": []}
@@ -294,6 +316,7 @@ def write(name, doc):
     out.update(doc)
     out.setdefault("absent", [])
     out.setdefault("intended_access", [])
+    out.setdefault("no_edges", [])
     p = pathlib.Path(__file__).parent / name
     p.write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8", newline="\n")
 

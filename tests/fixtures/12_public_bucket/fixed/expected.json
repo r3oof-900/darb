@@ -12,5 +12,6 @@
       "resource": "arn:aws:s3:::acme-marketing-leads"
     }
   ],
-  "intended_access": []
+  "intended_access": [],
+  "no_edges": []
 }

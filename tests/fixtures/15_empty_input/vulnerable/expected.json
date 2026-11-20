@@ -5,5 +5,6 @@
   "collected": 0,
   "findings": [],
   "absent": [],
-  "intended_access": []
+  "intended_access": [],
+  "no_edges": []
 }

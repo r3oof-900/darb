@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/r3oof-900/clapa/internal/graph"
 	"github.com/r3oof-900/clapa/internal/model"
 	"github.com/r3oof-900/clapa/internal/rules"
 )
@@ -31,6 +32,7 @@ type expectedFile struct {
 	Findings       []expectedFinding  `json:"findings"`
 	Absent         []expectedFinding  `json:"absent"`
 	IntendedAccess []expectedIntended `json:"intended_access"`
+	NoEdges        []expectedNoEdge   `json:"no_edges"`
 }
 
 type expectedFinding struct {
@@ -46,6 +48,12 @@ type expectedFinding struct {
 	Chokepoints []string `json:"chokepoints"`
 	Alternative []string `json:"alternative_fix"`
 	Defaults    []string `json:"defaults_used"`
+}
+
+// expectedNoEdge: no edge of any kind from one node to the other.
+type expectedNoEdge struct {
+	From string `json:"from"`
+	To   string `json:"to"`
 }
 
 type expectedIntended struct {
@@ -205,6 +213,7 @@ func compareExpected(t *testing.T, exp *expectedFile, a *Analysis) []string {
 			out = append(out, fmt.Sprintf("intended access %s %s %s: want %s, got %s", ia.Principal, ia.Action, ia.Resource, ia.Status, status))
 		}
 	}
+	out = append(out, noEdges(exp.NoEdges, a.AccessGraph)...)
 	if exp.ExitCode != nil && *exp.ExitCode != a.ExitCode {
 		out = append(out, fmt.Sprintf("exit code: want %d, got %d", *exp.ExitCode, a.ExitCode))
 	}
@@ -296,5 +305,29 @@ func compareWithOpen(t *testing.T, report []string) {
 		if !got[line] {
 			t.Error("listed difference no longer occurs (remove it from testdata/open_mismatches.txt): " + line)
 		}
+	}
+}
+
+// noEdges reports every edge between nodes the expected file forbids.
+func noEdges(forbidden []expectedNoEdge, g *graph.Graph) []string {
+	var out []string
+	for _, ne := range forbidden {
+		for i := range g.NumEdges() {
+			id := graph.EdgeID(i)
+			e := g.Edge(id)
+			if g.Node(e.From).Identity == ne.From && g.Node(e.To).Identity == ne.To {
+				out = append(out, "edge must not exist: "+g.Describe(id))
+			}
+		}
+	}
+	return out
+}
+
+// The no_edges check finds an edge that exists (the account's own read).
+func TestNoEdgesDetects(t *testing.T) {
+	a := analyzeVariant(t, "14_same_names_two_accounts/vulnerable", nil)
+	own := []expectedNoEdge{{From: "arn:aws:iam::111122223333:role/app", To: "arn:aws:s3:::data-111122223333"}}
+	if got := noEdges(own, a.AccessGraph); len(got) == 0 {
+		t.Fatal("an existing edge must be reported")
 	}
 }

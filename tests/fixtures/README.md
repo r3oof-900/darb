@@ -41,7 +41,7 @@ diff is a behaviour change.
 | 11 | `11_boundary_deny` | scenario 1 + a permissions boundary with an explicit Deny on the PII objects | no path (boundary deny) | boundary that allows only queues and logs |
 | 12 | `12_public_bucket` | bucket policy `Principal "*"`, Block Public Access off, SSE-S3 | public read | Block Public Access on, policy names one role |
 | 13 | `13_module_for_each` | module + `for_each` → 3 IRSA roles reading PII (`toset(...)` + `aws_iam_role.r[each.value]`; bucket SSE-S3 stated explicitly). `plan.json` is real `terraform show -json` output (see below), scanned with `terraform/` as its configuration | plan: 3 roles resolved; static: unresolved, reported | roles read a non-PII bucket |
-| 14 | `14_same_names_two_accounts` | role `app` and bucket `data-<account>` in two accounts (snapshot) | two distinct nodes, no ID collision | account 444455556666's role can only list |
+| 14 | `14_same_names_two_accounts` | role `app` and bucket `data-<account>` in two accounts (snapshot); workloads `apps/app-a` and `apps/app-b` assume each account's role by IRSA | two distinct nodes, two findings, nothing crosses between the accounts | account 444455556666's role can only list |
 | 15 | `15_empty_input` | nothing to scan | `collected: 0` → exit 3, never "0 findings" | one namespace manifest |
 | 16 | `16_malformed_inputs` | malformed YAML and HCL next to a valid copy of scenario 1 | both reported with file:line; the rest is loaded | valid files only |
 | 17 | `17_pod_identity_classic` | scenario 1 through EKS Pod Identity: association payments/api, trust `pods.eks.amazonaws.com` for `sts:AssumeRole` + `sts:TagSession` pinned by session tags, agent add-on | path (as scenario 1) | as scenario 1 fixed |

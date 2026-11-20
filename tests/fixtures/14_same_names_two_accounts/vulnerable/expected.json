@@ -1,19 +1,89 @@
 {
   "format": "clapa-expected/v1",
-  "derived_from": "13.2 row 14",
+  "derived_from": "13.2 row 14 (entries added in the Phase 4 review)",
   "distinct_fingerprints": true,
   "findings": [
     {
       "rule": "CLAPA-PATH-001",
-      "entry": null,
-      "jewel": "arn:aws:s3:::data-111122223333"
+      "entry": "k8s:prod/apps/Deployment/app-a",
+      "jewel": "arn:aws:s3:::data-111122223333",
+      "path": [
+        "RUNS_AS k8s:prod/apps/ServiceAccount/app-a",
+        "ASSUMES arn:aws:iam::111122223333:role/app",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::data-111122223333"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 291,
+      "severity": "medium",
+      "chokepoints": [
+        "CAN_READ arn:aws:iam::111122223333:role/app -> arn:aws:s3:::data-111122223333"
+      ],
+      "alternative_fix": [],
+      "defaults_used": [
+        "eks.irsa.audience",
+        "eks.irsa.oidc-provider-audience"
+      ]
     },
     {
       "rule": "CLAPA-PATH-001",
-      "entry": null,
-      "jewel": "arn:aws:s3:::data-444455556666"
+      "entry": "k8s:prod/apps/Deployment/app-b",
+      "jewel": "arn:aws:s3:::data-444455556666",
+      "path": [
+        "RUNS_AS k8s:prod/apps/ServiceAccount/app-b",
+        "ASSUMES arn:aws:iam::444455556666:role/app",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::data-444455556666"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 291,
+      "severity": "medium",
+      "chokepoints": [
+        "CAN_READ arn:aws:iam::444455556666:role/app -> arn:aws:s3:::data-444455556666"
+      ],
+      "alternative_fix": [],
+      "defaults_used": [
+        "eks.irsa.audience",
+        "eks.irsa.oidc-provider-audience"
+      ]
+    },
+    {
+      "rule": "CLAPA-POST-007",
+      "resource": "k8s:prod//Namespace/apps",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": []
     }
   ],
-  "absent": [],
+  "absent": [
+    {
+      "rule": "CLAPA-PATH-001",
+      "entry": "k8s:prod/apps/Deployment/app-a",
+      "jewel": "arn:aws:s3:::data-444455556666"
+    },
+    {
+      "rule": "CLAPA-PATH-001",
+      "entry": "k8s:prod/apps/Deployment/app-b",
+      "jewel": "arn:aws:s3:::data-111122223333"
+    }
+  ],
+  "no_edges": [
+    {
+      "from": "arn:aws:iam::111122223333:role/app",
+      "to": "arn:aws:s3:::data-444455556666"
+    },
+    {
+      "from": "arn:aws:iam::444455556666:role/app",
+      "to": "arn:aws:s3:::data-111122223333"
+    },
+    {
+      "from": "k8s:prod/apps/ServiceAccount/app-a",
+      "to": "arn:aws:iam::444455556666:role/app"
+    },
+    {
+      "from": "k8s:prod/apps/ServiceAccount/app-b",
+      "to": "arn:aws:iam::111122223333:role/app"
+    }
+  ],
   "intended_access": []
 }
