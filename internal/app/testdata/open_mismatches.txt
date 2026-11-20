@@ -17,6 +17,13 @@
 #     eks.amazonaws.com/role-arn annotation, so its pods get no
 #     sts.amazonaws.com token; STS checks the token audience against the
 #     OIDC provider's client IDs whatever the trust says.
+# E - found after the review, outside A-D: scenario 6. analytics-admin has
+#     AdministratorAccess, so it can rewrite its own policies
+#     (iam:PutRolePolicy on itself): narrowing its decrypt grant alone no
+#     longer breaks the path, and the min-cut cuts the decrypt edges of
+#     both the role and "the role with any permission" (cost 2, a new
+#     fingerprint). One key-policy change would cut both; edge costs do
+#     not express a fix shared by several edges. Waiting for a decision.
 # D - scenario 14: the snapshot has no workload and the roles trust only
 #     ec2.amazonaws.com, so no entry point reaches either role.
 01_classic/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience","eks.irsa.oidc-provider-audience"]
@@ -28,7 +35,10 @@
 05_aud_only/fixed: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience","eks.irsa.oidc-provider-audience"]
 05_aud_only/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience","eks.irsa.oidc-provider-audience"]
 05_aud_only/vulnerable: CLAPA-PATH-001 k8s:prod/tools/Deployment/debug -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience","eks.irsa.oidc-provider-audience"]
+06_role_chain_cross_account/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-analytics-warehouse: alternative_fix: want ["CAN_READ arn:aws:iam::444455556666:role/analytics-admin -\u003e arn:aws:s3:::acme-analytics-warehouse"], got ["CAN_READ arn:aws:iam::444455556666:role/analytics-admin (any permission) -\u003e arn:aws:s3:::acme-analytics-warehouse","CAN_READ arn:aws:iam::444455556666:role/analytics-admin -\u003e arn:aws:s3:::acme-analytics-warehouse"]
+06_role_chain_cross_account/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-analytics-warehouse: chokepoints: want ["CAN_DECRYPT[for arn:aws:s3:::acme-analytics-warehouse] arn:aws:iam::444455556666:role/analytics-admin -\u003e arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse"], got ["CAN_DECRYPT[for arn:aws:s3:::acme-analytics-warehouse] arn:aws:iam::444455556666:role/analytics-admin (any permission) -\u003e arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse","CAN_DECRYPT[for arn:aws:s3:::acme-analytics-warehouse] arn:aws:iam::444455556666:role/analytics-admin -\u003e arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse"]
 06_role_chain_cross_account/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-analytics-warehouse: defaults_used: want [], got ["eks.irsa.audience","eks.irsa.oidc-provider-audience"]
+06_role_chain_cross_account/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-analytics-warehouse: fingerprint (independent §8 formula): want "1dd8c889bdd4cdee0605e361857a44b07aa38034367d2d4f3f9b03cc5fa69dbe", got "9bc49d7bfd16afccb1758b6776c854ac5467a4cf3d8793e155208abdd559ec24"
 07_passrole_lambda/vulnerable: CLAPA-PATH-002 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience","eks.irsa.oidc-provider-audience"]
 08_rbac_create_pods/fixed: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience","eks.irsa.oidc-provider-audience"]
 08_rbac_create_pods/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: defaults_used: want [], got ["eks.irsa.audience","eks.irsa.oidc-provider-audience"]

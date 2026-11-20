@@ -111,7 +111,6 @@ func notModelled() []access.Note {
 		return access.Note{Kind: "not-modelled", Subject: subject, Detail: detail}
 	}
 	return []access.Note{
-		n("IAM escalation", "only iam:PassRole into Lambda is an escalation edge; CreatePolicyVersion, Attach/PutRolePolicy, UpdateAssumeRolePolicy are not analysed"),
 		n("EXPOSED_TO", "internet exposure is a score factor, not a cuttable edge"),
 		n("crown jewels", "only S3 buckets are read targets; Secrets Manager and SSM SecureString are not analysed"),
 	}

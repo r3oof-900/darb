@@ -292,3 +292,93 @@ resource "aws_eks_access_policy_association" "deployer" {
 		}
 	}
 }
+
+// The IAM escalation primitives of DESIGN.md §7.2 (Phase 4 review): each one
+// replaces payments-api's policy in a copy of scenario 7 fixed (no path).
+func TestIAMEscalationPrimitives(t *testing.T) {
+	pii := "arn:aws:s3:::acme-customer-pii"
+	policy := func(statements string, extra func(dir string)) func(dir string) {
+		return func(dir string) {
+			file := filepath.Join(dir, "terraform", "role.tf")
+			data, err := os.ReadFile(file) //nolint:gosec // G304: temp copy.
+			if err != nil {
+				t.Fatal(err)
+			}
+			s := string(data)
+			start := strings.Index(s, "    Statement = [")
+			end := strings.Index(s[start:], "    ]\n") + start + len("    ]\n")
+			s = s[:start] + "    Statement = [" + statements + "]\n" + s[end:]
+			if err := os.WriteFile(file, []byte(s), 0o600); err != nil { //nolint:gosec // G703: inside the test's temp copy.
+				t.Fatal(err)
+			}
+			if extra != nil {
+				extra(dir)
+			}
+		}
+	}
+	trustEC2 := func(dir string) {
+		replaceIn(t, filepath.Join(dir, "terraform", "processor.tf"), `Service = "lambda.amazonaws.com"`, `Service = "ec2.amazonaws.com"`)
+	}
+	managedPolicy := func(dir string) {
+		tf := `resource "aws_iam_policy" "api" {
+  name   = "api-extra"
+  policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Action = "sqs:SendMessage", Resource = "*" }] })
+}
+resource "aws_iam_role_policy_attachment" "api" {
+  role       = aws_iam_role.payments_api.name
+  policy_arn = aws_iam_policy.api.arn
+}
+`
+		if err := os.WriteFile(filepath.Join(dir, "terraform", "managed.tf"), []byte(tf), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cases := []struct {
+		name, statements, step string
+		extra                  func(dir string)
+	}{
+		{
+			"PassRole + ec2:RunInstances", `{ Effect = "Allow", Action = ["iam:PassRole", "ec2:RunInstances"], Resource = "*" }`,
+			"CAN_ESCALATE arn:aws:iam::111122223333:role/data-processor", trustEC2,
+		},
+		{
+			"PutRolePolicy on itself", `{ Effect = "Allow", Action = "iam:PutRolePolicy", Resource = aws_iam_role.payments_api.arn }`,
+			"CAN_ESCALATE arn:aws:iam::111122223333:role/payments-api (any permission)", nil,
+		},
+		{
+			"AttachRolePolicy on itself", `{ Effect = "Allow", Action = "iam:AttachRolePolicy", Resource = aws_iam_role.payments_api.arn }`,
+			"CAN_ESCALATE arn:aws:iam::111122223333:role/payments-api (any permission)", nil,
+		},
+		{
+			"CreatePolicyVersion on its managed policy", `{ Effect = "Allow", Action = "iam:CreatePolicyVersion", Resource = aws_iam_policy.api.arn }`,
+			"CAN_ESCALATE arn:aws:iam::111122223333:role/payments-api (any permission)", managedPolicy,
+		},
+		{
+			"UpdateAssumeRolePolicy on the reader", `{ Effect = "Allow", Action = "iam:UpdateAssumeRolePolicy", Resource = aws_iam_role.data_processor.arn }`,
+			"CAN_ESCALATE arn:aws:iam::111122223333:role/data-processor", nil,
+		},
+	}
+	for _, c := range cases {
+		a := analyzeVariant(t, "07_passrole_lambda/fixed", policy(c.statements, c.extra))
+		f := findingFor(a, "CLAPA-PATH-002", pii)
+		if f == nil || !f.Confirmed || !strings.Contains(strings.Join(f.Path, " | "), c.step) {
+			t.Errorf("%s: %+v", c.name, f)
+		}
+	}
+	// A permissions boundary still limits a role whose policies are rewritten.
+	bounded := policy(`{ Effect = "Allow", Action = "iam:PutRolePolicy", Resource = aws_iam_role.payments_api.arn }`, func(dir string) {
+		replaceIn(t, filepath.Join(dir, "terraform", "role.tf"), "  assume_role_policy = data.aws_iam_policy_document.irsa_trust.json\n",
+			"  assume_role_policy = data.aws_iam_policy_document.irsa_trust.json\n  permissions_boundary = aws_iam_policy.boundary.arn\n")
+		tf := `resource "aws_iam_policy" "boundary" {
+  name   = "boundary"
+  policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Action = ["iam:PutRolePolicy", "sqs:*"], Resource = "*" }] })
+}
+`
+		if err := os.WriteFile(filepath.Join(dir, "terraform", "boundary.tf"), []byte(tf), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if f := findingFor(analyzeVariant(t, "07_passrole_lambda/fixed", bounded), "CLAPA-PATH-002", pii); f != nil {
+		t.Errorf("the boundary still applies: %+v", f)
+	}
+}

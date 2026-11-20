@@ -29,7 +29,10 @@ const (
 	KindInternet         NodeKind = "net:internet"
 	KindTerraformPending NodeKind = "tf:pending" // resource whose ARN is unknown until apply
 	KindK8sNamespace     NodeKind = "k8s:namespace"
-	KindEKSNodeGroup     NodeKind = "aws:eks:nodegroup"
+	// KindIAMRoleAnyPermission: a role whose policies an attacker can rewrite
+	// (identity allows everything; its permissions boundary still applies).
+	KindIAMRoleAnyPermission NodeKind = "aws:iam:role:any-permission"
+	KindEKSNodeGroup         NodeKind = "aws:eks:nodegroup"
 )
 
 // ID is a node's stable identifier: the lowercase hex SHA-256 of

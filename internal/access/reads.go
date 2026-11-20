@@ -67,7 +67,7 @@ func (b *builder) reads() {
 			protected[k] = true
 		}
 		b.g.Node(j.ID(), j.Kind(), j.ARN())
-		for _, role := range b.roles {
+		for _, role := range append(slices.Clone(b.roles), b.order...) {
 			b.read(role, j)
 		}
 		b.read(nil, j)

@@ -55,7 +55,11 @@ type builder struct {
 	workloads  map[string][]*model.Workload       // cluster/namespace -> workloads
 	// minters: service accounts another account controls through RBAC;
 	// selfMinters: accounts whose own RBAC lets them control themselves.
-	minters     map[model.ID]bool
+	minters map[model.ID]bool
+	// rewritten: synthetic "role with any permission" principals, in the
+	// order they were created (order).
+	rewritten   map[model.ID]*model.Principal
+	order       []*model.Principal
 	selfMinters map[model.ID]eval.Verdict
 	notes       []Note
 }
@@ -72,7 +76,7 @@ func Build(inv *model.Inventory, opts *Options) *Result {
 		trusts: map[model.ID]*model.PolicyDocument{}, byARN: map[string]*model.Principal{},
 		resources: map[string]*model.Resource{}, clusters: map[string]*model.Cluster{},
 		accounts: map[string][]*model.ServiceAccount{}, workloads: map[string][]*model.Workload{},
-		minters: map[model.ID]bool{}, selfMinters: map[model.ID]eval.Verdict{},
+		minters: map[model.ID]bool{}, selfMinters: map[model.ID]eval.Verdict{}, rewritten: map[model.ID]*model.Principal{},
 	}
 	b.index()
 	b.kubernetes()
