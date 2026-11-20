@@ -700,6 +700,79 @@ new and resolved findings.
 
 Scoring: `docs/SCORING.md`.
 
+### 8.1 Rule catalog (Phase 4 — proposed, for review before any `expected.json`)
+
+IDs are stable; a rule's semantics change only with its semver. MITRE ATT&CK
+technique IDs below are the intended mapping; CIS control numbers are added
+per rule only after they are checked against the benchmark text.
+
+| ID | Kind | Fires when | Base / scoring | ATT&CK |
+|---|---|---|---|---|
+| `CLAPA-PATH-001` | path | an entry workload reaches `CAN_READ_PLAINTEXT` on a crown jewel through `RUNS_AS`, `ASSUMES`, `NODE_ROLE`, `MAPS_TO` edges (no escalation) | SCORING.md §1 | T1078.004, T1530 |
+| `CLAPA-PATH-002` | path | as PATH-001, with at least one `CAN_ESCALATE` edge on the path (IAM or Kubernetes escalation) | SCORING.md §1 | T1098, T1548, T1610, T1530 |
+| `CLAPA-PATH-003` | path | the anonymous principal reaches `CAN_READ_PLAINTEXT` on a crown jewel (a resource policy that grants a public principal, with Block Public Access not known to be on) | SCORING.md §1, exposure 1000 | T1530 |
+| `CLAPA-POST-001` | posture | an IRSA trust policy allows `sts:AssumeRoleWithWebIdentity` for a service account that is not in the input — decided by the evaluator with a probe subject `system:serviceaccount:clapa-probe:clapa-probe` (catches wildcard `:sub` and `:aud`-only trusts) | high | T1078.004 |
+| `CLAPA-POST-002` | posture | a node group allows IMDSv1 (`http_tokens` known `optional`) | high | T1552.005 |
+| `CLAPA-POST-003` | posture | a container runs `privileged: true` | high | T1611 |
+| `CLAPA-POST-004` | posture | a workload automounts its service account token and that service account has RBAC permissions | medium | T1528 |
+| `CLAPA-POST-005` | posture | a crown-jewel bucket's Block Public Access `restrict_public_buckets` is known off | high | T1530 |
+| `CLAPA-POST-006` | posture | a symmetric customer managed KMS key has rotation known off (Terraform `enable_key_rotation` false or unset — the AWS default for `CreateKey` is off, so unset is definite) | medium | — |
+| `CLAPA-POST-007` | posture | a namespace has workloads in the input and no NetworkPolicy that selects every pod with an `Ingress` policy type and no ingress rules (default deny) | medium, `confidence: medium` (policies may live outside the input) | — |
+
+**Flags — decisions needed before `expected.json` is written:**
+
+1. **Posture rules fire only on definite misconfigurations.** A setting that is
+   not in the input (an S3 bucket without a public access block resource, a key
+   from a snapshot without `GetKeyRotationStatus`) is not reported as a posture
+   finding and is never reported as compliant: it is a coverage gap. *Alternative:*
+   report it as an unconfirmed (`confidence: low`) posture finding — safer, but
+   most fixtures would then carry several findings about settings they do not state.
+2. **KMS keys are protectors, not path targets.** A path ends at the data a key
+   protects (`CAN_READ_PLAINTEXT`); a key tagged sensitive marks itself but is not
+   counted in blast radius. This keeps the SCORING.md worked example (fixture 01,
+   one jewel, 729). *Alternative:* count keys as jewels — fixture 01 would score
+   801 (two jewels reached, the bucket and its key).
+3. **Tie-break on the derived edge.** When `CAN_READ` and `CAN_DECRYPT` under a
+   `CAN_READ_PLAINTEXT` cost the same, the chokepoint is `CAN_DECRYPT[for jewel]`:
+   it is qualified by the protected resource (§7.3), so an encryption-context
+   condition removes exactly this path; the read edge is listed as the alternative.
+4. **Fixture 13 states no encryption** for its PII bucket, against §13.1 ("stated
+   explicitly"); the normalizer applies the S3 default (SSE-S3), so the path does
+   not depend on it. Proposed fix: add an explicit SSE-S3 configuration to both
+   variants and regenerate the real plans — a fixture change, reviewed as such.
+
+### 8.2 `expected.json` (format `clapa-expected/v1`)
+
+Written by hand from §13.2 and §13.1 (and, for posture rules, from reading the
+fixture files) **before** the rules run; never generated from tool output. A
+mismatch is investigated and shown in review; the file is never edited to match
+the tool.
+
+```json
+{
+  "format": "clapa-expected/v1",
+  "derived_from": "DESIGN.md §13.2 row 1; §13.1",
+  "exit_code": 1,
+  "findings": [{
+    "rule": "CLAPA-PATH-001",
+    "entry": "k8s:prod/payments/Deployment/api",
+    "jewel": "arn:aws:s3:::acme-customer-pii",
+    "path": ["RUNS_AS k8s:prod/payments/ServiceAccount/api",
+             "ASSUMES arn:aws:iam::111122223333:role/payments-api",
+             "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"],
+    "confirmed": true, "confidence": "high", "score": 729, "severity": "critical",
+    "chokepoints": ["CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii"]
+  }],
+  "absent": [{"rule": "CLAPA-PATH-001", "jewel": "arn:aws:s3:::acme-payment-receipts"}],
+  "intended_access_verified": []
+}
+```
+
+The golden test compares rule, entry, jewel, path, confirmation, confidence,
+score, severity and chokepoints, and computes each fingerprint from these fields
+with the §8 formula independently of the engine, then compares it with the
+engine's. Findings the file does not list fail the test (no extra findings).
+
 ---
 
 ## 9. Remediation
