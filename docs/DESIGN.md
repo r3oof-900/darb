@@ -1064,8 +1064,19 @@ Mann-Whitney p < 0.05).
 
 `expected.json` comparison: `TestExpectedFindings` passes only while the
 engine's differences from the hand-written files are exactly those listed in
-`internal/app/testdata/open_mismatches.txt`, which wait for review (groups A–D
-there). The expected files are not edited to match the engine.
+`internal/app/testdata/open_mismatches.txt`. Groups A–F found in the Phase 4
+reviews are resolved and the list is empty; Phase 4 was approved with zero
+differences. The expected files are not edited to match the engine.
+
+**Phase 5, step 1 (done first, before any other Phase 5 work).** Every expected
+finding with a cut states the side, fix kind and cost of its chosen fix
+(`fix`), of the other sides of the cut edges (`other_side_fix`) and of the
+alternative's fix (`alternative_fix_detail`), empty lists included; the golden
+test fails on an expected cut that omits them. The values were derived by hand
+from each fixture's policies (comments in `tests/fixtures/expected_source.py`)
+and then compared: no difference. Before this, the change of scenarios 13 and
+14 from cost 1 to 3 in the fourth Phase 4 review passed unnoticed; now raising
+the revoke surcharge from 2 to 3 alone fails 28 comparisons in 18 variants.
 
 Not built in Phase 4. Unlike an unknown value, these produce no UNKNOWN: the
 engine is silent about them. Every scan therefore lists them as coverage notes
@@ -1074,9 +1085,9 @@ risk":
 
 | Missing | Effect | When |
 |---|---|---|
-| `EXPOSED_TO` as a graph edge | exposure is a scoring factor of the entry, not a cuttable edge, so "remove internet exposure" (cost 20) is never proposed as a fix | Phase 5 (remediation) |
-| Secrets Manager and SSM SecureString jewels | only S3 buckets are read targets | Phase 6 (live collectors) |
-| Suppression file (`.clapa-ignore.yaml`) and `--baseline` flags | the logic exists in `internal/findings`; the CLI does not read the files yet | Phase 5 |
+| `EXPOSED_TO` as a graph edge | exposure is a scoring factor of the entry, not a cuttable edge, so "remove internet exposure" (cost 20) is never proposed as a fix | Phase 5 (built within it, decided at the Phase 4 approval) |
+| Secrets Manager, SSM SecureString and Kubernetes Secrets as targets | only S3 buckets are read targets | deferred until after Phase 5 (§12.2, item 5) |
+| Suppression file (`.clapa-ignore.yaml`) and `--baseline` flags | the logic exists in `internal/findings`; the CLI does not read the files yet | deferred until after Phase 5 (§12.2, item 4) |
 
 ### 12.1 Known constraints carried between phases
 
@@ -1088,6 +1099,16 @@ risk":
 Workflows that only make sense once their subject exists (`bench.yml` — Phase 4,
 `integration.yml` — Phase 6, `release.yml` + `.goreleaser.yaml` — Phase 7) are
 added in those phases rather than as placeholders.
+
+### 12.2 Deferred work (recorded at the Phase 4 approval; after Phase 5)
+
+| # | Work | Why it waits / what done means |
+|---|---|---|
+| 1 | **Report JSON Schema.** `schemas/report.v1.schema.json` does not exist yet: the `clapa-report/v1` format is defined only by the Go types in `pkg/schema`. Write it, including the meanings changed in Phase 4 (`alternative_fix`: the other underlying edge of a cut derived read at any cost; `alternative_fix_detail`; `fix_kind`: `narrow` \| `revoke`; `fix`, `other_side_fix`, `shared_fix_possible`), and validate every report the tests produce against it (`github.com/santhosh-tekuri/jsonschema`, already allowed in §3). | Phase 5 changes the remediation fields again; the schema is written once they settle. Done: the schema file, a test validating all golden and fixture reports, and a test that fails on a field the schema does not describe. |
+| 2 | **Independent comparison with the previous tool** (`github.com/r3oof-900/AI-CSPM-Platform_Main`): run it on its own samples, in a temporary folder outside this repository (nothing copied into CLAPA, per the project rule), run CLAPA on the same inputs, and compare the results. | Needs Phase 5's remediation output to compare fixes, not only findings. Done: a written comparison of every sample (found by both, by one, explained differences). |
+| 3 | **Real console output** of scenarios 01, 04b and 10, shown in review as the CLI prints it (not reconstructed). | Done: the three outputs captured from `clapa scan` on the fixtures, after Phase 5's fields are final. |
+| 4 | **`.clapa-ignore.yaml` and `--baseline` in the CLI.** The suppression and baseline logic exists in `internal/findings`; the CLI does not read the files. | Done: both wired, with the config errors of §8 (missing `reason` / `owner` / `expires` is exit 2), expired suppressions re-firing, and tests through the CLI. |
+| 5 | **Secrets Manager, SSM SecureString and Kubernetes Secrets as targets** (crown jewels with read edges, like S3). | New target kinds need their collectors, normalizers and read semantics (KMS for Secrets Manager and SecureString, RBAC `get secrets` for Kubernetes). Done: each with fixtures and expected files written by hand first. |
 
 ## 13. Test fixtures
 
