@@ -212,3 +212,25 @@ func TestUnresolvedCaller(t *testing.T) {
 		t.Errorf("NotPrincipal * excludes everyone, resolved or not: %+v", m)
 	}
 }
+
+func TestValueWithUnresolvedParts(t *testing.T) {
+	u := model.UnresolvedPlaceholder("var.env")
+	cases := []struct {
+		pattern, value string
+		want           model.Tri
+	}{
+		{"arn:aws:s3:::prod-pii/*", "arn:aws:s3:::" + u + "-pii/report.csv", model.Unknown}, // could be prod, could be dev
+		{"arn:aws:s3:::*", "arn:aws:s3:::" + u + "-pii/report.csv", model.True},             // matches whatever it is
+		{"arn:aws:kms:*", "arn:aws:s3:::" + u + "-pii/report.csv", model.False},             // can never match
+		{"arn:aws:s3:::data/*", "arn:aws:s3:::data/k", model.True},                          // known value: exact
+		{"arn:aws:s3:::data/x", "arn:aws:s3:::data/k", model.False},
+	}
+	for _, c := range cases {
+		if got := Value(arn.Compile(c.pattern, arn.Resource), c.value); got != c.want {
+			t.Errorf("Value(%q, %q) = %v, want %v", c.pattern, c.value, got, c.want)
+		}
+	}
+	if got := Resource([]string{"arn:aws:s3:::prod-pii/*"}, "arn:aws:s3:::"+u+"-pii/k", stubExpander{}); got != model.Unknown {
+		t.Errorf("Resource with an unresolved request resource: %v", got)
+	}
+}

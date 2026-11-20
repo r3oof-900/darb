@@ -89,7 +89,8 @@ func rootAccess(req *Request, ps *PolicySet, g *grantSet) model.Tri {
 }
 
 func sameAccount(req *Request) model.Tri {
-	if req.ResourceAccount == "" || req.Principal.Account == "" {
+	if req.ResourceAccount == "" || req.Principal.Account == "" ||
+		model.ContainsUnresolved(req.ResourceAccount) || model.ContainsUnresolved(req.Principal.Account) {
 		return model.Unknown
 	}
 	return model.TriOf(req.ResourceAccount == req.Principal.Account)

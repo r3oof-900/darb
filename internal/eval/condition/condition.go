@@ -116,6 +116,11 @@ func (e *evaluator) overRequest(values []string, start model.Tri, combine func(m
 // single: positive operators match if r matches any policy value (OR);
 // negated operators are the negation of that (NOR).
 func (e *evaluator) single(r string) Result {
+	if model.ContainsUnresolved(r) {
+		// A request value built from unresolved source (e.g. aws:SourceArn of
+		// a cluster whose account is unknown) cannot be compared.
+		return unknown("request value %q was not resolved in the source", r)
+	}
 	acc := Result{Value: model.False}
 	for _, pv := range e.policy {
 		m, why := compare(e.op, r, pv, e.x)

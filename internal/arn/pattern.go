@@ -121,6 +121,61 @@ func (p Pattern) Match(s string) bool {
 	return prev[n]
 }
 
+// Intersects reports whether some string matches both p and v. v stands
+// for a partly unknown value: its '*' tokens are unknown content (any run
+// of characters, colons included), its '?' an unknown single character, and
+// its literals are known. Used to decide whether a pattern can match a value
+// that holds unresolved parts. O(len(p) × len(v)).
+func (p Pattern) Intersects(v Pattern) bool {
+	lp, lv := len(p.toks), len(v.toks)
+	reach := make([][]bool, lp+1)
+	for i := range reach {
+		reach[i] = make([]bool, lv+1)
+	}
+	reach[0][0] = true
+	for i := 0; i <= lp; i++ {
+		for j := 0; j <= lv; j++ {
+			if reach[i][j] {
+				p.step(v, i, j, reach)
+			}
+		}
+	}
+	return reach[lp][lv]
+}
+
+// step marks the states reachable from (i, j) in Intersects.
+func (p Pattern) step(v Pattern, i, j int, reach [][]bool) {
+	pStar := i < len(p.toks) && p.toks[i].kind == tokStar
+	vStar := j < len(v.toks) && v.toks[j].kind == tokStar
+	if pStar {
+		reach[i+1][j] = true // p's '*' matches nothing
+		if j < len(v.toks) && (p.starSpans(i) || v.toks[j].kind != tokLit || v.toks[j].r != ':') {
+			reach[i][j+1] = true // p's '*' absorbs v's token (unknown content can avoid ':')
+		}
+	}
+	if vStar {
+		reach[i][j+1] = true // v's unknown run is empty
+		if i < len(p.toks) {
+			reach[i+1][j] = true // v's unknown run supplies p's token
+		}
+	}
+	if !pStar && !vStar && i < len(p.toks) && j < len(v.toks) && p.compatible(p.toks[i], v.toks[j]) {
+		reach[i+1][j+1] = true
+	}
+}
+
+// compatible: can p's single-character token and v's single-character token
+// stand for the same character?
+func (p Pattern) compatible(pt, vt token) bool {
+	switch {
+	case pt.kind == tokLit && vt.kind == tokLit:
+		return pt.r == vt.r
+	case pt.kind == tokOne && vt.kind == tokLit:
+		return p.tokenMatches(pt, vt.r)
+	}
+	return true // v's '?' is an unknown character: it can be whatever p needs
+}
+
 // starSpans reports whether the '*' at index i may match ':'.
 func (p Pattern) starSpans(i int) bool {
 	if p.mode == Plain {

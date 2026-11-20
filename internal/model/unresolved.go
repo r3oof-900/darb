@@ -22,6 +22,26 @@ func ContainsUnresolved(s string) bool {
 	return strings.Contains(s, unresolvedPrefix)
 }
 
+// SplitUnresolved returns the known pieces of s around its placeholders:
+// "a${clapa:unresolved:x}b" gives ["a", "b"]. A string without placeholders
+// gives [s]. An unterminated placeholder runs to the end of s.
+func SplitUnresolved(s string) []string {
+	var out []string
+	for {
+		i := strings.Index(s, unresolvedPrefix)
+		if i < 0 {
+			return append(out, s)
+		}
+		out = append(out, s[:i])
+		rest := s[i+len(unresolvedPrefix):]
+		j := strings.IndexByte(rest, '}')
+		if j < 0 {
+			return append(out, "")
+		}
+		s = rest[j+1:]
+	}
+}
+
 // AnyUnresolved reports whether any of ss contains an unresolved placeholder.
 func AnyUnresolved(ss []string) bool {
 	for _, s := range ss {

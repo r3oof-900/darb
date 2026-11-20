@@ -142,10 +142,9 @@ func (n *norm) kmsKey(r *tfraw.Resource) {
 }
 
 func defaultKeyPolicy(partition, account string) string {
+	// An unknown account arrives as a placeholder, so the delegation is
+	// UNKNOWN, not denied.
 	root := "arn:" + partition + ":iam::" + account + ":root"
-	if account == "" {
-		root = placeholder("account") // unknown account: the delegation is UNKNOWN, not denied
-	}
 	return `{"Version":"2012-10-17","Id":"key-default-1","Statement":[{"Sid":"Enable IAM User Permissions","Effect":"Allow",` +
 		`"Principal":{"AWS":"` + root + `"},"Action":"kms:*","Resource":"*"}]}`
 }

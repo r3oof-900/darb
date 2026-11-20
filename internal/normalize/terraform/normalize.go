@@ -82,30 +82,35 @@ func (n *norm) provider(r *tfraw.Resource) *tfraw.Provider {
 	return n.providers[r.Root+":aws"]
 }
 
-// account and region: provider first, then options; "" when unknown, which
-// is recorded once per resource that needs it.
+// account and region: provider first, then options. When neither knows the
+// value it is an unresolved placeholder (one per Terraform root), never "":
+// an empty ARN segment is a literal that would make policies with a literal
+// account definitely not match, hiding a real path (docs/DESIGN.md 4.6).
 func (n *norm) account(r *tfraw.Resource) string {
 	if p := n.provider(r); p != nil && p.Account != nil && p.Account.Kind == tfraw.KString {
 		return p.Account.Str
 	}
-	if n.opts.Account == "" {
-		n.gap(coverage.KindUnresolved, r, "account unknown: set terraform.account in clapa.yaml or allowed_account_ids on the provider")
+	if n.opts.Account != "" {
+		return n.opts.Account
 	}
-	return n.opts.Account
+	n.gap(coverage.KindUnresolved, r, "account unknown: set terraform.account in clapa.yaml or allowed_account_ids on the provider")
+	return placeholder("account_of_" + r.Root)
 }
 
 func (n *norm) region(r *tfraw.Resource) string {
 	if p := n.provider(r); p != nil && p.Region != nil && p.Region.Kind == tfraw.KString {
 		return p.Region.Str
 	}
-	if n.opts.Region == "" {
-		n.gap(coverage.KindUnresolved, r, "region unknown: set terraform.region in clapa.yaml or region on the provider")
+	if n.opts.Region != "" {
+		return n.opts.Region
 	}
-	return n.opts.Region
+	n.gap(coverage.KindUnresolved, r, "region unknown: set terraform.region in clapa.yaml or region on the provider")
+	return placeholder("region_of_" + r.Root)
 }
 
-// pendingID is the deterministic stand-in for a value AWS assigns at apply
-// time (a KMS key ID, a bucket name that is not set): "tf-<address>".
+// pendingID is the deterministic stand-in for a value AWS generates at apply
+// time and no policy can name literally: a KMS key ID, or the name of a
+// bucket/role created without a name: "tf-<address>".
 func pendingID(r *tfraw.Resource) string { return "tf-" + r.Address }
 
 // arnOf returns the resource's ARN: the real one when Terraform knows it,
@@ -136,14 +141,24 @@ func (n *norm) arnOf(r *tfraw.Resource) string {
 	return "arn:clapa:terraform:::" + r.Root + "/" + r.Address
 }
 
-// nameOf: the resource's name attribute (bucket for S3), or a pending ID.
+// nameOf returns the resource's name attribute ("bucket" for S3). A name
+// that is set but not resolvable keeps its unresolved placeholders
+// ("${var.env}-pii" → "<placeholder>-pii"): a policy naming the real bucket
+// may match it, so the decision must be UNKNOWN, not a definite no. A
+// name_prefix/bucket_prefix becomes the prefix plus an unresolved suffix.
+// Only a name AWS generates entirely (none set) is a pending ID.
 func (n *norm) nameOf(r *tfraw.Resource) string {
 	key := "name"
 	if r.Type == "aws_s3_bucket" {
 		key = "bucket"
 	}
-	if s, ok := n.str(r.Root, attr(r, key)); ok {
+	if v, ok := r.Attrs.Get(key); ok && v.Kind != tfraw.KNull {
+		s, _ := n.str(r.Root, v)
 		return s
+	}
+	if v, ok := r.Attrs.Get(key + "_prefix"); ok && v.Kind != tfraw.KNull {
+		prefix, _ := n.str(r.Root, v)
+		return prefix + placeholder(r.Address+".generated_suffix")
 	}
 	return pendingID(r)
 }

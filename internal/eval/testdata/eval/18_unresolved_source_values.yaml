@@ -98,3 +98,28 @@ cases:
       resource_policy_required: true
       resource: [{Effect: Allow, Principal: {Federated: "arn:aws:iam::111122223333:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE"}, Action: "sts:AssumeRoleWithWebIdentity"}]
     expect: UNKNOWN
+
+  - name: clapa.unresolved.request-resource-could-match
+    doc: "docs/DESIGN.md section 4.6: a bucket named \"${var.env}-pii\" may be prod-pii, so a grant on arn:aws:s3:::prod-pii/* is UNKNOWN, not denied"
+    resource: "arn:aws:s3:::${clapa:unresolved:var.env}-pii/report.csv"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::prod-pii/*"}]}
+    expect: UNKNOWN
+
+  - name: clapa.unresolved.request-resource-cannot-match
+    doc: "docs/DESIGN.md section 4.6: a KMS pattern can never match an S3 object, whatever the unknown name is"
+    resource: "arn:aws:s3:::${clapa:unresolved:var.env}-pii/report.csv"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:kms:*"}]}
+    expect: IMPLICIT_DENY
+
+  - name: clapa.unresolved.request-resource-always-matches
+    doc: "docs/DESIGN.md section 4.6: arn:aws:s3:::* matches the object whatever its bucket name is"
+    resource: "arn:aws:s3:::${clapa:unresolved:var.env}-pii/report.csv"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::*"}]}
+    expect: ALLOW
+
+  - name: clapa.unresolved.account-of-both-sides
+    doc: "docs/DESIGN.md section 4.6: with the account unknown, same- vs cross-account cannot be decided; a role-ARN grant is UNKNOWN"
+    principal: {kind: assumed-role, arn: "arn:aws:sts::${clapa:unresolved:account}:assumed-role/app/s1", account: "${clapa:unresolved:account}", source: "arn:aws:iam::${clapa:unresolved:account}:role/app"}
+    resource_account: "${clapa:unresolved:account}"
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:role/app"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: UNKNOWN

@@ -134,7 +134,7 @@
   "principals": [
     {
       "account": "111122223333",
-      "identity": "arn:aws:iam::111122223333:role/tf-aws_iam_role.r[*]",
+      "identity": "arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
       "kind": "aws:iam:role",
       "source": "terraform/modules/readers/main.tf:9-21 (aws_iam_role.r[*])"
     }
@@ -190,7 +190,7 @@
       "statements": [
         "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (1 conditions)"
       ],
-      "target": "arn:aws:iam::111122223333:role/tf-aws_iam_role.r[*]",
+      "target": "arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
       "unresolved_statements": 0
     }
   ],

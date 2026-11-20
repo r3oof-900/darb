@@ -236,3 +236,13 @@ func TestUnresolvedConditionKey(t *testing.T) {
 		t.Fatalf("got %+v", res)
 	}
 }
+
+func TestUnresolvedRequestValue(t *testing.T) {
+	c := NewContext(&Input{Default: StateAbsent, Present: map[string][]string{
+		"aws:SourceArn": {"arn:aws:eks:us-east-1:" + model.UnresolvedPlaceholder("account") + ":cluster/prod"},
+	}})
+	cond := model.NewCondition("ArnLike", "aws:SourceArn", []string{"arn:aws:eks:us-east-1:111122223333:cluster/*"})
+	if res := Evaluate(&cond, c, stubExpander{}); res.Value != model.Unknown || res.Reason == "" {
+		t.Fatalf("got %+v", res)
+	}
+}

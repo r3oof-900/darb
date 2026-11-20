@@ -39,5 +39,10 @@ func FuzzMatch(f *testing.F) {
 		if !Compile("*", m).Match(value) {
 			t.Fatalf("'*' does not match %q", value)
 		}
+		// A fully known value intersects a pattern exactly when it matches it.
+		p := Compile(pattern, m)
+		if p.Intersects(Literal(value, Plain)) != p.Match(value) {
+			t.Fatalf("Intersects and Match disagree on %q / %q", pattern, value)
+		}
 	})
 }

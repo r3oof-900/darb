@@ -104,6 +104,53 @@ func TestSplitN(t *testing.T) {
 	}
 }
 
+// unknownValue builds a value pattern where "#" marks unknown content.
+func unknownValue(s string) Pattern {
+	v := Literal("", Plain)
+	for i, part := range strings.Split(s, "#") {
+		if i > 0 {
+			v = v.Append(Compile("*", Plain))
+		}
+		v = v.Append(Literal(part, Plain))
+	}
+	return v
+}
+
+func TestIntersects(t *testing.T) {
+	cases := []struct {
+		pattern string
+		mode    Mode
+		value   string // '#' = unknown run
+		want    bool
+	}{
+		{"arn:aws:s3:::prod-pii/*", Resource, "arn:aws:s3:::#-pii/report.csv", true},     // # = "prod"
+		{"arn:aws:s3:::other-bucket/*", Resource, "arn:aws:s3:::#-pii/report.csv", true}, // # = "other-bucket/x": unknown content is unconstrained
+		{"arn:aws:s3:::other-bucket", Resource, "arn:aws:s3:::#-pii", false},             // must end in "-pii"
+		{"arn:aws:kms:*", Resource, "arn:aws:s3:::#-pii/x", false},
+		{"arn:aws:kms:us-east-1:111122223333:key/*", Resource, "arn:aws:kms:us-east-1:#:key/k1", true},
+		{"arn:aws:kms:us-east-1:111122223333:key/k2", Resource, "arn:aws:kms:us-east-1:#:key/k1", false},
+		{"*", Resource, "#", true},
+		{"a?c", Plain, "a#c", true},
+		{"a?c", Resource, "a:c", false},   // '?' does not match ':' in Resource mode
+		{"a*c", Resource, "a:b#c", false}, // a non-spanning '*' cannot absorb a known ':'
+		{"a*c", Resource, "a#c", true},    // ... but unknown content can avoid ':'
+		{"a*:c", Resource, "a:b:c", true}, // a '*' before ':' spans
+		{"abc", Plain, "abc", true},
+		{"abc", Plain, "abd", false},
+		{"ab", Plain, "a", false},
+	}
+	for _, c := range cases {
+		if got := Compile(c.pattern, c.mode).Intersects(unknownValue(c.value)); got != c.want {
+			t.Errorf("%q ∩ %q = %v, want %v", c.pattern, c.value, got, c.want)
+		}
+	}
+	// A value '?' is one unknown character.
+	q := Literal("a", Plain).Append(Compile("?", Plain)).Append(Literal("c", Plain))
+	if !Compile("abc", Plain).Intersects(q) || !Compile("a?c", Plain).Intersects(q) || Compile("ac", Plain).Intersects(q) {
+		t.Error("value '?' semantics")
+	}
+}
+
 func TestMatchIsPolynomialOnHostileInput(t *testing.T) {
 	// Classic exponential case for backtracking matchers.
 	pattern := strings.Repeat("a*", 200) + "b"

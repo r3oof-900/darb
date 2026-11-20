@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -236,5 +237,21 @@ func TestUnresolvedPlaceholder(t *testing.T) {
 	}
 	if !AnyUnresolved([]string{"a", p}) || AnyUnresolved([]string{"a"}) {
 		t.Fatal("AnyUnresolved")
+	}
+}
+
+func TestSplitUnresolved(t *testing.T) {
+	u := UnresolvedPlaceholder("x")
+	cases := map[string][]string{
+		"plain":                         {"plain"},
+		"a" + u + "b":                   {"a", "b"},
+		u + u:                           {"", "", ""},
+		"a" + "${clapa:unresolved:open": {"a", ""},
+	}
+	for in, want := range cases {
+		got := SplitUnresolved(in)
+		if strings.Join(got, "|") != strings.Join(want, "|") || len(got) != len(want) {
+			t.Errorf("SplitUnresolved(%q) = %q, want %q", in, got, want)
+		}
 	}
 }
