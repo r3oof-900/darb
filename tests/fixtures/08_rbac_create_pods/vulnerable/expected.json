@@ -1,0 +1,69 @@
+{
+  "format": "clapa-expected/v1",
+  "derived_from": "13.2 row 8",
+  "findings": [
+    {
+      "rule": "CLAPA-PATH-001",
+      "entry": "k8s:prod/payments/Deployment/api",
+      "jewel": "arn:aws:s3:::acme-customer-pii",
+      "path": [
+        "RUNS_AS k8s:prod/payments/ServiceAccount/api",
+        "ASSUMES arn:aws:iam::111122223333:role/payments-api",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 729,
+      "severity": "critical",
+      "chokepoints": [
+        "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii"
+      ],
+      "alternative_fix": [
+        "CAN_READ arn:aws:iam::111122223333:role/payments-api -> arn:aws:s3:::acme-customer-pii"
+      ],
+      "defaults_used": []
+    },
+    {
+      "rule": "CLAPA-PATH-002",
+      "entry": "k8s:prod/payments/Deployment/ci-runner",
+      "jewel": "arn:aws:s3:::acme-customer-pii",
+      "path": [
+        "CAN_ESCALATE k8s:prod/payments/ServiceAccount/ci",
+        "CAN_ESCALATE k8s:prod/payments/ServiceAccount/api",
+        "ASSUMES arn:aws:iam::111122223333:role/payments-api",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 261,
+      "severity": "medium",
+      "chokepoints": [
+        "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii"
+      ],
+      "alternative_fix": [
+        "CAN_READ arn:aws:iam::111122223333:role/payments-api -> arn:aws:s3:::acme-customer-pii"
+      ],
+      "defaults_used": [
+        "k8s.automountServiceAccountToken"
+      ]
+    },
+    {
+      "rule": "CLAPA-POST-004",
+      "resource": "k8s:prod/payments/Deployment/ci-runner",
+      "score": 350,
+      "severity": "medium",
+      "defaults_used": [
+        "k8s.automountServiceAccountToken"
+      ]
+    },
+    {
+      "rule": "CLAPA-POST-007",
+      "resource": "k8s:prod//Namespace/payments",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": []
+    }
+  ],
+  "absent": [],
+  "intended_access_verified": []
+}

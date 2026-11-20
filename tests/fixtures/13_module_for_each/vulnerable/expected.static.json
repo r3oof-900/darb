@@ -1,0 +1,73 @@
+{
+  "format": "clapa-expected/v1",
+  "derived_from": "13.2 row 13 (static mode)",
+  "exit_code": 3,
+  "findings": [
+    {
+      "rule": "CLAPA-PATH-001",
+      "entry": "k8s:prod/analytics/CronJob/etl",
+      "jewel": "arn:aws:s3:::acme-customer-pii",
+      "path": [
+        "RUNS_AS k8s:prod/analytics/ServiceAccount/etl",
+        "ASSUMES arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
+      ],
+      "confirmed": false,
+      "confidence": "low",
+      "score": 116,
+      "severity": "low",
+      "chokepoints": [
+        "CAN_READ arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value} -> arn:aws:s3:::acme-customer-pii"
+      ],
+      "alternative_fix": [],
+      "defaults_used": []
+    },
+    {
+      "rule": "CLAPA-PATH-001",
+      "entry": "k8s:prod/analytics/CronJob/bi",
+      "jewel": "arn:aws:s3:::acme-customer-pii",
+      "path": [
+        "RUNS_AS k8s:prod/analytics/ServiceAccount/bi",
+        "ASSUMES arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
+      ],
+      "confirmed": false,
+      "confidence": "low",
+      "score": 116,
+      "severity": "low",
+      "chokepoints": [
+        "CAN_READ arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value} -> arn:aws:s3:::acme-customer-pii"
+      ],
+      "alternative_fix": [],
+      "defaults_used": []
+    },
+    {
+      "rule": "CLAPA-PATH-001",
+      "entry": "k8s:prod/analytics/CronJob/ml",
+      "jewel": "arn:aws:s3:::acme-customer-pii",
+      "path": [
+        "RUNS_AS k8s:prod/analytics/ServiceAccount/ml",
+        "ASSUMES arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
+      ],
+      "confirmed": false,
+      "confidence": "low",
+      "score": 116,
+      "severity": "low",
+      "chokepoints": [
+        "CAN_READ arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value} -> arn:aws:s3:::acme-customer-pii"
+      ],
+      "alternative_fix": [],
+      "defaults_used": []
+    },
+    {
+      "rule": "CLAPA-POST-007",
+      "resource": "k8s:prod//Namespace/analytics",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": []
+    }
+  ],
+  "absent": [],
+  "intended_access_verified": []
+}

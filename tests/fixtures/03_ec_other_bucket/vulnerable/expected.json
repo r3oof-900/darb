@@ -1,0 +1,24 @@
+{
+  "format": "clapa-expected/v1",
+  "derived_from": "13.2 row 3 (vulnerable)",
+  "findings": [
+    {
+      "rule": "CLAPA-POST-007",
+      "resource": "k8s:prod//Namespace/payments",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": []
+    }
+  ],
+  "absent": [
+    {
+      "rule": "CLAPA-PATH-001",
+      "jewel": "arn:aws:s3:::acme-customer-pii"
+    },
+    {
+      "rule": "CLAPA-PATH-002",
+      "jewel": "arn:aws:s3:::acme-customer-pii"
+    }
+  ],
+  "intended_access_verified": []
+}

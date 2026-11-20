@@ -1,0 +1,46 @@
+{
+  "format": "clapa-expected/v1",
+  "derived_from": "13.2 row 6",
+  "findings": [
+    {
+      "rule": "CLAPA-PATH-001",
+      "entry": "k8s:prod/payments/Deployment/api",
+      "jewel": "arn:aws:s3:::acme-analytics-warehouse",
+      "path": [
+        "RUNS_AS k8s:prod/payments/ServiceAccount/api",
+        "ASSUMES arn:aws:iam::111122223333:role/payments-api",
+        "ASSUMES arn:aws:iam::444455556666:role/analytics-admin",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-analytics-warehouse"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 656,
+      "severity": "high",
+      "chokepoints": [
+        "CAN_DECRYPT[for arn:aws:s3:::acme-analytics-warehouse] arn:aws:iam::444455556666:role/analytics-admin -> arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse"
+      ],
+      "alternative_fix": [
+        "CAN_READ arn:aws:iam::444455556666:role/analytics-admin -> arn:aws:s3:::acme-analytics-warehouse"
+      ],
+      "defaults_used": []
+    },
+    {
+      "rule": "CLAPA-POST-006",
+      "resource": "arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse",
+      "score": 350,
+      "severity": "medium",
+      "defaults_used": [
+        "terraform.aws_kms_key.enable_key_rotation"
+      ]
+    },
+    {
+      "rule": "CLAPA-POST-007",
+      "resource": "k8s:prod//Namespace/payments",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": []
+    }
+  ],
+  "absent": [],
+  "intended_access_verified": []
+}

@@ -1,0 +1,20 @@
+{
+  "format": "clapa-expected/v1",
+  "derived_from": "13.2 row 13 fixed (plan mode): roles read a non-PII bucket",
+  "findings": [
+    {
+      "rule": "CLAPA-POST-007",
+      "resource": "k8s:prod//Namespace/analytics",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": []
+    }
+  ],
+  "absent": [
+    {
+      "rule": "CLAPA-PATH-001",
+      "jewel": "arn:aws:s3:::acme-customer-pii"
+    }
+  ],
+  "intended_access_verified": []
+}

@@ -1,0 +1,9 @@
+{
+  "format": "clapa-expected/v1",
+  "derived_from": "13.2 row 15",
+  "exit_code": 3,
+  "collected": 0,
+  "findings": [],
+  "absent": [],
+  "intended_access_verified": []
+}

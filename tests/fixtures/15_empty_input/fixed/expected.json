@@ -1,0 +1,7 @@
+{
+  "format": "clapa-expected/v1",
+  "derived_from": "13.2 row 15 fixed: one namespace manifest, no workloads",
+  "findings": [],
+  "absent": [],
+  "intended_access_verified": []
+}

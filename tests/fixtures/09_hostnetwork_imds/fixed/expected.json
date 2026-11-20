@@ -1,0 +1,24 @@
+{
+  "format": "clapa-expected/v1",
+  "derived_from": "13.2 row 9 fixed: IMDSv2 required, hop limit 1, no hostNetwork",
+  "findings": [
+    {
+      "rule": "CLAPA-POST-007",
+      "resource": "k8s:prod//Namespace/monitoring",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": []
+    }
+  ],
+  "absent": [
+    {
+      "rule": "CLAPA-PATH-001",
+      "jewel": "arn:aws:s3:::acme-customer-exports"
+    },
+    {
+      "rule": "CLAPA-POST-002",
+      "resource": "eks-nodegroup:prod/default"
+    }
+  ],
+  "intended_access_verified": []
+}

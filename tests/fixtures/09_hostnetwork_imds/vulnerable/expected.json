@@ -1,0 +1,42 @@
+{
+  "format": "clapa-expected/v1",
+  "derived_from": "13.2 row 9",
+  "findings": [
+    {
+      "rule": "CLAPA-PATH-001",
+      "entry": "k8s:prod/monitoring/DaemonSet/node-monitor",
+      "jewel": "arn:aws:s3:::acme-customer-exports",
+      "path": [
+        "NODE_ROLE arn:aws:iam::111122223333:role/eks-node",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-exports"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 291,
+      "severity": "medium",
+      "chokepoints": [
+        "CAN_READ arn:aws:iam::111122223333:role/eks-node -> arn:aws:s3:::acme-customer-exports"
+      ],
+      "alternative_fix": [],
+      "defaults_used": [
+        "s3.default-encryption"
+      ]
+    },
+    {
+      "rule": "CLAPA-POST-002",
+      "resource": "eks-nodegroup:prod/default",
+      "score": 600,
+      "severity": "high",
+      "defaults_used": []
+    },
+    {
+      "rule": "CLAPA-POST-007",
+      "resource": "k8s:prod//Namespace/monitoring",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": []
+    }
+  ],
+  "absent": [],
+  "intended_access_verified": []
+}

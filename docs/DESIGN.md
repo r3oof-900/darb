@@ -655,6 +655,20 @@ compute-create, `CreatePolicyVersion`, `Attach/PutRolePolicy`,
 `EXPOSED_TO`, plus `MAPS_TO` (IAM principal → K8s user/group via `aws-auth` or
 access entries).
 
+**Edge semantics (Phase 4, written before the access builder):**
+
+| Edge | From → to | Exists when | Cost |
+|---|---|---|---|
+| `RUNS_AS` | workload → its service account | always (the cloud identity a pod's credentials carry) | 100 |
+| `CAN_ESCALATE[k8s-token]` | workload → its service account | the service account token is mounted (`automountServiceAccountToken`, §4.7 default `true`); needed to use the account's **Kubernetes** permissions. The IRSA web-identity token is projected separately and does not need it | 3 |
+| `CAN_ESCALATE[rbac]` | service account → service account | RBAC lets the first `create pods` (or `pods/exec`, `impersonate`, `bind`, `escalate`) in a namespace: a pod created there can run as any of its service accounts | 5 |
+| `ASSUMES[irsa]` | service account → role | the service account receives an STS-audience token (it carries `eks.amazonaws.com/role-arn`; audience = its `eks.amazonaws.com/audience`) **and** the role's trust allows `sts:AssumeRoleWithWebIdentity` for its `sub`/`aud`. STS checks the token audience against the OIDC provider's client IDs, so a service account without the annotation gets no usable token | 5 |
+| `ASSUMES[pod-identity]` | service account → role | an association links them and `access.PodIdentityAssume` allows (§4.6) | 5 |
+| `ASSUMES[sts]` | role → role | the source's identity policies allow `sts:AssumeRole` on the target **and** the target's trust allows the source session | 5 |
+| `CAN_ESCALATE[iam]` | role → role | `iam:PassRole` on the target plus a compute create **and** an execution primitive (Lambda: `CreateFunction` + `InvokeFunction` / `CreateEventSourceMapping` / `CreateFunctionUrlConfig`); without the execution primitive, `confidence: medium` | 2 |
+| `NODE_ROLE` | workload → node role of its cluster's node groups | IMDS is reachable: `hostNetwork: true` (any token setting, unless `http_endpoint` is disabled), or `http_tokens` optional, or hop limit ≥ 2; precondition, factor 900 when known, 500 when unknown | 3 |
+| `CAN_READ`, `CAN_DECRYPT[for J]`, `CAN_READ_PLAINTEXT` | principal → jewel / key | §7.3 | §9.1 |
+
 ### 7.3 Encrypted data access
 
 Reading encrypted data needs `CAN_READ` on the object **and** `CAN_DECRYPT` on its
@@ -779,6 +793,15 @@ per rule only after they are checked against the benchmark text.
    explicitly; the S3 default itself is tested separately (a bucket without any
    encryption configuration is SSE-S3 with `value_source: default`).
 
+**Posture finding identities.** A posture finding names one resource: its ARN
+when it has one, its Kubernetes identity (`k8s:{cluster}/{namespace}/{kind}/{name}`;
+a namespace is `k8s:{cluster}//Namespace/{name}`), or `eks-nodegroup:{cluster}/{name}`
+for a node group. Its fingerprint is `sha256(rule ID, rule major version,
+canonical ID of the resource)`. The anonymous principal is `anonymous`.
+
+**`--fail-on` default: `high`.** Exit 1 needs a finding at or above it
+(unconfirmed findings count, SCORING.md §1.3).
+
 ### 8.2 `expected.json` (format `clapa-expected/v1`)
 
 Written by hand from §13.2 and §13.1 (and, for posture rules, from reading the
@@ -808,10 +831,17 @@ the tool.
 }
 ```
 
+The files are written by `tests/fixtures/expected_source.py`, which holds the
+hand-derived data and the score arithmetic in comments; it only serialises.
 The golden test compares rule, entry, jewel, path, confirmation, confidence,
-score, severity and chokepoints, and computes each fingerprint from these fields
-with the §8 formula independently of the engine, then compares it with the
-engine's. Findings the file does not list fail the test (no extra findings).
+score, severity, chokepoints, `alternative_fix` and `defaults_used`, and computes
+each fingerprint from these fields with the §8 formula independently of the
+engine, then compares it with the engine's. Findings the file does not list fail
+the test (no extra findings). `entry: null` means "any entry" (the scenario does
+not name one); `absent` lists findings that must not appear; `exit_code` and
+`collected` are stated only where §13.2 states them (scenarios 13 static and
+15), since every other exit code depends on coverage gaps the description does
+not enumerate; `parse_errors` lists files that must be reported with a line.
 
 ---
 

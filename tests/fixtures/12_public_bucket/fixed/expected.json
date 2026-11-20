@@ -1,0 +1,16 @@
+{
+  "format": "clapa-expected/v1",
+  "derived_from": "13.2 row 12 fixed: Block Public Access on, policy names one role",
+  "findings": [],
+  "absent": [
+    {
+      "rule": "CLAPA-PATH-003",
+      "jewel": "arn:aws:s3:::acme-marketing-leads"
+    },
+    {
+      "rule": "CLAPA-POST-005",
+      "resource": "arn:aws:s3:::acme-marketing-leads"
+    }
+  ],
+  "intended_access_verified": []
+}

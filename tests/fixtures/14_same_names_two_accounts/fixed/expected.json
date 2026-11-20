@@ -1,0 +1,18 @@
+{
+  "format": "clapa-expected/v1",
+  "derived_from": "13.2 row 14 fixed: account 444455556666's role can only list",
+  "findings": [
+    {
+      "rule": "CLAPA-PATH-001",
+      "entry": null,
+      "jewel": "arn:aws:s3:::data-111122223333"
+    }
+  ],
+  "absent": [
+    {
+      "rule": "CLAPA-PATH-001",
+      "jewel": "arn:aws:s3:::data-444455556666"
+    }
+  ],
+  "intended_access_verified": []
+}

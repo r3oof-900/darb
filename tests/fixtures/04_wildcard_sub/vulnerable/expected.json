@@ -1,0 +1,71 @@
+{
+  "format": "clapa-expected/v1",
+  "derived_from": "13.2 row 4",
+  "findings": [
+    {
+      "rule": "CLAPA-PATH-001",
+      "entry": "k8s:prod/payments/Deployment/api",
+      "jewel": "arn:aws:s3:::acme-customer-pii",
+      "path": [
+        "RUNS_AS k8s:prod/payments/ServiceAccount/api",
+        "ASSUMES arn:aws:iam::111122223333:role/payments-api",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 729,
+      "severity": "critical",
+      "chokepoints": [
+        "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii"
+      ],
+      "alternative_fix": [
+        "CAN_READ arn:aws:iam::111122223333:role/payments-api -> arn:aws:s3:::acme-customer-pii"
+      ],
+      "defaults_used": []
+    },
+    {
+      "rule": "CLAPA-PATH-001",
+      "entry": "k8s:prod/tools/Deployment/debug",
+      "jewel": "arn:aws:s3:::acme-customer-pii",
+      "path": [
+        "RUNS_AS k8s:prod/tools/ServiceAccount/default",
+        "ASSUMES arn:aws:iam::111122223333:role/payments-api",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 291,
+      "severity": "medium",
+      "chokepoints": [
+        "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii"
+      ],
+      "alternative_fix": [
+        "CAN_READ arn:aws:iam::111122223333:role/payments-api -> arn:aws:s3:::acme-customer-pii"
+      ],
+      "defaults_used": []
+    },
+    {
+      "rule": "CLAPA-POST-001",
+      "resource": "arn:aws:iam::111122223333:role/payments-api",
+      "score": 600,
+      "severity": "high",
+      "defaults_used": []
+    },
+    {
+      "rule": "CLAPA-POST-007",
+      "resource": "k8s:prod//Namespace/payments",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": []
+    },
+    {
+      "rule": "CLAPA-POST-007",
+      "resource": "k8s:prod//Namespace/tools",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": []
+    }
+  ],
+  "absent": [],
+  "intended_access_verified": []
+}
