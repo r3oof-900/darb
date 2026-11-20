@@ -116,14 +116,20 @@ func (e *evaluator) overRequest(values []string, start model.Tri, combine func(m
 // single: positive operators match if r matches any policy value (OR);
 // negated operators are the negation of that (NOR).
 func (e *evaluator) single(r string) Result {
-	if model.ContainsUnresolved(r) {
+	partial := model.ContainsUnresolved(r)
+	if partial && (e.op.Family != FamilyString || e.op.Cmp == CmpEqualsIgnoreCase) {
 		// A request value built from unresolved source (e.g. aws:SourceArn of
-		// a cluster whose account is unknown) cannot be compared.
+		// a cluster whose account is unknown) is compared only by the
+		// case-sensitive string operators, whose answer can be decided on
+		// its known parts.
 		return unknown("request value %q was not resolved in the source", r)
 	}
 	acc := Result{Value: model.False}
 	for _, pv := range e.policy {
 		m, why := compare(e.op, r, pv, e.x)
+		if partial {
+			m, why = comparePartial(e.op, r, pv, e.x)
+		}
 		acc.Value = acc.Value.Or(m)
 		if m == model.Unknown && acc.Reason == "" {
 			acc.Reason = why

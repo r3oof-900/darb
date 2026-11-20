@@ -1,5 +1,7 @@
 package arn
 
+import "strings"
+
 // Mode selects how wildcards treat the ':' segment separator.
 type Mode uint8
 
@@ -119,6 +121,27 @@ func (p Pattern) Match(s string) bool {
 		prev, cur = cur, prev
 	}
 	return prev[n]
+}
+
+// MatchPieces decides a value made of known pieces with unknown runs
+// between them ("a", "b" stands for "a<unknown>b"). possible: some filling
+// of the unknown runs matches; always: every filling does, checked on
+// representative fillings (empty, one foreign character, and a run with
+// segment separators).
+func (p Pattern) MatchPieces(pieces []string) (possible, always bool) {
+	v := Literal(pieces[0], Plain)
+	for _, piece := range pieces[1:] {
+		v = v.Append(Compile("*", Plain)).Append(Literal(piece, Plain))
+	}
+	if !p.Intersects(v) {
+		return false, false
+	}
+	for _, fill := range []string{"", "\x00", "\x00:/\x00"} {
+		if !p.Match(strings.Join(pieces, fill)) {
+			return true, false
+		}
+	}
+	return true, true
 }
 
 // Intersects reports whether some string matches both p and v. v stands

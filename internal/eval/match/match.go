@@ -57,20 +57,12 @@ func Value(p arn.Pattern, value string) model.Tri {
 	if !model.ContainsUnresolved(value) {
 		return model.TriOf(p.Match(value))
 	}
-	pieces := model.SplitUnresolved(value)
-	v := arn.Literal(pieces[0], arn.Plain)
-	for _, piece := range pieces[1:] {
-		v = v.Append(arn.Compile("*", arn.Plain)).Append(arn.Literal(piece, arn.Plain))
+	possible, always := p.MatchPieces(model.SplitUnresolved(value))
+	switch {
+	case always:
+		return model.True
+	case possible:
+		return model.Unknown
 	}
-	if !p.Intersects(v) {
-		return model.False
-	}
-	// "Matches whatever they are" is checked on representative fillings:
-	// empty, one foreign character, and a run with segment separators.
-	for _, fill := range []string{"", "\x00", "\x00:/\x00"} {
-		if !p.Match(strings.Join(pieces, fill)) {
-			return model.Unknown
-		}
-	}
-	return model.True
+	return model.False
 }

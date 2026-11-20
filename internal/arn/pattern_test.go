@@ -159,3 +159,22 @@ func TestMatchIsPolynomialOnHostileInput(t *testing.T) {
 		t.Fatal("must not match")
 	}
 }
+
+func TestMatchPieces(t *testing.T) {
+	cases := []struct {
+		pattern          string
+		pieces           []string
+		possible, always bool
+	}{
+		{"arn:aws:s3:::pii/*", []string{"arn:aws:s3:::pii/", ""}, true, true},
+		{"arn:aws:s3:::receipts", []string{"arn:aws:s3:::pii/", ""}, false, false},
+		{"arn:aws:s3:::pii/a.csv", []string{"arn:aws:s3:::pii/", ""}, true, false},
+		{"exact", []string{"exact"}, true, true},
+	}
+	for _, c := range cases {
+		possible, always := Compile(c.pattern, Plain).MatchPieces(c.pieces)
+		if possible != c.possible || always != c.always {
+			t.Errorf("%s %q: %v %v", c.pattern, c.pieces, possible, always)
+		}
+	}
+}

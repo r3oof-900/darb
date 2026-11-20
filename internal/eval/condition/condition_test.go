@@ -246,3 +246,32 @@ func TestUnresolvedRequestValue(t *testing.T) {
 		t.Fatalf("got %+v", res)
 	}
 }
+
+// A request value with unresolved parts is decided by the case-sensitive
+// string operators on its known parts (DESIGN.md §4.6, scenario 3).
+func TestPartlyUnknownRequestValue(t *testing.T) {
+	obj := "arn:aws:s3:::pii/" + model.UnresolvedPlaceholder("object-key")
+	c := NewContext(&Input{Default: StateAbsent, Present: map[string][]string{"ctx": {obj}, "num": {model.UnresolvedPlaceholder("n")}}})
+	cases := []struct {
+		op, key, value string
+		want           model.Tri
+	}{
+		{"StringEquals", "ctx", "arn:aws:s3:::receipts", model.False},
+		{"StringEquals", "ctx", "arn:aws:s3:::pii/a.csv", model.Unknown},
+		{"StringNotEquals", "ctx", "arn:aws:s3:::receipts", model.True},
+		{"StringLike", "ctx", "arn:aws:s3:::pii/*", model.True},
+		{"StringLike", "ctx", "arn:aws:s3:::receipts/*", model.False},
+		{"StringLike", "ctx", "arn:aws:s3:::pii/2026/*", model.Unknown},
+		{"StringEquals", "ctx", "${unknown}", model.Unknown},
+		{"StringLike", "ctx", "${unknown}/*", model.Unknown},
+		{"StringEqualsIgnoreCase", "ctx", "arn:aws:s3:::receipts", model.Unknown},
+		{"NumericEquals", "num", "1", model.Unknown},
+	}
+	for _, tc := range cases {
+		cond := model.NewCondition(tc.op, tc.key, []string{tc.value})
+		res := Evaluate(&cond, c, stubExpander{})
+		if res.Value != tc.want || (res.Value == model.Unknown) != (res.Reason != "") {
+			t.Errorf("%s %s %q: %+v, want %s", tc.op, tc.key, tc.value, res, tc.want)
+		}
+	}
+}

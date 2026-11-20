@@ -53,6 +53,35 @@ func compare(op Operator, r, pv string, x Expander) (match model.Tri, why string
 	return model.TriOf(r == s), ""
 }
 
+// comparePartial compares a request value that has unresolved parts with
+// StringEquals or StringLike: false when no filling of the unknown parts can
+// match (the known parts already differ), true when every filling matches,
+// unknown otherwise (DESIGN.md §4.6).
+func comparePartial(op Operator, r, pv string, x Expander) (match model.Tri, why string) {
+	var p arn.Pattern
+	if op.Cmp == CmpLike {
+		pattern, ok := x.ExpandPattern(pv, arn.Plain)
+		if ok != model.True {
+			return ok, "unresolved policy variable in " + pv
+		}
+		p = pattern
+	} else {
+		s, ok := x.ExpandString(pv)
+		if ok != model.True {
+			return ok, "unresolved policy variable in " + pv
+		}
+		p = arn.Literal(s, arn.Plain)
+	}
+	possible, always := p.MatchPieces(model.SplitUnresolved(r))
+	switch {
+	case always:
+		return model.True, ""
+	case possible:
+		return model.Unknown, "request value " + strconv.Quote(r) + " may or may not match " + strconv.Quote(pv)
+	}
+	return model.False, ""
+}
+
 // arnLike checks each of the six colon-separated ARN components separately
 // (IAM User Guide › Condition operators › "Amazon Resource Name (ARN)
 // condition operators"). A value that is not a six-part ARN never matches.

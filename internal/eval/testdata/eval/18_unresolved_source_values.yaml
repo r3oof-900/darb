@@ -123,3 +123,59 @@ cases:
     resource_account: "${clapa:unresolved:account}"
     policies: {resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:role/app"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
     expect: UNKNOWN
+
+  - name: clapa.unresolved.condition-equals-cannot-match
+    doc: "docs/DESIGN.md section 4.6: an encryption context arn:aws:s3:::pii/<unknown key> can never equal another bucket's ARN (scenario 3), so the grant does not apply"
+    action: "kms:Decrypt"
+    resource: "arn:aws:kms:us-east-1:111122223333:key/k"
+    context: {present: {"kms:EncryptionContext:aws:s3:arn": ["arn:aws:s3:::pii/${clapa:unresolved:object-key}"]}}
+    policies: {identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {StringEquals: {"kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::receipts"}}}]}
+    expect: IMPLICIT_DENY
+
+  - name: clapa.unresolved.condition-like-always-matches
+    doc: "docs/DESIGN.md section 4.6: arn:aws:s3:::pii/* matches the object ARN whatever its key is"
+    action: "kms:Decrypt"
+    resource: "arn:aws:kms:us-east-1:111122223333:key/k"
+    context: {present: {"kms:EncryptionContext:aws:s3:arn": ["arn:aws:s3:::pii/${clapa:unresolved:object-key}"]}}
+    policies: {identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {StringLike: {"kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::pii/*"}}}]}
+    expect: ALLOW
+
+  - name: clapa.unresolved.condition-equals-may-match
+    doc: "docs/DESIGN.md section 4.6: a specific object ARN may or may not be the unknown key"
+    action: "kms:Decrypt"
+    resource: "arn:aws:kms:us-east-1:111122223333:key/k"
+    context: {present: {"kms:EncryptionContext:aws:s3:arn": ["arn:aws:s3:::pii/${clapa:unresolved:object-key}"]}}
+    policies: {identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {StringEquals: {"kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::pii/2026/report.csv"}}}]}
+    expect: UNKNOWN
+
+  - name: clapa.unresolved.condition-not-equals-cannot-match
+    doc: "docs/DESIGN.md section 4.6: StringNotEquals is the negation: a value that can never equal the listed one makes it true"
+    action: "kms:Decrypt"
+    resource: "arn:aws:kms:us-east-1:111122223333:key/k"
+    context: {present: {"kms:EncryptionContext:aws:s3:arn": ["arn:aws:s3:::pii/${clapa:unresolved:object-key}"]}}
+    policies: {identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {StringNotEquals: {"kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::receipts"}}}]}
+    expect: ALLOW
+
+  - name: clapa.unresolved.condition-ignore-case-stays-unknown
+    doc: "docs/DESIGN.md section 4.6: only the case-sensitive string operators decide a partly unknown value"
+    action: "kms:Decrypt"
+    resource: "arn:aws:kms:us-east-1:111122223333:key/k"
+    context: {present: {"kms:EncryptionContext:aws:s3:arn": ["arn:aws:s3:::pii/${clapa:unresolved:object-key}"]}}
+    policies: {identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {StringEqualsIgnoreCase: {"kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::receipts"}}}]}
+    expect: UNKNOWN
+
+  - name: clapa.unresolved.condition-like-unresolved-variable
+    doc: "docs/DESIGN.md section 4.6: a policy variable that cannot be expanded leaves the comparison unknown"
+    action: "kms:Decrypt"
+    resource: "arn:aws:kms:us-east-1:111122223333:key/k"
+    context: {present: {"kms:EncryptionContext:aws:s3:arn": ["arn:aws:s3:::pii/${clapa:unresolved:object-key}"]}}
+    policies: {identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {StringLike: {"kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::${aws:username}/*"}}}]}
+    expect: UNKNOWN
+
+  - name: clapa.unresolved.condition-equals-unresolved-variable
+    doc: "docs/DESIGN.md section 4.6: a policy variable that cannot be expanded leaves the comparison unknown"
+    action: "kms:Decrypt"
+    resource: "arn:aws:kms:us-east-1:111122223333:key/k"
+    context: {present: {"kms:EncryptionContext:aws:s3:arn": ["arn:aws:s3:::pii/${clapa:unresolved:object-key}"]}}
+    policies: {identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {StringEquals: {"kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::${aws:username}"}}}]}
+    expect: UNKNOWN
