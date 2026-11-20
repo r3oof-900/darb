@@ -7,13 +7,16 @@
 # Groups A-D of the Phase 4 review are resolved (A: defaults added to the
 # expected files after checking that only defaults_used differed; B, C, D:
 # fixtures and modelling changed as decided).
-# E - found after the review, outside A-D: scenario 6. analytics-admin has
-#     AdministratorAccess, so it can rewrite its own policies
-#     (iam:PutRolePolicy on itself): narrowing its decrypt grant alone no
-#     longer breaks the path, and the min-cut cuts the decrypt edges of
-#     both the role and "the role with any permission" (cost 2, a new
-#     fingerprint). One key-policy change would cut both; edge costs do
-#     not express a fix shared by several edges. Waiting for a decision.
-06_role_chain_cross_account/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-analytics-warehouse: alternative_fix: want ["CAN_READ arn:aws:iam::444455556666:role/analytics-admin -\u003e arn:aws:s3:::acme-analytics-warehouse"], got ["CAN_READ arn:aws:iam::444455556666:role/analytics-admin (any permission) -\u003e arn:aws:s3:::acme-analytics-warehouse","CAN_READ arn:aws:iam::444455556666:role/analytics-admin -\u003e arn:aws:s3:::acme-analytics-warehouse"]
-06_role_chain_cross_account/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-analytics-warehouse: chokepoints: want ["CAN_DECRYPT[for arn:aws:s3:::acme-analytics-warehouse] arn:aws:iam::444455556666:role/analytics-admin -\u003e arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse"], got ["CAN_DECRYPT[for arn:aws:s3:::acme-analytics-warehouse] arn:aws:iam::444455556666:role/analytics-admin (any permission) -\u003e arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse","CAN_DECRYPT[for arn:aws:s3:::acme-analytics-warehouse] arn:aws:iam::444455556666:role/analytics-admin -\u003e arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse"]
-06_role_chain_cross_account/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-analytics-warehouse: fingerprint (independent §8 formula): want "1dd8c889bdd4cdee0605e361857a44b07aa38034367d2d4f3f9b03cc5fa69dbe", got "9bc49d7bfd16afccb1758b6776c854ac5467a4cf3d8793e155208abdd559ec24"
+# E (scenario 6) is resolved in the third Phase 4 review: an edge costs its
+#     cheapest fix side and a principal that can grant itself the access
+#     again has no cut after it (SCORING.md §4); the engine gives the decided
+#     cut (ASSUMES payments-api -> analytics-admin, identity side, cost 1),
+#     and the fingerprint no longer depends on the cut (DESIGN.md §8).
+# F - a consequence of that pricing, outside A-E: scenario 10. payments-api
+#     has no kms:Decrypt in its identity policy (the org-ID key policy grants
+#     it alone), so the only fix of its decrypt edge is the key policy (cost
+#     2); its s3:GetObject comes only from its identity policy (cost 1). The
+#     cheapest cut is now the read, not the decrypt the expected file names
+#     (written under the old equal-cost tie rule). Waiting for a decision.
+10_kms_principal_org_id/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: alternative_fix: want ["CAN_READ arn:aws:iam::111122223333:role/payments-api -\u003e arn:aws:s3:::acme-customer-pii"], got []
+10_kms_principal_org_id/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: chokepoints: want ["CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/payments-api -\u003e arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.shared"], got ["CAN_READ arn:aws:iam::111122223333:role/payments-api -\u003e arn:aws:s3:::acme-customer-pii"]

@@ -17,14 +17,19 @@
       "score": 656,
       "severity": "high",
       "chokepoints": [
-        "CAN_DECRYPT[for arn:aws:s3:::acme-analytics-warehouse] arn:aws:iam::444455556666:role/analytics-admin -> arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse"
+        "ASSUMES arn:aws:iam::111122223333:role/payments-api -> arn:aws:iam::444455556666:role/analytics-admin"
       ],
-      "alternative_fix": [
-        "CAN_READ arn:aws:iam::444455556666:role/analytics-admin -> arn:aws:s3:::acme-analytics-warehouse"
-      ],
+      "alternative_fix": [],
       "defaults_used": [
         "eks.irsa.audience",
         "eks.irsa.oidc-provider-audience"
+      ],
+      "fix": [
+        {
+          "edge": "ASSUMES arn:aws:iam::111122223333:role/payments-api -> arn:aws:iam::444455556666:role/analytics-admin",
+          "side": "identity",
+          "cost": 1
+        }
       ]
     },
     {

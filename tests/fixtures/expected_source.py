@@ -34,12 +34,15 @@ POD_IDENTITY_DEFAULTS = ["eks.pod-identity.disableSessionTags"]
 
 
 def path_finding(rule, entry, jewel, path, score, severity, chokepoints, alternative=None,
-                 confirmed=True, confidence="high", defaults=None):
-    return {
+                 confirmed=True, confidence="high", defaults=None, fix=None):
+    f = {
         "rule": rule, "entry": entry, "jewel": jewel, "path": path,
         "confirmed": confirmed, "confidence": confidence, "score": score, "severity": severity,
         "chokepoints": chokepoints, "alternative_fix": alternative or [], "defaults_used": defaults or [],
     }
+    if fix is not None:
+        f["fix"] = fix
+    return f
 
 
 def posture(rule, resource, score, severity, defaults=None):
@@ -152,11 +155,17 @@ B = "444455556666"
 ADMIN = f"arn:aws:iam::{B}:role/analytics-admin"
 WAREHOUSE = "arn:aws:s3:::acme-analytics-warehouse"
 WAREHOUSE_KEY = f"arn:aws:kms:us-east-1:{B}:key/tf-aws_kms_key.warehouse"
-cut, alt = decrypt_cut(ADMIN, WAREHOUSE_KEY, WAREHOUSE)
+# Cut (third Phase 4 review, SCORING.md 4.2): analytics-admin can rewrite its
+# own policies, the warehouse key policy and the bucket policy, so no cut after
+# it holds. The cut is the hop into it, identity side, cost 1: remove
+# sts:AssumeRole on that role from payments-api (the trust side, cost 5, is
+# the other fix). No derived edge is cut, so no alternative_fix.
+CHAIN = f"ASSUMES {ROLE} -> {ADMIN}"
 E["06_role_chain_cross_account/vulnerable"] = {"derived_from": "13.2 row 6", "findings": [
     path_finding("CLAPA-PATH-001", API, WAREHOUSE,
                  [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"ASSUMES {ADMIN}", f"CAN_READ_PLAINTEXT {WAREHOUSE}"],
-                 656, "high", cut, alt, defaults=IRSA_DEFAULTS),
+                 656, "high", [CHAIN], [], defaults=IRSA_DEFAULTS,
+                 fix=[{"edge": CHAIN, "side": "identity", "cost": 1}]),
     rotation_off(WAREHOUSE_KEY), no_default_deny(NS_PAYMENTS)]}
 E["06_role_chain_cross_account/fixed"] = {"derived_from": "13.2 row 6 fixed: AssumeRole scoped to one role in account A",
                                           "findings": [rotation_off(WAREHOUSE_KEY), no_default_deny(NS_PAYMENTS)],
