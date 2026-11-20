@@ -561,6 +561,7 @@ Each item is encoded by corpus cases (file in parentheses).
 | RCP scope | RCPs are applied to every caller except where policies do not match | **Flag:** whether RCPs exempt service principals is not modelled; applying them can only hide access the RCP really blocks |
 | Empty condition value list | `UNKNOWN` | AWS does not document it (06) |
 | Multivalued key without `ForAnyValue`/`ForAllValues` | `UNKNOWN` | IAM › multivalued context keys warns against it; behaviour not pinned (09) |
+| Non-numeric value in a Numeric* comparison (policy or request side); likewise unparsable Date*, Bool, IpAddress and base64 values | `UNKNOWN`, never ALLOW | AWS does not document the result; independently confirmed by the external review case `clapa.indep.numeric-non-number` (07, 99) |
 | `Principal: "*"` grant + boundary/session policy that does not allow | `UNKNOWN` | the boundary table (§6.1) does not cover the wildcard principal (05) |
 | `{"AWS": "*"}` vs service / web-identity callers | `UNKNOWN` | equivalence with `"*"` is documented for AWS principals and anonymous only |
 | NotPrincipal | caller excluded only if its own ARN **and** account are listed; for a role session the documented list also has the role ARN — session + account without role ARN is `UNKNOWN` | IAM › NotPrincipal › "Specifying NotPrincipal with Deny" (16); the first draft treated partial lists as UNKNOWN, the corpus showed the documentation decides most of them |

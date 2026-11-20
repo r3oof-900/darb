@@ -1,0 +1,259 @@
+# Independent review cases written from the AWS docs, not from the implementation.
+defaults:
+  principal: {kind: assumed-role, arn: "arn:aws:sts::111122223333:assumed-role/app/s1", account: "111122223333", source: "arn:aws:iam::111122223333:role/app"}
+  action: "s3:GetObject"
+  resource: "arn:aws:s3:::data/k"
+  resource_account: "111122223333"
+  context: {default: absent}
+
+cases:
+  # ---------- Action matching ----------
+  - name: iam-ug.indep.action-case-insensitive
+    doc: "IAM UG › Action: action names are case-insensitive"
+    policies: {identity: [{Effect: Allow, Action: "S3:getobject", Resource: "*"}]}
+    expect: ALLOW
+  - name: iam-ug.indep.notaction-allow-grants-other-services
+    doc: "IAM UG › NotAction with Allow grants everything not listed"
+    policies: {identity: [{Effect: Allow, NotAction: "iam:*", Resource: "*"}]}
+    expect: ALLOW
+  - name: iam-ug.indep.notaction-allow-excludes-listed
+    doc: "IAM UG › NotAction with Allow does not grant the listed actions"
+    action: "iam:CreateUser"
+    resource: "arn:aws:iam::111122223333:user/x"
+    policies: {identity: [{Effect: Allow, NotAction: "iam:*", Resource: "*"}]}
+    expect: IMPLICIT_DENY
+  - name: iam-ug.indep.action-mid-wildcard
+    doc: "IAM UG › Action: wildcard may appear anywhere (s3:*Object)"
+    policies: {identity: [{Effect: Allow, Action: "s3:*Object", Resource: "*"}]}
+    expect: ALLOW
+  - name: iam-ug.indep.action-question-mark
+    doc: "IAM UG › Action: ? matches exactly one character"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObjec?", Resource: "*"}]}
+    expect: ALLOW
+  - name: iam-ug.indep.action-prefix-not-enough
+    doc: "IAM UG › Action: s3:Get does not match s3:GetObject without wildcard"
+    policies: {identity: [{Effect: Allow, Action: "s3:Get", Resource: "*"}]}
+    expect: IMPLICIT_DENY
+  - name: iam-ug.indep.deny-notaction-blocks-others
+    doc: "IAM UG › NotAction with Deny denies everything not listed"
+    policies: {identity: [{Effect: Allow, Action: "*", Resource: "*"}, {Effect: Deny, NotAction: "iam:*", Resource: "*"}]}
+    expect: DENY
+
+  # ---------- Resource matching ----------
+  - name: s3-ug.indep.bucket-arn-not-object
+    doc: "S3 UG › Policy resources: bucket ARN does not cover objects"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::data"}]}
+    expect: IMPLICIT_DENY
+  - name: iam-ug.indep.resource-case-sensitive
+    doc: "IAM UG › Resource: ARNs are case-sensitive"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::Data/*"}]}
+    expect: IMPLICIT_DENY
+  - name: iam-ug.indep.resource-star-spans-slashes
+    doc: "IAM UG › Resource: * in the resource path matches across /"
+    resource: "arn:aws:s3:::data/a/b/c.txt"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: ALLOW
+  - name: iam-ug.indep.resource-similar-bucket-prefix
+    doc: "IAM UG › Resource: arn:aws:s3:::data* also matches data-backup (classic over-grant)"
+    resource: "arn:aws:s3:::data-backup/k"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::data*"}]}
+    expect: ALLOW
+  - name: iam-ug.indep.resource-region-wildcard
+    doc: "IAM UG › Resource: wildcard in region segment"
+    action: "kms:Decrypt"
+    resource: "arn:aws:kms:eu-west-1:111122223333:key/abc"
+    policies: {resource_policy_required: true, resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:root"}, Action: "kms:*", Resource: "*"}], identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "arn:aws:kms:*:111122223333:key/*"}]}
+    expect: ALLOW
+  - name: iam-ug.indep.resource-wrong-account
+    doc: "IAM UG › Resource: account segment must match"
+    action: "kms:Decrypt"
+    resource: "arn:aws:kms:eu-west-1:111122223333:key/abc"
+    policies: {resource_policy_required: true, resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:root"}, Action: "kms:*", Resource: "*"}], identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "arn:aws:kms:*:999999999999:key/*"}]}
+    expect: IMPLICIT_DENY
+  - name: iam-ug.indep.notresource-deny
+    doc: "IAM UG › NotResource with Deny denies everything except listed"
+    policies: {identity: [{Effect: Allow, Action: "s3:*", Resource: "*"}, {Effect: Deny, Action: "s3:*", NotResource: "arn:aws:s3:::public/*"}]}
+    expect: DENY
+
+  # ---------- Condition traps ----------
+  - name: iam-ug.indep.bool-securetransport-absent-deny-not-applied
+    doc: "IAM UG › Condition: Bool on a missing key is false, so the Deny does not apply"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*"}, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {Bool: {"aws:SecureTransport": "false"}}}]}
+    expect: ALLOW
+  - name: iam-ug.indep.stringnotequals-absent-key-is-true
+    doc: "IAM UG › Condition operators: negated operators evaluate true when the key is absent"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*"}, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {StringNotEquals: {"aws:PrincipalOrgID": "o-abc"}}}]}
+    expect: DENY
+  - name: iam-ug.indep.stringnotequals-present-matching
+    doc: "IAM UG › StringNotEquals false when value equals"
+    context: {default: absent, present: {"aws:PrincipalOrgID": "o-abc"}}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*"}, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {StringNotEquals: {"aws:PrincipalOrgID": "o-abc"}}}]}
+    expect: ALLOW
+  - name: iam-ug.indep.stringnotequals-unknown-org
+    doc: "Three-valued: an unknown key in a Deny prevents ALLOW"
+    context: {default: absent, unknown: ["aws:PrincipalOrgID"]}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*"}, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {StringNotEquals: {"aws:PrincipalOrgID": "o-abc"}}}]}
+    expect: UNKNOWN
+  - name: iam-ug.indep.stringequals-literal-star
+    doc: "IAM UG › StringEquals treats * literally"
+    context: {default: absent, present: {"aws:PrincipalTag/team": "payments"}}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {StringEquals: {"aws:PrincipalTag/team": "*"}}}]}
+    expect: IMPLICIT_DENY
+  - name: iam-ug.indep.stringlike-wildcard
+    doc: "IAM UG › StringLike supports * and ?"
+    context: {default: absent, present: {"aws:PrincipalTag/team": "payments-eu"}}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {StringLike: {"aws:PrincipalTag/team": "payments-*"}}}]}
+    expect: ALLOW
+  - name: iam-ug.indep.multiple-values-or
+    doc: "IAM UG › Condition: multiple values for one key are OR"
+    context: {default: absent, present: {"aws:RequestedRegion": "eu-west-1"}}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {StringEquals: {"aws:RequestedRegion": ["us-east-1", "eu-west-1"]}}}]}
+    expect: ALLOW
+  - name: iam-ug.indep.multiple-keys-and
+    doc: "IAM UG › Condition: multiple keys are AND"
+    context: {default: absent, present: {"aws:RequestedRegion": "eu-west-1", "aws:PrincipalTag/team": "x"}}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {StringEquals: {"aws:RequestedRegion": "eu-west-1", "aws:PrincipalTag/team": "y"}}}]}
+    expect: IMPLICIT_DENY
+  - name: iam-ug.indep.ignorecase
+    doc: "IAM UG › StringEqualsIgnoreCase"
+    context: {default: absent, present: {"aws:PrincipalTag/team": "PAYMENTS"}}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {StringEqualsIgnoreCase: {"aws:PrincipalTag/team": "payments"}}}]}
+    expect: ALLOW
+  - name: iam-ug.indep.forallvalues-absent-is-true
+    doc: "IAM UG › ForAllValues returns true when the key is absent (vacuous)"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {"ForAllValues:StringEquals": {"aws:TagKeys": ["a"]}}}]}
+    expect: ALLOW
+  - name: iam-ug.indep.foranyvalue-absent-is-false
+    doc: "IAM UG › ForAnyValue returns false when the key is absent"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {"ForAnyValue:StringEquals": {"aws:TagKeys": ["a"]}}}]}
+    expect: IMPLICIT_DENY
+  - name: iam-ug.indep.forallvalues-one-outside
+    doc: "IAM UG › ForAllValues false when any request value is outside the set"
+    context: {default: absent, present: {"aws:TagKeys": ["a", "z"]}}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {"ForAllValues:StringEquals": {"aws:TagKeys": ["a", "b"]}}}]}
+    expect: IMPLICIT_DENY
+  - name: iam-ug.indep.foranyvalue-one-inside
+    doc: "IAM UG › ForAnyValue true when one request value is in the set"
+    context: {default: absent, present: {"aws:TagKeys": ["a", "z"]}}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {"ForAnyValue:StringEquals": {"aws:TagKeys": ["a", "b"]}}}]}
+    expect: ALLOW
+  - name: iam-ug.indep.ifexists-absent-true
+    doc: "IAM UG › ...IfExists is true when the key is absent"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {StringEqualsIfExists: {"aws:PrincipalTag/team": "payments"}}}]}
+    expect: ALLOW
+  - name: iam-ug.indep.ifexists-present-mismatch
+    doc: "IAM UG › ...IfExists evaluates normally when present"
+    context: {default: absent, present: {"aws:PrincipalTag/team": "other"}}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {StringEqualsIfExists: {"aws:PrincipalTag/team": "payments"}}}]}
+    expect: IMPLICIT_DENY
+  - name: iam-ug.indep.null-true-when-absent
+    doc: "IAM UG › Null: true means the key must be absent"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {"Null": {"aws:TokenIssueTime": "true"}}}]}
+    expect: ALLOW
+  - name: iam-ug.indep.null-false-when-absent
+    doc: "IAM UG › Null: false requires the key to be present"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {"Null": {"aws:TokenIssueTime": "false"}}}]}
+    expect: IMPLICIT_DENY
+  - name: iam-ug.indep.ip-cidr-match
+    doc: "IAM UG › IpAddress CIDR match"
+    context: {default: absent, present: {"aws:SourceIp": "203.0.113.77"}}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {IpAddress: {"aws:SourceIp": "203.0.113.0/24"}}}]}
+    expect: ALLOW
+  - name: iam-ug.indep.ip-cidr-outside
+    doc: "IAM UG › IpAddress outside CIDR"
+    context: {default: absent, present: {"aws:SourceIp": "198.51.100.1"}}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {IpAddress: {"aws:SourceIp": "203.0.113.0/24"}}}]}
+    expect: IMPLICIT_DENY
+  - name: iam-ug.indep.ipv6
+    doc: "IAM UG › IpAddress IPv6 CIDR"
+    context: {default: absent, present: {"aws:SourceIp": "2001:db8::1"}}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {IpAddress: {"aws:SourceIp": "2001:db8::/32"}}}]}
+    expect: ALLOW
+  - name: iam-ug.indep.arnlike-wildcard
+    doc: "IAM UG › ArnLike with wildcard"
+    context: {default: absent, present: {"aws:SourceArn": "arn:aws:sns:us-east-1:111122223333:topic-a"}}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {ArnLike: {"aws:SourceArn": "arn:aws:sns:*:111122223333:*"}}}]}
+    expect: ALLOW
+  - name: clapa.indep.numeric-non-number
+    doc: "docs/DESIGN.md section 6.5: AWS does not document a non-numeric value in a numeric comparison, so the result is UNKNOWN, never ALLOW"
+    context: {default: absent, present: {"s3:max-keys": "abc"}}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {NumericLessThanEquals: {"s3:max-keys": "10"}}}]}
+    expect: UNKNOWN
+  - name: iam-ug.indep.date-iso
+    doc: "IAM UG › DateGreaterThan ISO 8601"
+    context: {default: absent, present: {"aws:CurrentTime": "2026-11-20T00:00:00Z"}}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {DateGreaterThan: {"aws:CurrentTime": "2026-01-01T00:00:00Z"}}}]}
+    expect: ALLOW
+  - name: iam-ug.indep.unknown-allow-condition
+    doc: "Three-valued: allow depending on an unknown key is UNKNOWN"
+    context: {default: unknown}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {StringEquals: {"aws:SourceVpce": "vpce-1"}}}]}
+    expect: UNKNOWN
+  - name: iam-ug.indep.unknown-deny-irrelevant-when-no-allow
+    doc: "Three-valued: unknown Deny with no Allow is IMPLICIT_DENY"
+    context: {default: unknown}
+    policies: {identity: [{Effect: Deny, Action: "s3:*", Resource: "*", Condition: {StringEquals: {"aws:SourceVpce": "vpce-1"}}}]}
+    expect: IMPLICIT_DENY
+
+  # ---------- Policy variables ----------
+  - name: iam-ug.indep.policy-variable-username
+    doc: "IAM UG › Policy variables: ${aws:username} for IAM users"
+    principal: {kind: iam-user, arn: "arn:aws:iam::111122223333:user/alice", account: "111122223333"}
+    resource: "arn:aws:s3:::home/alice/file"
+    context: {default: absent, present: {"aws:username": "alice"}}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::home/${aws:username}/*"}]}
+    expect: ALLOW
+  - name: iam-ug.indep.policy-variable-username-other
+    doc: "IAM UG › Policy variables: other user's folder denied"
+    principal: {kind: iam-user, arn: "arn:aws:iam::111122223333:user/alice", account: "111122223333"}
+    resource: "arn:aws:s3:::home/bob/file"
+    context: {default: absent, present: {"aws:username": "alice"}}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::home/${aws:username}/*"}]}
+    expect: IMPLICIT_DENY
+
+  # ---------- Principals / accounts ----------
+  - name: iam-ug.indep.account-id-short-form-delegates
+    doc: "IAM UG › Principal: {AWS: account-id} is the account root, which delegates to IAM, so the identity side must still allow"
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "111122223333"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: IMPLICIT_DENY
+  - name: iam-ug.indep.anonymous-principal-account-condition
+    doc: "Anonymous has no aws:PrincipalAccount, so a public grant conditioned on it does not apply"
+    principal: {kind: anonymous}
+    policies: {resource: [{Effect: Allow, Principal: "*", Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*", Condition: {StringEquals: {"aws:PrincipalAccount": "111122223333"}}}]}
+    expect: IMPLICIT_DENY
+  - name: iam-ug.indep.role-arn-in-resource-policy-matches-session
+    doc: "IAM UG › Principal: a role ARN in a resource policy matches that role's sessions"
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:role/app"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: ALLOW
+  - name: iam-ug.indep.other-role-no-match
+    doc: "IAM UG › Principal: a different role ARN does not match"
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:role/other"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: IMPLICIT_DENY
+  - name: iam-ug.indep.cross-account-unknown-resource-account
+    doc: "Both interpretations allow → ALLOW even with unknown resource account"
+    resource_account: ""
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*"}], resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:role/app"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    expect: ALLOW
+  - name: iam-ug.indep.cross-account-unknown-resource-account-identity-only
+    doc: "Same-account would ALLOW, cross-account would deny → UNKNOWN, never ALLOW or deny"
+    resource_account: ""
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*"}]}
+    expect: UNKNOWN
+
+  # ---------- Boundary / SCP ----------
+  - name: iam-ug.indep.boundary-blocks-identity
+    doc: "IAM UG › Permissions boundaries: identity allow outside boundary is denied"
+    policies: {identity: [{Effect: Allow, Action: "s3:*", Resource: "*"}], boundary: {Effect: Allow, Action: "ec2:*", Resource: "*"}}
+    expect: IMPLICIT_DENY
+  - name: iam-ug.indep.boundary-does-not-grant
+    doc: "IAM UG › Permissions boundaries: a boundary alone grants nothing"
+    policies: {boundary: {Effect: Allow, Action: "s3:*", Resource: "*"}}
+    expect: IMPLICIT_DENY
+  - name: org-ug.indep.scp-deny-overrides-resource-policy
+    doc: "Organizations UG › SCP explicit deny applies even when access is granted by a resource policy"
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "arn:aws:sts::111122223333:assumed-role/app/s1"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}], scps: [[{Effect: Allow, Action: "*", Resource: "*"}, {Effect: Deny, Action: "s3:*", Resource: "*"}]]}
+    expect: DENY
+  - name: org-ug.indep.scp-not-allowing-blocks-resource-policy-session-grant
+    doc: "Organizations UG › SCPs limit permissions for principals in member accounts, including access granted by resource policies"
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "arn:aws:sts::111122223333:assumed-role/app/s1"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}], scps: [[{Effect: Allow, Action: "ec2:*", Resource: "*"}]]}
+    expect: IMPLICIT_DENY

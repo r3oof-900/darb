@@ -13,6 +13,10 @@ the corpus must be the four same-account resource-policy cases committed to in
   ours recorded in DESIGN.md.
 - `doc` names the exact documentation section (or DESIGN.md section).
 - At least 150 cases (enforced).
+- `99_independent_review.yaml` holds 51 cases written by an independent
+  reviewer from the AWS documentation, not from the implementation. Its case
+  names contain `.indep.`; keep that marker, and do not edit those cases to make
+  the implementation pass.
 
 ## Format
 
