@@ -162,10 +162,13 @@ func costs(g *graph.Graph, cfg *config.Config, uncuttable map[graph.EdgeID]bool)
 				return paths.Uncuttable
 			}
 		}
+		if len(e.Fixes) == 0 {
+			return paths.Uncuttable // no single change breaks it (DESIGN.md §7.4)
+		}
 		if c, ok := cfg.Remediation.CutCosts[string(e.Kind)]; ok {
 			return int64(c)
 		}
-		return scoring.CutCost(e)
+		return e.Fixes[0].Cost // the cheapest fix (SCORING.md §4)
 	}
 }
 

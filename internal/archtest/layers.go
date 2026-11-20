@@ -99,7 +99,7 @@ func coreRules() []*Rule {
 		{Package: "internal/graph", Layer: LayerCore, Internal: []string{"internal/model", "internal/eval"}},
 		{
 			Package: "internal/access", Layer: LayerCore,
-			Internal:     coreModel("internal/eval", "internal/eval/match", "internal/eval/condition", "internal/graph"),
+			Internal:     coreModel("internal/eval", "internal/eval/match", "internal/eval/condition", "internal/graph", "internal/scoring"),
 			TestInternal: []string{"internal/iampolicy"},
 		},
 		{Package: "internal/paths", Layer: LayerCore, Internal: []string{"internal/model", "internal/graph"}, TestInternal: []string{"internal/eval"}},

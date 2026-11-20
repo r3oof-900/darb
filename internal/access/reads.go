@@ -103,7 +103,10 @@ func (b *builder) read(role *model.Principal, j *model.Resource) {
 	if !grants(read.Verdict) {
 		return
 	}
-	readEdge := b.edge(from, j.ID(), graph.CanRead, sub(role), &read, nil)
+	rewrite := b.canDo(role, "s3:PutBucketPolicy", j.ARN(), j.Account(), b.policies[j.ID()], false)
+	readEdge := b.edge(from, j.ID(), graph.CanRead, sub(role), &read, func(e *graph.Edge) {
+		e.Fixes = nonNil(b.policyFixes(graph.CanRead, req, set, role, j.ARN(), "bucket policy", rewrite))
+	})
 	under := []graph.EdgeID{readEdge}
 	verdict := read.Verdict
 	enc := j.Encryption()
@@ -169,12 +172,14 @@ func (b *builder) decrypt(role *model.Principal, principal match.RequestPrincipa
 		contexts = []string{j.ARN(), object}
 	}
 	var result *eval.Decision
+	var req *eval.Request
+	set := b.identitySet(role, b.policies[key.ID()], true)
 	for _, c := range contexts {
-		req := &eval.Request{
+		req = &eval.Request{
 			Principal: principal, Action: "kms:Decrypt", Resource: key.ARN(), ResourceAccount: key.Account(),
 			Context: b.context(role, map[string][]string{"kms:EncryptionContext:aws:s3:arn": {c}, "kms:EncryptionContextKeys": {"aws:s3:arn"}}),
 		}
-		d := eval.Evaluate(req, b.identitySet(role, b.policies[key.ID()], true))
+		d := eval.Evaluate(req, set)
 		if result == nil {
 			result = &d
 		} else if result.Verdict != d.Verdict {
@@ -185,7 +190,12 @@ func (b *builder) decrypt(role *model.Principal, principal match.RequestPrincipa
 		return result.Verdict, 0, false
 	}
 	b.g.Node(key.ID(), key.Kind(), key.ARN())
-	e := b.edge(role.ID(), key.ID(), graph.CanDecrypt, "", result, func(e *graph.Edge) { e.For = b.node(j.ID()) })
+	rewrite := b.canDo(role, "kms:PutKeyPolicy", key.ARN(), key.Account(), b.policies[key.ID()], true) ||
+		b.canDo(role, "kms:CreateGrant", key.ARN(), key.Account(), b.policies[key.ID()], true)
+	e := b.edge(role.ID(), key.ID(), graph.CanDecrypt, "", result, func(e *graph.Edge) {
+		e.For = b.node(j.ID())
+		e.Fixes = nonNil(b.policyFixes(graph.CanDecrypt, req, set, role, key.ARN(), "key policy", rewrite))
+	})
 	return result.Verdict, e, true
 }
 
@@ -209,4 +219,13 @@ func (b *builder) readOnlyKeyEdge(role *model.Principal, j *model.Resource, v ev
 	id := model.NewID(model.KindKMSKey, "aws/s3@"+j.Account())
 	b.g.Node(id, model.KindKMSKey, "alias/aws/s3 ("+j.Account()+")")
 	return b.edge(role.ID(), id, graph.CanDecrypt, "aws-managed", &eval.Decision{Verdict: v}, func(e *graph.Edge) { e.For = b.node(j.ID()) })
+}
+
+// nonNil marks "no single change breaks it" (an empty list) apart from
+// "not computed" (nil, which takes the default fixes).
+func nonNil(fs []graph.Fix) []graph.Fix {
+	if fs == nil {
+		return []graph.Fix{}
+	}
+	return fs
 }

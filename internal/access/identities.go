@@ -10,6 +10,7 @@ import (
 	"github.com/r3oof-900/clapa/internal/eval/match"
 	"github.com/r3oof-900/clapa/internal/graph"
 	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/clapa/internal/scoring"
 )
 
 // identities adds the IAM edges between principals (DESIGN.md §7.2):
@@ -49,9 +50,13 @@ func (b *builder) chain(src, dst *model.Principal, trust *model.PolicyDocument) 
 		Principal: b.session(src), Action: "sts:AssumeRole", Resource: dst.Identity(),
 		ResourceAccount: dst.Account(), Context: b.context(src, nil),
 	}
-	d := eval.Evaluate(req, b.identitySet(src, []*model.PolicyDocument{trust}, true))
+	set := b.identitySet(src, []*model.PolicyDocument{trust}, true)
+	d := eval.Evaluate(req, set)
 	if grants(d.Verdict) {
-		b.edge(src.ID(), dst.ID(), graph.Assumes, "sts", &d, nil)
+		rewrite := b.canDo(src, "iam:UpdateAssumeRolePolicy", dst.Identity(), dst.Account(), nil, false)
+		b.edge(src.ID(), dst.ID(), graph.Assumes, "sts", &d, func(e *graph.Edge) {
+			e.Fixes = nonNil(b.policyFixes(graph.Assumes, req, set, src, dst.Identity(), "trust policy", rewrite))
+		})
 	}
 	return d.Verdict
 }
@@ -220,6 +225,7 @@ func (b *builder) passRole(src, dst *model.Principal, trust *model.PolicyDocumen
 		}
 		b.edge(src.ID(), dst.ID(), graph.CanEscalate, "iam:passrole:"+name, &eval.Decision{Verdict: verdict}, func(e *graph.Edge) {
 			e.Evidence = why
+			e.Fixes = append(b.factFixes(e), graph.Fix{Side: graph.SideTrust, Policy: dst.Identity() + " trust policy", Resource: dst.Identity(), Cost: scoring.FixCost(graph.Assumes, "", graph.SideTrust)})
 			switch run {
 			case eval.Allow:
 			case eval.Unknown:

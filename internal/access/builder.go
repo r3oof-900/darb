@@ -1,6 +1,7 @@
 package access
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -146,7 +147,36 @@ func (b *builder) edge(from, to model.ID, kind graph.Kind, sub string, d *eval.D
 	if extra != nil {
 		extra(e)
 	}
+	if e.Fixes == nil {
+		e.Fixes = b.factFixes(e)
+	}
 	return b.g.Edge(e)
+}
+
+// factFixes: the one side of an edge that comes from facts; none for the
+// identity side of a principal that can grant itself anything again.
+func (b *builder) factFixes(e *graph.Edge) []graph.Fix {
+	from, to := b.g.NodeOf(e.From), b.g.NodeOf(e.To)
+	label := from.Identity
+	switch e.Kind {
+	case graph.Assumes:
+		label = to.Identity + " trust policy"
+	case graph.CanEscalate, graph.MapsTo, graph.NodeRole:
+		if len(e.Evidence) > 0 {
+			label = e.Evidence[0]
+		}
+	case graph.RunsAs, graph.CanRead, graph.CanDecrypt, graph.CanReadPlaintext, graph.ExposedTo, graph.Protects:
+	}
+	fixes := defaultFixes(e, label)
+	if e.Kind == graph.Assumes {
+		for i := range fixes {
+			fixes[i].Resource = to.Identity
+		}
+	}
+	if from.Kind == model.KindIAMRoleAnyPermission {
+		fixes = slices.DeleteFunc(fixes, func(f graph.Fix) bool { return f.Side == graph.SideIdentity })
+	}
+	return fixes
 }
 
 func grants(v eval.Verdict) bool { return v == eval.Allow || v == eval.Unknown }

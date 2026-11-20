@@ -111,6 +111,15 @@ type Finding struct {
 	NoFix          bool           `json:"no_fix_within_constraints,omitempty"`
 	Alternative    []string       `json:"alternative_fix,omitempty"`
 	ChokepointEdge []graph.EdgeID `json:"-"`
+	// Fix: the side of each chokepoint edge the cut chose, its cheapest fix;
+	// OtherSideFix: the other sides that also break that edge, dearer
+	// (SCORING.md §4).
+	Fix          []FixStep `json:"fix,omitempty"`
+	OtherSideFix []FixStep `json:"other_side_fix,omitempty"`
+	// SharedFix: resources one change to whose policy breaks two or more
+	// chokepoint edges. Shared fixes are priced in Phase 5; until then the
+	// cut cost counts edges and is not the size of the fix.
+	SharedFix []string `json:"shared_fix_possible,omitempty"`
 	// Posture findings.
 	Resource   string   `json:"resource,omitempty"`
 	ResourceID model.ID `json:"-"`
@@ -121,6 +130,14 @@ type Finding struct {
 	DefaultsUsed []string             `json:"defaults_used"`
 	Evidence     []string             `json:"evidence,omitempty"`
 	Fingerprint  string               `json:"fingerprint"`
+}
+
+// FixStep is one change that breaks one edge.
+type FixStep struct {
+	Edge   string `json:"edge"`
+	Side   string `json:"side"`
+	Policy string `json:"policy"`
+	Cost   int64  `json:"cost"`
 }
 
 // Rule is a rule: metadata plus a pure evaluation.

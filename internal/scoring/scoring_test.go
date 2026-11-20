@@ -54,29 +54,29 @@ func TestFactorTables(t *testing.T) {
 	}
 }
 
-func TestCutCosts(t *testing.T) {
+func TestFixCosts(t *testing.T) {
 	cases := []struct {
-		kind graph.Kind
-		sub  string
-		want int64
+		kind      graph.Kind
+		sub, side string
+		want      int64
 	}{
-		{graph.CanRead, "", 1},
-		{graph.CanRead, "public", 2},
-		{graph.CanDecrypt, "", 1},
-		{graph.CanEscalate, "iam", 2},
-		{graph.CanEscalate, "k8s-token", 3},
-		{graph.CanEscalate, "rbac", 5},
-		{graph.NodeRole, "", 3},
-		{graph.Assumes, "irsa", 5},
-		{graph.MapsTo, "", 8},
-		{graph.ExposedTo, "", 20},
-		{graph.RunsAs, "", 100},
-		{graph.Protects, "", -1},
-		{graph.CanReadPlaintext, "", -1},
+		{graph.Assumes, "sts", graph.SideIdentity, 1},
+		{graph.Assumes, "sts", graph.SideTrust, 5},
+		{graph.CanRead, "", graph.SideIdentity, 1},
+		{graph.CanRead, "public", graph.SideResource, 2},
+		{graph.CanDecrypt, "", graph.SideIdentity, 1},
+		{graph.CanDecrypt, "", graph.SideResource, 2},
+		{graph.CanEscalate, "iam:passrole:lambda", graph.SideIdentity, 2},
+		{graph.CanEscalate, "k8s-token", graph.SideWorkload, 3},
+		{graph.RunsAs, "", graph.SideWorkload, 100},
+		{graph.CanEscalate, "rbac", graph.SideRBAC, 5},
+		{graph.MapsTo, "Group", graph.SideMapping, 8},
+		{graph.NodeRole, "", graph.SideNode, 3},
+		{graph.Protects, "", "none", -1},
 	}
 	for _, c := range cases {
-		if got := CutCost(&graph.Edge{Kind: c.kind, Sub: c.sub}); got != c.want {
-			t.Errorf("%s/%s = %d, want %d", c.kind, c.sub, got, c.want)
+		if got := FixCost(c.kind, c.sub, c.side); got != c.want {
+			t.Errorf("%s/%s %s = %d, want %d", c.kind, c.sub, c.side, got, c.want)
 		}
 	}
 }

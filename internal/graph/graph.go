@@ -69,6 +69,29 @@ type Precondition struct {
 	State  model.Tri
 }
 
+// Fix is one way to remove an edge: a change on one side (the principal's
+// identity policy, the resource's policy, the role's trust, the workload,
+// RBAC, the mapping, the node group) and what it costs (SCORING.md §4).
+type Fix struct {
+	Side   string // identity, resource, trust, workload, rbac, mapping, node
+	Policy string // what to change: a policy ID or ARN, or a resource
+	// Resource: for a resource or trust side, the ARN of the resource whose
+	// policy changes (two cut edges on one resource policy can share a fix).
+	Resource string
+	Cost     int64
+}
+
+// Fix sides.
+const (
+	SideIdentity = "identity"
+	SideResource = "resource"
+	SideTrust    = "trust"
+	SideWorkload = "workload"
+	SideRBAC     = "rbac"
+	SideMapping  = "mapping"
+	SideNode     = "node"
+)
+
 // Edge is a typed, directed edge with its evaluator decision.
 type Edge struct {
 	From, To NodeID
@@ -82,6 +105,9 @@ type Edge struct {
 	// Under holds the edges a derived edge (CAN_READ_PLAINTEXT) stands for.
 	Under    []EdgeID
 	Evidence []string // policy statements and facts that justify the edge
+	// Fixes are the changes that remove the edge, cheapest first. None: no
+	// change breaks it on its own (it is uncuttable).
+	Fixes    []Fix
 	Defaults []string // documented defaults the edge relies on (model.DocumentedDefaults keys)
 }
 
@@ -114,6 +140,9 @@ func (b *Builder) Node(id model.ID, kind model.NodeKind, identity string) NodeID
 	b.index[id] = n
 	return n
 }
+
+// NodeOf returns a node added so far.
+func (b *Builder) NodeOf(n NodeID) Node { return b.nodes[n] }
 
 // Lookup returns the node for id.
 func (b *Builder) Lookup(id model.ID) (NodeID, bool) {

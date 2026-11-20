@@ -137,6 +137,7 @@ linters:
             - "github.com/r3oof-900/clapa/internal/eval/match$"
             - "github.com/r3oof-900/clapa/internal/eval/condition$"
             - "github.com/r3oof-900/clapa/internal/graph$"
+            - "github.com/r3oof-900/clapa/internal/scoring$"
           deny:
             - pkg: "os"
               desc: "forbidden in the core layer (docs/DESIGN.md section 3)"

@@ -64,29 +64,44 @@ type Factors struct {
 
 // Finding is one result.
 type Finding struct {
-	Rule           string    `json:"rule"`
-	RuleVersion    string    `json:"rule_version"`
-	Kind           string    `json:"kind"`
-	Title          string    `json:"title"`
-	Severity       string    `json:"severity"`
-	Score          int       `json:"score"`
-	Factors        Factors   `json:"factors"`
-	Confirmed      bool      `json:"confirmed"`
-	Confidence     string    `json:"confidence"`
-	Entry          string    `json:"entry,omitempty"`
-	Jewel          string    `json:"jewel,omitempty"`
-	Resource       string    `json:"resource,omitempty"`
-	Path           []string  `json:"path,omitempty"`
-	PathsFound     int       `json:"paths_found,omitempty"`
-	PathsTruncated bool      `json:"paths_truncated,omitempty"`
-	Chokepoints    []string  `json:"chokepoints,omitempty"`
-	CutCost        int64     `json:"cut_cost,omitempty"`
-	NoFix          bool      `json:"no_fix_within_constraints,omitempty"`
-	AlternativeFix []string  `json:"alternative_fix,omitempty"`
-	DefaultsUsed   []Default `json:"defaults_used"`
-	Evidence       []string  `json:"evidence,omitempty"`
-	Location       *Location `json:"location,omitempty"`
-	Fingerprint    string    `json:"fingerprint"`
+	Rule           string   `json:"rule"`
+	RuleVersion    string   `json:"rule_version"`
+	Kind           string   `json:"kind"`
+	Title          string   `json:"title"`
+	Severity       string   `json:"severity"`
+	Score          int      `json:"score"`
+	Factors        Factors  `json:"factors"`
+	Confirmed      bool     `json:"confirmed"`
+	Confidence     string   `json:"confidence"`
+	Entry          string   `json:"entry,omitempty"`
+	Jewel          string   `json:"jewel,omitempty"`
+	Resource       string   `json:"resource,omitempty"`
+	Path           []string `json:"path,omitempty"`
+	PathsFound     int      `json:"paths_found,omitempty"`
+	PathsTruncated bool     `json:"paths_truncated,omitempty"`
+	Chokepoints    []string `json:"chokepoints,omitempty"`
+	CutCost        int64    `json:"cut_cost,omitempty"`
+	NoFix          bool     `json:"no_fix_within_constraints,omitempty"`
+	AlternativeFix []string `json:"alternative_fix,omitempty"`
+	// Fix: the side of each chokepoint edge the cut chose (its cheapest fix);
+	// OtherSideFix: the other sides that also break it.
+	Fix          []FixStep `json:"fix,omitempty"`
+	OtherSideFix []FixStep `json:"other_side_fix,omitempty"`
+	// SharedFixPossible: resources one change to whose policy breaks two or
+	// more chokepoint edges; cut_cost then overstates the fix.
+	SharedFixPossible []string  `json:"shared_fix_possible,omitempty"`
+	DefaultsUsed      []Default `json:"defaults_used"`
+	Evidence          []string  `json:"evidence,omitempty"`
+	Location          *Location `json:"location,omitempty"`
+	Fingerprint       string    `json:"fingerprint"`
+}
+
+// FixStep is one change that breaks one edge.
+type FixStep struct {
+	Edge   string `json:"edge"`
+	Side   string `json:"side"`
+	Policy string `json:"policy"`
+	Cost   int64  `json:"cost"`
 }
 
 // Default is a documented default a finding relies on (value_source: default).

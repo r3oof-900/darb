@@ -80,40 +80,88 @@ Overrides are recorded in the report next to each score.
 ## 4. Remediation cut costs (min-cut capacities)
 
 The chokepoint search (DESIGN.md §7.4) is a **weighted** minimum cut. An edge's
-capacity is the cost of the fix that removes it, so the cheapest *disruption*
-wins, not the shortest path. Without weights the min-cut would happily cut
-`RUNS_AS` or `ASSUMES` — i.e. break the application's own identity.
+capacity is the cost of the **cheapest change that breaks it**, not a fixed
+price for its kind (decided in the third Phase 4 review): the cheapest
+*disruption* wins, not the shortest path. Without weights the min-cut would
+happily cut `RUNS_AS` or `ASSUMES` — i.e. break the application's own identity.
 
-| Edge kind | Typical fix | Cost |
-|---|---|---|
-| `CAN_READ`, `CAN_DECRYPT` | narrow `Resource` to exact ARNs; add `kms:EncryptionContext` / `kms:ViaService` condition | **1** (cheap) |
-| `CAN_READ` granted to a public principal | replace `"*"` with explicit principals | **2** |
-| `CAN_ESCALATE` (IAM permission) | remove the escalation permission | **2** |
-| `NODE_ROLE` | require IMDSv2, hop limit 1 | **3** |
-| `CAN_ESCALATE` via K8s token (automount) | `automountServiceAccountToken: false` | **3** |
-| `ASSUMES` (SA → role, IRSA / Pod Identity) | tighten trust `:sub` / `:aud` | **5** (medium) |
-| `ASSUMES` (role → role) | tighten trust principal / add `sts:ExternalId`, `aws:PrincipalArn` conditions | **5** (medium) |
-| `CAN_ESCALATE` via K8s RBAC | remove/limit binding (`create pods`, `pods/exec`, `impersonate`, `bind`, `escalate`) | **5** |
-| `MAPS_TO` (`aws-auth` / access entry) | remove/narrow the mapping | **8** |
-| `EXPOSED_TO` | remove internet exposure | **20** |
-| `RUNS_AS` | change the workload's identity | **100** (very expensive) |
-| `PROTECTS` | structural fact, not a permission | **∞** (uncuttable) |
-| `CAN_READ_PLAINTEXT` (derived) | cut maps to the cheaper of its `CAN_READ` / `CAN_DECRYPT` | min of the two |
+### 4.1 Sides of an edge
+
+An edge the evaluator decides has up to two sides, and each side is a separate
+fix. A side counts only if deciding the request again **without** that side's
+policies no longer grants (ALLOW or UNKNOWN both count as granting); a side
+whose removal changes nothing is not a fix. Edges that come from facts (a pod's
+service account, a mapping, an RBAC binding) have exactly one side.
+
+| Edge | Side | Typical fix | Cost |
+|---|---|---|---|
+| `CAN_READ`, `CAN_DECRYPT`, `ASSUMES` (role → role) | **identity** | narrow the principal's identity policy (`Resource` to exact ARNs, an encryption-context condition, the exact role ARN for `sts:AssumeRole`) | **1** |
+| `CAN_READ` | **resource** | narrow the bucket policy (replace `"*"` with explicit principals) | **2** |
+| `CAN_DECRYPT` | **resource** | narrow the key policy | **2** |
+| `ASSUMES` (role → role, SA → role: IRSA / Pod Identity / PassRole) | **trust** | tighten the trust policy (principal, `:sub` / `:aud`, `sts:ExternalId`, `aws:PrincipalArn`) | **5** |
+| `CAN_ESCALATE` (IAM permission: PassRole, UpdateAssumeRolePolicy, Put/Attach policy) | identity | remove the escalation permission | **2** |
+| `NODE_ROLE` | node | require IMDSv2, hop limit 1 | **3** |
+| `CAN_ESCALATE` via K8s token (automount) | workload | `automountServiceAccountToken: false` | **3** |
+| `CAN_ESCALATE` via K8s RBAC | rbac | remove/limit the binding (`create pods`, `pods/exec`, `impersonate`, `serviceaccounts/token`) | **5** |
+| `MAPS_TO` (`aws-auth` / access entry) | mapping | remove/narrow the mapping | **8** |
+| `RUNS_AS` | workload | change the workload's identity | **100** |
+| `PROTECTS` | — | structural fact, not a permission | **∞** |
+| `EXPOSED_TO` | — | not a graph edge yet: exposure is a scoring factor of the entry (DESIGN.md, deferred to Phase 5), so "remove internet exposure" is never proposed | — |
+| `CAN_READ_PLAINTEXT` (derived) | — | the cut names the cheaper of its `CAN_READ` / `CAN_DECRYPT` (`CAN_DECRYPT` on a tie) | min of the two |
+
+The edge's capacity is its cheapest side. An edge with no side left is
+**uncuttable**: no single change breaks it.
+
+### 4.2 A principal that can grant itself the access again
+
+A cut only counts if the principal cannot undo it. After a principal that can
+give itself the access back, identity-side cuts do not count, and a resource
+side it can rewrite does not count either; the cut moves before it:
+
+- a **"role with any permission"** — a principal that can rewrite its own
+  policies (DESIGN.md §7.4) — has no identity side on any of its edges;
+- a principal that can **rewrite the target's resource policy** —
+  `s3:PutBucketPolicy` on the bucket, `kms:PutKeyPolicy` or `kms:CreateGrant`
+  on the key, `iam:UpdateAssumeRolePolicy` on the role — loses that resource
+  (or trust) side; and, when it is in the resource's own account (where that
+  resource policy alone grants), its identity side too: cut its identity grant
+  and it writes the grant back on the resource. Across accounts its identity
+  grant is still required, so that side still counts.
+
+Scenario 6 is the reference: `analytics-admin` can rewrite its own policies, the
+warehouse key's policy and the bucket policy, so nothing after it is cuttable;
+the cut is `ASSUMES payments-api -> analytics-admin`, identity side, cost 1
+(remove `sts:AssumeRole` on that role from `payments-api`), with the trust side
+(cost 5) as the other fix.
+
+### 4.3 What a finding reports
+
+- `chokepoints`: the cut edges; `cut_cost`: the sum of their capacities.
+- `fix`: for each cut edge, the side the cut chose (its cheapest), the policy
+  to change and its cost; `other_side_fix`: the other sides that also break
+  that edge, dearer.
+- `alternative_fix`: for a cut `CAN_READ_PLAINTEXT`, the underlying edge of
+  equal cost that was not chosen.
+- `shared_fix_possible: [<resource ARN>]`: one change to that resource's policy
+  can break two or more of the cut edges. Shared fixes are priced in Phase 5;
+  until then `cut_cost` counts edges and is **not** the size of the fix.
 
 Rules:
 
-- **Uncuttable** (`∞`): `PROTECTS`; every edge listed in `remediation.uncuttable_edges`
-  in `clapa.yaml`; and every edge on any path that realises a declared
+- **Uncuttable** (`∞`): `PROTECTS`; every edge with no side
+  left (§4.2); every edge listed in `remediation.uncuttable_edges` in
+  `clapa.yaml`; and every edge on any path that realises a declared
   `intended_access` entry (automatic).
-- Costs can be overridden per edge kind (`remediation.cut_costs`); overrides are
-  integers ≥ 1.
-- If no finite cut exists, the finding reports **"no fix within constraints"** and
-  names the constraints (uncuttable entries / intended access) that block it.
-- Every fix in every report format lists each cut edge with `kind`, `cost`, and
-  `cost_source` (`default` | `config:cut_costs` | `uncuttable:config` |
-  `uncuttable:intended_access`), plus the total cost.
-- Ties between equal-cost cuts are broken deterministically: fewer edges, then the
-  cut closest to the entry point, then lexicographic canonical edge IDs.
+- Costs can be overridden per edge kind (`remediation.cut_costs`, integers ≥ 1);
+  an override replaces the edge's cheapest side cost for every edge of that
+  kind, but never makes an edge with no side cuttable. The fingerprint never
+  depends on these costs (DESIGN.md §8).
+- If no finite cut exists, the finding reports **"no fix within constraints"**.
+- Ties: the cut is the one closest to the entry (the edges leaving the set the
+  entry still reaches in the residual network after the maximum flow), which is
+  deterministic because the graph and its arc order are. Not implemented yet: a
+  per-edge `cost_source` field, and naming the constraints that block a
+  missing fix.
 
 ```yaml
 remediation:

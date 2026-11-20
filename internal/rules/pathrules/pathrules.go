@@ -168,4 +168,34 @@ func chokepoints(g *graph.Graph, p *paths.Pair, f *rules.Finding) {
 	slices.Sort(f.Chokepoints)
 	slices.Sort(f.Alternative)
 	slices.SortFunc(f.ChokepointEdge, cmp.Compare)
+	fixSides(g, f)
+}
+
+// fixSides names the chosen side of each chokepoint edge, the other sides,
+// and every resource whose policy alone can break two or more of them.
+func fixSides(g *graph.Graph, f *rules.Finding) {
+	edges := map[string]map[graph.EdgeID]bool{}
+	for _, id := range f.ChokepointEdge {
+		e := g.Edge(id)
+		for i, fx := range e.Fixes {
+			step := rules.FixStep{Edge: g.Describe(id), Side: fx.Side, Policy: fx.Policy, Cost: fx.Cost}
+			if i == 0 {
+				f.Fix = append(f.Fix, step)
+			} else {
+				f.OtherSideFix = append(f.OtherSideFix, step)
+			}
+			if fx.Resource != "" && (fx.Side == graph.SideResource || fx.Side == graph.SideTrust) {
+				if edges[fx.Resource] == nil {
+					edges[fx.Resource] = map[graph.EdgeID]bool{}
+				}
+				edges[fx.Resource][id] = true
+			}
+		}
+	}
+	for r, ids := range edges {
+		if len(ids) > 1 {
+			f.SharedFix = append(f.SharedFix, r)
+		}
+	}
+	slices.Sort(f.SharedFix)
 }

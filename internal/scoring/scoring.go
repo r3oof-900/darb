@@ -147,35 +147,32 @@ func Posture(base int, c graph.Confidence) (score int, severity string) {
 	return score, Severity(score)
 }
 
-// CutCost is an edge's default cut cost (SCORING.md §4); -1 is uncuttable.
-func CutCost(e *graph.Edge) int64 {
-	switch e.Kind {
-	case graph.CanRead:
-		if e.Sub == "public" {
-			return 2
+// FixCost is the cost of removing an edge from one side (SCORING.md §4):
+// narrowing an identity policy is cheap (it affects one principal), a
+// resource policy or trust policy affects everyone who uses the resource,
+// and changing a workload's identity is very expensive. -1: no such fix.
+func FixCost(kind graph.Kind, sub, side string) int64 {
+	switch side {
+	case graph.SideIdentity:
+		if kind == graph.CanEscalate {
+			return 2 // remove the escalation permission
 		}
-		return 1
-	case graph.CanDecrypt:
-		return 1
-	case graph.CanEscalate:
-		switch e.Sub {
-		case "k8s-token":
-			return 3
-		case "rbac":
-			return 5
+		return 1 // narrow Resource (or add a condition)
+	case graph.SideResource:
+		return 2 // bucket policy or key policy
+	case graph.SideTrust:
+		return 5 // tighten the trust: sub, aud, principal, ExternalId
+	case graph.SideWorkload:
+		if kind == graph.CanEscalate && sub == "k8s-token" {
+			return 3 // automountServiceAccountToken: false
 		}
-		return 2
-	case graph.NodeRole:
-		return 3
-	case graph.Assumes:
+		return 100 // change the workload's identity
+	case graph.SideRBAC:
 		return 5
-	case graph.MapsTo:
+	case graph.SideMapping:
 		return 8
-	case graph.ExposedTo:
-		return 20
-	case graph.RunsAs:
-		return 100
-	case graph.Protects, graph.CanReadPlaintext:
+	case graph.SideNode:
+		return 3 // IMDSv2 required, hop limit 1
 	}
-	return -1 // PROTECTS is structural; the derived read costs its underlying edges
+	return -1
 }

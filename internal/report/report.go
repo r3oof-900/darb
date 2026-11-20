@@ -93,7 +93,7 @@ func finding(f *rules.Finding) schema.Finding {
 			BlastRadius: f.Factors.BlastRadius, Impact: f.Factors.Impact,
 		},
 		Entry: f.Entry, Jewel: f.Jewel, Resource: f.Resource, Path: f.Path, PathsFound: f.Paths, PathsTruncated: f.Truncated,
-		Chokepoints: f.Chokepoints, CutCost: f.CutCost, NoFix: f.NoFix, AlternativeFix: f.Alternative,
+		Chokepoints: f.Chokepoints, CutCost: f.CutCost, NoFix: f.NoFix, AlternativeFix: f.Alternative, Fix: steps(f.Fix), OtherSideFix: steps(f.OtherSideFix), SharedFixPossible: f.SharedFix,
 		DefaultsUsed: []schema.Default{}, Evidence: f.Evidence, Fingerprint: f.Fingerprint, Location: location(&f.Location),
 	}
 	for _, key := range f.DefaultsUsed {
@@ -111,6 +111,14 @@ func location(l *model.SourceLocation) *schema.Location {
 	}
 	start, end := l.Lines()
 	return &schema.Location{File: l.File(), StartLine: start, EndLine: end, Address: l.Address(), ARN: l.ARN(), API: l.API()}
+}
+
+func steps(fs []rules.FixStep) []schema.FixStep {
+	out := make([]schema.FixStep, len(fs))
+	for i, f := range fs {
+		out[i] = schema.FixStep(f)
+	}
+	return out
 }
 
 func nonNil(s []string) []string {

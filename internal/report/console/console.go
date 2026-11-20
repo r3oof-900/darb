@@ -74,6 +74,15 @@ func finding(p *printer, f *schema.Finding) {
 	if f.NoFix {
 		p.printf("    no fix within the configured constraints\n")
 	}
+	for _, s := range f.Fix {
+		p.printf("      %s side: change %s (cost %d)\n", s.Side, s.Policy, s.Cost)
+	}
+	for _, s := range f.OtherSideFix {
+		p.printf("      or the %s side: change %s (cost %d)\n", s.Side, s.Policy, s.Cost)
+	}
+	for _, r := range f.SharedFixPossible {
+		p.printf("    shared fix possible: one change to the policy of %s breaks several cut edges; the cost counts edges\n", r)
+	}
 	for _, alt := range f.AlternativeFix {
 		p.printf("    alternative fix: %s\n", alt)
 	}
