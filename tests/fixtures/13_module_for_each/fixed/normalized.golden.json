@@ -32,6 +32,18 @@
   "exposures": [],
   "gaps": [
     {
+      "Kind": "unresolved",
+      "Source": "normalize-terraform",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "Block Public Access of this bucket is not in the input (no aws_s3_bucket_public_access_block); unknown"
+    },
+    {
       "Kind": "unknown-after-apply",
       "Source": "terraform-plan",
       "File": "plan.json",
@@ -790,6 +802,7 @@
       "arn": "arn:aws:s3:::acme-customer-pii",
       "classification": "pii",
       "classified_by": "tag:DataClass",
+      "defaulted": [],
       "encryption": {
         "Type": "AES256",
         "KeyARN": ""
@@ -805,6 +818,10 @@
       "audience": "sts.amazonaws.com",
       "automount_token": "true",
       "cluster": "prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
       "role_arn": "arn:aws:iam::111122223333:role/reader-etl",
       "source": "k8s/analytics.yaml:6 (ServiceAccount/analytics/etl)",
       "subject": "system:serviceaccount:analytics:etl"
@@ -813,6 +830,10 @@
       "audience": "sts.amazonaws.com",
       "automount_token": "true",
       "cluster": "prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
       "role_arn": "arn:aws:iam::111122223333:role/reader-ml",
       "source": "k8s/analytics.yaml:56 (ServiceAccount/analytics/ml)",
       "subject": "system:serviceaccount:analytics:ml"
@@ -821,6 +842,10 @@
       "audience": "sts.amazonaws.com",
       "automount_token": "true",
       "cluster": "prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
       "role_arn": "arn:aws:iam::111122223333:role/reader-bi",
       "source": "k8s/analytics.yaml:31 (ServiceAccount/analytics/bi)",
       "subject": "system:serviceaccount:analytics:bi"
@@ -861,22 +886,34 @@
   "workloads": [
     {
       "automount_token": "true",
+      "defaulted": [
+        "k8s.automountServiceAccountToken"
+      ],
       "host_network": false,
       "identity": "k8s:prod/analytics/CronJob/ml",
+      "privileged": false,
       "service_account": "ml",
       "source": "k8s/analytics.yaml:64 (CronJob/analytics/ml)"
     },
     {
       "automount_token": "true",
+      "defaulted": [
+        "k8s.automountServiceAccountToken"
+      ],
       "host_network": false,
       "identity": "k8s:prod/analytics/CronJob/bi",
+      "privileged": false,
       "service_account": "bi",
       "source": "k8s/analytics.yaml:39 (CronJob/analytics/bi)"
     },
     {
       "automount_token": "true",
+      "defaulted": [
+        "k8s.automountServiceAccountToken"
+      ],
       "host_network": false,
       "identity": "k8s:prod/analytics/CronJob/etl",
+      "privileged": false,
       "service_account": "etl",
       "source": "k8s/analytics.yaml:14 (CronJob/analytics/etl)"
     }

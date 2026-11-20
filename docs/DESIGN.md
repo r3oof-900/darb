@@ -392,6 +392,36 @@ prompts; missing config is a clear error.
 
 ---
 
+### 4.7 Documented defaults (decided in the Phase 4 review)
+
+A setting the input does not state takes its **documented, deterministic**
+default. The node lists the default's key (`model.DocumentedDefaults`) in its
+`Defaulted` settings, and every finding that relies on it shows
+`value_source: default` with the reference below. Each row was read on its page
+on 2026-11-20 and has a test in `internal/app/defaults_test.go`
+(`TestEveryDefaultIsTested` fails when a row has none).
+
+| Key | Setting not stated | Value | Documentation |
+|---|---|---|---|
+| `k8s.automountServiceAccountToken` | Pod and ServiceAccount `automountServiceAccountToken` (the Pod's value wins) | `true` | Kubernetes › Service Accounts: "By default, Kubernetes provides the Pod with the credentials for an assigned ServiceAccount" — https://kubernetes.io/docs/concepts/security/service-accounts/ |
+| `k8s.hostNetwork` | PodSpec `hostNetwork` | `false` | Pod API reference: "Host networking requested for this pod. […] Default to false." — https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/ |
+| `k8s.securityContext.privileged` | container `securityContext.privileged` | `false` | Pod API reference: "Run container in privileged mode. […] Defaults to false." (same page) |
+| `eks.irsa.audience` | ServiceAccount annotation `eks.amazonaws.com/audience` | `sts.amazonaws.com` | EKS Pod Identity Webhook: "optional: Defaults to "sts.amazonaws.com" if not set" — https://github.com/aws/amazon-eks-pod-identity-webhook (the EKS User Guide does not state it) |
+| `terraform.aws_kms_key.enable_key_rotation` | Terraform `aws_kms_key` `enable_key_rotation` | `false` | AWS provider › aws_kms_key: "Whether key rotation is enabled. Defaults to `false`." — https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key |
+| `kms.default-key-policy` | KMS key created without a key policy | default key policy (account root, `kms:*`) | KMS Developer Guide: "AWS KMS applies a very simple default key policy." — https://docs.aws.amazon.com/kms/latest/developerguide/key-policy-default.html |
+| `s3.default-encryption` | S3 bucket without a default encryption configuration | SSE-S3 (`AES256`) | S3 User Guide: SSE-S3 is "the base level of encryption for every bucket"; "Starting January 5, 2023, all new object uploads to Amazon S3 are automatically encrypted" — https://docs.aws.amazon.com/AmazonS3/latest/userguide/default-bucket-encryption.html |
+| `eks.pod-identity.disableSessionTags` | Pod Identity association `disableSessionTags` | `false` | EKS API › CreatePodIdentityAssociation — https://docs.aws.amazon.com/eks/latest/APIReference/API_CreatePodIdentityAssociation.html |
+| `terraform.aws_iam_role.managed_policy_arns` | Terraform `aws_iam_role` `managed_policy_arns` / `inline_policy` not configured | no attachments added | AWS provider › aws_iam_role: "If this attribute is not configured, Terraform will ignore policy attachments to this resource." — https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role |
+
+**No deterministic default — unknown, and a coverage gap:**
+
+| Setting | Why |
+|---|---|
+| Node IMDS `http_tokens` without launch-template `metadata_options` | the effective value comes from the launch template, then the account default, then the AMI's `imds-support`; without any of them the baseline is "V1 or V2 (token optional)" (EC2 User Guide › Configure instance metadata options), so it depends on inputs CLAPA does not see |
+| S3 bucket Block Public Access without `aws_s3_bucket_public_access_block` | "By default, new buckets, access points, and objects don't allow public access" (S3 User Guide › Blocking public access), but a bucket's settings can change outside the input and the documentation does not state the four settings for every bucket |
+| KMS rotation of a key in a snapshot without `kms:GetKeyRotationStatus` | the API value was not collected; the KMS guide only says automatic rotation "is optional" |
+| `hostNetwork` / `privileged` stated `false` vs omitted | indistinguishable in the typed Kubernetes API and equal in value; neither marks the node as defaulted, since no rule fires on `false` |
+
 ## 5. Canonical model
 
 Types: `Principal` (kinds: IAMRole, IAMUser, AssumedRoleSession, FederatedSession,
@@ -700,7 +730,7 @@ new and resolved findings.
 
 Scoring: `docs/SCORING.md`.
 
-### 8.1 Rule catalog (Phase 4 — proposed, for review before any `expected.json`)
+### 8.1 Rule catalog (Phase 4; decided in review)
 
 IDs are stable; a rule's semantics change only with its semver. MITRE ATT&CK
 technique IDs below are the intended mapping; CIS control numbers are added
@@ -715,31 +745,39 @@ per rule only after they are checked against the benchmark text.
 | `CLAPA-POST-002` | posture | a node group allows IMDSv1 (`http_tokens` known `optional`) | high | T1552.005 |
 | `CLAPA-POST-003` | posture | a container runs `privileged: true` | high | T1611 |
 | `CLAPA-POST-004` | posture | a workload automounts its service account token and that service account has RBAC permissions | medium | T1528 |
-| `CLAPA-POST-005` | posture | a crown-jewel bucket's Block Public Access `restrict_public_buckets` is known off | high | T1530 |
-| `CLAPA-POST-006` | posture | a symmetric customer managed KMS key has rotation known off (Terraform `enable_key_rotation` false or unset — the AWS default for `CreateKey` is off, so unset is definite) | medium | — |
+| `CLAPA-POST-005` | posture | a crown-jewel bucket's Block Public Access `restrict_public_buckets` is known off (stated in the input; no default exists, §4.7) | high | T1530 |
+| `CLAPA-POST-006` | posture | a symmetric customer managed KMS key has rotation off (Terraform `enable_key_rotation` false, or unset: documented default `false`, §4.7) | medium | — |
 | `CLAPA-POST-007` | posture | a namespace has workloads in the input and no NetworkPolicy that selects every pod with an `Ingress` policy type and no ingress rules (default deny) | medium, `confidence: medium` (policies may live outside the input) | — |
 
-**Flags — decisions needed before `expected.json` is written:**
+**Decisions (Phase 4 review):**
 
-1. **Posture rules fire only on definite misconfigurations.** A setting that is
-   not in the input (an S3 bucket without a public access block resource, a key
-   from a snapshot without `GetKeyRotationStatus`) is not reported as a posture
-   finding and is never reported as compliant: it is a coverage gap. *Alternative:*
-   report it as an unconfirmed (`confidence: low`) posture finding — safer, but
-   most fixtures would then carry several findings about settings they do not state.
-2. **KMS keys are protectors, not path targets.** A path ends at the data a key
-   protects (`CAN_READ_PLAINTEXT`); a key tagged sensitive marks itself but is not
-   counted in blast radius. This keeps the SCORING.md worked example (fixture 01,
-   one jewel, 729). *Alternative:* count keys as jewels — fixture 01 would score
-   801 (two jewels reached, the bucket and its key).
-3. **Tie-break on the derived edge.** When `CAN_READ` and `CAN_DECRYPT` under a
-   `CAN_READ_PLAINTEXT` cost the same, the chokepoint is `CAN_DECRYPT[for jewel]`:
-   it is qualified by the protected resource (§7.3), so an encryption-context
-   condition removes exactly this path; the read edge is listed as the alternative.
-4. **Fixture 13 states no encryption** for its PII bucket, against §13.1 ("stated
-   explicitly"); the normalizer applies the S3 default (SSE-S3), so the path does
-   not depend on it. Proposed fix: add an explicit SSE-S3 configuration to both
-   variants and regenerate the real plans — a fixture change, reviewed as such.
+1. **Posture rules and unstated settings.** A setting the input does not state
+   takes its documented deterministic default (§4.7) and the finding's evidence
+   says `value_source: default` with the reference; e.g. an unstated
+   `automountServiceAccountToken` is `true`, so CLAPA-POST-004 fires, and an
+   unstated Terraform `enable_key_rotation` is `false`, so CLAPA-POST-006 fires.
+   Only a setting with no deterministic default (IMDS, Block Public Access, a
+   snapshot's rotation status) is a coverage gap — never a finding and never
+   "compliant".
+2. **Data is the asset; a KMS key is a means of reaching it.** Reading
+   plaintext needs both the object and its key (§7.3), so the harm is defined at
+   the data: a path ends at `CAN_READ_PLAINTEXT` on the data, and a key is not a
+   separate jewel and is not counted in blast radius. (That this keeps the
+   SCORING.md worked example at 729 is a consequence, not the reason.) A key
+   classified as a crown jewel that protects **no resource in the input** is not
+   dropped: it is reported as a coverage note (`protected-data-outside-input`):
+   the data it protects is outside the input, so paths to that data are not
+   analysed. *Future work:* an impact kind for **administrative control of a
+   key** (`kms:PutKeyPolicy`, `kms:ScheduleKeyDeletion`, `kms:DisableKey`), which
+   threatens availability and future access rather than reading data.
+3. **Tie-break under a derived read.** When `CAN_READ` and `CAN_DECRYPT` under a
+   `CAN_READ_PLAINTEXT` cost the same, the chokepoint is `CAN_DECRYPT[for jewel]`
+   (qualified by the protected resource, so an encryption-context condition
+   removes exactly this path); the equal-cost read edge is reported in the same
+   finding as `alternative_fix`.
+4. **Fixture 13 states its encryption.** Both variants now declare SSE-S3
+   explicitly; the S3 default itself is tested separately (a bucket without any
+   encryption configuration is SSE-S3 with `value_source: default`).
 
 ### 8.2 `expected.json` (format `clapa-expected/v1`)
 
@@ -761,7 +799,9 @@ the tool.
              "ASSUMES arn:aws:iam::111122223333:role/payments-api",
              "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"],
     "confirmed": true, "confidence": "high", "score": 729, "severity": "critical",
-    "chokepoints": ["CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii"]
+    "chokepoints": ["CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii"],
+    "alternative_fix": ["CAN_READ arn:aws:iam::111122223333:role/payments-api -> arn:aws:s3:::acme-customer-pii"],
+    "defaults_used": []
   }],
   "absent": [{"rule": "CLAPA-PATH-001", "jewel": "arn:aws:s3:::acme-payment-receipts"}],
   "intended_access_verified": []

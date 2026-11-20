@@ -11,10 +11,12 @@ import (
 
 // bucketFacts accumulates what separate Terraform resources say about one bucket.
 type bucketFacts struct {
-	r        *tfraw.Resource
-	policies []*model.PolicyDocument
-	enc      model.Encryption
-	restrict model.Tri
+	r            *tfraw.Resource
+	policies     []*model.PolicyDocument
+	enc          model.Encryption
+	encDefault   bool // no encryption configuration: the documented SSE-S3 default
+	restrict     model.Tri
+	restrictSeen bool
 }
 
 // data normalizes S3 buckets (+ policy, encryption, public access block),
@@ -25,7 +27,7 @@ func (n *norm) data(rs []*tfraw.Resource) {
 		if r.Type == "aws_s3_bucket" && r.Mode == "managed" {
 			// Since January 2023 S3 encrypts new objects with SSE-S3 by default
 			// (S3 User Guide › "Default encryption"); a config resource overrides it.
-			f := &bucketFacts{r: r, enc: model.Encryption{Type: "AES256"}, restrict: model.Unknown}
+			f := &bucketFacts{r: r, enc: model.Encryption{Type: "AES256"}, encDefault: true, restrict: model.Unknown}
 			buckets[r.Root+"|"+n.nameOf(r)], buckets[r.Root+"|"+r.Address] = f, f
 		}
 	}
@@ -64,6 +66,7 @@ func (n *norm) bucketPart(r *tfraw.Resource, buckets map[string]*bucketFacts) {
 		text, ok := n.policyText(r.Root, attr(r, "policy"))
 		f.policies = append(f.policies, n.parsePolicy(r, r.Address, model.PolicyResource, text, ok))
 	case "aws_s3_bucket_server_side_encryption_configuration":
+		f.encDefault = false
 		for _, rule := range r.Attrs.Blocks("rule") {
 			for _, d := range rule.Blocks("apply_server_side_encryption_by_default") {
 				f.enc.Type, _ = n.str(r.Root, valueOf(d, "sse_algorithm"))
@@ -75,6 +78,7 @@ func (n *norm) bucketPart(r *tfraw.Resource, buckets map[string]*bucketFacts) {
 			}
 		}
 	case "aws_s3_bucket_public_access_block":
+		f.restrictSeen = true
 		if v, ok := r.Attrs.Get("restrict_public_buckets"); ok && v.Kind == tfraw.KBool {
 			f.restrict = model.TriOf(v.Bool)
 		}
@@ -105,9 +109,18 @@ func (n *norm) addBuckets(buckets map[string]*bucketFacts) {
 		}
 		done[f] = true
 		r, s := f.r, src(f.r)
+		var defaulted []string
+		if f.encDefault {
+			defaulted = append(defaulted, model.DefaultS3Encryption)
+		}
+		if !f.restrictSeen {
+			// No deterministic default: new buckets block public access, but a
+			// bucket's settings can be changed outside this input.
+			n.gap(coverage.KindUnresolved, r, "Block Public Access of this bucket is not in the input (no aws_s3_bucket_public_access_block); unknown")
+		}
 		res := model.NewResource(&model.ResourceInput{
 			Kind: model.KindS3Bucket, ARN: n.arnOf(r), Account: n.account(r), Region: n.region(r), Tags: tags(r),
-			Encryption: f.enc, S3: model.S3Settings{RestrictPublicBuckets: f.restrict}, Source: s,
+			Encryption: f.enc, S3: model.S3Settings{RestrictPublicBuckets: f.restrict}, Defaulted: defaulted, Source: s,
 		})
 		n.b.AddResource(res)
 		for _, d := range f.policies {
@@ -134,15 +147,26 @@ func sortedFacts(m map[string]*bucketFacts) []*bucketFacts {
 // "Default key policy").
 func (n *norm) kmsKey(r *tfraw.Resource) {
 	s := src(r)
+	rotation, defaulted := model.Unknown, []string(nil)
+	switch v := attr(r, "enable_key_rotation"); {
+	case v == nil || v.Kind == tfraw.KNull || v.Computed():
+		rotation, defaulted = model.False, []string{model.DefaultKeyRotationTF}
+	case v.Kind == tfraw.KBool:
+		rotation = model.TriOf(v.Bool)
+	default:
+		n.gap(coverage.KindUnresolved, r, "enable_key_rotation is not known statically")
+	}
 	key := model.NewResource(&model.ResourceInput{
-		Kind: model.KindKMSKey, ARN: n.arnOf(r), Account: n.account(r), Region: n.region(r), Tags: tags(r), Source: s,
+		Kind: model.KindKMSKey, ARN: n.arnOf(r), Account: n.account(r), Region: n.region(r), Tags: tags(r),
+		KeyRotation: rotation, Defaulted: defaulted, Source: s,
 	})
 	n.b.AddResource(key)
 	text, ok := n.policyText(r.Root, attr(r, "policy"))
-	if v := attr(r, "policy"); v == nil || v.Kind == tfraw.KNull {
-		text, ok = defaultKeyPolicy(n.opts.Partition, n.account(r)), true
+	def := ""
+	if v := attr(r, "policy"); v == nil || v.Kind == tfraw.KNull || v.Computed() {
+		text, ok, def = defaultKeyPolicy(n.opts.Partition, n.account(r)), true, model.DefaultKeyPolicy
 	}
-	n.b.AddPolicy(&model.AttachedPolicy{Target: key.ID(), Doc: n.parsePolicy(r, r.Address+".policy", model.PolicyResource, text, ok)})
+	n.b.AddPolicy(&model.AttachedPolicy{Target: key.ID(), Doc: n.parsePolicy(r, r.Address+".policy", model.PolicyResource, text, ok), Default: def})
 }
 
 func defaultKeyPolicy(partition, account string) string {
@@ -172,10 +196,10 @@ func (n *norm) podIdentity(r *tfraw.Resource) {
 		s, _ := n.str(r.Root, attr(r, k))
 		return s
 	}
-	disabled := model.Unknown
+	disabled, defaulted := model.Unknown, []string(nil)
 	switch v := attr(r, "disable_session_tags"); {
 	case v == nil || v.Kind == tfraw.KNull || v.Computed():
-		disabled = model.False // the API default
+		disabled, defaulted = model.False, []string{model.DefaultPodIdentitySTags}
 	case v.Kind == tfraw.KBool:
 		disabled = model.TriOf(v.Bool)
 	default:
@@ -183,7 +207,7 @@ func (n *norm) podIdentity(r *tfraw.Resource) {
 	}
 	n.b.AddPodIdentity(&model.PodIdentityAssociation{
 		Cluster: get("cluster_name"), Namespace: get("namespace"), ServiceAccount: get("service_account"),
-		RoleARN: get("role_arn"), TargetRoleARN: get("target_role_arn"), SessionTagsDisabled: disabled, Source: src(r),
+		RoleARN: get("role_arn"), TargetRoleARN: get("target_role_arn"), SessionTagsDisabled: disabled, Defaulted: defaulted, Source: src(r),
 	})
 }
 

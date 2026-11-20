@@ -20,7 +20,20 @@
     }
   ],
   "exposures": [],
-  "gaps": [],
+  "gaps": [
+    {
+      "Kind": "unresolved",
+      "Source": "normalize-terraform",
+      "File": "terraform/nodes.tf",
+      "Line": 52,
+      "Address": "aws_s3_bucket.exports",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "Block Public Access of this bucket is not in the input (no aws_s3_bucket_public_access_block); unknown"
+    }
+  ],
   "mappings": [],
   "node_groups": [
     {
@@ -61,6 +74,9 @@
       "arn": "arn:aws:s3:::acme-customer-exports",
       "classification": "pii",
       "classified_by": "tag:DataClass",
+      "defaulted": [
+        "s3.default-encryption"
+      ],
       "encryption": {
         "Type": "AES256",
         "KeyARN": ""
@@ -76,6 +92,10 @@
       "audience": "sts.amazonaws.com",
       "automount_token": "true",
       "cluster": "prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
       "role_arn": "",
       "source": "k8s/monitor.yaml:6 (DaemonSet/monitoring/node-monitor)",
       "subject": "system:serviceaccount:monitoring:default"
@@ -96,8 +116,12 @@
   "workloads": [
     {
       "automount_token": "true",
+      "defaulted": [
+        "k8s.automountServiceAccountToken"
+      ],
       "host_network": false,
       "identity": "k8s:prod/monitoring/DaemonSet/node-monitor",
+      "privileged": false,
       "service_account": "default",
       "source": "k8s/monitor.yaml:6 (DaemonSet/monitoring/node-monitor)"
     }

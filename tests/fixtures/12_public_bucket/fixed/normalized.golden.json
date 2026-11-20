@@ -38,6 +38,9 @@
       "arn": "arn:aws:s3:::acme-marketing-leads",
       "classification": "pii",
       "classified_by": "tag:DataClass",
+      "defaulted": [
+        "s3.default-encryption"
+      ],
       "encryption": {
         "Type": "AES256",
         "KeyARN": ""

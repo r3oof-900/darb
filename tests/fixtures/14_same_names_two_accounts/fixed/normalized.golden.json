@@ -52,6 +52,7 @@
       "arn": "arn:aws:s3:::data-111122223333",
       "classification": "pii",
       "classified_by": "tag:DataClass",
+      "defaulted": [],
       "encryption": {
         "Type": "AES256",
         "KeyARN": ""
@@ -66,6 +67,7 @@
       "arn": "arn:aws:s3:::data-444455556666",
       "classification": "pii",
       "classified_by": "tag:DataClass",
+      "defaulted": [],
       "encryption": {
         "Type": "AES256",
         "KeyARN": ""

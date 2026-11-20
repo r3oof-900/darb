@@ -69,8 +69,12 @@ func (n *norm) managedDoc(policyARN string, kind model.PolicyKind) *model.Policy
 func (n *norm) keys() {
 	for _, k := range n.acct.Keys {
 		loc := apiLoc(k.Metadata.Arn, "kms:GetKeyPolicy")
+		if k.RotationEnabled == nil {
+			n.gap(coverage.KindUnresolved, k.Metadata.Arn, "key rotation status was not collected (kms:GetKeyRotationStatus); unknown")
+		}
 		key := model.NewResource(&model.ResourceInput{
-			Kind: model.KindKMSKey, ARN: k.Metadata.Arn, Account: n.acct.ID, Region: k.Region, Tags: tagMap(k.Tags), Source: loc,
+			Kind: model.KindKMSKey, ARN: k.Metadata.Arn, Account: n.acct.ID, Region: k.Region, Tags: tagMap(k.Tags),
+			KeyRotation: optionalTri(k.RotationEnabled), Source: loc,
 		})
 		n.b.AddResource(key)
 		raw, _ := json.Marshal(k.Policy)

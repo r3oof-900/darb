@@ -32,12 +32,28 @@
       "workload": "k8s:prod/payments/Deployment/api"
     }
   ],
-  "gaps": [],
+  "gaps": [
+    {
+      "Kind": "unresolved",
+      "Source": "normalize-terraform",
+      "File": "terraform/receipts.tf",
+      "Line": 5,
+      "Address": "aws_s3_bucket.receipts",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "Block Public Access of this bucket is not in the input (no aws_s3_bucket_public_access_block); unknown"
+    }
+  ],
   "mappings": [],
   "node_groups": [],
   "pod_identity": [
     {
       "cluster": "prod",
+      "defaulted": [
+        "eks.pod-identity.disableSessionTags"
+      ],
       "role_arn": "arn:aws:iam::111122223333:role/payments-api",
       "service_account": "payments/api",
       "session_tags_disabled": "false",
@@ -47,6 +63,7 @@
   ],
   "policies": [
     {
+      "default": "kms.default-key-policy",
       "kind": "resource",
       "policy": "aws_kms_key.receipts.policy",
       "source": "terraform/receipts.tf:1-3 (aws_kms_key.receipts)",
@@ -68,6 +85,7 @@
       "unresolved_statements": 0
     },
     {
+      "default": "kms.default-key-policy",
       "kind": "resource",
       "policy": "aws_kms_key.pii.policy",
       "source": "terraform/pii_kms_bucket.tf:1-7 (aws_kms_key.pii)",
@@ -93,6 +111,10 @@
       "arn": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.receipts",
       "classification": "",
       "classified_by": "",
+      "defaulted": [
+        "terraform.aws_kms_key.enable_key_rotation"
+      ],
+      "key_rotation": "false",
       "kind": "aws:kms:key",
       "region": "us-east-1",
       "source": "terraform/receipts.tf:1-3 (aws_kms_key.receipts)"
@@ -102,6 +124,7 @@
       "arn": "arn:aws:s3:::acme-customer-pii",
       "classification": "pii",
       "classified_by": "tag:DataClass",
+      "defaulted": [],
       "encryption": {
         "Type": "aws:kms",
         "KeyARN": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii"
@@ -116,6 +139,7 @@
       "arn": "arn:aws:s3:::acme-payment-receipts",
       "classification": "",
       "classified_by": "",
+      "defaulted": [],
       "encryption": {
         "Type": "aws:kms",
         "KeyARN": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.receipts"
@@ -130,6 +154,8 @@
       "arn": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
       "classification": "pii",
       "classified_by": "tag:DataClass",
+      "defaulted": [],
+      "key_rotation": "true",
       "kind": "aws:kms:key",
       "region": "us-east-1",
       "source": "terraform/pii_kms_bucket.tf:1-7 (aws_kms_key.pii)"
@@ -140,6 +166,10 @@
       "audience": "sts.amazonaws.com",
       "automount_token": "true",
       "cluster": "prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
       "role_arn": "",
       "source": "k8s/payments.yaml:6 (ServiceAccount/payments/api)",
       "subject": "system:serviceaccount:payments:api"
@@ -160,8 +190,12 @@
   "workloads": [
     {
       "automount_token": "true",
+      "defaulted": [
+        "k8s.automountServiceAccountToken"
+      ],
       "host_network": false,
       "identity": "k8s:prod/payments/Deployment/api",
+      "privileged": false,
       "service_account": "api",
       "source": "k8s/payments.yaml:12 (Deployment/payments/api)"
     }

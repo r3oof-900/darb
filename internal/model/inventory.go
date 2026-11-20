@@ -20,6 +20,9 @@ type S3Settings struct {
 type AttachedPolicy struct {
 	Target ID
 	Doc    *PolicyDocument
+	// Default is the DocumentedDefaults key when the policy is a documented
+	// default (the KMS default key policy); "" when the input states it.
+	Default string
 }
 
 // ServiceAccount is a Kubernetes service account and its AWS identity.
@@ -33,6 +36,7 @@ type ServiceAccount struct {
 	// Audience is eks.amazonaws.com/audience, defaulting to sts.amazonaws.com.
 	Audience       string
 	AutomountToken Tri
+	Defaulted      []string // settings that took a documented default
 	Source         SourceLocation
 }
 
@@ -66,6 +70,7 @@ type PodIdentityAssociation struct {
 	// EKS adds its six session tags, so the trust policy must also allow
 	// sts:TagSession.
 	SessionTagsDisabled Tri
+	Defaulted           []string // settings that took a documented default
 	Source              SourceLocation
 }
 

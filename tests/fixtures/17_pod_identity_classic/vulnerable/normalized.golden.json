@@ -38,6 +38,9 @@
   "pod_identity": [
     {
       "cluster": "prod",
+      "defaulted": [
+        "eks.pod-identity.disableSessionTags"
+      ],
       "role_arn": "arn:aws:iam::111122223333:role/payments-api",
       "service_account": "payments/api",
       "session_tags_disabled": "false",
@@ -58,6 +61,7 @@
       "unresolved_statements": 0
     },
     {
+      "default": "kms.default-key-policy",
       "kind": "resource",
       "policy": "aws_kms_key.pii.policy",
       "source": "terraform/pii_kms_bucket.tf:1-7 (aws_kms_key.pii)",
@@ -83,6 +87,7 @@
       "arn": "arn:aws:s3:::acme-customer-pii",
       "classification": "pii",
       "classified_by": "tag:DataClass",
+      "defaulted": [],
       "encryption": {
         "Type": "aws:kms",
         "KeyARN": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii"
@@ -97,6 +102,8 @@
       "arn": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
       "classification": "pii",
       "classified_by": "tag:DataClass",
+      "defaulted": [],
+      "key_rotation": "true",
       "kind": "aws:kms:key",
       "region": "us-east-1",
       "source": "terraform/pii_kms_bucket.tf:1-7 (aws_kms_key.pii)"
@@ -107,6 +114,10 @@
       "audience": "sts.amazonaws.com",
       "automount_token": "true",
       "cluster": "prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
       "role_arn": "",
       "source": "k8s/payments.yaml:6 (ServiceAccount/payments/api)",
       "subject": "system:serviceaccount:payments:api"
@@ -127,8 +138,12 @@
   "workloads": [
     {
       "automount_token": "true",
+      "defaulted": [
+        "k8s.automountServiceAccountToken"
+      ],
       "host_network": false,
       "identity": "k8s:prod/payments/Deployment/api",
+      "privileged": false,
       "service_account": "api",
       "source": "k8s/payments.yaml:12 (Deployment/payments/api)"
     }

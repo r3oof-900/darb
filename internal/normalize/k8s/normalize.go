@@ -96,22 +96,47 @@ func (n *norm) addWorkload(o *k8sraw.Object, spec *corev1.PodSpec, labels map[st
 	if sa == "" {
 		sa = "default"
 	}
-	automount := model.True
-	if acct, ok := n.accounts[o.Namespace+"/"+sa]; ok && acct.AutomountServiceAccountToken != nil {
-		automount = model.TriOf(*acct.AutomountServiceAccountToken)
-	}
-	if spec.AutomountServiceAccountToken != nil {
-		automount = model.TriOf(*spec.AutomountServiceAccountToken)
-	}
-	if _, ok := n.accounts[o.Namespace+"/"+sa]; !ok && sa != "default" {
+	acct, declared := n.accounts[o.Namespace+"/"+sa]
+	if !declared && sa != "default" {
 		n.gap(coverage.KindUnresolved, o, "service account "+o.Namespace+"/"+sa+" is not in the input")
 	}
+	automount, defaulted := automountOf(spec, acct, declared || sa == "default")
 	w := model.NewWorkload(&model.WorkloadInput{
 		Cluster: n.cluster, Namespace: o.Namespace, Kind: o.Kind, Name: o.Name, ServiceAccount: sa,
-		HostNetwork: spec.HostNetwork, AutomountToken: automount, Source: loc(o),
+		HostNetwork: spec.HostNetwork, Privileged: privileged(spec), AutomountToken: automount, Defaulted: defaulted, Source: loc(o),
 	})
 	n.b.AddWorkload(w)
 	n.workloads = append(n.workloads, &workload{node: w, labels: labels, spec: spec})
+}
+
+// automountOf: the Pod's automountServiceAccountToken wins over its service
+// account's; when neither states it the token is mounted (documented
+// default). A service account that is not in the input (other than the
+// namespace's "default", which Kubernetes creates without the field) may
+// set it, so the value is then unknown.
+func automountOf(spec *corev1.PodSpec, acct *corev1.ServiceAccount, accountKnown bool) (mount model.Tri, defaulted []string) {
+	switch {
+	case spec.AutomountServiceAccountToken != nil:
+		return model.TriOf(*spec.AutomountServiceAccountToken), nil
+	case acct != nil && acct.AutomountServiceAccountToken != nil:
+		return model.TriOf(*acct.AutomountServiceAccountToken), nil
+	case accountKnown:
+		return model.True, []string{model.DefaultAutomountToken}
+	}
+	return model.Unknown, nil
+}
+
+// privileged: any container or init container with securityContext.privileged
+// true (unset is false, the documented default).
+func privileged(spec *corev1.PodSpec) bool {
+	for _, cs := range [][]corev1.Container{spec.InitContainers, spec.Containers} {
+		for i := range cs {
+			if sc := cs[i].SecurityContext; sc != nil && sc.Privileged != nil && *sc.Privileged {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // addServiceAccounts adds every declared service account, plus the
@@ -134,18 +159,21 @@ func (n *norm) addServiceAccounts() {
 }
 
 func (n *norm) addSA(ns, name string, ann map[string]string, automount *bool, s *model.SourceLocation) {
+	var defaulted []string
 	audience := ann[annotationAudience]
 	if audience == "" {
-		audience = defaultAudience
+		audience, defaulted = defaultAudience, append(defaulted, model.DefaultIRSAAudience)
 	}
 	mount := model.True
 	if automount != nil {
 		mount = model.TriOf(*automount)
+	} else {
+		defaulted = append(defaulted, model.DefaultAutomountToken)
 	}
 	n.b.AddServiceAccount(&model.ServiceAccount{
 		ID:      model.NewID(model.KindK8sServiceAcct, model.K8sIdentity(n.cluster, ns, "ServiceAccount", name)),
 		Cluster: n.cluster, Namespace: ns, Name: name, RoleARN: ann[annotationRoleARN], Audience: audience,
-		AutomountToken: mount, Source: *s,
+		AutomountToken: mount, Defaulted: defaulted, Source: *s,
 	})
 }
 

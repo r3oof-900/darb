@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -270,5 +271,18 @@ func TestSplitUnresolved(t *testing.T) {
 		if strings.Join(got, "|") != strings.Join(want, "|") || len(got) != len(want) {
 			t.Errorf("SplitUnresolved(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestDocumentedDefaultsTable(t *testing.T) {
+	all := DocumentedDefaults()
+	if len(all) == 0 || !slices.IsSortedFunc(all, func(a, b DocumentedDefault) int { return strings.Compare(a.Key, b.Key) }) {
+		t.Fatal("the table is sorted by key")
+	}
+	if d, ok := LookupDefault(DefaultS3Encryption); !ok || d.Value != "SSE-S3 (AES256)" {
+		t.Errorf("LookupDefault: %+v", d)
+	}
+	if _, ok := LookupDefault("none"); ok {
+		t.Error("unknown key")
 	}
 }

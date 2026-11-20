@@ -29,7 +29,7 @@ func TestOnlyRegisteredPlaceholders(t *testing.T) {
 // unregistered placeholder, each one fails the build. A new field that
 // inventoryStrings does not read fails this test.
 func TestInventoryStringsComplete(t *testing.T) {
-	skip := map[string]bool{"ID": true, "Source": true, "Unresolved": true} // identity hash, location, explanation
+	skip := map[string]bool{"ID": true, "Source": true, "Unresolved": true, "Defaulted": true} // identity hash, location, explanation, model table keys
 	forged := model.UnresolvedPlaceholder("forged")
 	structs := []any{
 		&model.ServiceAccount{}, &model.Cluster{}, &model.PodIdentityAssociation{}, &model.ClusterAddon{},

@@ -26,7 +26,20 @@
       "workload": "k8s:prod/payments/Deployment/api"
     }
   ],
-  "gaps": [],
+  "gaps": [
+    {
+      "Kind": "unresolved",
+      "Source": "normalize-terraform",
+      "File": "terraform/data.tf",
+      "Line": 19,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "Block Public Access of this bucket is not in the input (no aws_s3_bucket_public_access_block); unknown"
+    }
+  ],
   "mappings": [],
   "node_groups": [],
   "pod_identity": [],
@@ -68,6 +81,10 @@
       "arn": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.shared",
       "classification": "",
       "classified_by": "",
+      "defaulted": [
+        "terraform.aws_kms_key.enable_key_rotation"
+      ],
+      "key_rotation": "false",
       "kind": "aws:kms:key",
       "region": "us-east-1",
       "source": "terraform/data.tf:1-17 (aws_kms_key.shared)"
@@ -77,6 +94,7 @@
       "arn": "arn:aws:s3:::acme-customer-pii",
       "classification": "pii",
       "classified_by": "tag:DataClass",
+      "defaulted": [],
       "encryption": {
         "Type": "aws:kms",
         "KeyARN": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.shared"
@@ -92,6 +110,10 @@
       "audience": "sts.amazonaws.com",
       "automount_token": "true",
       "cluster": "prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
       "role_arn": "arn:aws:iam::111122223333:role/payments-api",
       "source": "k8s/payments.yaml:6 (ServiceAccount/payments/api)",
       "subject": "system:serviceaccount:payments:api"
@@ -112,8 +134,12 @@
   "workloads": [
     {
       "automount_token": "true",
+      "defaulted": [
+        "k8s.automountServiceAccountToken"
+      ],
       "host_network": false,
       "identity": "k8s:prod/payments/Deployment/api",
+      "privileged": false,
       "service_account": "api",
       "source": "k8s/payments.yaml:14 (Deployment/payments/api)"
     }

@@ -53,7 +53,11 @@ type ResourceInput struct {
 	ClassifiedBy   string // which rule marked it: "tag:DataClass", "config", "heuristic:..."
 	Encryption     Encryption
 	S3             S3Settings
-	Source         SourceLocation
+	KeyRotation    Tri // KMS keys: automatic rotation (Unknown when not stated and no deterministic default)
+	// Defaulted lists the settings that took a documented default
+	// (DocumentedDefaults keys).
+	Defaulted []string
+	Source    SourceLocation
 }
 
 // Resource is a protected AWS or Kubernetes resource.
@@ -68,6 +72,8 @@ type Resource struct {
 	classifiedBy   string
 	encryption     Encryption
 	s3             S3Settings
+	keyRotation    Tri
+	defaulted      []string
 	source         SourceLocation
 }
 
@@ -81,9 +87,22 @@ func NewResource(in *ResourceInput) *Resource {
 	return &Resource{
 		id: NewID(in.Kind, in.ARN), kind: in.Kind, arn: in.ARN, account: in.Account, region: in.Region,
 		tags: tags, classification: in.Classification, classifiedBy: in.ClassifiedBy,
-		encryption: in.Encryption, s3: in.S3, source: in.Source,
+		encryption: in.Encryption, s3: in.S3, keyRotation: in.KeyRotation, defaulted: sortedSet(in.Defaulted), source: in.Source,
 	}
 }
+
+// sortedSet returns ss sorted, without duplicates, as a new slice.
+func sortedSet(ss []string) []string {
+	out := slices.Clone(ss)
+	slices.Sort(out)
+	return slices.Compact(out)
+}
+
+// KeyRotation reports a KMS key's automatic rotation.
+func (r *Resource) KeyRotation() Tri { return r.keyRotation }
+
+// Defaulted returns the settings that took a documented default.
+func (r *Resource) Defaulted() []string { return slices.Clone(r.defaulted) }
 
 // ID returns the stable node ID.
 func (r *Resource) ID() ID { return r.id }
@@ -131,7 +150,9 @@ type WorkloadInput struct {
 	Name           string
 	ServiceAccount string
 	HostNetwork    bool
-	AutomountToken Tri // Unknown when not stated and not derivable
+	Privileged     bool // any container runs privileged
+	AutomountToken Tri  // Unknown when not stated and not derivable
+	Defaulted      []string
 	Source         SourceLocation
 }
 
@@ -144,7 +165,9 @@ type Workload struct {
 	name           string
 	serviceAccount string
 	hostNetwork    bool
+	privileged     bool
 	automountToken Tri
+	defaulted      []string
 	source         SourceLocation
 }
 
@@ -153,10 +176,16 @@ func NewWorkload(in *WorkloadInput) *Workload {
 	identity := K8sIdentity(in.Cluster, in.Namespace, in.Kind, in.Name)
 	return &Workload{
 		id: NewID(KindK8sWorkload, identity), cluster: in.Cluster, namespace: in.Namespace, kind: in.Kind,
-		name: in.Name, serviceAccount: in.ServiceAccount, hostNetwork: in.HostNetwork,
-		automountToken: in.AutomountToken, source: in.Source,
+		name: in.Name, serviceAccount: in.ServiceAccount, hostNetwork: in.HostNetwork, privileged: in.Privileged,
+		automountToken: in.AutomountToken, defaulted: sortedSet(in.Defaulted), source: in.Source,
 	}
 }
+
+// Privileged reports whether any container runs privileged.
+func (w *Workload) Privileged() bool { return w.privileged }
+
+// Defaulted returns the settings that took a documented default.
+func (w *Workload) Defaulted() []string { return slices.Clone(w.defaulted) }
 
 // ID returns the stable node ID.
 func (w *Workload) ID() ID { return w.id }

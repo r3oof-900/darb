@@ -26,7 +26,20 @@
       "workload": "k8s:prod/payments/Deployment/api"
     }
   ],
-  "gaps": [],
+  "gaps": [
+    {
+      "Kind": "unresolved",
+      "Source": "normalize-terraform",
+      "File": "terraform/account_b.tf",
+      "Line": 26,
+      "Address": "aws_s3_bucket.warehouse",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "Block Public Access of this bucket is not in the input (no aws_s3_bucket_public_access_block); unknown"
+    }
+  ],
   "mappings": [],
   "node_groups": [],
   "pod_identity": [],
@@ -42,6 +55,7 @@
       "unresolved_statements": 0
     },
     {
+      "default": "kms.default-key-policy",
       "kind": "resource",
       "policy": "aws_kms_key.warehouse.policy",
       "source": "terraform/account_b.tf:21-24 (aws_kms_key.warehouse)",
@@ -83,6 +97,10 @@
       "arn": "arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse",
       "classification": "",
       "classified_by": "",
+      "defaulted": [
+        "terraform.aws_kms_key.enable_key_rotation"
+      ],
+      "key_rotation": "false",
       "kind": "aws:kms:key",
       "region": "us-east-1",
       "source": "terraform/account_b.tf:21-24 (aws_kms_key.warehouse)"
@@ -92,6 +110,7 @@
       "arn": "arn:aws:s3:::acme-analytics-warehouse",
       "classification": "pii",
       "classified_by": "tag:DataClass",
+      "defaulted": [],
       "encryption": {
         "Type": "aws:kms",
         "KeyARN": "arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse"
@@ -107,6 +126,10 @@
       "audience": "sts.amazonaws.com",
       "automount_token": "true",
       "cluster": "prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
       "role_arn": "arn:aws:iam::111122223333:role/payments-api",
       "source": "k8s/payments.yaml:6 (ServiceAccount/payments/api)",
       "subject": "system:serviceaccount:payments:api"
@@ -137,8 +160,12 @@
   "workloads": [
     {
       "automount_token": "true",
+      "defaulted": [
+        "k8s.automountServiceAccountToken"
+      ],
       "host_network": false,
       "identity": "k8s:prod/payments/Deployment/api",
+      "privileged": false,
       "service_account": "api",
       "source": "k8s/payments.yaml:14 (Deployment/payments/api)"
     }

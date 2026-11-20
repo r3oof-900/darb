@@ -26,7 +26,10 @@ func Summary(l *Loaded) ([]byte, error) {
 		class, by := r.Classification()
 		m := map[string]any{
 			"kind": r.Kind(), "arn": r.ARN(), "account": r.Account(), "region": r.Region(),
-			"classification": class, "classified_by": by, "source": loc(r.Source()),
+			"classification": class, "classified_by": by, "source": loc(r.Source()), "defaulted": nonNil(r.Defaulted()),
+		}
+		if r.Kind() == model.KindKMSKey {
+			m["key_rotation"] = r.KeyRotation().String()
 		}
 		if r.Kind() == model.KindS3Bucket { // these facts only mean something for buckets
 			m["encryption"] = r.Encryption()
@@ -34,25 +37,7 @@ func Summary(l *Loaded) ([]byte, error) {
 		}
 		return m
 	})
-	s["workloads"] = mapSlice(inv.Workloads, func(w *model.Workload) any {
-		names[w.ID()] = w.Identity()
-		return map[string]any{
-			"identity": w.Identity(), "service_account": w.ServiceAccount(),
-			"host_network": w.HostNetwork(), "automount_token": w.AutomountToken().String(), "source": loc(w.Source()),
-		}
-	})
-	s["service_accounts"] = mapSlice(inv.ServiceAccounts, func(sa *model.ServiceAccount) any {
-		return map[string]any{
-			"cluster": sa.Cluster, "subject": sa.SubjectString(), "role_arn": sa.RoleARN,
-			"audience": sa.Audience, "automount_token": sa.AutomountToken.String(), "source": loc(&sa.Source),
-		}
-	})
-	s["clusters"] = mapSlice(inv.Clusters, func(c *model.Cluster) any {
-		return map[string]any{
-			"name": c.Name, "arn": c.ARN, "account": c.Account, "region": c.Region,
-			"oidc_issuer": c.OIDCIssuer, "source": loc(&c.Source),
-		}
-	})
+	kubernetesSummary(s, inv, names)
 	s["policies"] = mapSlice(inv.Policies, policySummary(names))
 	s["boundaries"] = mapSlice(inv.Boundaries, policySummary(names))
 	s["trusts"] = mapSlice(inv.Trusts, func(t *model.TrustRelationship) any {
@@ -64,7 +49,8 @@ func Summary(l *Loaded) ([]byte, error) {
 	s["pod_identity"] = mapSlice(inv.PodIdentity, func(p *model.PodIdentityAssociation) any {
 		return map[string]any{
 			"cluster": p.Cluster, "service_account": p.Namespace + "/" + p.ServiceAccount, "role_arn": p.RoleARN,
-			"target_role_arn": p.TargetRoleARN, "session_tags_disabled": p.SessionTagsDisabled.String(), "source": loc(&p.Source),
+			"target_role_arn": p.TargetRoleARN, "session_tags_disabled": p.SessionTagsDisabled.String(),
+			"defaulted": nonNil(p.Defaulted), "source": loc(&p.Source),
 		}
 	})
 	s["addons"] = mapSlice(inv.Addons, func(a *model.ClusterAddon) any {
@@ -97,7 +83,13 @@ func Summary(l *Loaded) ([]byte, error) {
 }
 
 func policySummary(names map[model.ID]string) func(p *model.AttachedPolicy) any {
-	return func(p *model.AttachedPolicy) any { return docSummary(names[p.Target], p.Doc) }
+	return func(p *model.AttachedPolicy) any {
+		m, _ := docSummary(names[p.Target], p.Doc).(map[string]any)
+		if p.Default != "" {
+			m["default"] = p.Default
+		}
+		return m
+	}
 }
 
 // docSummary records a policy's shape and whether it holds unresolved values.
@@ -146,4 +138,36 @@ func ptrs[T any](xs []T) []*T {
 		out[i] = &xs[i]
 	}
 	return out
+}
+
+// nonNil renders an empty list as [] rather than null.
+func nonNil(ss []string) []string {
+	if ss == nil {
+		return []string{}
+	}
+	return ss
+}
+
+// kubernetesSummary adds workloads, service accounts and clusters.
+func kubernetesSummary(s map[string]any, inv *model.Inventory, names map[model.ID]string) {
+	s["workloads"] = mapSlice(inv.Workloads, func(w *model.Workload) any {
+		names[w.ID()] = w.Identity()
+		return map[string]any{
+			"identity": w.Identity(), "service_account": w.ServiceAccount(),
+			"host_network": w.HostNetwork(), "privileged": w.Privileged(), "automount_token": w.AutomountToken().String(),
+			"defaulted": nonNil(w.Defaulted()), "source": loc(w.Source()),
+		}
+	})
+	s["service_accounts"] = mapSlice(inv.ServiceAccounts, func(sa *model.ServiceAccount) any {
+		return map[string]any{
+			"cluster": sa.Cluster, "subject": sa.SubjectString(), "role_arn": sa.RoleARN,
+			"audience": sa.Audience, "automount_token": sa.AutomountToken.String(), "defaulted": nonNil(sa.Defaulted), "source": loc(&sa.Source),
+		}
+	})
+	s["clusters"] = mapSlice(inv.Clusters, func(c *model.Cluster) any {
+		return map[string]any{
+			"name": c.Name, "arn": c.ARN, "account": c.Account, "region": c.Region,
+			"oidc_issuer": c.OIDCIssuer, "source": loc(&c.Source),
+		}
+	})
 }
