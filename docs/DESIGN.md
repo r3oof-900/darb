@@ -1024,15 +1024,17 @@ a hint.
 ### 12.0 Phase 4 status
 
 Done: access graph (`internal/graph`, CSR), access builder (`internal/access`:
-RUNS_AS, CAN_ESCALATE[k8s-token|rbac|iam], ASSUMES[irsa|pod-identity|sts],
-NODE_ROLE, CAN_READ, CAN_DECRYPT[for J], CAN_READ_PLAINTEXT), path search and
-weighted min-cut (`internal/paths`), scoring (`internal/scoring`), the ten rules
-of §8.1 (`internal/rules/...`), fingerprints, suppressions, baseline and exit
-code (`internal/findings`), the versioned report (`pkg/schema`
-`clapa-report/v1`) with console, JSON and SARIF 2.1.0 writers, the CLI
-(`clapa scan | rules list | rules show | version`), benchmarks and `bench.yml`
-(base vs head on one runner, `benchstat` for people, `tools/benchgate` for the
-decision: median > +20% and Mann-Whitney p < 0.05).
+RUNS_AS, CAN_ESCALATE[k8s-token|rbac|iam:passrole:<service>|iam:update-trust|
+iam:modify-policy], ASSUMES[irsa|projected|minted|minted-self|pod-identity|sts],
+MAPS_TO (aws-auth, access entries, access policies), NODE_ROLE, CAN_READ,
+CAN_DECRYPT[for J], CAN_READ_PLAINTEXT), path search and weighted min-cut
+(`internal/paths`), scoring (`internal/scoring`), the ten rules of §8.1
+(`internal/rules/...`), fingerprints, suppressions, baseline and exit code
+(`internal/findings`), the versioned report (`pkg/schema` `clapa-report/v1`)
+with console, JSON and SARIF 2.1.0 writers, the CLI (`clapa scan | rules list |
+rules show | version`), benchmarks and `bench.yml` (base vs head on one runner,
+`benchstat` for people, `tools/benchgate` for the decision: median > +20% and
+Mann-Whitney p < 0.05).
 
 `expected.json` comparison: `TestExpectedFindings` passes only while the
 engine's differences from the hand-written files are exactly those listed in

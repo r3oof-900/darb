@@ -23,6 +23,14 @@ NS_PAYMENTS = "k8s:prod//Namespace/payments"
 ROTATION_DEFAULT = "terraform.aws_kms_key.enable_key_rotation"
 S3_DEFAULT = "s3.default-encryption"
 AUTOMOUNT_DEFAULT = "k8s.automountServiceAccountToken"
+# Group A of the Phase 4 review: every IRSA hop in these fixtures relies on
+# two documented defaults (DESIGN.md 4.7): no eks.amazonaws.com/audience
+# annotation (audience sts.amazonaws.com) and no OIDC provider in the input
+# (its documented audience sts.amazonaws.com). A Pod Identity hop relies on
+# disable_session_tags not being set.
+OIDC_DEFAULT = "eks.irsa.oidc-provider-audience"
+IRSA_DEFAULTS = ["eks.irsa.audience", OIDC_DEFAULT]
+POD_IDENTITY_DEFAULTS = ["eks.pod-identity.disableSessionTags"]
 
 
 def path_finding(rule, entry, jewel, path, score, severity, chokepoints, alternative=None,
@@ -47,11 +55,11 @@ def decrypt_cut(principal, key, jewel):
 # Scenario 1 path (SCORING.md 1.4): public LoadBalancer (exposure 1000), 3 edges
 # (hops 810), no preconditions, all high: likelihood 810; impact pii 900 x
 # blast radius 1000 (one jewel) = 900; score 810 x 900 / 1000 = 729, critical.
-def classic(entry=API, sa=SA_API, role=ROLE):
+def classic(entry=API, sa=SA_API, role=ROLE, defaults=None):
     cut, alt = decrypt_cut(role, PII_KEY, PII)
     return path_finding("CLAPA-PATH-001", entry, PII,
                         [f"RUNS_AS {sa}", f"ASSUMES {role}", f"CAN_READ_PLAINTEXT {PII}"],
-                        729, "critical", cut, alt)
+                        729, "critical", cut, alt, defaults=IRSA_DEFAULTS if defaults is None else defaults)
 
 
 # CLAPA-POST-007: base medium 350, confidence medium 700: 350 x 700 / 1000 = 245, low.
@@ -108,7 +116,7 @@ for n, row in (("04_wildcard_sub", 4), ("05_aud_only", 5)):
     cut, alt = decrypt_cut(ROLE, PII_KEY, PII)
     debug = path_finding("CLAPA-PATH-001", "k8s:prod/tools/Deployment/debug", PII,
                          ["RUNS_AS k8s:prod/tools/ServiceAccount/default", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
-                         291, "medium", cut, alt)
+                         291, "medium", cut, alt, defaults=IRSA_DEFAULTS)
     E[f"{n}/vulnerable"] = {"derived_from": f"13.2 row {row}",
                             "findings": [classic(), debug, posture("CLAPA-POST-001", ROLE, 600, "high"),
                                          no_default_deny(NS_PAYMENTS), no_default_deny(NS_TOOLS)]}
@@ -124,7 +132,6 @@ for n, row in (("04_wildcard_sub", 4), ("05_aud_only", 5)):
 # 3 edges (810): 324; 324 x 900 = 291, medium. The token is mounted by
 # default; the OIDC provider is not in the input, so its audience is the
 # documented sts.amazonaws.com.
-OIDC_DEFAULT = "eks.irsa.oidc-provider-audience"
 BUILDER = "k8s:prod/tools/Deployment/builder"
 NS_TOOLS_4B = "k8s:prod//Namespace/tools"
 cut, alt = decrypt_cut(ROLE, PII_KEY, PII)
@@ -149,7 +156,7 @@ cut, alt = decrypt_cut(ADMIN, WAREHOUSE_KEY, WAREHOUSE)
 E["06_role_chain_cross_account/vulnerable"] = {"derived_from": "13.2 row 6", "findings": [
     path_finding("CLAPA-PATH-001", API, WAREHOUSE,
                  [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"ASSUMES {ADMIN}", f"CAN_READ_PLAINTEXT {WAREHOUSE}"],
-                 656, "high", cut, alt),
+                 656, "high", cut, alt, defaults=IRSA_DEFAULTS),
     rotation_off(WAREHOUSE_KEY), no_default_deny(NS_PAYMENTS)]}
 E["06_role_chain_cross_account/fixed"] = {"derived_from": "13.2 row 6 fixed: AssumeRole scoped to one role in account A",
                                           "findings": [rotation_off(WAREHOUSE_KEY), no_default_deny(NS_PAYMENTS)],
@@ -162,7 +169,7 @@ cut, alt = decrypt_cut(PROCESSOR, PII_KEY, PII)
 E["07_passrole_lambda/vulnerable"] = {"derived_from": "13.2 row 7", "findings": [
     path_finding("CLAPA-PATH-002", API, PII,
                  [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_ESCALATE {PROCESSOR}", f"CAN_READ_PLAINTEXT {PII}"],
-                 656, "high", cut, alt),
+                 656, "high", cut, alt, defaults=IRSA_DEFAULTS),
     no_default_deny(NS_PAYMENTS)]}
 E["07_passrole_lambda/fixed"] = {"derived_from": "13.2 row 7 fixed: PassRole scoped and conditioned, no InvokeFunction",
                                  "findings": [no_default_deny(NS_PAYMENTS)], "absent": ABSENT_PII}
@@ -180,7 +187,7 @@ E["08_rbac_create_pods/vulnerable"] = {"derived_from": "13.2 row 8", "findings":
     classic(),
     path_finding("CLAPA-PATH-002", CI, PII,
                  [f"CAN_ESCALATE {SA_CI}", f"CAN_ESCALATE {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
-                 261, "medium", cut, alt, defaults=[AUTOMOUNT_DEFAULT]),
+                 261, "medium", cut, alt, defaults=IRSA_DEFAULTS + [AUTOMOUNT_DEFAULT]),
     posture("CLAPA-POST-004", CI, 350, "medium", [AUTOMOUNT_DEFAULT]),
     no_default_deny(NS_PAYMENTS)]}
 E["08_rbac_create_pods/fixed"] = {"derived_from": "13.2 row 8 fixed: get/list/watch only", "findings": [
@@ -213,7 +220,7 @@ SHARED_KEY = f"arn:aws:kms:us-east-1:{ACCT}:key/tf-aws_kms_key.shared"
 cut, alt = decrypt_cut(ROLE, SHARED_KEY, PII)
 E["10_kms_principal_org_id/vulnerable"] = {"derived_from": "13.2 row 10 (no organization ID configured)", "findings": [
     path_finding("CLAPA-PATH-001", API, PII, [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
-                 291, "medium", cut, alt, confirmed=False, confidence="low"),
+                 291, "medium", cut, alt, confirmed=False, confidence="low", defaults=IRSA_DEFAULTS),
     rotation_off(SHARED_KEY), no_default_deny(NS_PAYMENTS)]}
 E["10_kms_principal_org_id/fixed"] = {"derived_from": "13.2 row 10 fixed: key policy names the reporter role",
                                       "findings": [rotation_off(SHARED_KEY), no_default_deny(NS_PAYMENTS)],
@@ -248,7 +255,7 @@ def reader(name, static=False):
     return path_finding("CLAPA-PATH-001", f"k8s:prod/analytics/CronJob/{name}", PII,
                         [f"RUNS_AS k8s:prod/analytics/ServiceAccount/{name}", f"ASSUMES {role}", f"CAN_READ_PLAINTEXT {PII}"],
                         116 if static else 291, "low" if static else "medium", [f"CAN_READ {role} -> {PII}"],
-                        confirmed=not static, confidence="low" if static else "high")
+                        confirmed=not static, confidence="low" if static else "high", defaults=IRSA_DEFAULTS)
 READERS = ("etl", "bi", "ml")
 E["13_module_for_each/vulnerable"] = {"derived_from": "13.2 row 13 (plan mode)",
                                       "findings": [reader(n) for n in READERS] + [no_default_deny(NS_ANALYTICS)]}
@@ -268,7 +275,6 @@ for v, why in (("vulnerable", "13.2 row 13 (static mode)"),
 # are not exposed (400), 3 edges (810): 324; 324 x 900 = 291, medium; the
 # cut is the read (SSE-S3, no decrypt). Both IRSA paths rely on the
 # documented audience defaults.
-IRSA_DEFAULTS = ["eks.irsa.audience", OIDC_DEFAULT]
 def own(acct, sa):
     role, bucket = f"arn:aws:iam::{acct}:role/app", f"arn:aws:s3:::data-{acct}"
     return path_finding("CLAPA-PATH-001", f"k8s:prod/apps/Deployment/{sa}", bucket,
@@ -305,7 +311,7 @@ E["16_malformed_inputs/fixed"] = {"derived_from": "13.2 row 16 fixed: valid file
                                   "findings": [classic(), no_default_deny(NS_PAYMENTS)]}
 
 # 17 - scenario 1 through EKS Pod Identity.
-E["17_pod_identity_classic/vulnerable"] = {"derived_from": "13.2 row 17", "findings": [classic(), no_default_deny(NS_PAYMENTS)]}
+E["17_pod_identity_classic/vulnerable"] = {"derived_from": "13.2 row 17", "findings": [classic(defaults=POD_IDENTITY_DEFAULTS), no_default_deny(NS_PAYMENTS)]}
 E["17_pod_identity_classic/fixed"] = {"derived_from": "13.2 row 17 fixed (as scenario 1 fixed)",
                                       "findings": [rotation_off(RECEIPTS_KEY), no_default_deny(NS_PAYMENTS)],
                                       "absent": ABSENT_PII}

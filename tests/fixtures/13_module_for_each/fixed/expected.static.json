@@ -20,7 +20,10 @@
         "CAN_READ arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value} -> arn:aws:s3:::acme-customer-pii"
       ],
       "alternative_fix": [],
-      "defaults_used": []
+      "defaults_used": [
+        "eks.irsa.audience",
+        "eks.irsa.oidc-provider-audience"
+      ]
     },
     {
       "rule": "CLAPA-PATH-001",
@@ -39,7 +42,10 @@
         "CAN_READ arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value} -> arn:aws:s3:::acme-customer-pii"
       ],
       "alternative_fix": [],
-      "defaults_used": []
+      "defaults_used": [
+        "eks.irsa.audience",
+        "eks.irsa.oidc-provider-audience"
+      ]
     },
     {
       "rule": "CLAPA-PATH-001",
@@ -58,7 +64,10 @@
         "CAN_READ arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value} -> arn:aws:s3:::acme-customer-pii"
       ],
       "alternative_fix": [],
-      "defaults_used": []
+      "defaults_used": [
+        "eks.irsa.audience",
+        "eks.irsa.oidc-provider-audience"
+      ]
     },
     {
       "rule": "CLAPA-POST-007",

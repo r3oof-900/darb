@@ -21,7 +21,10 @@
       "alternative_fix": [
         "CAN_READ arn:aws:iam::111122223333:role/payments-api -> arn:aws:s3:::acme-customer-pii"
       ],
-      "defaults_used": []
+      "defaults_used": [
+        "eks.irsa.audience",
+        "eks.irsa.oidc-provider-audience"
+      ]
     },
     {
       "rule": "CLAPA-POST-006",
