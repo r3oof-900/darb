@@ -9,19 +9,16 @@ import (
 )
 
 func TestFingerprint(t *testing.T) {
-	a := Fingerprint("CLAPA-PATH-001", "1", "entry", "jewel", []string{"x", "y"})
-	if a != Fingerprint("CLAPA-PATH-001", "1", "entry", "jewel", []string{"y", "x"}) {
-		t.Error("chokepoint order must not matter")
-	}
+	a := Fingerprint("CLAPA-PATH-001", "1", "entry", "jewel")
 	for _, other := range []string{
-		Fingerprint("CLAPA-PATH-002", "1", "entry", "jewel", []string{"x", "y"}),
-		Fingerprint("CLAPA-PATH-001", "2", "entry", "jewel", []string{"x", "y"}),
-		Fingerprint("CLAPA-PATH-001", "1", "other", "jewel", []string{"x", "y"}),
-		Fingerprint("CLAPA-PATH-001", "1", "entry", "jewel", []string{"x"}),
+		Fingerprint("CLAPA-PATH-002", "1", "entry", "jewel"),
+		Fingerprint("CLAPA-PATH-001", "2", "entry", "jewel"),
+		Fingerprint("CLAPA-PATH-001", "1", "other", "jewel"),
+		Fingerprint("CLAPA-PATH-001", "1", "entry", "other"),
 		PostureFingerprint("CLAPA-PATH-001", "1", "entry"),
 	} {
 		if other == a {
-			t.Error("a different rule, version, entry or root cause must change the fingerprint")
+			t.Error("a different rule, version, entry or jewel must change the fingerprint")
 		}
 	}
 }

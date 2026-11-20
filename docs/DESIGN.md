@@ -126,7 +126,7 @@ generates. Rules for reading the table:
 | Package | Layer | May import (module) | May import (external) | Extra std / test-only |
 |---|---|---|---|---|
 | `cmd/clapa` | entry | `internal/cli` | — | — |
-| `internal/access` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/eval/match`, `internal/eval/condition`, `internal/graph` | — | tests: `internal/iampolicy` |
+| `internal/access` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/eval/match`, `internal/eval/condition`, `internal/graph`, `internal/scoring` | — | tests: `internal/iampolicy` |
 | `internal/app` | entry | `internal/config`, `internal/collect/...`, `internal/normalize/...`, `internal/model`, `internal/classify`, `internal/iampolicy`, `internal/eval`, `internal/access`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/rules/catalog`, `internal/scoring`, `internal/findings`, `internal/remediate`, `internal/verify`, `internal/patch`, `internal/report/...`, `internal/llm/...`, `internal/coverage`, `internal/redact`, `internal/safeio`, `internal/version`, `internal/managedpolicies`, `pkg/schema` | `golang.org/x/sync` | tests: `internal/eval/condition`, `internal/eval/match` |
 | `internal/archtest` | tooling | — (leaf) | — | — |
 | `internal/arn` | core | — (leaf) | — | — |
@@ -727,6 +727,19 @@ states' arcs to the sink are added. The representative path of a finding is
 its highest-scoring path (ties: fewer edges). A rapid property compares Dinic
 with brute force on random graphs of up to 8 nodes.
 
+**Capacities (third Phase 4 review).** An edge's capacity is the cheapest
+change that breaks it, priced per side (identity, resource, trust, workload,
+rbac, mapping, node; SCORING.md §4.1). The access builder decides each
+evaluator-decided edge again without each side's policies and keeps only the
+sides whose removal really stops the grant. It drops the sides a principal can
+undo (SCORING.md §4.2): a "role with any permission" has no identity side; a
+principal that can rewrite the target's bucket policy, key policy (or create a
+KMS grant) or trust policy has no resource/trust side there, and no identity
+side either when it is in the resource's account. An edge with no side left is
+uncuttable, so the cut moves before that principal. Shared fixes (one policy
+change breaking several cut edges) are only flagged
+(`shared_fix_possible`) until Phase 5.
+
 Performance target: 50k nodes / 500k edges in < 60 s and < 2 GB.
 **Measured (2026-11-20, i7-10850H, Go 1.27):** 50,000 nodes, 542,000 edges,
 30,000 entries, 1,136,630 (entry, jewel) pairs: 22.5 s, at most 755 MiB
@@ -756,8 +769,15 @@ Each rule has: stable ID, semver, title, rationale, severity logic, references
 failing fixture. `clapa rules list|show`.
 
 **Fingerprint** = `sha256(rule ID, rule major version, canonical IDs of entry and
-jewel, sorted canonical IDs of the chokepoint edges)`. It excludes file lines, so
-moving code does not reset suppressions; it changes when the root cause changes.
+jewel)` for a path finding (the posture form is in §8.1). It names the
+**problem, not its fix** (decided in the third Phase 4 review): which rule, from
+which entry, to which crown jewel. The path, the cut, its cost and every weight
+are left out, so re-pricing a fix (SCORING.md §4), changing `remediation.cut_costs`
+or a new chokepoint never resets a suppression or a baseline; a property test
+draws random cut-cost tables over every fixture and requires every fingerprint
+to stay the same. File lines are left out too, so moving code does not reset
+suppressions. One finding exists per (rule, entry, jewel), so the fingerprint
+stays unique (scenario 14 checks distinct fingerprints).
 
 **Suppressions** (`.clapa-ignore.yaml`): keyed by fingerprint, each with mandatory
 `reason`, `owner`, `expires` (date). Missing fields = config error (exit 2).
@@ -856,9 +876,9 @@ the tool.
 The files are written by `tests/fixtures/expected_source.py`, which holds the
 hand-derived data and the score arithmetic in comments; it only serialises.
 The golden test compares rule, entry, jewel, path, confirmation, confidence,
-score, severity, chokepoints, `alternative_fix` and `defaults_used`, and computes
-each fingerprint from these fields with the §8 formula independently of the
-engine, then compares it with the engine's. Findings the file does not list fail
+score, severity, chokepoints, `alternative_fix`, the chosen fix side and cost
+(`fix`, where stated) and `defaults_used`, and computes each fingerprint from
+these fields with the §8 formula independently of the engine, then compares it with the engine's. Findings the file does not list fail
 the test (no extra findings). `entry: null` means "any entry" (the scenario does
 not name one); `absent` lists findings that must not appear; `exit_code` and
 `collected` are stated only where §13.2 states them (scenarios 13 static and

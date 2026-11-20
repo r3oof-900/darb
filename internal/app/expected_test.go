@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 
@@ -48,6 +47,15 @@ type expectedFinding struct {
 	Chokepoints []string `json:"chokepoints"`
 	Alternative []string `json:"alternative_fix"`
 	Defaults    []string `json:"defaults_used"`
+	// Fix: the side the cut chose for each chokepoint edge and its cost
+	// (SCORING.md §4), compared where stated.
+	Fix []expectedFix `json:"fix"`
+}
+
+type expectedFix struct {
+	Edge string `json:"edge"`
+	Side string `json:"side"`
+	Cost int64  `json:"cost"`
 }
 
 // expectedNoEdge: no edge of any kind from one node to the other.
@@ -80,24 +88,17 @@ func kindOf(identity string) model.NodeKind {
 	return model.KindKMSKey
 }
 
-// fingerprint is the §8 formula written again, independently of the engine.
+// fingerprint is the §8 formula written again, independently of the engine:
+// it names the problem (rule, entry, jewel or resource), never the fix.
 func fingerprint(rule string, f *expectedFinding) string {
-	hash := func(parts ...string) string {
-		sum := sha256.Sum256([]byte(strings.Join(parts, "\x00")))
-		return hex.EncodeToString(sum[:])
-	}
+	parts := []string{"clapa/fingerprint/v1", rule, "1"}
 	if f.Resource != "" {
-		return hash("clapa/fingerprint/v1", rule, "1", string(model.NewID(kindOf(f.Resource), f.Resource)))
+		parts = append(parts, string(model.NewID(kindOf(f.Resource), f.Resource)))
+	} else {
+		parts = append(parts, string(model.NewID(kindOf(*f.Entry), *f.Entry)), string(model.NewID(kindOf(f.Jewel), f.Jewel)))
 	}
-	ids := make([]string, len(f.Chokepoints))
-	for i, c := range f.Chokepoints {
-		ids[i] = hash("clapa/edge/v1", c)
-	}
-	slices.Sort(ids)
-	return hash(append([]string{
-		"clapa/fingerprint/v1", rule, "1",
-		string(model.NewID(kindOf(*f.Entry), *f.Entry)), string(model.NewID(kindOf(f.Jewel), f.Jewel)),
-	}, ids...)...)
+	sum := sha256.Sum256([]byte(strings.Join(parts, string(rune(0)))))
+	return hex.EncodeToString(sum[:])
 }
 
 func matches(e *expectedFinding, a *rules.Finding) bool {
@@ -139,9 +140,14 @@ func compareFinding(e *expectedFinding, a *rules.Finding) []string {
 	if e.Defaults != nil {
 		diff("defaults_used", e.Defaults, a.DefaultsUsed)
 	}
-	if e.Entry != nil && (e.Chokepoints != nil || e.Resource != "") {
-		diff("fingerprint (independent §8 formula)", fingerprint(e.Rule, e), a.Fingerprint)
-	} else if e.Resource != "" {
+	if e.Fix != nil {
+		got := []expectedFix{}
+		for _, s := range a.Fix {
+			got = append(got, expectedFix{Edge: s.Edge, Side: s.Side, Cost: s.Cost})
+		}
+		diff("fix", e.Fix, got)
+	}
+	if e.Entry != nil || e.Resource != "" {
 		diff("fingerprint (independent §8 formula)", fingerprint(e.Rule, e), a.Fingerprint)
 	}
 	return diffs

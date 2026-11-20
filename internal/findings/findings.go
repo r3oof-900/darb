@@ -15,26 +15,14 @@ import (
 	"github.com/r3oof-900/clapa/internal/rules"
 )
 
-// EdgeID is the canonical ID of an edge: a hash of its description
-// ("KIND[for J] from -> to"), which names canonical identities only.
-func EdgeID(description string) string {
-	sum := sha256.Sum256([]byte("clapa/edge/v1\x00" + description))
-	return hex.EncodeToString(sum[:])
-}
-
 // Fingerprint = sha256(rule ID, rule major version, canonical IDs of entry
-// and jewel, sorted canonical IDs of the chokepoint edges) for a path
-// finding; sha256(rule ID, major version, resource ID) for a posture finding.
-// File lines are not part of it, so moving code keeps suppressions; a
-// different root cause (another chokepoint) changes it.
-func Fingerprint(rule, major string, entry, jewel model.ID, chokepoints []string) string {
-	ids := make([]string, len(chokepoints))
-	for i, c := range chokepoints {
-		ids[i] = EdgeID(c)
-	}
-	slices.Sort(ids)
-	parts := append([]string{"clapa/fingerprint/v1", rule, major, string(entry), string(jewel)}, ids...)
-	sum := sha256.Sum256([]byte(strings.Join(parts, "\x00")))
+// and jewel) for a path finding; sha256(rule ID, major version, resource ID)
+// for a posture finding (DESIGN.md §8). It names the problem, not its fix:
+// the path, the cut and every cost and weight are left out, so re-pricing a
+// fix or changing a weight never resets a suppression or a baseline. File
+// lines are left out too, so moving code keeps suppressions.
+func Fingerprint(rule, major string, entry, jewel model.ID) string {
+	sum := sha256.Sum256([]byte(strings.Join([]string{"clapa/fingerprint/v1", rule, major, string(entry), string(jewel)}, "\x00")))
 	return hex.EncodeToString(sum[:])
 }
 
@@ -55,7 +43,7 @@ func Finish(fs []rules.Finding, reg *rules.Registry) []rules.Finding {
 		if f.Kind == rules.KindPosture {
 			f.Fingerprint = PostureFingerprint(f.Rule, m.Major(), f.ResourceID)
 		} else {
-			f.Fingerprint = Fingerprint(f.Rule, m.Major(), f.EntryID, f.JewelID, f.Chokepoints)
+			f.Fingerprint = Fingerprint(f.Rule, m.Major(), f.EntryID, f.JewelID)
 		}
 	}
 	slices.SortStableFunc(out, func(a, b rules.Finding) int {
