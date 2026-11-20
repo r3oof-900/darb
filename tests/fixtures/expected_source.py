@@ -34,7 +34,7 @@ POD_IDENTITY_DEFAULTS = ["eks.pod-identity.disableSessionTags"]
 
 
 def path_finding(rule, entry, jewel, path, score, severity, chokepoints, alternative=None,
-                 confirmed=True, confidence="high", defaults=None, fix=None):
+                 confirmed=True, confidence="high", defaults=None, fix=None, alternative_detail=None):
     f = {
         "rule": rule, "entry": entry, "jewel": jewel, "path": path,
         "confirmed": confirmed, "confidence": confidence, "score": score, "severity": severity,
@@ -42,7 +42,15 @@ def path_finding(rule, entry, jewel, path, score, severity, chokepoints, alterna
     }
     if fix is not None:
         f["fix"] = fix
+    if alternative_detail is not None:
+        f["alternative_fix_detail"] = alternative_detail
     return f
+
+
+def step(edge, side, kind, cost):
+    # One fix of one edge (SCORING.md 4): side, narrow (make a broad grant
+    # specific) or revoke (remove an explicit grant, 2 more), and cost.
+    return {"edge": edge, "side": side, "fix_kind": kind, "cost": cost}
 
 
 def posture(rule, resource, score, severity, defaults=None):
@@ -58,11 +66,11 @@ def decrypt_cut(principal, key, jewel):
 # Scenario 1 path (SCORING.md 1.4): public LoadBalancer (exposure 1000), 3 edges
 # (hops 810), no preconditions, all high: likelihood 810; impact pii 900 x
 # blast radius 1000 (one jewel) = 900; score 810 x 900 / 1000 = 729, critical.
-def classic(entry=API, sa=SA_API, role=ROLE, defaults=None):
+def classic(entry=API, sa=SA_API, role=ROLE, defaults=None, fix=None):
     cut, alt = decrypt_cut(role, PII_KEY, PII)
     return path_finding("CLAPA-PATH-001", entry, PII,
                         [f"RUNS_AS {sa}", f"ASSUMES {role}", f"CAN_READ_PLAINTEXT {PII}"],
-                        729, "critical", cut, alt, defaults=IRSA_DEFAULTS if defaults is None else defaults)
+                        729, "critical", cut, alt, defaults=IRSA_DEFAULTS if defaults is None else defaults, fix=fix)
 
 
 # CLAPA-POST-007: base medium 350, confidence medium 700: 350 x 700 / 1000 = 245, low.
@@ -80,8 +88,13 @@ ABSENT_PII = [{"rule": "CLAPA-PATH-001", "jewel": PII}, {"rule": "CLAPA-PATH-002
 E = {}
 
 # 1 - IRSA -> role -> kms:Decrypt on * -> CMK -> PII bucket.
+# Cut (fourth Phase 4 review, SCORING.md 4.1): kms:Decrypt on "*" with no
+# encryption context is broad: narrow it, identity side, cost 1. The read is
+# s3:GetObject on the PII bucket's objects, an explicit grant (revoke, 3), so
+# the decrypt is cheaper and no tie rule is needed.
 E["01_classic/vulnerable"] = {"derived_from": "13.2 row 1; 13.1",
-                              "findings": [classic(), no_default_deny(NS_PAYMENTS)]}
+                              "findings": [classic(fix=[step(decrypt_cut(ROLE, PII_KEY, PII)[0][0], "identity", "narrow", 1)]),
+                                           no_default_deny(NS_PAYMENTS)]}
 E["01_classic/fixed"] = {"derived_from": "13.2 row 1 fixed: reads only the receipts bucket, decrypt scoped by encryption context",
                          "findings": [rotation_off(RECEIPTS_KEY), no_default_deny(NS_PAYMENTS)], "absent": ABSENT_PII}
 
@@ -158,14 +171,14 @@ WAREHOUSE_KEY = f"arn:aws:kms:us-east-1:{B}:key/tf-aws_kms_key.warehouse"
 # Cut (third Phase 4 review, SCORING.md 4.2): analytics-admin can rewrite its
 # own policies, the warehouse key policy and the bucket policy, so no cut after
 # it holds. The cut is the hop into it, identity side, cost 1: remove
-# sts:AssumeRole on that role from payments-api (the trust side, cost 5, is
-# the other fix). No derived edge is cut, so no alternative_fix.
+# sts:AssumeRole from payments-api (sts:AssumeRole on "*" is broad: narrow it
+# to the roles it needs); the trust side, cost 5, is the other fix. No derived edge is cut, so no alternative_fix.
 CHAIN = f"ASSUMES {ROLE} -> {ADMIN}"
 E["06_role_chain_cross_account/vulnerable"] = {"derived_from": "13.2 row 6", "findings": [
     path_finding("CLAPA-PATH-001", API, WAREHOUSE,
                  [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"ASSUMES {ADMIN}", f"CAN_READ_PLAINTEXT {WAREHOUSE}"],
                  656, "high", [CHAIN], [], defaults=IRSA_DEFAULTS,
-                 fix=[{"edge": CHAIN, "side": "identity", "cost": 1}]),
+                 fix=[step(CHAIN, "identity", "narrow", 1)]),
     rotation_off(WAREHOUSE_KEY), no_default_deny(NS_PAYMENTS)]}
 E["06_role_chain_cross_account/fixed"] = {"derived_from": "13.2 row 6 fixed: AssumeRole scoped to one role in account A",
                                           "findings": [rotation_off(WAREHOUSE_KEY), no_default_deny(NS_PAYMENTS)],
@@ -225,11 +238,17 @@ E["09_hostnetwork_imds/fixed"] = {"derived_from": "13.2 row 9 fixed: IMDSv2 requ
 # 10 - decrypt only from a key policy with aws:PrincipalOrgID, org not configured:
 # UNKNOWN, unconfirmed, confidence low (400): 1000 x 810 = 810; 810 x 400 = 324;
 # 324 x 900 = 291, medium.
+# Cut (fourth Phase 4 review): the role has no kms:Decrypt of its own; the
+# key policy grants it to Principal "*" with aws:PrincipalOrgID, a broad
+# grant: narrow the key policy, cost 2. The alternative is the read, an
+# explicit s3:GetObject on the bucket's objects: revoke, identity side, 3.
 SHARED_KEY = f"arn:aws:kms:us-east-1:{ACCT}:key/tf-aws_kms_key.shared"
 cut, alt = decrypt_cut(ROLE, SHARED_KEY, PII)
 E["10_kms_principal_org_id/vulnerable"] = {"derived_from": "13.2 row 10 (no organization ID configured)", "findings": [
     path_finding("CLAPA-PATH-001", API, PII, [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
-                 291, "medium", cut, alt, confirmed=False, confidence="low", defaults=IRSA_DEFAULTS),
+                 291, "medium", cut, alt, confirmed=False, confidence="low", defaults=IRSA_DEFAULTS,
+                 fix=[step(cut[0], "resource", "narrow", 2)],
+                 alternative_detail=[step(alt[0], "identity", "revoke", 3)]),
     rotation_off(SHARED_KEY), no_default_deny(NS_PAYMENTS)]}
 E["10_kms_principal_org_id/fixed"] = {"derived_from": "13.2 row 10 fixed: key policy names the reporter role",
                                       "findings": [rotation_off(SHARED_KEY), no_default_deny(NS_PAYMENTS)],

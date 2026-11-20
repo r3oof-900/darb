@@ -28,6 +28,7 @@
         {
           "edge": "ASSUMES arn:aws:iam::111122223333:role/payments-api -> arn:aws:iam::444455556666:role/analytics-admin",
           "side": "identity",
+          "fix_kind": "narrow",
           "cost": 1
         }
       ]

@@ -12,11 +12,10 @@
 #     again has no cut after it (SCORING.md §4); the engine gives the decided
 #     cut (ASSUMES payments-api -> analytics-admin, identity side, cost 1),
 #     and the fingerprint no longer depends on the cut (DESIGN.md §8).
-# F - a consequence of that pricing, outside A-E: scenario 10. payments-api
-#     has no kms:Decrypt in its identity policy (the org-ID key policy grants
-#     it alone), so the only fix of its decrypt edge is the key policy (cost
-#     2); its s3:GetObject comes only from its identity policy (cost 1). The
-#     cheapest cut is now the read, not the decrypt the expected file names
-#     (written under the old equal-cost tie rule). Waiting for a decision.
-10_kms_principal_org_id/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: alternative_fix: want ["CAN_READ arn:aws:iam::111122223333:role/payments-api -\u003e arn:aws:s3:::acme-customer-pii"], got []
-10_kms_principal_org_id/vulnerable: CLAPA-PATH-001 k8s:prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: chokepoints: want ["CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/payments-api -\u003e arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.shared"], got ["CAN_READ arn:aws:iam::111122223333:role/payments-api -\u003e arn:aws:s3:::acme-customer-pii"]
+# F (scenario 10) is resolved in the fourth Phase 4 review: a fix that
+#     narrows a broad grant costs the side's price, one that revokes an
+#     explicit grant 2 more (SCORING.md §4.1). The engine gives the decided
+#     cut (the key policy's Principal "*" grant, narrow, cost 2; the explicit
+#     read is the alternative, revoke, cost 3).
+#
+# No difference is open.
