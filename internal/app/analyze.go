@@ -112,7 +112,6 @@ func notModelled() []access.Note {
 	}
 	return []access.Note{
 		n("IAM escalation", "only iam:PassRole into Lambda is an escalation edge; CreatePolicyVersion, Attach/PutRolePolicy, UpdateAssumeRolePolicy are not analysed"),
-		n("MAPS_TO", "IAM principals mapped to Kubernetes users (aws-auth, access entries) are not followed into RBAC"),
 		n("EXPOSED_TO", "internet exposure is a score factor, not a cuttable edge"),
 		n("crown jewels", "only S3 buckets are read targets; Secrets Manager and SSM SecureString are not analysed"),
 	}

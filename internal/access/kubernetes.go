@@ -39,7 +39,6 @@ func (b *builder) kubernetes() {
 	for _, sa := range b.inv.ServiceAccounts {
 		b.irsa(sa)
 	}
-	b.minted()
 	b.projected()
 	for _, a := range b.inv.PodIdentity {
 		b.podIdentity(a)

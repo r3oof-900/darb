@@ -76,6 +76,8 @@ func Build(inv *model.Inventory, opts *Options) *Result {
 	}
 	b.index()
 	b.kubernetes()
+	b.mappings()
+	b.minted()
 	b.identities()
 	b.nodeRoles()
 	b.reads()

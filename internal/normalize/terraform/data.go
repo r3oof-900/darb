@@ -47,6 +47,10 @@ func (n *norm) data(rs []*tfraw.Resource) {
 			n.addon(r)
 		case "aws_iam_openid_connect_provider":
 			n.oidcProvider(r)
+		case "aws_eks_access_entry":
+			n.accessEntry(r)
+		case "aws_eks_access_policy_association":
+			n.accessPolicy(r)
 		case "aws_launch_template":
 			templates[r.Root+"|"+r.Address] = r
 		}

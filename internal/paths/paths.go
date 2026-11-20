@@ -23,8 +23,8 @@ func target(e *graph.Edge) mode {
 	switch {
 	case e.Kind == graph.RunsAs:
 		return identity
-	case e.Kind == graph.CanEscalate && e.Sub == "k8s-token":
-		return k8s
+	case e.Kind == graph.CanEscalate && e.Sub == "k8s-token", e.Kind == graph.MapsTo:
+		return k8s // Kubernetes API access as that subject
 	}
 	return full
 }

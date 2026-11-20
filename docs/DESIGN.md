@@ -669,6 +669,7 @@ access entries).
 | `ASSUMES[pod-identity]` | service account → role | an association links them and `access.PodIdentityAssume` allows (§4.6) | 5 |
 | `ASSUMES[sts]` | role → role | the source's identity policies allow `sts:AssumeRole` on the target **and** the target's trust allows the source session | 5 |
 | `CAN_ESCALATE[iam]` | role → role | `iam:PassRole` on the target plus a compute create **and** an execution primitive (Lambda: `CreateFunction` + `InvokeFunction` / `CreateEventSourceMapping` / `CreateFunctionUrlConfig`); without the execution primitive, `confidence: medium` | 2 |
+| `MAPS_TO` | IAM principal → Kubernetes user / group | `aws-auth` `mapRoles`/`mapUsers` (a `rolearn` carries no path, so a role matches by account and name) or an EKS access entry (`aws_eks_access_entry`: user name, groups). The subject's RBAC then gives `CAN_ESCALATE[rbac]`; `system:masters` is cluster-admin without a binding. An access policy association gives the principal the policy's rules directly (ClusterAdmin: all; Admin: create pods, impersonate service accounts; Edit: create pods; View, AdminView: read only — EKS User Guide › "Access policy permissions"); another policy is UNKNOWN | 8 |
 | `NODE_ROLE` | workload → node role of its cluster's node groups | IMDS is reachable: `hostNetwork: true` (any token setting, unless `http_endpoint` is disabled), or `http_tokens` optional, or hop limit ≥ 2; precondition, factor 900 when known, 500 when unknown | 3 |
 | `CAN_READ`, `CAN_DECRYPT[for J]`, `CAN_READ_PLAINTEXT` | principal → jewel / key | §7.3 | §9.1 |
 
@@ -1032,7 +1033,6 @@ risk":
 | Missing | Effect | When |
 |---|---|---|
 | IAM escalation primitives other than PassRole + Lambda (`CreatePolicyVersion`, `Attach/PutRolePolicy`, `UpdateAssumeRolePolicy`, `sts:AssumeRole` on `*` as escalation) | such escalations produce no CAN_ESCALATE edge, so paths through them are not found | before Phase 5 remediation relies on the graph being complete for escalation |
-| `MAPS_TO` edges from `aws-auth` / access entries | IAM → Kubernetes RBAC paths are not followed (mappings are normalized) | same |
 | `EXPOSED_TO` as a graph edge | exposure is a scoring factor of the entry, not a cuttable edge, so "remove internet exposure" (cost 20) is never proposed as a fix | Phase 5 (remediation) |
 | Secrets Manager and SSM SecureString jewels | only S3 buckets are read targets | Phase 6 (live collectors) |
 | Suppression file (`.clapa-ignore.yaml`) and `--baseline` flags | the logic exists in `internal/findings`; the CLI does not read the files yet | Phase 5 |

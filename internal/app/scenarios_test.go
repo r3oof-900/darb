@@ -168,3 +168,127 @@ func TestTokenRequestIsLikePodCreation(t *testing.T) {
 		t.Errorf("read-only RBAC mints nothing: %+v", f)
 	}
 }
+
+// deployerSetup adds, to a copy of scenario 8 fixed (ci can only read), a
+// workload whose IRSA role "deployer" is given Kubernetes access by mapAccess.
+func deployerSetup(t *testing.T, mapAccess string, tf string) func(dir string) {
+	t.Helper()
+	return func(dir string) {
+		k8s := `apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: deploy
+  namespace: payments
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/deployer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deploy
+  namespace: payments
+spec:
+  selector:
+    matchLabels:
+      app: deploy
+  template:
+    metadata:
+      labels:
+        app: deploy
+    spec:
+      serviceAccountName: deploy
+      containers:
+        - name: deploy
+          image: registry.example.com/deploy:1
+` + mapAccess
+		role := `resource "aws_iam_role" "deployer" {
+  name = "deployer"
+  assume_role_policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow",
+    Principal = { Federated = local.oidc_provider }, Action = "sts:AssumeRoleWithWebIdentity",
+    Condition = { StringEquals = { "${local.oidc_host}:sub" = "system:serviceaccount:payments:deploy", "${local.oidc_host}:aud" = "sts.amazonaws.com" } } }] })
+}
+` + tf
+		for name, content := range map[string]string{filepath.Join(dir, "k8s", "deploy.yaml"): k8s, filepath.Join(dir, "terraform", "deployer.tf"): role} {
+			if err := os.WriteFile(name, []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+}
+
+// aws-auth and EKS access entries reach Kubernetes RBAC (MAPS_TO, then the
+// subject's escalation edges), and from there the namespace's IRSA roles.
+func TestIAMToKubernetesMappings(t *testing.T) {
+	awsAuth := `---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aws-auth
+  namespace: kube-system
+data:
+  mapRoles: |
+    - rolearn: arn:aws:iam::111122223333:role/deployer
+      username: deployer
+      groups: [deployers]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-creator
+  namespace: payments
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: deployers
+  namespace: payments
+subjects:
+  - kind: Group
+    name: deployers
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: pod-creator
+`
+	accessEntry := `resource "aws_eks_access_entry" "deployer" {
+  cluster_name  = "prod"
+  principal_arn = aws_iam_role.deployer.arn
+}
+resource "aws_eks_access_policy_association" "deployer" {
+  cluster_name  = "prod"
+  principal_arn = aws_iam_role.deployer.arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSEditPolicy"
+  access_scope {
+    type       = "namespace"
+    namespaces = ["payments"]
+  }
+}
+`
+	for name, c := range map[string]struct{ k8s, tf, step string }{
+		"aws-auth":     {awsAuth, "", "MAPS_TO k8s:prod//Group/deployers"},
+		"access entry": {"", accessEntry, "CAN_ESCALATE k8s:prod/payments/ServiceAccount/api"},
+	} {
+		a := analyzeVariant(t, "08_rbac_create_pods/fixed", deployerSetup(t, c.k8s, c.tf))
+		var f *rules.Finding
+		for i := range a.Findings {
+			if a.Findings[i].Entry == "k8s:prod/payments/Deployment/deploy" && a.Findings[i].Rule == "CLAPA-PATH-002" {
+				f = &a.Findings[i]
+			}
+		}
+		if f == nil || !strings.Contains(strings.Join(f.Path, " | "), c.step) || !f.Confirmed {
+			t.Errorf("%s: %+v", name, f)
+		}
+	}
+	// A view-only access policy gives no escalation.
+	view := strings.Replace(accessEntry, "AmazonEKSEditPolicy", "AmazonEKSViewPolicy", 1)
+	a := analyzeVariant(t, "08_rbac_create_pods/fixed", deployerSetup(t, "", view))
+	for i := range a.Findings {
+		if a.Findings[i].Entry == "k8s:prod/payments/Deployment/deploy" && a.Findings[i].Rule == "CLAPA-PATH-002" {
+			t.Errorf("view only: %+v", a.Findings[i])
+		}
+	}
+}

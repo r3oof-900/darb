@@ -152,6 +152,10 @@ type RBACGrant struct {
 	Source     SourceLocation
 }
 
+// SubjectIAMPrincipal is the RBAC subject kind of an EKS access policy
+// association: the IAM principal itself holds the Kubernetes permissions.
+const SubjectIAMPrincipal = "IAMPrincipal"
+
 // IdentityMapping maps an IAM principal to a Kubernetes user and groups
 // (aws-auth ConfigMap or EKS access entries).
 type IdentityMapping struct {
