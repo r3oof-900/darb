@@ -113,8 +113,8 @@ func scansFor(t *testing.T, dir string) map[string]*Inputs {
 
 func TestGoldenFixtures(t *testing.T) {
 	variants, err := filepath.Glob(filepath.Join(repoRoot(t), "tests", "fixtures", "*", "*"))
-	if err != nil || len(variants) < 32 {
-		t.Fatalf("expected 16 scenarios x 2 variants, found %d (%v)", len(variants), err)
+	if err != nil || len(variants) < 34 {
+		t.Fatalf("expected 17 scenarios x 2 variants, found %d (%v)", len(variants), err)
 	}
 	for _, src := range variants {
 		name := filepath.Base(filepath.Dir(src)) + "/" + filepath.Base(src)

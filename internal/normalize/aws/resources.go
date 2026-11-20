@@ -109,8 +109,17 @@ func (n *norm) clusters() {
 		for _, a := range c.PodIdentity {
 			n.b.AddPodIdentity(&model.PodIdentityAssociation{
 				Cluster: a.ClusterName, Namespace: a.Namespace, ServiceAccount: a.ServiceAccount, RoleARN: a.RoleArn,
+				TargetRoleARN: a.TargetRoleArn, SessionTagsDisabled: optionalTri(a.DisableSessionTags),
 				Source: apiLoc(a.AssociationArn, "eks:DescribePodIdentityAssociation"),
 			})
 		}
 	}
+}
+
+// optionalTri: a boolean the snapshot may not record is unknown, not false.
+func optionalTri(b *bool) model.Tri {
+	if b == nil {
+		return model.Unknown
+	}
+	return model.TriOf(*b)
 }

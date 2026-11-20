@@ -37,18 +37,3 @@ func TestIRSARequestContext(t *testing.T) {
 		t.Errorf("unknown context keys must stay unknown: %s", d.Verdict)
 	}
 }
-
-func TestPodIdentityRequest(t *testing.T) {
-	doc := trust(t, `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"pods.eks.amazonaws.com"},
-		"Action":["sts:AssumeRole","sts:TagSession"]}]}`)
-	for _, action := range []string{"sts:AssumeRole", "sts:TagSession"} {
-		req := PodIdentityRequest("arn:aws:iam::111122223333:role/r", "111122223333", action)
-		if d := eval.Evaluate(req, TrustPolicySet(doc)); d.Verdict != eval.Allow {
-			t.Errorf("%s: %s", action, d.Verdict)
-		}
-	}
-	other := trust(t, `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com"},"Action":"sts:AssumeRole"}]}`)
-	if d := eval.Evaluate(PodIdentityRequest("arn:aws:iam::111122223333:role/r", "111122223333", "sts:AssumeRole"), TrustPolicySet(other)); d.Verdict != eval.ImplicitDeny {
-		t.Errorf("a role not trusting pods.eks.amazonaws.com: %s", d.Verdict)
-	}
-}

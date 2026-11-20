@@ -1,6 +1,6 @@
 # Golden scenarios
 
-The 16 scenarios of docs/DESIGN.md section 13, each with a `vulnerable` and a
+The 17 scenarios of docs/DESIGN.md section 13, each with a `vulnerable` and a
 `fixed` variant. Fixtures are **immutable**: tests copy each variant to a
 temporary directory before reading it (`internal/app/golden_test.go`), and CI
 fails if `git diff --exit-code -- tests/fixtures` is not clean after the tests.
@@ -41,6 +41,7 @@ diff is a behaviour change.
 | 14 | `14_same_names_two_accounts` | role `app` and bucket `data-<account>` in two accounts (snapshot) | two distinct nodes, no ID collision | account 444455556666's role can only list |
 | 15 | `15_empty_input` | nothing to scan | `collected: 0` → exit 3, never "0 findings" | one namespace manifest |
 | 16 | `16_malformed_inputs` | malformed YAML and HCL next to a valid copy of scenario 1 | both reported with file:line; the rest is loaded | valid files only |
+| 17 | `17_pod_identity_classic` | scenario 1 through EKS Pod Identity: association payments/api, trust `pods.eks.amazonaws.com` for `sts:AssumeRole` + `sts:TagSession` pinned by session tags, agent add-on | path (as scenario 1) | as scenario 1 fixed |
 
 For the "no path" scenarios (2, 3, 11) the vulnerable variant is the near-miss
 configuration that must *not* produce a path; the fixed variant is a hardened

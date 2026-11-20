@@ -40,6 +40,8 @@ func (n *norm) data(rs []*tfraw.Resource) {
 			n.cluster(r)
 		case "aws_eks_pod_identity_association":
 			n.podIdentity(r)
+		case "aws_eks_addon":
+			n.addon(r)
 		case "aws_launch_template":
 			templates[r.Root+"|"+r.Address] = r
 		}
@@ -158,12 +160,35 @@ func (n *norm) cluster(r *tfraw.Resource) {
 	n.b.AddCluster(&model.Cluster{Name: name, ARN: n.arnOf(r), Account: n.account(r), Region: n.region(r), OIDCIssuer: issuer, Source: src(r)})
 }
 
+// podIdentity: aws_eks_pod_identity_association (cluster_name, namespace,
+// service_account, role_arn, target_role_arn, disable_session_tags).
 func (n *norm) podIdentity(r *tfraw.Resource) {
-	get := func(k string) string { s, _ := n.str(r.Root, attr(r, k)); return s }
+	get := func(k string) string {
+		if v := attr(r, k); v == nil || v.Kind == tfraw.KNull || v.Computed() {
+			return ""
+		}
+		s, _ := n.str(r.Root, attr(r, k))
+		return s
+	}
+	disabled := model.Unknown
+	switch v := attr(r, "disable_session_tags"); {
+	case v == nil || v.Kind == tfraw.KNull || v.Computed():
+		disabled = model.False // the API default
+	case v.Kind == tfraw.KBool:
+		disabled = model.TriOf(v.Bool)
+	default:
+		n.gap(coverage.KindUnresolved, r, "disable_session_tags is not known; whether sts:TagSession is needed is unknown")
+	}
 	n.b.AddPodIdentity(&model.PodIdentityAssociation{
 		Cluster: get("cluster_name"), Namespace: get("namespace"), ServiceAccount: get("service_account"),
-		RoleARN: get("role_arn"), Source: src(r),
+		RoleARN: get("role_arn"), TargetRoleARN: get("target_role_arn"), SessionTagsDisabled: disabled, Source: src(r),
 	})
+}
+
+func (n *norm) addon(r *tfraw.Resource) {
+	cluster, _ := n.str(r.Root, attr(r, "cluster_name"))
+	name, _ := n.str(r.Root, attr(r, "addon_name"))
+	n.b.AddAddon(&model.ClusterAddon{Cluster: cluster, Name: name, Source: src(r)})
 }
 
 // nodeGroup: IMDS settings come from the launch template; without one they

@@ -62,7 +62,13 @@ func Summary(l *Loaded) ([]byte, error) {
 		return map[string]any{"workload": names[e.Workload()], "via": e.Via(), "public": e.Public().String()}
 	})
 	s["pod_identity"] = mapSlice(inv.PodIdentity, func(p *model.PodIdentityAssociation) any {
-		return map[string]any{"cluster": p.Cluster, "service_account": p.Namespace + "/" + p.ServiceAccount, "role_arn": p.RoleARN, "source": loc(&p.Source)}
+		return map[string]any{
+			"cluster": p.Cluster, "service_account": p.Namespace + "/" + p.ServiceAccount, "role_arn": p.RoleARN,
+			"target_role_arn": p.TargetRoleARN, "session_tags_disabled": p.SessionTagsDisabled.String(), "source": loc(&p.Source),
+		}
+	})
+	s["addons"] = mapSlice(inv.Addons, func(a *model.ClusterAddon) any {
+		return map[string]any{"cluster": a.Cluster, "name": a.Name, "source": loc(&a.Source)}
 	})
 	s["node_groups"] = mapSlice(inv.NodeGroups, func(n *model.NodeGroup) any {
 		return map[string]any{

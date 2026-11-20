@@ -98,6 +98,9 @@ func (b *Builder) AddPodIdentity(p *model.PodIdentityAssociation) {
 	b.inv.PodIdentity = append(b.inv.PodIdentity, p)
 }
 
+// AddAddon records a cluster add-on.
+func (b *Builder) AddAddon(a *model.ClusterAddon) { b.inv.Addons = append(b.inv.Addons, a) }
+
 // AddNodeGroup records a node group.
 func (b *Builder) AddNodeGroup(n *model.NodeGroup) { b.inv.NodeGroups = append(b.inv.NodeGroups, n) }
 
@@ -128,6 +131,7 @@ func (b *Builder) Build() (*model.Inventory, error) {
 	slices.SortFunc(inv.PodIdentity, func(a, c *model.PodIdentityAssociation) int {
 		return strings.Compare(a.Cluster+"/"+a.Namespace+"/"+a.ServiceAccount, c.Cluster+"/"+c.Namespace+"/"+c.ServiceAccount)
 	})
+	slices.SortFunc(inv.Addons, func(a, c *model.ClusterAddon) int { return strings.Compare(a.Cluster+"/"+a.Name, c.Cluster+"/"+c.Name) })
 	slices.SortFunc(inv.NodeGroups, func(a, c *model.NodeGroup) int { return strings.Compare(a.Cluster+"/"+a.Name, c.Cluster+"/"+c.Name) })
 	slices.SortFunc(inv.RBAC, compareRBAC)
 	slices.SortFunc(inv.Mappings, func(a, c *model.IdentityMapping) int {

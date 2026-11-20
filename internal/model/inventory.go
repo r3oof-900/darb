@@ -52,13 +52,29 @@ type Cluster struct {
 	Source     SourceLocation
 }
 
-// PodIdentityAssociation maps a service account to a role (EKS Pod Identity).
+// PodIdentityAssociation maps a service account to a role (EKS Pod Identity;
+// EKS API Reference › CreatePodIdentityAssociation).
 type PodIdentityAssociation struct {
 	Cluster        string
 	Namespace      string
 	ServiceAccount string
 	RoleARN        string
-	Source         SourceLocation
+	// TargetRoleARN is the role the association role chains into
+	// (targetRoleArn); "" when none.
+	TargetRoleARN string
+	// SessionTagsDisabled is disableSessionTags: False (the default) means
+	// EKS adds its six session tags, so the trust policy must also allow
+	// sts:TagSession.
+	SessionTagsDisabled Tri
+	Source              SourceLocation
+}
+
+// ClusterAddon is an EKS add-on installed on a cluster (for example the
+// eks-pod-identity-agent, without which Pod Identity issues no credentials).
+type ClusterAddon struct {
+	Cluster string
+	Name    string
+	Source  SourceLocation
 }
 
 // NodeGroup is a group of worker nodes with an instance role and IMDS settings.
@@ -117,6 +133,7 @@ type Inventory struct {
 	Trusts          []*TrustRelationship
 	Exposures       []*NetworkExposure
 	PodIdentity     []*PodIdentityAssociation
+	Addons          []*ClusterAddon
 	NodeGroups      []*NodeGroup
 	RBAC            []*RBACGrant
 	Mappings        []*IdentityMapping

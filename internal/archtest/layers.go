@@ -231,7 +231,8 @@ func entryRules() []*Rule {
 				"internal/redact", "internal/safeio", "internal/version", "internal/managedpolicies",
 				"pkg/schema",
 			},
-			External: []string{extXSync},
+			External:     []string{extXSync},
+			TestInternal: []string{"internal/eval/condition", "internal/eval/match"},
 		},
 		{
 			Package: "internal/cli", Layer: LayerEntry,

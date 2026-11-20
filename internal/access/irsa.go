@@ -38,19 +38,6 @@ func IRSARequest(sa *model.ServiceAccount, cluster *model.Cluster, roleARN, role
 	}
 }
 
-// PodIdentityRequest is the request the EKS Pod Identity agent makes: the
-// service principal pods.eks.amazonaws.com calls sts:AssumeRole (and
-// sts:TagSession) on the associated role (EKS User Guide › "EKS Pod Identity").
-func PodIdentityRequest(roleARN, roleAccount, action string) *eval.Request {
-	return &eval.Request{
-		Principal:       match.RequestPrincipal{Kind: match.KindService, ARN: "pods.eks.amazonaws.com"},
-		Action:          action,
-		Resource:        roleARN,
-		ResourceAccount: roleAccount,
-		Context:         condition.NewContext(&condition.Input{Default: condition.StateUnknown}),
-	}
-}
-
 // TrustPolicySet evaluates a role's trust policy: a resource-based policy
 // that must allow (docs/DESIGN.md section 6.1).
 func TrustPolicySet(trust *model.PolicyDocument) *eval.PolicySet {

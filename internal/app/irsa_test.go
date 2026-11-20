@@ -7,6 +7,8 @@ import (
 
 	"github.com/r3oof-900/clapa/internal/access"
 	"github.com/r3oof-900/clapa/internal/eval"
+	"github.com/r3oof-900/clapa/internal/eval/condition"
+	"github.com/r3oof-900/clapa/internal/eval/match"
 	"github.com/r3oof-900/clapa/internal/model"
 )
 
@@ -83,4 +85,75 @@ func saNamed(inv *model.Inventory, ns, name string) *model.ServiceAccount {
 		}
 	}
 	return &model.ServiceAccount{Cluster: "prod", Namespace: ns, Name: name, Audience: "sts.amazonaws.com"}
+}
+
+// TestPodIdentityThroughEvaluator: scenario 17 is scenario 1 through EKS Pod
+// Identity. The association links payments/api to the role; the trust policy
+// is decided by the evaluator for sts:AssumeRole and sts:TagSession with the
+// session tags EKS adds; the role's own policy then reads (or not) the PII.
+func TestPodIdentityThroughEvaluator(t *testing.T) {
+	for _, c := range []struct {
+		variant string
+		readPII eval.Verdict
+	}{
+		{"vulnerable", eval.Allow},
+		{"fixed", eval.ImplicitDeny},
+	} {
+		t.Run(c.variant, func(t *testing.T) {
+			dir := copyTree(t, filepath.Join(repoRoot(t), "tests", "fixtures", "17_pod_identity_classic", c.variant))
+			l, err := Load(context.Background(), scansFor(t, dir)["normalized.golden.json"])
+			if err != nil {
+				t.Fatal(err)
+			}
+			inv := l.Inventory
+			const role = "arn:aws:iam::111122223333:role/payments-api"
+			trust := trustOf(t, inv, role)
+			cluster := clusterNamed(t, inv, "prod")
+			agent := access.AgentInstalled(inv, "prod")
+			if agent != model.True {
+				t.Fatalf("the agent add-on is in the input: %s", agent)
+			}
+			api := saNamed(inv, "payments", "api")
+			if api.RoleARN != "" {
+				t.Fatalf("no IRSA annotation in this scenario: %q", api.RoleARN)
+			}
+			assoc := access.AssociationsFor(inv, api)
+			if len(assoc) != 1 || assoc[0].RoleARN != role {
+				t.Fatalf("associations of payments/api: %+v", assoc)
+			}
+			if got := access.PodIdentityAssume(assoc[0], cluster, trust, "111122223333", agent); got.Verdict != eval.Allow ||
+				got.AssumeRole != eval.Allow || got.TagSession != eval.Allow {
+				t.Errorf("payments/api assumes the role: %+v", got)
+			}
+			// The same role associated with another service account: the
+			// trust policy's tag conditions refuse it.
+			other := *assoc[0]
+			other.Namespace, other.ServiceAccount = "tools", "default"
+			if got := access.PodIdentityAssume(&other, cluster, trust, "111122223333", agent); got.Verdict != eval.ImplicitDeny {
+				t.Errorf("tools/default: %+v", got)
+			}
+			if got := access.AssociationsFor(inv, saNamed(inv, "tools", "default")); len(got) != 0 {
+				t.Errorf("tools/default has no association: %+v", got)
+			}
+			// What the session can do with the role's identity policy: scenario 1.
+			bucket := "arn:aws:s3:::acme-customer-pii"
+			ps := &eval.PolicySet{}
+			for _, p := range inv.Policies {
+				if p.Target == model.NewID(model.KindIAMRole, role) {
+					ps.Identity = append(ps.Identity, p.Doc)
+				}
+			}
+			req := &eval.Request{
+				Principal: match.RequestPrincipal{
+					Kind: match.KindAssumedRole, ARN: "arn:aws:sts::111122223333:assumed-role/payments-api/eks-prod-api",
+					Account: "111122223333", SourceARN: role,
+				},
+				Action: "s3:GetObject", Resource: bucket + "/customers.csv", ResourceAccount: "111122223333",
+				Context: condition.NewContext(&condition.Input{Default: condition.StateAbsent}),
+			}
+			if got := eval.Evaluate(req, ps); got.Verdict != c.readPII {
+				t.Errorf("read PII: %s, want %s", got.Verdict, c.readPII)
+			}
+		})
+	}
 }

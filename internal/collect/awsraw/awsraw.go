@@ -164,6 +164,9 @@ type PodIdentityAssociation struct {
 	ServiceAccount string `json:"serviceAccount"`
 	RoleArn        string `json:"roleArn"`
 	AssociationArn string `json:"associationArn"`
+	TargetRoleArn  string `json:"targetRoleArn,omitempty"`
+	// DisableSessionTags is nil when the snapshot does not record it.
+	DisableSessionTags *bool `json:"disableSessionTags,omitempty"`
 }
 
 // Call is one collection API call and its outcome.

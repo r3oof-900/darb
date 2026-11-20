@@ -59,6 +59,10 @@ func TestNormalizeSnapshot(t *testing.T) {
 	if len(inv.Resources) != 2 || len(inv.Clusters) != 1 || inv.Clusters[0].OIDCIssuer == "" || len(inv.PodIdentity) != 1 {
 		t.Fatalf("resources %d clusters %+v pod identity %+v", len(inv.Resources), inv.Clusters, inv.PodIdentity)
 	}
+	// The snapshot does not record disableSessionTags: unknown, not "enabled".
+	if inv.PodIdentity[0].SessionTagsDisabled != model.Unknown {
+		t.Errorf("session tags of an association without disableSessionTags: %s", inv.PodIdentity[0].SessionTagsDisabled)
+	}
 	for _, r := range inv.Resources {
 		if r.Kind() == model.KindS3Bucket && (r.Encryption().Type != "" || r.S3().RestrictPublicBuckets != model.Unknown || r.Region() != "eu-west-1") {
 			t.Errorf("uncollected facts stay unknown: %+v %+v", r.Encryption(), r.S3())
@@ -88,4 +92,11 @@ func gapText(rec *coverage.Recorder) string {
 		b.WriteString(all[i].Detail + "\n")
 	}
 	return b.String()
+}
+
+func TestOptionalTri(t *testing.T) {
+	yes, no := true, false
+	if optionalTri(nil) != model.Unknown || optionalTri(&yes) != model.True || optionalTri(&no) != model.False {
+		t.Error("optionalTri")
+	}
 }
