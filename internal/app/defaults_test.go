@@ -1,6 +1,8 @@
 package app
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -219,6 +221,33 @@ spec:
 			}
 			if p := got["egress-only"]; p == nil || p.Ingress || p.DefaultDenyIngress() || len(p.Defaulted) != 0 {
 				t.Errorf("stated Egress only: %+v", p)
+			}
+		}},
+		{model.DefaultOIDCAudience, func(t *testing.T) {
+			pii := "arn:aws:s3:::acme-customer-pii"
+			f := findingFor(analyzeVariant(t, "01_classic/vulnerable", nil), "CLAPA-PATH-001", pii)
+			if f == nil || !slices.Contains(f.DefaultsUsed, model.DefaultOIDCAudience) {
+				t.Fatalf("no provider in the input: %+v", f)
+			}
+			provider := func(clientIDs string) func(dir string) {
+				return func(dir string) {
+					tf := `resource "aws_iam_openid_connect_provider" "eks" {
+  url             = "https://${local.oidc_host}"
+  client_id_list  = [` + clientIDs + `]
+  thumbprint_list = ["9e99a48a9960b14926bb7f3b02e22da2b0ab7280"]
+}
+`
+					if err := os.WriteFile(filepath.Join(dir, "terraform", "oidc.tf"), []byte(tf), 0o600); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			if other := findingFor(analyzeVariant(t, "01_classic/vulnerable", provider(`"other-audience"`)), "CLAPA-PATH-001", pii); other != nil {
+				t.Errorf("the provider does not accept sts.amazonaws.com: %+v", other)
+			}
+			f = findingFor(analyzeVariant(t, "01_classic/vulnerable", provider(`"sts.amazonaws.com"`)), "CLAPA-PATH-001", pii)
+			if f == nil || slices.Contains(f.DefaultsUsed, model.DefaultOIDCAudience) {
+				t.Errorf("the provider in the input decides, no default: %+v", f)
 			}
 		}},
 		{model.DefaultUnsetRoleBindings, func(t *testing.T) {

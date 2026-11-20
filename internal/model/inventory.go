@@ -100,6 +100,16 @@ func (p *NetworkPolicy) DefaultDenyIngress() bool {
 	return p.SelectsAll && p.Ingress && p.IngressRules == 0
 }
 
+// OIDCProvider is an IAM OIDC identity provider. STS accepts a web identity
+// token only when its aud claim is one of ClientIDs (IAM User Guide ›
+// "Create an OpenID Connect (OIDC) identity provider").
+type OIDCProvider struct {
+	ARN       string
+	Account   string
+	ClientIDs []string
+	Source    SourceLocation
+}
+
 // ClusterAddon is an EKS add-on installed on a cluster (for example the
 // eks-pod-identity-agent, without which Pod Identity issues no credentials).
 type ClusterAddon struct {
@@ -166,6 +176,7 @@ type Inventory struct {
 	PodIdentity     []*PodIdentityAssociation
 	Addons          []*ClusterAddon
 	NetworkPolicies []*NetworkPolicy
+	OIDCProviders   []*OIDCProvider
 	NodeGroups      []*NodeGroup
 	RBAC            []*RBACGrant
 	Mappings        []*IdentityMapping

@@ -29,13 +29,18 @@ func target(e *graph.Edge) mode {
 	return full
 }
 
+// allowed: with the cloud identity only (identity), neither RBAC nor
+// minting a token is possible; with the account's own Kubernetes token
+// (k8s), RBAC is, and minting when the account itself holds that right
+// ("minted-self"); after an RBAC escalation (full), everything is.
 func allowed(m mode, e *graph.Edge) bool {
 	rbac := e.Kind == graph.CanEscalate && e.Sub == "rbac"
+	mint := e.Kind == graph.Assumes && (e.Sub == "minted" || e.Sub == "minted-self")
 	switch m {
 	case identity:
-		return !rbac
+		return !rbac && !mint
 	case k8s:
-		return rbac
+		return rbac || e.Kind == graph.Assumes && e.Sub == "minted-self"
 	case full, modes:
 	}
 	return true

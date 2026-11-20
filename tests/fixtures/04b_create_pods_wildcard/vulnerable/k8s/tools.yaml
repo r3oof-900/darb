@@ -1,0 +1,57 @@
+# Scenario 4b: a service account without any IRSA annotation whose Role may
+# create pods in its own namespace. A pod it creates can project a token
+# for any service account of the namespace, itself included, with the
+# sts.amazonaws.com audience; the wildcard trust of payments-api accepts it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tools
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: builder
+  namespace: tools
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: builder
+  namespace: tools
+spec:
+  selector:
+    matchLabels:
+      app: builder
+  template:
+    metadata:
+      labels:
+        app: builder
+    spec:
+      serviceAccountName: builder
+      containers:
+        - name: builder
+          image: registry.example.com/tools/builder:2.0
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-creator
+  namespace: tools
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["create", "get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: builder-pod-creator
+  namespace: tools
+subjects:
+  - kind: ServiceAccount
+    name: builder
+    namespace: tools
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: pod-creator

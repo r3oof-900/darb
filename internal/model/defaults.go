@@ -23,6 +23,7 @@ const (
 	DefaultPodIdentitySTags  = "eks.pod-identity.disableSessionTags"
 	DefaultUnsetRoleBindings = "terraform.aws_iam_role.managed_policy_arns"
 	DefaultNetPolTypes       = "k8s.networkPolicy.policyTypes"
+	DefaultOIDCAudience      = "eks.irsa.oidc-provider-audience"
 )
 
 // DocumentedDefault is one deterministic default and where it is documented.
@@ -77,6 +78,11 @@ func DocumentedDefaults() []DocumentedDefault {
 			DefaultPodIdentitySTags, "Pod Identity association disableSessionTags", "false",
 			"https://docs.aws.amazon.com/eks/latest/APIReference/API_CreatePodIdentityAssociation.html",
 			"Disable the automatic sessions tags that are appended by EKS Pod Identity.",
+		},
+		{
+			DefaultOIDCAudience, "client IDs (audiences) of a cluster's IAM OIDC provider that is not in the input", "sts.amazonaws.com",
+			"https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html",
+			"For Audience, enter sts.amazonaws.com.",
 		},
 		{
 			DefaultNetPolTypes, "NetworkPolicy policyTypes", "includes Ingress",

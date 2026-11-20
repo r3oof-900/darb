@@ -104,6 +104,28 @@ for n, row in (("04_wildcard_sub", 4), ("05_aud_only", 5)):
                        "absent": [{"rule": "CLAPA-PATH-001", "entry": "k8s:prod/tools/Deployment/debug", "jewel": PII},
                                   {"rule": "CLAPA-POST-001", "resource": ROLE}]}
 
+# 4b - added in the Phase 4 review: a service account without annotation
+# whose Role may create pods in its namespace mints an sts.amazonaws.com
+# token for itself (CAN_ESCALATE[k8s-token], then ASSUMES via the minted
+# token) and the wildcard trust accepts it. builder is not exposed (400),
+# 3 edges (810): 324; 324 x 900 = 291, medium. The token is mounted by
+# default; the OIDC provider is not in the input, so its audience is the
+# documented sts.amazonaws.com.
+OIDC_DEFAULT = "eks.irsa.oidc-provider-audience"
+BUILDER = "k8s:prod/tools/Deployment/builder"
+NS_TOOLS_4B = "k8s:prod//Namespace/tools"
+cut, alt = decrypt_cut(ROLE, PII_KEY, PII)
+E["04b_create_pods_wildcard/vulnerable"] = {"derived_from": "13.2 row 4b (Phase 4 review)", "findings": [
+    path_finding("CLAPA-PATH-002", BUILDER, PII,
+                 ["CAN_ESCALATE k8s:prod/tools/ServiceAccount/builder", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
+                 291, "medium", cut, alt, defaults=[OIDC_DEFAULT, AUTOMOUNT_DEFAULT]),
+    posture("CLAPA-POST-001", ROLE, 600, "high"),
+    posture("CLAPA-POST-004", BUILDER, 350, "medium", [AUTOMOUNT_DEFAULT]),
+    no_default_deny(NS_TOOLS_4B)]}
+E["04b_create_pods_wildcard/fixed"] = {"derived_from": "13.2 row 4b fixed: :sub pinned to payments/api", "findings": [
+    posture("CLAPA-POST-004", BUILDER, 350, "medium", [AUTOMOUNT_DEFAULT]), no_default_deny(NS_TOOLS_4B)],
+    "absent": [{"rule": "CLAPA-PATH-002", "entry": BUILDER, "jewel": PII}, {"rule": "CLAPA-POST-001", "resource": ROLE}]}
+
 # 6 - sts:AssumeRole on * -> AdministratorAccess role in account B -> PII in B.
 # 4 edges (hops 729), exposure 1000: likelihood 729; 729 x 900 = 656, high.
 B = "444455556666"

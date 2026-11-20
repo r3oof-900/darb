@@ -117,6 +117,11 @@ func (b *Builder) AddNetworkPolicy(p *model.NetworkPolicy) {
 	b.inv.NetworkPolicies = append(b.inv.NetworkPolicies, p)
 }
 
+// AddOIDCProvider records an IAM OIDC identity provider.
+func (b *Builder) AddOIDCProvider(p *model.OIDCProvider) {
+	b.inv.OIDCProviders = append(b.inv.OIDCProviders, p)
+}
+
 // AddAddon records a cluster add-on.
 func (b *Builder) AddAddon(a *model.ClusterAddon) { b.inv.Addons = append(b.inv.Addons, a) }
 
@@ -154,6 +159,7 @@ func (b *Builder) Build() (*model.Inventory, error) {
 	slices.SortFunc(inv.NetworkPolicies, func(a, c *model.NetworkPolicy) int {
 		return strings.Compare(a.Cluster+"/"+a.Namespace+"/"+a.Name, c.Cluster+"/"+c.Namespace+"/"+c.Name)
 	})
+	slices.SortFunc(inv.OIDCProviders, func(a, c *model.OIDCProvider) int { return strings.Compare(a.ARN, c.ARN) })
 	slices.SortFunc(inv.Addons, func(a, c *model.ClusterAddon) int { return strings.Compare(a.Cluster+"/"+a.Name, c.Cluster+"/"+c.Name) })
 	slices.SortFunc(inv.NodeGroups, func(a, c *model.NodeGroup) int { return strings.Compare(a.Cluster+"/"+a.Name, c.Cluster+"/"+c.Name) })
 	slices.SortFunc(inv.RBAC, compareRBAC)

@@ -128,7 +128,8 @@ func (n *norm) addWorkload(o *k8sraw.Object, spec *corev1.PodSpec, labels map[st
 	automount, defaulted := automountOf(spec, acct, declared || sa == "default")
 	w := model.NewWorkload(&model.WorkloadInput{
 		Cluster: n.cluster, Namespace: o.Namespace, Kind: o.Kind, Name: o.Name, ServiceAccount: sa,
-		HostNetwork: spec.HostNetwork, Privileged: privileged(spec), AutomountToken: automount, Defaulted: defaulted, Source: loc(o),
+		HostNetwork: spec.HostNetwork, Privileged: privileged(spec), AutomountToken: automount, Defaulted: defaulted,
+		ProjectedAudiences: projectedAudiences(spec), Source: loc(o),
 	})
 	n.b.AddWorkload(w)
 	n.workloads = append(n.workloads, &workload{node: w, labels: labels, spec: spec})
@@ -149,6 +150,24 @@ func automountOf(spec *corev1.PodSpec, acct *corev1.ServiceAccount, accountKnown
 		return model.True, []string{model.DefaultAutomountToken}
 	}
 	return model.Unknown, nil
+}
+
+// projectedAudiences: serviceAccountToken projections with an explicit
+// audience (an empty audience is the API server's own, not usable with STS).
+func projectedAudiences(spec *corev1.PodSpec) []string {
+	var out []string
+	for i := range spec.Volumes {
+		p := spec.Volumes[i].Projected
+		if p == nil {
+			continue
+		}
+		for _, src := range p.Sources {
+			if t := src.ServiceAccountToken; t != nil && t.Audience != "" {
+				out = append(out, t.Audience)
+			}
+		}
+	}
+	return out
 }
 
 // privileged: any container or init container with securityContext.privileged

@@ -112,3 +112,59 @@ func TestRuleCatalogMetadata(t *testing.T) {
 		}
 	}
 }
+
+// A pod that projects a service account token itself gets an ASSUMES edge
+// with no annotation (Phase 4 review, C): an sts.amazonaws.com audience is
+// accepted by the documented OIDC setup; any other audience, with the
+// provider not in the input, is UNKNOWN.
+func TestProjectedTokenWithoutAnnotation(t *testing.T) {
+	project := func(audience string) func(dir string) {
+		return func(dir string) {
+			file := filepath.Join(dir, "k8s", "tools.yaml")
+			replaceIn(t, file, "    eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/tools-ci\n", "    team: tools\n")
+			replaceIn(t, file, "  annotations:\n    team: tools\n", "  labels:\n    team: tools\n")
+			replaceIn(t, file, "      containers:\n        - name: shell\n", "      volumes:\n        - name: aws\n          projected:\n            sources:\n              - serviceAccountToken:\n                  audience: "+audience+"\n                  path: token\n      containers:\n        - name: shell\n")
+		}
+	}
+	pathFrom := func(a *Analysis) *rules.Finding {
+		for i := range a.Findings {
+			if a.Findings[i].Entry == "k8s:prod/tools/Deployment/debug" {
+				return &a.Findings[i]
+			}
+		}
+		return nil
+	}
+	if f := pathFrom(analyzeVariant(t, "04_wildcard_sub/vulnerable", project("sts.amazonaws.com"))); f == nil || !f.Confirmed ||
+		!strings.Contains(strings.Join(f.Path, " "), "ASSUMES arn:aws:iam::111122223333:role/payments-api") {
+		t.Errorf("projected sts.amazonaws.com token: %+v", f)
+	}
+	// The trust itself requires aud = sts.amazonaws.com: a definite no.
+	if f := pathFrom(analyzeVariant(t, "04_wildcard_sub/vulnerable", project("vault"))); f != nil {
+		t.Errorf("the trust's aud condition refuses the token: %+v", f)
+	}
+	// The trust accepts vault too; whether the provider does is not in the input.
+	acceptVault := func(dir string) {
+		project("vault")(dir)
+		replaceIn(t, filepath.Join(dir, "terraform", "trust.tf"), `values   = ["sts.amazonaws.com"]`, `values   = ["sts.amazonaws.com", "vault"]`)
+	}
+	if f := pathFrom(analyzeVariant(t, "04_wildcard_sub/vulnerable", acceptVault)); f == nil || f.Confirmed {
+		t.Errorf("an audience the absent provider may not accept is UNKNOWN: %+v", f)
+	}
+}
+
+// create on serviceaccounts/token is as good as create on pods: it mints a
+// token with any audience for any service account of the namespace.
+func TestTokenRequestIsLikePodCreation(t *testing.T) {
+	a := analyzeVariant(t, "04b_create_pods_wildcard/vulnerable", func(dir string) {
+		replaceIn(t, filepath.Join(dir, "k8s", "tools.yaml"), `resources: ["pods"]`, `resources: ["serviceaccounts/token"]`)
+	})
+	if f := findingFor(a, "CLAPA-PATH-002", "arn:aws:s3:::acme-customer-pii"); f == nil || f.Entry != "k8s:prod/tools/Deployment/builder" {
+		t.Errorf("token request: %+v", f)
+	}
+	a = analyzeVariant(t, "04b_create_pods_wildcard/vulnerable", func(dir string) {
+		replaceIn(t, filepath.Join(dir, "k8s", "tools.yaml"), `verbs: ["create", "get", "list"]`, `verbs: ["get", "list"]`)
+	})
+	if f := findingFor(a, "CLAPA-PATH-002", "arn:aws:s3:::acme-customer-pii"); f != nil {
+		t.Errorf("read-only RBAC mints nothing: %+v", f)
+	}
+}

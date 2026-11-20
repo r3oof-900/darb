@@ -128,6 +128,15 @@ func (b *Builder) Edge(e *Edge) EdgeID {
 	return EdgeID(len(b.edges) - 1) //nolint:gosec // G115: bounded as above
 }
 
+// EachFrom calls f on every edge added so far from node n (before Build).
+func (b *Builder) EachFrom(n NodeID, f func(*Edge)) {
+	for i := range b.edges {
+		if b.edges[i].From == n {
+			f(&b.edges[i])
+		}
+	}
+}
+
 // Build sorts nodes by canonical ID and edges by (from, kind, to, sub, for),
 // so iteration order depends only on the content.
 func (b *Builder) Build() *Graph {

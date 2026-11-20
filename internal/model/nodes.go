@@ -152,8 +152,11 @@ type WorkloadInput struct {
 	HostNetwork    bool
 	Privileged     bool // any container runs privileged
 	AutomountToken Tri  // Unknown when not stated and not derivable
-	Defaulted      []string
-	Source         SourceLocation
+	// ProjectedAudiences are the audiences of serviceAccountToken volumes the
+	// pod spec projects itself (no annotation needed).
+	ProjectedAudiences []string
+	Defaulted          []string
+	Source             SourceLocation
 }
 
 // Workload is a Kubernetes workload.
@@ -166,6 +169,7 @@ type Workload struct {
 	serviceAccount string
 	hostNetwork    bool
 	privileged     bool
+	projected      []string
 	automountToken Tri
 	defaulted      []string
 	source         SourceLocation
@@ -177,9 +181,13 @@ func NewWorkload(in *WorkloadInput) *Workload {
 	return &Workload{
 		id: NewID(KindK8sWorkload, identity), cluster: in.Cluster, namespace: in.Namespace, kind: in.Kind,
 		name: in.Name, serviceAccount: in.ServiceAccount, hostNetwork: in.HostNetwork, privileged: in.Privileged,
-		automountToken: in.AutomountToken, defaulted: sortedSet(in.Defaulted), source: in.Source,
+		projected: sortedSet(in.ProjectedAudiences), automountToken: in.AutomountToken, defaulted: sortedSet(in.Defaulted), source: in.Source,
 	}
 }
+
+// ProjectedAudiences returns the audiences of the service account tokens
+// the pod spec projects.
+func (w *Workload) ProjectedAudiences() []string { return slices.Clone(w.projected) }
 
 // Privileged reports whether any container runs privileged.
 func (w *Workload) Privileged() bool { return w.privileged }

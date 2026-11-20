@@ -3,6 +3,17 @@ kind: Namespace
 metadata:
   name: tools
 ---
+# The namespace's default service account carries an IRSA annotation for a
+# low-privilege role, so its pods get an sts.amazonaws.com token, which the
+# wildcard trust of payments-api also accepts.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: default
+  namespace: tools
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/tools-ci
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:

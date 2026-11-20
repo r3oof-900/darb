@@ -53,7 +53,11 @@ type builder struct {
 	clusters   map[string]*model.Cluster
 	accounts   map[string][]*model.ServiceAccount // cluster/namespace -> service accounts
 	workloads  map[string][]*model.Workload       // cluster/namespace -> workloads
-	notes      []Note
+	// minters: service accounts another account controls through RBAC;
+	// selfMinters: accounts whose own RBAC lets them control themselves.
+	minters     map[model.ID]bool
+	selfMinters map[model.ID]eval.Verdict
+	notes       []Note
 }
 
 // Build derives the access graph from the inventory (DESIGN.md §7.2): each
@@ -68,6 +72,7 @@ func Build(inv *model.Inventory, opts *Options) *Result {
 		trusts: map[model.ID]*model.PolicyDocument{}, byARN: map[string]*model.Principal{},
 		resources: map[string]*model.Resource{}, clusters: map[string]*model.Cluster{},
 		accounts: map[string][]*model.ServiceAccount{}, workloads: map[string][]*model.Workload{},
+		minters: map[model.ID]bool{}, selfMinters: map[model.ID]eval.Verdict{},
 	}
 	b.index()
 	b.kubernetes()

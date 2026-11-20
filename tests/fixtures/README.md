@@ -1,6 +1,6 @@
 # Golden scenarios
 
-The 17 scenarios of docs/DESIGN.md section 13, each with a `vulnerable` and a
+The scenarios of docs/DESIGN.md section 13, each with a `vulnerable` and a
 `fixed` variant. Fixtures are **immutable**: tests copy each variant to a
 temporary directory before reading it (`internal/app/golden_test.go`), and CI
 fails if `git diff --exit-code -- tests/fixtures` is not clean after the tests.
@@ -30,6 +30,7 @@ diff is a behaviour change.
 | 3 | `03_ec_other_bucket` | `s3:GetObject` on PII bucket B, decrypt on B's key only with another bucket's encryption context | no path to B | no read on B at all |
 | 4 | `04_wildcard_sub` | trust `StringLike :sub = system:serviceaccount:*:*` | any SA → role → PII | `:sub` pinned |
 | 5 | `05_aud_only` | trust with `:aud` only | any SA → role → PII | `:sub` pinned |
+| 4b | `04b_create_pods_wildcard` | unannotated SA `tools/builder` with RBAC `create pods` in `tools`; wildcard trust | path via CAN_ESCALATE (own token, minted STS token) | `:sub` pinned |
 | 6 | `06_role_chain_cross_account` | `sts:AssumeRole` on `*` → `AdministratorAccess` role in account 444455556666 trusting 111122223333 root | cross-account path | AssumeRole scoped to one role |
 | 7 | `07_passrole_lambda` | `iam:PassRole` on `*` + `lambda:CreateFunction` + `lambda:InvokeFunction` → role reading PII | escalation path | PassRole scoped and conditioned, no InvokeFunction |
 | 8 | `08_rbac_create_pods` | SA `ci` may `create pods` in `payments`, where SA `api` has an IRSA role reading PII | escalation path | `get/list/watch` only |

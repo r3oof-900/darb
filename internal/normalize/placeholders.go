@@ -68,6 +68,10 @@ func eksStrings(inv *model.Inventory) []string {
 	for _, a := range inv.PodIdentity {
 		add(a.Cluster, a.Namespace, a.ServiceAccount, a.RoleARN, a.TargetRoleARN)
 	}
+	for _, p := range inv.OIDCProviders {
+		add(p.ARN, p.Account)
+		add(p.ClientIDs...)
+	}
 	for _, np := range inv.NetworkPolicies {
 		add(np.Cluster, np.Namespace, np.Name)
 	}

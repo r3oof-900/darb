@@ -3,6 +3,7 @@ package terraform
 import (
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/r3oof-900/clapa/internal/collect/tfraw"
 	"github.com/r3oof-900/clapa/internal/coverage"
@@ -44,6 +45,8 @@ func (n *norm) data(rs []*tfraw.Resource) {
 			n.podIdentity(r)
 		case "aws_eks_addon":
 			n.addon(r)
+		case "aws_iam_openid_connect_provider":
+			n.oidcProvider(r)
 		case "aws_launch_template":
 			templates[r.Root+"|"+r.Address] = r
 		}
@@ -247,4 +250,21 @@ func (n *norm) imds(t *tfraw.Resource, ng *model.NodeGroup) {
 			ng.HopLimit, _ = strconv.Atoi(s)
 		}
 	}
+}
+
+// oidcProvider: aws_iam_openid_connect_provider (url, client_id_list). An
+// unresolved client ID stays a placeholder, so matching it is UNKNOWN.
+func (n *norm) oidcProvider(r *tfraw.Resource) {
+	url, _ := n.str(r.Root, attr(r, "url"))
+	host := strings.TrimPrefix(url, "https://")
+	p := &model.OIDCProvider{
+		ARN: "arn:" + n.opts.Partition + ":iam::" + n.account(r) + ":oidc-provider/" + host, Account: n.account(r), Source: src(r),
+	}
+	if v := attr(r, "client_id_list"); v != nil {
+		for _, item := range listItems(v) {
+			s, _ := n.str(r.Root, item)
+			p.ClientIDs = append(p.ClientIDs, s)
+		}
+	}
+	n.b.AddOIDCProvider(p)
 }

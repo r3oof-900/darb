@@ -11,7 +11,7 @@
       "source": "clapa.yaml (clusters.prod)"
     }
   ],
-  "collected": 13,
+  "collected": 14,
   "entry_points": [
     {
       "public": "unknown",
@@ -119,8 +119,8 @@
         "eks.irsa.audience",
         "k8s.automountServiceAccountToken"
       ],
-      "role_arn": "",
-      "source": "k8s/tools.yaml:6 (Deployment/tools/debug)",
+      "role_arn": "arn:aws:iam::111122223333:role/tools-ci",
+      "source": "k8s/tools.yaml:9 (ServiceAccount/tools/default)",
       "subject": "system:serviceaccount:tools:default"
     }
   ],
@@ -146,7 +146,7 @@
       "identity": "k8s:prod/tools/Deployment/debug",
       "privileged": false,
       "service_account": "default",
-      "source": "k8s/tools.yaml:6 (Deployment/tools/debug)"
+      "source": "k8s/tools.yaml:17 (Deployment/tools/debug)"
     },
     {
       "automount_token": "true",

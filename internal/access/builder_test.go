@@ -54,10 +54,25 @@ func TestVerdictCombinators(t *testing.T) {
 			t.Errorf("publicAccess(%s, %s) = %s", c.v, c.restrict, got)
 		}
 	}
-	if !createsPods([]model.RBACRule{{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"create"}}}) ||
-		createsPods([]model.RBACRule{{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get"}}}) ||
-		createsPods([]model.RBACRule{{APIGroups: []string{"*"}, Resources: []string{"*"}, Verbs: []string{"*"}, ResourceNames: []string{"one"}}}) ||
-		!createsPods([]model.RBACRule{{APIGroups: []string{"*"}, Resources: []string{"pods/exec"}, Verbs: []string{"*"}}}) {
-		t.Error("createsPods")
+	rule := func(groups, resources, verbs []string, names ...string) []model.RBACRule {
+		return []model.RBACRule{{APIGroups: groups, Resources: resources, Verbs: verbs, ResourceNames: names}}
+	}
+	core, all := []string{""}, []string{"*"}
+	for _, c := range []struct {
+		rules []model.RBACRule
+		want  bool
+	}{
+		{rule(core, []string{"pods"}, []string{"create"}), true},
+		{rule(core, []string{"pods"}, []string{"get"}), false},
+		{rule(all, all, all, "one"), false},
+		{rule(all, []string{"pods/exec"}, all), true},
+		{rule(core, []string{"serviceaccounts/token"}, []string{"create"}), true},
+		{rule(core, []string{"serviceaccounts"}, []string{"impersonate"}), true},
+		{rule(core, []string{"serviceaccounts"}, []string{"create"}), false},
+		{rule([]string{"apps"}, []string{"pods"}, []string{"create"}), false},
+	} {
+		if got := controlsServiceAccounts(c.rules); got != c.want {
+			t.Errorf("%+v: %v", c.rules, got)
+		}
 	}
 }

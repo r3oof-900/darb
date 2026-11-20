@@ -1,0 +1,153 @@
+{
+  "addons": [],
+  "boundaries": [],
+  "clusters": [
+    {
+      "account": "111122223333",
+      "arn": "",
+      "name": "prod",
+      "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
+      "region": "us-east-1",
+      "source": "clapa.yaml (clusters.prod)"
+    }
+  ],
+  "collected": 12,
+  "entry_points": [
+    {
+      "public": "unknown",
+      "reason": "assume-compromised",
+      "workload": "k8s:prod/tools/Deployment/builder"
+    }
+  ],
+  "exposures": [],
+  "gaps": [],
+  "mappings": [],
+  "network_policies": [],
+  "node_groups": [],
+  "pod_identity": [],
+  "policies": [
+    {
+      "kind": "identity",
+      "policy": "aws_iam_role_policy.payments_api",
+      "source": "terraform/role.tf:6-16 (aws_iam_role_policy.payments_api)",
+      "statements": [
+        "Allow s3:GetObject on arn:aws:s3:::acme-customer-pii/* (0 conditions)",
+        "Allow kms:Decrypt on arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/payments-api",
+      "unresolved_statements": 0
+    },
+    {
+      "default": "kms.default-key-policy",
+      "kind": "resource",
+      "policy": "aws_kms_key.pii.policy",
+      "source": "terraform/pii_kms_bucket.tf:1-7 (aws_kms_key.pii)",
+      "statements": [
+        "Allow kms:* on * (0 conditions)"
+      ],
+      "target": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+      "unresolved_statements": 0
+    }
+  ],
+  "principals": [
+    {
+      "account": "111122223333",
+      "identity": "arn:aws:iam::111122223333:role/payments-api",
+      "kind": "aws:iam:role",
+      "source": "terraform/role.tf:1-4 (aws_iam_role.payments_api)"
+    }
+  ],
+  "rbac": [
+    {
+      "cluster": "prod",
+      "namespace": "tools",
+      "rules": [
+        {
+          "APIGroups": [
+            ""
+          ],
+          "Resources": [
+            "pods"
+          ],
+          "Verbs": [
+            "create",
+            "get",
+            "list"
+          ],
+          "ResourceNames": null
+        }
+      ],
+      "source": "k8s/tools.yaml:45 (RoleBinding/tools/builder-pod-creator)",
+      "subject": "ServiceAccount:tools/builder",
+      "unresolved": ""
+    }
+  ],
+  "resources": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:s3:::acme-customer-pii",
+      "classification": "pii",
+      "classified_by": "tag:DataClass",
+      "defaulted": [],
+      "encryption": {
+        "Type": "aws:kms",
+        "KeyARN": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+        "BucketKey": "unknown"
+      },
+      "kind": "aws:s3:bucket",
+      "region": "us-east-1",
+      "restrict_public_buckets": "true",
+      "source": "terraform/pii_kms_bucket.tf:9-14 (aws_s3_bucket.customer_pii)"
+    },
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+      "classification": "pii",
+      "classified_by": "tag:DataClass",
+      "defaulted": [],
+      "key_rotation": "true",
+      "kind": "aws:kms:key",
+      "region": "us-east-1",
+      "source": "terraform/pii_kms_bucket.tf:1-7 (aws_kms_key.pii)"
+    }
+  ],
+  "service_accounts": [
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
+      "role_arn": "",
+      "source": "k8s/tools.yaml:10 (ServiceAccount/tools/builder)",
+      "subject": "system:serviceaccount:tools:builder"
+    }
+  ],
+  "trusts": [
+    {
+      "kind": "resource",
+      "policy": "aws_iam_role.payments_api.assume_role_policy",
+      "source": "terraform/role.tf:1-4 (aws_iam_role.payments_api)",
+      "statements": [
+        "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (2 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/payments-api",
+      "unresolved_statements": 0
+    }
+  ],
+  "workloads": [
+    {
+      "automount_token": "true",
+      "defaulted": [
+        "k8s.automountServiceAccountToken"
+      ],
+      "host_network": false,
+      "identity": "k8s:prod/tools/Deployment/builder",
+      "privileged": false,
+      "service_account": "builder",
+      "source": "k8s/tools.yaml:16 (Deployment/tools/builder)"
+    }
+  ]
+}
