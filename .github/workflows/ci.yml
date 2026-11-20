@@ -25,6 +25,11 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         go: ["1.26.x", "1.27.x"]
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        # One shell on every OS: PowerShell splits "-coverprofile=coverage.out"
+        # into two arguments on Windows.
+        shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -43,10 +48,8 @@ jobs:
           CGO_ENABLED: "1"
         run: go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
       - name: Fixtures unchanged by tests
-        shell: bash
         run: git diff --exit-code -- tests/fixtures
       - name: Working tree clean (generated files, go.mod/go.sum)
-        shell: bash
         run: git diff --exit-code
 
   lint:
