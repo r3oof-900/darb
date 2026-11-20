@@ -22,7 +22,17 @@
       "defaults_used": [
         "eks.irsa.audience",
         "eks.irsa.oidc-provider-audience"
-      ]
+      ],
+      "fix": [
+        {
+          "edge": "CAN_READ arn:aws:iam::111122223333:role/reader-etl -> arn:aws:s3:::acme-customer-pii",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 3
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": []
     },
     {
       "rule": "CLAPA-PATH-001",
@@ -44,7 +54,17 @@
       "defaults_used": [
         "eks.irsa.audience",
         "eks.irsa.oidc-provider-audience"
-      ]
+      ],
+      "fix": [
+        {
+          "edge": "CAN_READ arn:aws:iam::111122223333:role/reader-bi -> arn:aws:s3:::acme-customer-pii",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 3
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": []
     },
     {
       "rule": "CLAPA-PATH-001",
@@ -66,7 +86,17 @@
       "defaults_used": [
         "eks.irsa.audience",
         "eks.irsa.oidc-provider-audience"
-      ]
+      ],
+      "fix": [
+        {
+          "edge": "CAN_READ arn:aws:iam::111122223333:role/reader-ml -> arn:aws:s3:::acme-customer-pii",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 3
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": []
     },
     {
       "rule": "CLAPA-POST-007",

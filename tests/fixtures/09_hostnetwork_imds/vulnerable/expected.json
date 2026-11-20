@@ -20,7 +20,17 @@
       "alternative_fix": [],
       "defaults_used": [
         "s3.default-encryption"
-      ]
+      ],
+      "fix": [
+        {
+          "edge": "CAN_READ arn:aws:iam::111122223333:role/eks-node -> arn:aws:s3:::acme-customer-exports",
+          "side": "identity",
+          "fix_kind": "narrow",
+          "cost": 1
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": []
     },
     {
       "rule": "CLAPA-POST-002",

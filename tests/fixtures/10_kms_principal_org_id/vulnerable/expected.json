@@ -33,6 +33,7 @@
           "cost": 2
         }
       ],
+      "other_side_fix": [],
       "alternative_fix_detail": [
         {
           "edge": "CAN_READ arn:aws:iam::111122223333:role/payments-api -> arn:aws:s3:::acme-customer-pii",

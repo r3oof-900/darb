@@ -19,7 +19,17 @@
       "alternative_fix": [],
       "defaults_used": [
         "s3.default-encryption"
-      ]
+      ],
+      "fix": [
+        {
+          "edge": "CAN_READ anonymous -> arn:aws:s3:::acme-marketing-leads",
+          "side": "resource",
+          "fix_kind": "narrow",
+          "cost": 2
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": []
     },
     {
       "rule": "CLAPA-POST-005",

@@ -50,7 +50,9 @@ type expectedFinding struct {
 	// Fix: the side the cut chose for each chokepoint edge and its cost
 	// (SCORING.md §4), compared where stated.
 	Fix []expectedFix `json:"fix"`
-	// AlternativeDetail: the cheapest fix of each alternative_fix edge.
+	// OtherSide: the other sides of the cut edges; AlternativeDetail: the
+	// cheapest fix of each alternative_fix edge.
+	OtherSide         []expectedFix `json:"other_side_fix"`
 	AlternativeDetail []expectedFix `json:"alternative_fix_detail"`
 }
 
@@ -151,8 +153,16 @@ func compareFinding(e *expectedFinding, a *rules.Finding) []string {
 	if e.Defaults != nil {
 		diff("defaults_used", e.Defaults, a.DefaultsUsed)
 	}
+	// Every expected cut states its fixes (Phase 5, step 1): a cost or kind
+	// that changes unnoticed is a difference.
+	if len(e.Chokepoints) > 0 && (e.Fix == nil || e.OtherSide == nil || e.AlternativeDetail == nil) {
+		diffs = append(diffs, "the expected file states a cut without fix, other_side_fix and alternative_fix_detail")
+	}
 	if e.Fix != nil {
 		diff("fix", e.Fix, fixSteps(a.Fix))
+	}
+	if e.OtherSide != nil {
+		diff("other_side_fix", e.OtherSide, fixSteps(a.OtherSideFix))
 	}
 	if e.AlternativeDetail != nil {
 		diff("alternative_fix_detail", e.AlternativeDetail, fixSteps(a.AlternativeDetail))

@@ -32,6 +32,22 @@
           "fix_kind": "narrow",
           "cost": 1
         }
+      ],
+      "other_side_fix": [
+        {
+          "edge": "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+          "side": "resource",
+          "fix_kind": "narrow",
+          "cost": 2
+        }
+      ],
+      "alternative_fix_detail": [
+        {
+          "edge": "CAN_READ arn:aws:iam::111122223333:role/payments-api -> arn:aws:s3:::acme-customer-pii",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 3
+        }
       ]
     },
     {
