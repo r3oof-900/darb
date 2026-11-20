@@ -18,6 +18,6 @@ func FuzzPlanJSON(f *testing.F) {
 		if len(data) > 1<<16 {
 			return
 		}
-		_, _ = fromJSON("fuzz.json", data, &coverage.Recorder{})
+		_, _ = fromJSON("fuzz.json", data, &coverage.Recorder{}, nil)
 	})
 }

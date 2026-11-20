@@ -25,13 +25,20 @@ import (
 // Inputs lists what to scan; paths are slash-separated, relative to Root.
 type Inputs struct {
 	Root           string
-	TerraformPlans []string
+	TerraformPlans []PlanInput
 	TerraformDirs  []string
 	K8sDirs        []K8sDir
 	AWSSnapshots   []string
 	Config         *config.Config
 	Limits         safeio.Limits
 	TerraformBin   string
+}
+
+// PlanInput is a Terraform plan and, when known, the root module directory it
+// was made from (used only to verify for_each sets; see the plan collector).
+type PlanInput struct {
+	Path      string
+	ConfigDir string
 }
 
 // K8sDir is a manifest directory and the cluster it describes.
@@ -61,7 +68,7 @@ func Load(ctx context.Context, in *Inputs) (*Loaded, error) {
 	collected := 0
 	tfOpts := terraformOptions(in.Config)
 	for _, p := range in.TerraformPlans {
-		m, err := plan.Collect(ctx, input(in, p), &plan.Options{TerraformBin: in.TerraformBin}, rec)
+		m, err := plan.Collect(ctx, input(in, p.Path), &plan.Options{TerraformBin: in.TerraformBin, ConfigDir: p.ConfigDir}, rec)
 		if err != nil {
 			return nil, err
 		}

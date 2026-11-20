@@ -596,6 +596,8 @@ linters:
             - "github.com/r3oof-900/clapa/internal/collect/tfraw$"
             - "github.com/hashicorp/terraform-json$"
             - "github.com/hashicorp/terraform-json/"
+            - "github.com/hashicorp/hcl/v2$"
+            - "github.com/hashicorp/hcl/v2/"
             - "os/exec$"
           deny:
             - pkg: "syscall"

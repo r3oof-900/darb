@@ -67,7 +67,9 @@ func (n *norm) bucketPart(r *tfraw.Resource, buckets map[string]*bucketFacts) {
 		for _, rule := range r.Attrs.Blocks("rule") {
 			for _, d := range rule.Blocks("apply_server_side_encryption_by_default") {
 				f.enc.Type, _ = n.str(r.Root, valueOf(d, "sse_algorithm"))
-				if v, ok := d.Get("kms_master_key_id"); ok {
+				// Unset (or computed by the provider in a plan) means no key:
+				// SSE-S3, or the AWS managed aws/s3 key for aws:kms.
+				if v, ok := d.Get("kms_master_key_id"); ok && v.Kind != tfraw.KNull && !v.Computed() {
 					f.enc.KeyARN, _ = n.str(r.Root, v)
 				}
 			}

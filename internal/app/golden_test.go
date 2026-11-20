@@ -94,7 +94,10 @@ func scansFor(t *testing.T, dir string) map[string]*Inputs {
 	hasTF := exists(filepath.Join(dir, "terraform"))
 	if exists(filepath.Join(dir, "plan.json")) {
 		p := mk()
-		p.TerraformPlans = []string{"plan.json"}
+		p.TerraformPlans = []PlanInput{{Path: "plan.json"}}
+		if hasTF {
+			p.TerraformPlans[0].ConfigDir = "terraform" // the configuration the plan was made from
+		}
 		scans["normalized.golden.json"] = p
 		if hasTF {
 			s := mk()

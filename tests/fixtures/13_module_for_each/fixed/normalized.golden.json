@@ -11,7 +11,7 @@
       "source": "clapa.yaml (clusters.prod)"
     }
   ],
-  "collected": 14,
+  "collected": 15,
   "entry_points": [
     {
       "public": "unknown",
@@ -318,6 +318,54 @@
       "Account": "",
       "API": "",
       "Detail": "website_endpoint is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket_server_side_encryption_configuration.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "blocked_encryption_types is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket_server_side_encryption_configuration.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "bucket_key_enabled is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket_server_side_encryption_configuration.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "id is only known after apply (computed by the provider: not set in the configuration)"
+    },
+    {
+      "Kind": "unknown-after-apply",
+      "Source": "terraform-plan",
+      "File": "plan.json",
+      "Line": 0,
+      "Address": "aws_s3_bucket_server_side_encryption_configuration.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "kms_master_key_id is only known after apply (computed by the provider: not set in the configuration)"
     },
     {
       "Kind": "unknown-after-apply",

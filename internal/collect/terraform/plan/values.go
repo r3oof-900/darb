@@ -83,7 +83,13 @@ func nested(expr *tfjson.Expression, i int) *tfjson.ConfigResource {
 // symbolic reference; otherwise it is unknown, and recorded as a gap.
 func (c *converter) unknownValue(expr *tfjson.Expression, r *tfraw.Resource, path string) *tfraw.Value {
 	if ref := attrRef(expr, r.Module); ref != nil {
-		// [each.key] and [count.index] name this instance's own key exactly.
+		// [each.key] and [count.index] name this instance's own key exactly,
+		// and so does [each.value] when the for_each source is a set.
+		if ref.Selector == tfraw.SelectEachValue && r.Index != "" {
+			if c.eachValueIsKey(r) {
+				ref.Selector = tfraw.SelectEachKey
+			}
+		}
 		if (ref.Selector == tfraw.SelectEachKey || ref.Selector == tfraw.SelectCountIndex) && r.Index != "" {
 			ref.Address, ref.Selector = ref.Address+"["+r.Index+"]", ""
 		}
@@ -169,4 +175,22 @@ func (s *refSet) result() *tfraw.Ref {
 	// Only the bare resource and an index expression: an instance reference.
 	s.bare.Selector = strings.Join(s.selectors, ",")
 	return s.bare
+}
+
+// eachValueIsKey reports whether each.value of r equals its key: its
+// for_each source is verifiably a set. Otherwise the reason is a gap.
+func (c *converter) eachValueIsKey(r *tfraw.Resource) bool {
+	why := "no configuration directory was given with the plan, so whether its for_each source is a set cannot be verified"
+	if c.src != nil {
+		kind, reason := c.src.kind(r.Module, r.Type, r.Name)
+		if kind == forEachSet {
+			return true
+		}
+		why = reason
+	}
+	c.rec.Add(&coverage.Gap{
+		Kind: coverage.KindUnresolved, Source: Name, File: c.file, Address: r.Address,
+		Detail: "each.value is not known to equal each.key: " + why,
+	})
+	return false
 }

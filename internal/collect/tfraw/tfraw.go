@@ -66,6 +66,7 @@ type Ref struct {
 // Instance selectors that name the referencing instance's own key.
 const (
 	SelectEachKey    = "each.key"
+	SelectEachValue  = "each.value"
 	SelectCountIndex = "count.index"
 )
 

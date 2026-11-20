@@ -29,6 +29,10 @@ type Options struct {
 	// TerraformBin converts binary plan files with "terraform show -json".
 	// Empty: look up "terraform" on PATH. Never used for JSON input.
 	TerraformBin string
+	// ConfigDir is the Terraform root module the plan was made from,
+	// relative to the scan root; "" when not given. It is read only to verify
+	// that a for_each source is a set (see foreach.go).
+	ConfigDir string
 }
 
 // Collect reads a plan (JSON from "terraform show -json", or a binary plan
@@ -48,16 +52,29 @@ func Collect(ctx context.Context, in *collect.Input, opts *Options, rec *coverag
 	if err := safeio.CheckJSONDepth(data, in.Limits.MaxDepth); err != nil {
 		return nil, fmt.Errorf("%s: %s: %w", Name, in.Path, err)
 	}
-	return fromJSON(in.Path, data, rec)
+	var config *configInput
+	if opts.ConfigDir != "" {
+		config = &configInput{root: in.Root, dir: opts.ConfigDir, limits: in.Limits}
+	}
+	return fromJSON(in.Path, data, rec, config)
+}
+
+// configInput locates the configuration a plan was made from.
+type configInput struct {
+	root, dir string
+	limits    safeio.Limits
 }
 
 // fromJSON converts plan JSON (already size- and depth-checked) into resources.
-func fromJSON(file string, data []byte, rec *coverage.Recorder) (*tfraw.Module, error) {
+func fromJSON(file string, data []byte, rec *coverage.Recorder, config *configInput) (*tfraw.Module, error) {
 	var p tfjson.Plan
 	if err := json.Unmarshal(data, &p); err != nil {
 		return nil, fmt.Errorf("%s: %s: %w", Name, file, err)
 	}
 	c := &converter{file: file, rec: rec, changes: map[string]*tfjson.ResourceChange{}, configs: map[string]*tfjson.ConfigResource{}}
+	if config != nil {
+		c.src = newConfigSource(config.root, config.dir, config.limits, p.Config, rec)
+	}
 	c.index(&p)
 	m := &tfraw.Module{Source: "plan"}
 	if p.PlannedValues != nil {
@@ -87,6 +104,7 @@ type converter struct {
 	rec     *coverage.Recorder
 	changes map[string]*tfjson.ResourceChange // by full address
 	configs map[string]*tfjson.ConfigResource // by module path + config address
+	src     *configSource                     // nil: no configuration given
 }
 
 func (c *converter) index(p *tfjson.Plan) {

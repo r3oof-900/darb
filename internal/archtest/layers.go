@@ -187,7 +187,7 @@ func ioRules() []*Rule {
 		{
 			Package: "internal/collect/terraform/plan", Layer: LayerIO,
 			Internal: plus(collectDeps, "internal/collect/tfraw"),
-			External: []string{extTFJSON},
+			External: []string{extTFJSON, extHCL},
 			ExtraStd: []string{"os/exec"},
 		},
 		{

@@ -11,7 +11,7 @@
       "source": "clapa.yaml (clusters.prod)"
     }
   ],
-  "collected": 10,
+  "collected": 11,
   "entry_points": [
     {
       "public": "unknown",
@@ -107,19 +107,19 @@
       "Kind": "unresolved",
       "Source": "terraform-hcl",
       "File": "terraform/modules/readers/main.tf",
-      "Line": 28,
+      "Line": 26,
       "Address": "aws_iam_role_policy.read",
       "Service": "",
       "Region": "",
       "Account": "",
       "API": "",
-      "Detail": "aws_iam_role.r[each.key].id: depends on aws_iam_role.r, which has no known value"
+      "Detail": "aws_iam_role.r[each.value].id: depends on aws_iam_role.r, which has no known value"
     },
     {
       "Kind": "unresolved",
       "Source": "terraform-hcl",
       "File": "terraform/modules/readers/main.tf",
-      "Line": 31,
+      "Line": 29,
       "Address": "aws_iam_role_policy.read",
       "Service": "",
       "Region": "",

@@ -37,7 +37,7 @@ diff is a behaviour change.
 | 10 | `10_kms_principal_org_id` | key policy grants `kms:Decrypt` to `{"AWS": "*"}` with `aws:PrincipalOrgID` | UNKNOWN unless the org ID is configured | key policy names the role |
 | 11 | `11_boundary_deny` | scenario 1 + a permissions boundary with an explicit Deny on the PII objects | no path (boundary deny) | boundary that allows only queues and logs |
 | 12 | `12_public_bucket` | bucket policy `Principal "*"`, Block Public Access off, SSE-S3 | public read | Block Public Access on, policy names one role |
-| 13 | `13_module_for_each` | module + `for_each` → 3 IRSA roles reading PII. `plan.json` is real `terraform show -json` output (see below) | plan: 3 roles resolved; static: unresolved, reported | roles read a non-PII bucket |
+| 13 | `13_module_for_each` | module + `for_each` → 3 IRSA roles reading PII (`toset(...)` + `aws_iam_role.r[each.value]`; bucket SSE-S3 stated explicitly). `plan.json` is real `terraform show -json` output (see below), scanned with `terraform/` as its configuration | plan: 3 roles resolved; static: unresolved, reported | roles read a non-PII bucket |
 | 14 | `14_same_names_two_accounts` | role `app` and bucket `data-<account>` in two accounts (snapshot) | two distinct nodes, no ID collision | account 444455556666's role can only list |
 | 15 | `15_empty_input` | nothing to scan | `collected: 0` → exit 3, never "0 findings" | one namespace manifest |
 | 16 | `16_malformed_inputs` | malformed YAML and HCL next to a valid copy of scenario 1 | both reported with file:line; the rest is loaded | valid files only |
@@ -56,6 +56,9 @@ an AWS account:
 ./scripts/generate-fixture-plan.ps1 -Variant vulnerable
 ./scripts/generate-fixture-plan.ps1 -Variant fixed
 ```
+
+The plan collector's real test plans are regenerated the same way, e.g.
+`./scripts/generate-fixture-plan.ps1 -Source internal/collect/terraform/plan/testdata/for_each_map/terraform -Out internal/collect/terraform/plan/testdata/for_each_map/plan.json`.
 
 The script copies `terraform/` to a temporary directory (the fixture is not
 touched), adds a `mock_override.tf` with fake credentials,

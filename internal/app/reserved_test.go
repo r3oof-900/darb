@@ -128,7 +128,7 @@ func TestReservedTextInPlan(t *testing.T) {
   {"address": "aws_s3_bucket.b", "mode": "managed", "type": "aws_s3_bucket", "name": "b", "provider_name": "registry.terraform.io/hashicorp/aws",
    "values": {"bucket": "b", "tags": {"` + forged + `": "x"}}}
 ]}}}`
-	l := loadTree(t, map[string]string{"plan.json": planJSON}, func(in *Inputs) { in.TerraformPlans = []string{"plan.json"} })
+	l := loadTree(t, map[string]string{"plan.json": planJSON}, func(in *Inputs) { in.TerraformPlans = []PlanInput{{Path: "plan.json"}} })
 	noForgedPlaceholder(t, l.Inventory)
 	found := map[string]bool{}
 	for _, g := range l.Gaps {

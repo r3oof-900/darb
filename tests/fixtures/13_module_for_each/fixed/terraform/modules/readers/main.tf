@@ -23,9 +23,7 @@ resource "aws_iam_role" "r" {
 resource "aws_iam_role_policy" "read" {
   for_each = toset(var.names)
   name     = "read"
-  # each.key (= each.value for a set): a plan records only ["aws_iam_role.r", "each.key"],
-  # which names this instance's own key. See docs/DESIGN.md §4.6.
-  role     = aws_iam_role.r[each.key].id
+  role     = aws_iam_role.r[each.value].id
   policy = jsonencode({
     Version   = "2012-10-17"
     Statement = [{ Effect = "Allow", Action = "s3:GetObject", Resource = "arn:aws:s3:::${var.bucket}/*" }]

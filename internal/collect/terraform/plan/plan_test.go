@@ -83,29 +83,50 @@ func TestCollectPlan(t *testing.T) {
 	}
 }
 
-// Real "terraform show -json" output (Terraform 1.17.1, hashicorp/aws 6.73.0)
-// for role = aws_iam_role.r[each.key].id and [each.value].id: the plan
-// records only ["aws_iam_role.r", "each.key"|"each.value"], no attribute.
+// Real "terraform show -json" output (Terraform 1.17.1, hashicorp/aws 6.73.0):
+// a plan records role = aws_iam_role.r[each.key].id or [each.value].id only
+// as ["aws_iam_role.r", "each.key"|"each.value"]. each.key names the
+// instance's own key; each.value does too when the configuration shows the
+// for_each source is a set (toset(...)); a map comprehension, or no
+// configuration, leaves the instance unknown, with a gap that says why.
 func TestForEachInstanceReferences(t *testing.T) {
-	root := filepath.Join("..", "..", "..", "..", "tests", "fixtures", "13_module_for_each", "vulnerable")
-	m, _, err := collectFile(t, root, "plan.json", &Options{})
-	if err != nil {
-		t.Fatal(err)
+	fixture := filepath.Join("..", "..", "..", "..", "tests", "fixtures", "13_module_for_each", "vulnerable")
+	cases := []struct {
+		name, root, configDir string
+		exact                 bool
+		why                   string
+	}{
+		{"each.key", filepath.Join("testdata", "for_each_key"), "", true, ""},
+		{"each.value of toset(...)", fixture, "terraform", true, ""},
+		{"each.value without configuration", fixture, "", false, "no configuration directory was given"},
+		{"each.value of a map", filepath.Join("testdata", "for_each_map"), "terraform", false, "is not toset(...)"},
+		{"configuration not found", fixture, "missing", false, "is not in missing/modules/readers"},
 	}
-	for _, key := range []string{"etl", "bi", "ml"} {
-		r := byAddress(m)[`module.readers.aws_iam_role_policy.read["`+key+`"]`]
-		role, _ := r.Attrs.Get("role")
-		if role.Kind != tfraw.KRef || role.Ref.Address != `module.readers.aws_iam_role.r["`+key+`"]` || role.Ref.Selector != "" {
-			t.Errorf("each.key of %s must name its own instance: %+v %+v", key, role, role.Ref)
+	for _, c := range cases {
+		m, rec, err := collectFile(t, c.root, "plan.json", &Options{ConfigDir: c.configDir})
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
-	m, _, err = collectFile(t, "testdata", "for_each_value.plan.json", &Options{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	role, _ := byAddress(m)[`module.readers.aws_iam_role_policy.read["etl"]`].Attrs.Get("role")
-	if role.Kind != tfraw.KRef || role.Ref.Address != "module.readers.aws_iam_role.r" || role.Ref.Selector != "each.value" {
-		t.Errorf("each.value names an instance the plan does not reveal: %+v %+v", role, role.Ref)
+		for _, key := range []string{"etl", "bi", "ml"} {
+			role, _ := byAddress(m)[`module.readers.aws_iam_role_policy.read["`+key+`"]`].Attrs.Get("role")
+			exact := role.Kind == tfraw.KRef && role.Ref.Address == `module.readers.aws_iam_role.r["`+key+`"]` && role.Ref.Selector == ""
+			unknown := role.Kind == tfraw.KRef && role.Ref.Address == "module.readers.aws_iam_role.r" && role.Ref.Selector == "each.value"
+			if exact != c.exact || (!c.exact && !unknown) {
+				t.Errorf("%s, %s: %+v %+v", c.name, key, role, role.Ref)
+			}
+		}
+		found := c.why == ""
+		for _, g := range rec.Gaps() {
+			if c.why != "" && strings.Contains(g.Detail, c.why) {
+				found = true
+			}
+			if c.exact && strings.Contains(g.Detail, "each.value is not known") {
+				t.Errorf("%s: unexpected gap %s", c.name, g.Detail)
+			}
+		}
+		if !found {
+			t.Errorf("%s: no gap explaining %q in %+v", c.name, c.why, rec.Gaps())
+		}
 	}
 }
 

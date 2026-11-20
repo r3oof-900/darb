@@ -3,6 +3,7 @@ package terraform
 import (
 	"context"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -18,10 +19,10 @@ import (
 	"github.com/r3oof-900/clapa/internal/safeio"
 )
 
-func normalizePlan(t *testing.T, root, file string) (*model.Inventory, *coverage.Recorder) {
+func normalizePlan(t *testing.T, root, file, configDir string) (*model.Inventory, *coverage.Recorder) {
 	t.Helper()
 	rec := &coverage.Recorder{}
-	m, err := plan.Collect(context.Background(), &collect.Input{Root: root, Path: file, Limits: safeio.DefaultLimits()}, &plan.Options{}, rec)
+	m, err := plan.Collect(context.Background(), &collect.Input{Root: root, Path: file, Limits: safeio.DefaultLimits()}, &plan.Options{ConfigDir: configDir}, rec)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,23 +39,26 @@ func normalizePlan(t *testing.T, root, file string) (*model.Inventory, *coverage
 	return inv, rec
 }
 
-// Real plans of scenario 13 (Terraform 1.17.1): a for_each policy whose role
-// is aws_iam_role.r[each.key].id is attached to its own instance; with
-// [each.value].id the plan does not say which instance, so the policy may
-// apply to each: UNKNOWN for every role, never ALLOW for one and IMPLICIT_DENY
-// for the others, and never dropped.
+// Real plans (Terraform 1.17.1) of scenario 13: a for_each policy whose role
+// is aws_iam_role.r[each.key].id, or [each.value].id over toset(...) with the
+// configuration given, is attached to its own instance. A map source, or no
+// configuration, does not say which instance: the policy may apply to each,
+// so UNKNOWN for every role, never ALLOW for one and IMPLICIT_DENY for the
+// others, and never dropped.
 func TestForEachRoleSelection(t *testing.T) {
 	fixture := filepath.Join("..", "..", "..", "tests", "fixtures", "13_module_for_each", "vulnerable")
 	planTestdata := filepath.Join("..", "..", "collect", "terraform", "plan", "testdata")
 	for _, c := range []struct {
-		name, root, file string
-		want             eval.Verdict
-		gap              bool
+		name, root, configDir string
+		want                  eval.Verdict
+		gap                   bool
 	}{
-		{"each.key", fixture, "plan.json", eval.Allow, false},
-		{"each.value", planTestdata, "for_each_value.plan.json", eval.Unknown, true},
+		{"each.key", filepath.Join(planTestdata, "for_each_key"), "", eval.Allow, false},
+		{"each.value of toset(...)", fixture, "terraform", eval.Allow, false},
+		{"each.value without configuration", fixture, "", eval.Unknown, true},
+		{"each.value of a map", filepath.Join(planTestdata, "for_each_map"), "terraform", eval.Unknown, true},
 	} {
-		inv, rec := normalizePlan(t, c.root, c.file)
+		inv, rec := normalizePlan(t, c.root, "plan.json", c.configDir)
 		bucket := resourceOfKind(t, inv, model.KindS3Bucket)
 		for _, name := range []string{"reader-etl", "reader-bi", "reader-ml"} {
 			caller := sessionOf(t, inv, name)
@@ -76,6 +80,33 @@ func TestForEachRoleSelection(t *testing.T) {
 		if found != c.gap {
 			t.Errorf("%s: selection gap reported = %v, want %v", c.name, found, c.gap)
 		}
+	}
+}
+
+// The each.key and each.value forms of scenario 13 give exactly the same
+// roles and policy attachments.
+func TestForEachKeyAndValueAgree(t *testing.T) {
+	attachments := func(inv *model.Inventory) []string {
+		var out []string
+		for _, p := range inv.Policies {
+			s := string(p.Target) + " " + p.Doc.ID()
+			for _, st := range p.Doc.Statements() {
+				acts, _ := st.Actions()
+				res, _ := st.Resources()
+				s += " " + st.Effect().String() + strings.Join(acts, ",") + strings.Join(res, ",") + strconv.Itoa(len(st.Conditions()))
+			}
+			out = append(out, s)
+		}
+		for _, p := range inv.Principals {
+			out = append(out, p.Identity())
+		}
+		return out
+	}
+	key, _ := normalizePlan(t, filepath.Join("..", "..", "collect", "terraform", "plan", "testdata", "for_each_key"), "plan.json", "")
+	value, _ := normalizePlan(t, filepath.Join("..", "..", "..", "tests", "fixtures", "13_module_for_each", "vulnerable"), "plan.json", "terraform")
+	a, b := attachments(key), attachments(value)
+	if strings.Join(a, " | ") != strings.Join(b, " | ") || len(a) != 6 {
+		t.Errorf("each.key: %s; each.value: %s", strings.Join(a, " | "), strings.Join(b, " | "))
 	}
 }
 
