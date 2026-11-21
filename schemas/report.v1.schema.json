@@ -108,7 +108,8 @@
         "to": {"type": "string"},
         "from_kind": {"type": "string"},
         "to_kind": {"type": "string"},
-        "cut": {"enum": ["cut", "resolve"]}
+        "cut": {"enum": ["cut", "resolve"]},
+        "parts": {"description": "What a derived read stands for: the read, the decrypt, the key protecting the data.", "type": "array", "items": {"$ref": "#/$defs/hop"}}
       }
     },
     "scannedInput": {
@@ -237,6 +238,7 @@
         "worst_case_path": {"description": "A less certain path of the same rule that scores higher than path; the severity is its score.", "type": "array", "items": {"type": "string"}},
         "remediation": {"$ref": "#/$defs/remediation"},
         "hops": {"description": "path as edges with both ends.", "type": "array", "items": {"$ref": "#/$defs/hop"}},
+        "branches": {"description": "cut edges off path (an escalation of a dominated path merged into this cut), each followed by the edge to the jewel.", "type": "array", "items": {"type": "array", "items": {"$ref": "#/$defs/hop"}}},
         "worst_case_hops": {"description": "worst_case_path as edges with both ends.", "type": "array", "items": {"$ref": "#/$defs/hop"}},
         "also_fixes": {"description": "Path findings of other rules this cut also fixes (path findings only).", "type": "array", "items": {"$ref": "#/$defs/findingRef"}},
         "uncuttable": {"description": "Underlying edges of a cut derived read that no single change breaks (path findings only).", "type": "array", "items": {"$ref": "#/$defs/uncuttableEdge"}},

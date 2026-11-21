@@ -23,58 +23,33 @@
 
 <section id="summary" aria-labelledby="summary-h">
 <h2 id="summary-h">Summary</h2>
+{{$g := groups .R}}<p class="lead"><strong>{{plural (len $g.Paths) "attack path" "attack paths"}}</strong> to crown-jewel data · <strong>{{plural (len $g.Posture) "misconfiguration" "misconfigurations"}}</strong></p>
 <table class="counts">
 <thead><tr>{{range .Severities}}<th scope="col" class="sev-{{.Name}}">{{.Name}}</th>{{end}}<th scope="col">findings</th></tr></thead>
 <tbody><tr>{{range .Severities}}<td>{{.Count}}</td>{{end}}<td>{{.R.Summary.Findings}}</td></tr></tbody>
 </table>
 <p>{{.R.Summary.ConfirmedUnlessDenied}} confirmed unless denied, {{.R.Summary.Unconfirmed}} unconfirmed. The severity is the worst case of every unknown, whatever the status.</p>
-<p>{{.R.Coverage.Collected}} objects collected; {{len .R.Coverage.Gaps}} coverage gaps ({{.R.Coverage.GapsOverTolerance}} over tolerance); graph: {{.R.Graph.Nodes}} nodes, {{.R.Graph.Edges}} edges, {{.R.Graph.Pairs}} entry–jewel pairs.</p>
+<p>{{plural .R.Coverage.Collected "object" "objects"}} collected; {{plural (len .R.Coverage.Gaps) "coverage gap" "coverage gaps"}} ({{.R.Coverage.GapsOverTolerance}} over tolerance); graph: {{plural .R.Graph.Nodes "node" "nodes"}}, {{plural .R.Graph.Edges "edge" "edges"}}, {{plural .R.Graph.Pairs "entry–jewel pair" "entry–jewel pairs"}}.</p>
 {{if not .R.Coverage.Collected}}<p class="warn">Nothing was collected: this is not a clean result.</p>{{end}}
-{{if unfixed .R}}<p class="muted">The fixes below are the cheapest cuts; run <code>clapa scan --fixes</code> (or <code>clapa remediate</code>) for the verified fixes, their strategy and their patches.</p>{{end}}
-</section>
-
-<section id="findings" aria-labelledby="findings-h">
-<h2 id="findings-h">Findings</h2>
+{{if unfixed .R}}<p class="muted">The recommended fixes below are the cheapest cuts, not yet verified; run <code>clapa scan --fixes</code> (or <code>clapa remediate</code>) for the verified fixes, their strategy and their patches.</p>{{end}}
 <form id="filters" hidden>
 <fieldset><legend>Severity</legend>{{range .Severities}}<label><input type="checkbox" value="{{.Name}}" checked> {{.Name}}</label> {{end}}</fieldset>
 <label>Status <select><option value="">any</option><option value="confirmed">confirmed</option><option value="confirmed_unless_denied">confirmed unless denied</option><option value="unconfirmed">unconfirmed</option></select></label>
 <label>Search <input type="search" autocomplete="off"></label>
 <output><span id="shown">{{len .R.Findings}}</span> shown</output>
 </form>
-{{if not .R.Findings}}<p>No finding.</p>{{end}}
-{{range .R.Findings}}
-<article class="finding" data-severity="{{.Severity}}" data-status="{{.Status}}" data-text="{{search .}}">
-<h3><span class="badge sev-{{.Severity}}">{{upper .Severity}} {{.Score}}</span>{{with status .Status}} <span class="badge status">{{upper .}}</span>{{end}} <code>{{.Rule}}</code> {{.Title}}</h3>
-{{if ne .Status "confirmed"}}<p class="muted">Confidence {{.Confidence}}: the severity is the worst case of the unknowns below.</p>{{end}}
-{{if .Resource}}<p>Resource <code>{{.Resource}}</code></p>{{else}}<p><code>{{.Entry}}</code> → <code>{{.Jewel}}</code></p>{{end}}
-{{with .Undecided}}<div class="undecided"><h4>Undecided</h4><ul>{{range .}}<li>{{.}}</li>{{end}}</ul></div>{{end}}
-{{with layout .Hops}}{{template "path" .}}{{end}}
-{{with .Path}}<ol class="path">{{range .}}<li><code>{{.}}</code></li>{{end}}</ol>{{end}}
-{{if .PathsFound}}<p class="muted">{{.PathsFound}} path{{if ne .PathsFound 1}}s{{end}} found{{if .PathsTruncated}} (truncated: more exist){{end}}.</p>{{end}}
-{{if .WorstCasePath}}<details><summary>Worst-case path (scores higher, less certain)</summary>{{with layout .WorstCaseHops}}{{template "path" .}}{{end}}<ol class="path">{{range .WorstCasePath}}<li><code>{{.}}</code></li>{{end}}</ol></details>{{end}}
-{{if .Chokepoints}}
-<div class="fix">
-<h4>Cheapest fix (cost {{.CutCost}})</h4>
-<p class="muted">Remediation status: {{if pending .}}partial, pending resolution{{else}}complete{{end}}.</p>
-{{if pending .}}<p class="pending">Resolve the unknowns listed, then rescan: the fix may need more steps once they are known.</p>{{end}}
-{{template "steps" .Fix}}
-{{with .OtherSideFix}}<details><summary>Other sides of these edges</summary>{{template "steps" .}}</details>{{end}}
-{{with .AlternativeFixDetail}}<details><summary>Alternative fix (shares no edge with the cheapest)</summary>{{template "steps" .}}</details>{{end}}
-{{with .SharedFixPossible}}<p>Shared fix: one change to {{range $i, $r := .}}{{if $i}}, {{end}}<code>{{$r}}</code>{{end}} breaks several of these edges.</p>{{end}}
-{{with refs .AlsoFixes}}<p>Also fixes: {{range $i, $r := .}}{{if $i}}; {{end}}<code>{{$r.Rule}}</code> <code>{{$r.Entry}}</code> → <code>{{$r.Jewel}}</code>{{end}}</p>{{end}}
-{{with uncut .Uncuttable}}<p>No change breaks: {{range $i, $u := .}}{{if $i}}; {{end}}<code>{{$u.Edge}}</code> ({{$u.Reason}}){{end}}</p>{{end}}
-</div>
-{{end}}
-{{if .NoFix}}<p class="warn">No fix within the configured constraints (intended access, uncuttable edges).</p>{{end}}
-{{with .Remediation}}{{template "fixes" .}}{{end}}
-<details><summary>Evidence, defaults and location</summary>
-{{with .DefaultsUsed}}<h4>Relies on documented defaults</h4><ul>{{range .}}<li><code>{{.Setting}}</code> = <code>{{.Value}}</code> ({{.Reference}})</li>{{end}}</ul>{{end}}
-{{with .Evidence}}<h4>Evidence</h4><ul>{{range .}}<li><code>{{.}}</code></li>{{end}}</ul>{{end}}
-{{with .Location}}<p>At <code>{{.File}}{{if .StartLine}}:{{.StartLine}}{{end}}</code>{{with .Address}} <code>{{.}}</code>{{end}}{{with .ARN}} <code>{{.}}</code>{{end}}</p>{{end}}
-<p class="muted">Fingerprint <code>{{.Fingerprint}}</code></p>
-</details>
-</article>
-{{end}}
+</section>
+
+<section id="attack-paths" aria-labelledby="paths-h">
+<h2 id="paths-h">Attack paths</h2>
+{{if not $g.Paths}}<p>No attack path.</p>{{end}}
+{{range $g.Paths}}{{template "finding" .}}{{end}}
+</section>
+
+<section id="misconfigurations" aria-labelledby="posture-h">
+<h2 id="posture-h">Misconfigurations</h2>
+{{if not $g.Posture}}<p>No misconfiguration.</p>{{end}}
+{{range $g.Posture}}{{template "finding" .}}{{end}}
 </section>
 
 {{with .R.IntendedAccess}}
@@ -115,22 +90,53 @@
 <tbody>{{range .}}<tr class="kind-{{.Kind}}"><td><code>{{.Edge}}</code></td><td>{{.Side}}</td><td>{{.Kind}}</td><td>{{if eq .Kind "resolve"}}decide <code>{{.Policy}}</code>: <code>{{.Resolve}}</code> (no change){{else}}change <code>{{.Policy}}</code>{{if eq .Kind "revoke"}}<br><span class="warn">removes an explicit grant: confirm it is not needed</span>{{end}}{{end}}</td><td>{{.Cost}}</td></tr>{{end}}</tbody></table>{{end}}
 {{define "path"}}<figure class="pathview"><svg viewBox="0 0 {{.W}} {{.H}}" role="img" aria-label="{{.Label}}" xmlns="http://www.w3.org/2000/svg">
 <defs><marker id="clapa-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead" d="M0 0L10 5L0 10z"/></marker><marker id="clapa-arrow-cut" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead cut" d="M0 0L10 5L0 10z"/></marker><marker id="clapa-arrow-resolve" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead resolve" d="M0 0L10 5L0 10z"/></marker></defs>
-{{range $e := .Edges}}<g class="edge{{with .Class}} {{.}}{{end}}">{{if eq .Class "cut"}}<path d="{{.D}}" marker-end="url(#clapa-arrow-cut)"/>{{else if eq .Class "resolve"}}<path d="{{.D}}" marker-end="url(#clapa-arrow-resolve)"/>{{else}}<path d="{{.D}}" marker-end="url(#clapa-arrow)"/>{{end}}<text x="{{.LX}}" y="{{.LY}}">{{range $i, $l := $e.Lines}}<tspan x="{{$e.LX}}" dy="{{if $i}}12{{else}}0{{end}}">{{$l}}</tspan>{{end}}{{with .Mark}} <tspan class="mark">{{.}}</tspan>{{end}}</text></g>
+{{range $e := .Edges}}<g class="edge{{with .Class}} {{.}}{{end}}" data-kind="{{.Kind}}" data-from="{{.From}}" data-to="{{.To}}">{{if eq .Class "cut"}}<path d="{{.D}}" marker-end="url(#clapa-arrow-cut)"/>{{else if eq .Class "resolve"}}<path d="{{.D}}" marker-end="url(#clapa-arrow-resolve)"/>{{else}}<path d="{{.D}}" marker-end="url(#clapa-arrow)"/>{{end}}<text x="{{.LX}}" y="{{.LY}}">{{range $i, $l := $e.Lines}}<tspan x="{{$e.LX}}" dy="{{if $i}}12{{else}}0{{end}}">{{$l}}</tspan>{{end}}{{with .Mark}} <tspan class="mark">{{.}}</tspan>{{end}}</text></g>
 {{end}}{{range .Nodes}}<g class="node {{.Class}}"><title>{{.Full}}</title><rect x="{{.X}}" y="{{.Y}}" width="180" height="54" rx="6"/><text class="ntype" x="{{.TX}}" y="{{.TY}}">{{.Type}}</text><text class="nname" x="{{.TX}}" y="{{.NY}}">{{.Name}}</text></g>
 {{end}}</svg></figure>{{end}}
-{{define "fixes"}}<div class="fixes"><h4>Verified fixes</h4>
-{{with .Pending}}<p class="pending">Resolve first (no change): {{range $i, $s := .}}{{if $i}}; {{end}}<code>{{$s}}</code>{{end}}</p>{{end}}
-{{with .Missing}}<p>Not confirmed, no patch until decided. What would decide it:</p><ul>{{range .}}<li>{{.}}</li>{{end}}</ul>{{end}}
-{{if .NoFix}}<p class="warn">No fix within the configured constraints.</p>{{end}}
-{{range .Fixes}}<div class="strategy {{.Strategy}}"><h5><span class="badge">{{.Strategy}}</span>{{if eq .Strategy "mitigation"}} <span class="warn">mitigation: blocks this path only; the broad grant remains</span>{{end}}</h5>
-{{with .Suggestion}}<p>A suggestion, not verified, not applied by <code>--write</code>: {{.}}</p>{{end}}
-{{with .Changes}}<table class="steps"><thead><tr><th scope="col">Change</th><th scope="col">Side</th><th scope="col">Kind</th><th scope="col">Cost</th><th scope="col">What</th></tr></thead>
-<tbody>{{range .}}<tr class="kind-{{.Kind}}"><td><code>{{.Edge}}</code></td><td>{{.Side}}</td><td>{{.Kind}}</td><td>{{.Cost}}</td><td>{{.Why}}{{with .TODO}}<br><span class="warn">TODO: {{.}}</span>{{end}}{{if eq .Kind "revoke"}}<br><span class="warn">removes an explicit grant: confirm it is not needed</span>{{end}}</td></tr>{{end}}</tbody></table>{{end}}
+{{define "finding"}}<article class="finding" data-severity="{{.Severity}}" data-status="{{.Status}}" data-text="{{search .}}">
+<h3><span class="badge sev-{{.Severity}}">{{upper .Severity}} {{.Score}}</span>{{with status .Status}} <span class="badge status">{{upper .}}</span>{{end}} <code>{{.Rule}}</code> {{.Title}}</h3>
+{{if ne .Status "confirmed"}}<p class="muted">Confidence {{.Confidence}}: the severity is the worst case of the unknowns below.</p>{{end}}
+{{if .Resource}}<p>Resource <code>{{.Resource}}</code></p>{{else}}<p><code>{{.Entry}}</code> → <code>{{.Jewel}}</code></p>{{end}}
+{{with .Undecided}}<div class="undecided"><h4>Undecided</h4><ul>{{range .}}<li>{{.}}</li>{{end}}</ul></div>{{end}}
+{{with layout .Hops .Branches}}{{template "path" .}}{{end}}
+{{with .Path}}<ol class="path">{{range .}}<li><code>{{.}}</code></li>{{end}}</ol>{{end}}
+{{if .PathsFound}}<p class="muted">{{plural .PathsFound "path" "paths"}} found{{if .PathsTruncated}} (truncated: more exist){{end}}.</p>{{end}}
+{{if .WorstCasePath}}<details><summary>Worst-case path (scores higher, less certain)</summary>{{with layout .WorstCaseHops nil}}{{template "path" .}}{{end}}<ol class="path">{{range .WorstCasePath}}<li><code>{{.}}</code></li>{{end}}</ol></details>{{end}}
+{{template "fix" .}}
+<details><summary>Evidence, defaults and location</summary>
+{{with .DefaultsUsed}}<h4>Relies on documented defaults</h4><ul>{{range .}}<li><code>{{.Setting}}</code> = <code>{{.Value}}</code> ({{.Reference}})</li>{{end}}</ul>{{end}}
+{{with .Evidence}}<h4>Evidence</h4><ul>{{range .}}<li><code>{{.}}</code></li>{{end}}</ul>{{end}}
+{{with .Location}}<p>At <code>{{.File}}{{if .StartLine}}:{{.StartLine}}{{end}}</code>{{with .Address}} <code>{{.}}</code>{{end}}{{with .ARN}} <code>{{.}}</code>{{end}}</p>{{end}}
+<p class="muted">Fingerprint <code>{{.Fingerprint}}</code></p>
+</details>
+</article>
+{{end}}
+{{define "fix"}}{{if .NoFix}}<p class="warn">No fix within the configured constraints (intended access, uncuttable edges).</p>{{end}}{{if .Chokepoints}}<div class="fix">
+{{if resolveOnly .}}<h4>Resolve first</h4>
+<p>The cheapest fix rests on unknowns: decide them (no change), then rescan; the fix may need more steps once they are known.</p>
+<ul>{{range .Fix}}<li>decide <code>{{.Policy}}</code>: <code>{{.Resolve}}</code></li>{{end}}</ul>
+{{with .AlternativeFixDetail}}<h4>Known alternative, to apply now</h4>{{template "plainsteps" .}}{{end}}
+{{else}}{{with .Remediation}}{{with .Pending}}<p class="pending">Resolve first (no change): {{range $i, $s := .}}{{if $i}}; {{end}}<code>{{$s}}</code>{{end}}; the fix may need more steps once they are known.</p>{{end}}{{end}}
+<h4>Recommended fix</h4>
+{{if .Remediation}}{{with first .Remediation.Fixes}}{{template "fixcard" .}}{{else}}<p class="muted">No change could be generated: {{template "plainsteps" .Fix}}</p>{{end}}{{with rest .Remediation.Fixes}}<h4>Other options</h4>{{range .}}{{template "fixcard" .}}{{end}}{{end}}{{with .Remediation.Note}}<p class="note">{{.}}</p>{{end}}{{else}}{{template "plainsteps" .Fix}}<p class="muted">The cheapest cut, not yet verified (<code>clapa scan --fixes</code>).</p>{{end}}
+{{end}}
+<details class="chosen"><summary>How this fix was chosen</summary>
+<p>The cheapest set of changes that breaks every path of this finding (cost {{.CutCost}}); remediation status: {{if pending .}}partial, pending resolution{{else}}complete{{end}}.</p>
+{{template "steps" .Fix}}
+{{with .OtherSideFix}}<h5>Other sides of these edges</h5>{{template "steps" .}}{{end}}
+{{with .AlternativeFixDetail}}<h5>Alternative (shares no edge with the cheapest)</h5>{{template "steps" .}}{{end}}
+{{with .SharedFixPossible}}<p>Shared fix: one change to {{range $i, $r := .}}{{if $i}}, {{end}}<code>{{$r}}</code>{{end}} breaks several of these edges.</p>{{end}}
+{{with refs .AlsoFixes}}<p>Also fixes: {{range $i, $r := .}}{{if $i}}; {{end}}<code>{{$r.Rule}}</code> <code>{{$r.Entry}}</code> → <code>{{$r.Jewel}}</code>{{end}}</p>{{end}}
+{{with uncut .Uncuttable}}<p>No change breaks: {{range $i, $u := .}}{{if $i}}; {{end}}<code>{{$u.Edge}}</code> ({{$u.Reason}}){{end}}</p>{{end}}
+</details>
+</div>{{end}}{{end}}
+{{define "plainsteps"}}<ul class="changes">{{range .}}<li>{{if eq .Kind "resolve"}}decide <code>{{.Policy}}</code>: <code>{{.Resolve}}</code> (no change){{else}}{{.Kind}} the grant in <code>{{.Policy}}</code>{{if eq .Kind "revoke"}} <span class="warn">(removes an explicit grant: confirm it is not needed)</span>{{end}}{{end}} <span class="muted">({{.Side}} side, cost {{.Cost}}; edge <code>{{.Edge}}</code>)</span></li>{{end}}</ul>{{end}}
+{{define "fixcard"}}<div class="strategy {{.Strategy}}"><p><span class="badge strat">{{.Strategy}}</span>{{if eq .Strategy "mitigation"}} <span class="warn">mitigation: blocks this path only; the broad grant remains</span>{{end}}</p>
+{{if .Suggestion}}<p>{{.Suggestion}}</p><p><span class="badge grey">suggestion, not verified</span> <span class="muted">not applied by <code>--write</code></span></p>{{else}}
+<ul class="changes">{{range .Changes}}<li>{{.Why}}{{if eq .Kind "revoke"}} <span class="warn">(removes an explicit grant: confirm it is not needed)</span>{{end}}{{with .TODO}} <span class="warn">TODO: {{.}}</span>{{end}} <span class="muted">({{.Side}} side, {{.Kind}}, cost {{.Cost}})</span></li>{{end}}</ul>
 <p class="verify"><span class="{{if .VerifiedInMemory}}ok{{else}}no{{end}}">{{if .VerifiedInMemory}}✔ verified in memory{{else}}✘ not verified in memory{{end}}</span> · <span class="{{if .VerifiedOnFiles}}ok{{else}}no{{end}}">{{if .VerifiedOnFiles}}✔ verified on patched files{{else}}✘ not verified on patched files{{end}}</span>{{with .Pending}} · <span class="pending">{{.}}</span>{{end}}</p>
 {{with .Reasons}}<ul class="reasons">{{range .}}<li>{{.}}</li>{{end}}</ul>{{end}}
 {{with .TODO}}<ul>{{range .}}<li class="warn">TODO: {{.}}</li>{{end}}</ul>{{end}}
 {{with .Diff}}<details class="patch"><summary>Patch</summary><pre class="diff">{{range difflines .}}<span class="{{.Class}}">{{.Text}}</span>{{end}}</pre></details>{{end}}
 {{range .Policies}}<details><summary>Policy <code>{{.ID}}</code></summary>{{with .Note}}<p>{{.}}</p>{{end}}{{with .Document}}<pre>{{.}}</pre>{{end}}</details>{{end}}
-</div>{{end}}
-{{with .Note}}<p class="note">{{.}}</p>{{end}}
-</div>{{end}}
+{{end}}</div>{{end}}

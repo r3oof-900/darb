@@ -156,6 +156,7 @@ func build(in *rules.Input, p *paths.Pair, s selection, jewels int) rules.Findin
 	res := paths.CutFor(g, p.Entry, p.Jewel, &s.sel, opts)
 	cut(g, res, &f)
 	f.Hops = hops(g, primary, res.Ways)
+	f.Branches = branches(g, primary, p.Jewel, res.Ways)
 	if len(f.WorstCasePath) > 0 {
 		f.WorstCaseHops = hops(g, worst, res.Ways)
 	}
@@ -167,29 +168,80 @@ func build(in *rules.Input, p *paths.Pair, s selection, jewels int) rules.Findin
 func hops(g *graph.Graph, path paths.Path, ways []paths.Way) []rules.Hop {
 	out := make([]rules.Hop, 0, len(path))
 	for _, id := range path {
+		h := hop(g, id, ways)
+		// A derived read is drawn as what it stands for: the read of the
+		// data, the decrypt of its key, and the key protecting the data; the
+		// marks sit on the edge the fix changes.
 		e := g.Edge(id)
-		label := graph.Label(e)
-		if e.Kind == graph.CanEscalate && e.Sub != "" {
-			label += "[" + e.Sub + "]"
-		}
-		h := rules.Hop{
-			Kind: label, From: g.Node(e.From).Identity, To: g.Node(e.To).Identity,
-			FromKind: string(g.Node(e.From).Kind), ToKind: string(g.Node(e.To).Kind),
-		}
-		for _, w := range ways {
-			if w.Edge != id && !slices.Contains(e.Under, w.Edge) {
-				continue
-			}
-			switch {
-			case w.HasKnown || len(w.Detach) > 0:
-				h.Cut = rules.HopCut
-			case h.Cut == "":
-				h.Cut = rules.HopResolve
+		for _, u := range e.Under {
+			h.Parts = append(h.Parts, hop(g, u, ways))
+			if ue := g.Edge(u); ue.Kind == graph.CanDecrypt && ue.For != graph.NoNode {
+				h.Parts = append(h.Parts, rules.Hop{
+					Kind: string(graph.Protects), From: g.Node(ue.To).Identity, To: g.Node(ue.For).Identity,
+					FromKind: string(g.Node(ue.To).Kind), ToKind: string(g.Node(ue.For).Kind),
+				})
 			}
 		}
 		out = append(out, h)
 	}
 	return out
+}
+
+// branches: the cut edges that are not on the drawn path (an escalation of
+// a dominated path, merged into this cut, DESIGN.md §8), each with the edge
+// from its target to the jewel when there is one, so every fix step is
+// drawn.
+func branches(g *graph.Graph, path paths.Path, jewel graph.NodeID, ways []paths.Way) [][]rules.Hop {
+	drawn := map[graph.EdgeID]bool{}
+	for _, id := range path {
+		drawn[id] = true
+		for _, u := range g.Edge(id).Under {
+			drawn[u] = true
+		}
+	}
+	var out [][]rules.Hop
+	for _, w := range ways {
+		if drawn[w.Edge] {
+			continue
+		}
+		drawn[w.Edge] = true
+		b := []rules.Hop{hop(g, w.Edge, ways)}
+		for _, next := range g.Out(g.Edge(w.Edge).To) {
+			if g.Edge(next).To == jewel {
+				b = append(b, hop(g, next, ways))
+				break
+			}
+		}
+		out = append(out, b)
+	}
+	return out
+}
+
+// hop: one edge, its ends, and how the cut treats it ("cut" when a chosen
+// way of it, or of an edge it stands for, changes something, "resolve"
+// when they only resolve).
+func hop(g *graph.Graph, id graph.EdgeID, ways []paths.Way) rules.Hop {
+	e := g.Edge(id)
+	label := graph.Label(e)
+	if e.Kind == graph.CanEscalate && e.Sub != "" {
+		label += "[" + e.Sub + "]"
+	}
+	h := rules.Hop{
+		Kind: label, From: g.Node(e.From).Identity, To: g.Node(e.To).Identity,
+		FromKind: string(g.Node(e.From).Kind), ToKind: string(g.Node(e.To).Kind),
+	}
+	for _, w := range ways {
+		if w.Edge != id && !slices.Contains(e.Under, w.Edge) {
+			continue
+		}
+		switch {
+		case w.HasKnown || len(w.Detach) > 0:
+			h.Cut = rules.HopCut
+		case h.Cut == "":
+			h.Cut = rules.HopResolve
+		}
+	}
+	return h
 }
 
 // pick: the strongest status among the paths, the best path of that status

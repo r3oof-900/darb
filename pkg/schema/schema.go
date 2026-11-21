@@ -182,6 +182,10 @@ type Finding struct {
 	// changes that edge, "resolve" when it only resolves unknowns on it.
 	Hops          []Hop `json:"hops,omitempty"`
 	WorstCaseHops []Hop `json:"worst_case_hops,omitempty"`
+	// Branches: cut edges that are not on path (an escalation of a
+	// dominated path, merged into this cut), each followed by the edge from
+	// its target to the jewel when there is one.
+	Branches [][]Hop `json:"branches,omitempty"`
 	// AlsoFixes: path findings of other rules the cut also fixes; Uncuttable:
 	// underlying edges of a cut derived read no change breaks (both stated
 	// for every path finding).
@@ -221,6 +225,9 @@ type Hop struct {
 	FromKind string `json:"from_kind"`
 	ToKind   string `json:"to_kind"`
 	Cut      string `json:"cut,omitempty"`
+	// Parts: what a derived read stands for (the read, the decrypt, the
+	// key protecting the data), each with its own mark.
+	Parts []Hop `json:"parts,omitempty"`
 }
 
 // FindingRef names a path finding.

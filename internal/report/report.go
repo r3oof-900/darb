@@ -99,7 +99,7 @@ func finding(f *rules.Finding) schema.Finding {
 		Chokepoints: f.Chokepoints, CutCost: f.CutCost, NoFix: f.NoFix, AlternativeFix: f.Alternative, Fix: steps(f.Fix), OtherSideFix: steps(f.OtherSideFix), AlternativeFixDetail: steps(f.AlternativeDetail), SharedFixPossible: f.SharedFix,
 		DefaultsUsed: []schema.Default{}, Evidence: f.Evidence, Fingerprint: f.Fingerprint, Location: location(&f.Location),
 		WorstCasePath: f.WorstCasePath, RemediationStatus: f.RemediationStatus,
-		Hops: hops(f.Hops), WorstCaseHops: hops(f.WorstCaseHops),
+		Hops: hops(f.Hops), WorstCaseHops: hops(f.WorstCaseHops), Branches: branches(f.Branches),
 	}
 	if f.Kind == rules.KindPath {
 		also, unc := make([]schema.FindingRef, 0, len(f.AlsoFixes)), make([]schema.UncuttableEdge, 0, len(f.Uncuttable))
@@ -161,7 +161,18 @@ func hops(hs []rules.Hop) []schema.Hop {
 	}
 	out := make([]schema.Hop, len(hs))
 	for i, h := range hs {
-		out[i] = schema.Hop(h)
+		out[i] = schema.Hop{Kind: h.Kind, From: h.From, To: h.To, FromKind: h.FromKind, ToKind: h.ToKind, Cut: h.Cut, Parts: hops(h.Parts)}
+	}
+	return out
+}
+
+func branches(bs [][]rules.Hop) [][]schema.Hop {
+	if len(bs) == 0 {
+		return nil
+	}
+	out := make([][]schema.Hop, len(bs))
+	for i, b := range bs {
+		out[i] = hops(b)
 	}
 	return out
 }

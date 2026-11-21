@@ -107,12 +107,14 @@ type Finding struct {
 	WorstCasePath []string `json:"worst_case_path,omitempty"`
 	// Hops, WorstCaseHops: the same paths as edges with both ends, for the
 	// path view of the HTML report.
-	Hops          []Hop           `json:"hops,omitempty"`
-	WorstCaseHops []Hop           `json:"worst_case_hops,omitempty"`
-	Paths         int             `json:"paths_found,omitempty"`
-	Truncated     bool            `json:"paths_truncated,omitempty"`
-	Factors       scoring.Factors `json:"factors"`
-	Confirmed     bool            `json:"confirmed"`
+	Hops          []Hop `json:"hops,omitempty"`
+	WorstCaseHops []Hop `json:"worst_case_hops,omitempty"`
+	// Branches: cut edges off the drawn path (and on to the jewel).
+	Branches  [][]Hop         `json:"branches,omitempty"`
+	Paths     int             `json:"paths_found,omitempty"`
+	Truncated bool            `json:"paths_truncated,omitempty"`
+	Factors   scoring.Factors `json:"factors"`
+	Confirmed bool            `json:"confirmed"`
 	// Status: StatusConfirmed, StatusConfirmedUnlessDenied or
 	// StatusUnconfirmed (DESIGN.md 6.2); the severity is the worst case
 	// whatever the status.
@@ -187,6 +189,9 @@ type Hop struct {
 	FromKind string `json:"from_kind"`
 	ToKind   string `json:"to_kind"`
 	Cut      string `json:"cut,omitempty"`
+	// Parts: what a derived read stands for (the read, the decrypt, the
+	// key protecting the data), each with its own mark.
+	Parts []Hop `json:"parts,omitempty"`
 }
 
 // How a hop is cut.

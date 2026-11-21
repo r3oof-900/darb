@@ -60,6 +60,7 @@ func hostileReport() *schema.Report {
 							TODO: []string{scriptName}, Policies: []schema.Policy{{ID: scriptName, Note: breakout, Document: endOfData}},
 						},
 						{Strategy: "root-cause", Suggestion: scriptName, Changes: []schema.Change{}, Reasons: []string{breakout}},
+						{Strategy: "root-cause", Changes: []schema.Change{{Edge: endOfData, Side: "resource", Kind: "narrow", Cost: 2, Why: breakout}}, Reasons: []string{"a new finding appears"}},
 					},
 				},
 				Chokepoints: []string{"CAN_READ " + breakout}, CutCost: 3, Fix: steps, OtherSideFix: steps[:1], AlternativeFixDetail: steps[1:],
@@ -240,7 +241,7 @@ func TestDataBlockIsTheReport(t *testing.T) {
 // An empty scan says so: nothing collected is not a clean result.
 func TestEmptyReport(t *testing.T) {
 	out := render(t, &schema.Report{Summary: schema.Summary{BySeverity: map[string]int{}}})
-	for _, want := range []string{"No finding.", "Nothing was collected", "No coverage gap."} {
+	for _, want := range []string{"No attack path.", "No misconfiguration.", "Nothing was collected", "No coverage gap.", "0 attack paths", "0 objects collected"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("empty report lacks %q", want)
 		}
@@ -267,7 +268,7 @@ func TestPathViewIsStatic(t *testing.T) {
 		t.Fatalf("%d path views, want the path and the worst-case path", figures)
 	}
 	first := firstFigure(out)
-	for _, want := range []string{`<g class="edge cut">`, `<g class="edge resolve">`, "✂", ">?<", `marker-end="url(#clapa-arrow-cut)"`} {
+	for _, want := range []string{`<g class="edge cut"`, `<g class="edge resolve"`, "✂", ">?<", `marker-end="url(#clapa-arrow-cut)"`} {
 		if !strings.Contains(first, want) {
 			t.Errorf("the path view lacks %s", want)
 		}
@@ -313,9 +314,9 @@ func TestFixesSection(t *testing.T) {
 	out := render(t, hostileReport())
 	for _, want := range []string{
 		"mitigation: blocks this path only; the broad grant remains",
-		"✔ verified in memory", "✔ verified on patched files", "✘ not verified in memory",
+		"✔ verified in memory", "✔ verified on patched files", "✘ not verified in memory", "suggestion, not verified",
 		`<span class="add">`, `<span class="del">`, `<span class="hunk">`, `<span class="file">`,
-		"Resolve first (no change)", "Remediation status: partial, pending resolution",
+		"Resolve first (no change)", "remediation status: partial, pending resolution",
 		"Scanned inputs", "generated 2026-11-22T00:00:00Z",
 	} {
 		if !strings.Contains(out, want) {
@@ -324,5 +325,55 @@ func TestFixesSection(t *testing.T) {
 	}
 	if strings.Index(out, `class="strategy mitigation"`) > strings.Index(out, `class="strategy root-cause"`) {
 		t.Error("the fixes are not in the order given (the app orders them, DESIGN.md 9.2)")
+	}
+	order := []string{"Recommended fix", "Other options", `<details class="chosen"><summary>How this fix was chosen`}
+	for i := 1; i < len(order); i++ {
+		if a, b := strings.Index(out, order[i-1]), strings.Index(out, order[i]); a < 0 || b < 0 || a > b {
+			t.Errorf("%q must come before %q", order[i-1], order[i])
+		}
+	}
+	// A suggestion is not a failure: one ✘ pair, for the fix whose
+	// verification failed, none for the suggestion.
+	if n := strings.Count(out, "✘ not verified in memory"); n != 1 {
+		t.Errorf("%d failed verifications shown, want 1 (the suggestion is grey, not red)", n)
+	}
+}
+
+// A cut of resolve steps only: decide first, then the known alternative.
+func TestResolveOnlyFix(t *testing.T) {
+	f := schema.Finding{
+		Rule: "CLAPA-PATH-001", Kind: "path", Severity: "medium", Score: 291, Status: "unconfirmed", Fingerprint: "r",
+		Chokepoints:          []string{"CAN_DECRYPT x -> k"},
+		Fix:                  []schema.FixStep{{Edge: "CAN_DECRYPT x -> k", Side: "identity", Kind: "resolve", Policy: "p", Resolve: "-var-file (b)"}},
+		AlternativeFixDetail: []schema.FixStep{{Edge: "CAN_READ x -> b", Side: "identity", Kind: "revoke", Policy: "p", Cost: 3}},
+		RemediationStatus:    "partial_pending_resolution",
+	}
+	out := render(t, &schema.Report{Summary: schema.Summary{BySeverity: map[string]int{}}, Findings: []schema.Finding{f}})
+	a, b := strings.Index(out, "<h4>Resolve first</h4>"), strings.Index(out, "Known alternative, to apply now")
+	if a < 0 || b < a || !strings.Contains(out, "-var-file (b)") {
+		t.Fatal("a resolve-only cut shows the command first, then the known alternative")
+	}
+	if strings.Contains(out, "<h4>Recommended fix</h4>") {
+		t.Error("a resolve-only cut has no recommended change")
+	}
+}
+
+// Attack paths come before misconfigurations, each by severity then score.
+func TestAttackPathsFirst(t *testing.T) {
+	fs := []schema.Finding{
+		{Rule: "CLAPA-POST-001", Kind: "posture", Severity: "critical", Score: 900, Title: "post-critical", Fingerprint: "a"},
+		{Rule: "CLAPA-PATH-001", Kind: "path", Severity: "medium", Score: 291, Title: "path-medium", Fingerprint: "b"},
+		{Rule: "CLAPA-PATH-002", Kind: "path", Severity: "high", Score: 600, Title: "path-high-600", Fingerprint: "c"},
+		{Rule: "CLAPA-PATH-003", Kind: "path", Severity: "high", Score: 700, Title: "path-high-700", Fingerprint: "d"},
+	}
+	out := render(t, &schema.Report{Summary: schema.Summary{BySeverity: map[string]int{}}, Findings: fs})
+	want := []string{`id="paths-h"`, "path-high-700", "path-high-600", "path-medium", `id="posture-h"`, "post-critical"}
+	for i := 1; i < len(want); i++ {
+		if strings.Index(out, want[i-1]) > strings.Index(out, want[i]) {
+			t.Errorf("%q must come before %q", want[i-1], want[i])
+		}
+	}
+	if !strings.Contains(out, "3 attack paths") || !strings.Contains(out, "1 misconfiguration") {
+		t.Error("the summary counts attack paths apart from misconfigurations")
 	}
 }

@@ -46,7 +46,6 @@ input[type=search]{min-width:14rem}
 .fixes{border-top:1px dashed var(--line);margin-top:.4rem}
 .strategy{margin:.4rem 0 .6rem}
 h5{font-size:.9rem;margin:.4rem 0 .2rem}
-.strategy.root-cause .badge{color:var(--low)}.strategy.mitigation .badge{color:var(--warn)}
 .verify .ok{color:var(--ok)}.verify .no{color:var(--cut)}
 .digest{font-size:12px}
 pre{overflow-x:auto;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:.5rem;font:12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}
@@ -54,6 +53,11 @@ pre{overflow-x:auto;background:var(--bg);border:1px solid var(--line);border-rad
 .diff .add{background:var(--addbg);color:var(--addfg)}.diff .del{background:var(--delbg);color:var(--delfg)}
 .diff .hunk{color:var(--low)}.diff .file{color:var(--muted);font-weight:600}
 .note{color:var(--warn)}
+.lead{font-size:1.05rem}
+.badge.grey{color:var(--muted)}
+.badge.strat{color:var(--low)}.strategy.mitigation .badge.strat{color:var(--warn)}
+.changes{margin:.2rem 0;padding-left:1.2rem}
+.fix h4{margin-top:.6rem}
 @media print{
 :root{--bg:#fff;--fg:#000;--muted:#333;--line:#888;--card:#fff;--node:#fff;--crit:#000;--high:#000;--med:#000;--low:#000;--info:#000;--warn:#000;--cut:#000;--resolve:#000;--ok:#000;--addbg:#fff;--addfg:#000;--delbg:#fff;--delfg:#000}
 body{font-size:11pt}

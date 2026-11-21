@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/r3oof-900/clapa/pkg/schema"
@@ -108,6 +109,34 @@ var funcs = template.FuncMap{
 	},
 	"pending": func(f *schema.Finding) bool { return f.RemediationStatus == "partial_pending_resolution" },
 	"layout":  layout,
+	"groups":  groups,
+	"plural": func(n int, one, many string) string {
+		if n == 1 {
+			return "1 " + one
+		}
+		return fmt.Sprintf("%d %s", n, many)
+	},
+	// resolveOnly: the cut is resolve steps only (decide, then rescan).
+	"resolveOnly": func(f *schema.Finding) bool {
+		for _, s := range f.Fix {
+			if s.Kind != "resolve" {
+				return false
+			}
+		}
+		return len(f.Fix) > 0
+	},
+	"first": func(fs []schema.Fix) *schema.Fix {
+		if len(fs) == 0 {
+			return nil
+		}
+		return &fs[0]
+	},
+	"rest": func(fs []schema.Fix) []schema.Fix {
+		if len(fs) < 2 {
+			return nil
+		}
+		return fs[1:]
+	},
 	// difflines: a unified diff's lines, each with its class (add, del,
 	// hunk, file, ctx) for the CSS; the text stays text.
 	"difflines": difflines,
@@ -151,4 +180,33 @@ func difflines(diff string) []diffLine {
 		out = append(out, diffLine{c, l})
 	}
 	return out
+}
+
+// findingGroups: the attack paths (path rules) and the misconfigurations
+// (posture rules), each by severity, then score, then as reported.
+type findingGroups struct {
+	Paths, Posture []*schema.Finding
+}
+
+var severityRank = map[string]int{"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+
+func groups(r *schema.Report) findingGroups {
+	var g findingGroups
+	for i := range r.Findings {
+		f := &r.Findings[i]
+		if f.Kind == "path" {
+			g.Paths = append(g.Paths, f)
+		} else {
+			g.Posture = append(g.Posture, f)
+		}
+	}
+	order := func(a, b *schema.Finding) int {
+		if d := severityRank[a.Severity] - severityRank[b.Severity]; d != 0 {
+			return d
+		}
+		return b.Score - a.Score
+	}
+	slices.SortStableFunc(g.Paths, order)
+	slices.SortStableFunc(g.Posture, order)
+	return g
 }

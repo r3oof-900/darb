@@ -1502,6 +1502,21 @@ Users can raise it per gap kind in `clapa.yaml`; the report shows the tolerance 
   colour showed. `docs/examples/report-scenario-01.html` and
   `report-scenario-22.html` are made by the tool (`scan --fixes --format
   html`); `TestExampleReports` fails when they are not what it makes now.
+  After the second review: a derived read is drawn as what it stands for
+  (the read to the data, the decrypt down to the KMS key, the key
+  protecting the data), with the marks on the edge the fix changes; a cut
+  edge off the drawn path (the escalation of a dominated path merged into
+  the cut) is drawn as a branch, so every fix step is an edge of the
+  drawing (`TestEveryFixStepIsDrawnWithItsMark`). Each finding has one fix
+  section: "Recommended fix" (the first fix of §9.2: strategy, what
+  changes in a sentence, verification, the patch), "Other options", and
+  "How this fix was chosen" (closed: the cut's edges, sides, costs, other
+  sides, alternative, `also_fixes`, uncuttable edges); a cut of resolve
+  steps only starts with "Resolve first", then the known alternative. A
+  suggestion is shown grey ("suggestion, not verified"), never as a failed
+  verification. Attack paths (path rules) come before misconfigurations
+  (posture rules), each by severity then score; the summary counts them
+  apart.
 - **Console** — concise by default, `-v` for detail, `NO_COLOR`, plain when not a
   TTY. **All untrusted strings are stripped of control characters** before printing
   (terminal escape injection via resource names; see THREAT_MODEL.md).
