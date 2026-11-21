@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="{{.CSP}}">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CLAPA report</title>
+<style>{{.CSS}}</style>
+</head>
+<body>
+<header>
+<h1>CLAPA report</h1>
+<p class="meta">{{.R.Tool.Name}} {{.R.Tool.Version}}{{with .R.Tool.Commit}} ({{.}}){{end}} · rule catalog {{.R.Tool.RuleCatalog}} · threat model: {{if .R.ThreatModel.AssumeCompromised}}every workload may be compromised{{else}}exposed entry points only{{end}} · fail on {{.R.ThreatModel.FailOn}} · exit code {{.R.ExitCode}}</p>
+</header>
+<main>
+<section id="summary" aria-labelledby="summary-h">
+<h2 id="summary-h">Summary</h2>
+<table class="counts">
+<thead><tr>{{range .Severities}}<th scope="col" class="sev-{{.Name}}">{{.Name}}</th>{{end}}<th scope="col">findings</th></tr></thead>
+<tbody><tr>{{range .Severities}}<td>{{.Count}}</td>{{end}}<td>{{.R.Summary.Findings}}</td></tr></tbody>
+</table>
+<p>{{.R.Summary.ConfirmedUnlessDenied}} confirmed unless denied, {{.R.Summary.Unconfirmed}} unconfirmed. The severity is the worst case of every unknown, whatever the status.</p>
+<p>{{.R.Coverage.Collected}} objects collected; {{len .R.Coverage.Gaps}} coverage gaps ({{.R.Coverage.GapsOverTolerance}} over tolerance); graph: {{.R.Graph.Nodes}} nodes, {{.R.Graph.Edges}} edges, {{.R.Graph.Pairs}} entry–jewel pairs.</p>
+{{if not .R.Coverage.Collected}}<p class="warn">Nothing was collected: this is not a clean result.</p>{{end}}
+</section>
+
+<section id="findings" aria-labelledby="findings-h">
+<h2 id="findings-h">Findings</h2>
+<form id="filters" hidden>
+<fieldset><legend>Severity</legend>{{range .Severities}}<label><input type="checkbox" value="{{.Name}}" checked> {{.Name}}</label> {{end}}</fieldset>
+<label>Status <select><option value="">any</option><option value="confirmed">confirmed</option><option value="confirmed_unless_denied">confirmed unless denied</option><option value="unconfirmed">unconfirmed</option></select></label>
+<label>Search <input type="search" autocomplete="off"></label>
+<output><span id="shown">{{len .R.Findings}}</span> shown</output>
+</form>
+{{if not .R.Findings}}<p>No finding.</p>{{end}}
+{{range .R.Findings}}
+<article class="finding" data-severity="{{.Severity}}" data-status="{{.Status}}" data-text="{{search .}}">
+<h3><span class="badge sev-{{.Severity}}">{{upper .Severity}} {{.Score}}</span>{{with status .Status}} <span class="badge status">{{upper .}}</span>{{end}} <code>{{.Rule}}</code> {{.Title}}</h3>
+{{if ne .Status "confirmed"}}<p class="muted">Confidence {{.Confidence}}: the severity is the worst case of the unknowns below.</p>{{end}}
+{{if .Resource}}<p>Resource <code>{{.Resource}}</code></p>{{else}}<p><code>{{.Entry}}</code> → <code>{{.Jewel}}</code></p>{{end}}
+{{with .Undecided}}<div class="undecided"><h4>Undecided</h4><ul>{{range .}}<li>{{.}}</li>{{end}}</ul></div>{{end}}
+{{with .Path}}<ol class="path">{{range .}}<li><code>{{.}}</code></li>{{end}}</ol>{{end}}
+{{if .PathsFound}}<p class="muted">{{.PathsFound}} path{{if ne .PathsFound 1}}s{{end}} found{{if .PathsTruncated}} (truncated: more exist){{end}}.</p>{{end}}
+{{with .WorstCasePath}}<details><summary>Worst-case path (scores higher, less certain)</summary><ol class="path">{{range .}}<li><code>{{.}}</code></li>{{end}}</ol></details>{{end}}
+{{if .Chokepoints}}
+<div class="fix">
+<h4>Cheapest fix (cost {{.CutCost}})</h4>
+{{if pending .}}<p class="pending">Resolve the unknowns listed, then rescan: the fix may need more steps once they are known.</p>{{end}}
+{{template "steps" .Fix}}
+{{with .OtherSideFix}}<details><summary>Other sides of these edges</summary>{{template "steps" .}}</details>{{end}}
+{{with .AlternativeFixDetail}}<details><summary>Alternative fix (shares no edge with the cheapest)</summary>{{template "steps" .}}</details>{{end}}
+{{with .SharedFixPossible}}<p>Shared fix: one change to {{range $i, $r := .}}{{if $i}}, {{end}}<code>{{$r}}</code>{{end}} breaks several of these edges.</p>{{end}}
+{{with refs .AlsoFixes}}<p>Also fixes: {{range $i, $r := .}}{{if $i}}; {{end}}<code>{{$r.Rule}}</code> <code>{{$r.Entry}}</code> → <code>{{$r.Jewel}}</code>{{end}}</p>{{end}}
+{{with uncut .Uncuttable}}<p>No change breaks: {{range $i, $u := .}}{{if $i}}; {{end}}<code>{{$u.Edge}}</code> ({{$u.Reason}}){{end}}</p>{{end}}
+</div>
+{{end}}
+{{if .NoFix}}<p class="warn">No fix within the configured constraints (intended access, uncuttable edges).</p>{{end}}
+<details><summary>Evidence, defaults and location</summary>
+{{with .DefaultsUsed}}<h4>Relies on documented defaults</h4><ul>{{range .}}<li><code>{{.Setting}}</code> = <code>{{.Value}}</code> ({{.Reference}})</li>{{end}}</ul>{{end}}
+{{with .Evidence}}<h4>Evidence</h4><ul>{{range .}}<li><code>{{.}}</code></li>{{end}}</ul>{{end}}
+{{with .Location}}<p>At <code>{{.File}}{{if .StartLine}}:{{.StartLine}}{{end}}</code>{{with .Address}} <code>{{.}}</code>{{end}}{{with .ARN}} <code>{{.}}</code>{{end}}</p>{{end}}
+<p class="muted">Fingerprint <code>{{.Fingerprint}}</code></p>
+</details>
+</article>
+{{end}}
+</section>
+
+{{with .R.IntendedAccess}}
+<section id="intended" aria-labelledby="intended-h">
+<h2 id="intended-h">Intended access</h2>
+<table><thead><tr><th scope="col">Principal</th><th scope="col">Action</th><th scope="col">Resource</th><th scope="col">Status</th></tr></thead>
+<tbody>{{range .}}<tr><td><code>{{.Principal}}</code></td><td><code>{{.Action}}</code></td><td><code>{{.Resource}}</code></td><td>{{.Status}}{{with .Detail}}: {{.}}{{end}}</td></tr>{{end}}</tbody></table>
+</section>
+{{end}}
+
+<section id="coverage" aria-labelledby="coverage-h">
+<h2 id="coverage-h">Coverage</h2>
+{{if .R.Coverage.Gaps}}<table><thead><tr><th scope="col">Kind</th><th scope="col">Where</th><th scope="col">Detail</th></tr></thead>
+<tbody>{{range .R.Coverage.Gaps}}<tr><td>{{.Kind}}</td><td><code>{{.Source}}{{with .File}} {{.}}{{end}}{{if .Line}}:{{.Line}}{{end}}{{with .Address}} {{.}}{{end}}{{with .Account}} {{.}}{{end}}{{with .API}} {{.}}{{end}}</code></td><td>{{.Detail}}</td></tr>{{end}}</tbody></table>{{else}}<p>No coverage gap.</p>{{end}}
+{{with .R.Coverage.Notes}}<h3>Notes</h3><ul>{{range .}}<li><strong>{{.Kind}}</strong> {{.Subject}}: {{.Detail}}</li>{{end}}</ul>{{end}}
+</section>
+
+{{if or .R.Suppressed .R.ExpiredSuppressions .R.Baseline}}
+<section id="triage" aria-labelledby="triage-h">
+<h2 id="triage-h">Triage</h2>
+{{with .R.Suppressed}}<h3>Suppressed</h3><ul>{{range .}}<li><code>{{.Rule}}</code> {{.Severity}} <code>{{.Entry}}{{.Resource}}</code>{{with .Jewel}} → <code>{{.}}</code>{{end}}: {{.Reason}} ({{.Owner}}, until {{.Expires}})</li>{{end}}</ul>{{end}}
+{{with .R.ExpiredSuppressions}}<h3>Expired suppressions</h3><ul>{{range .}}<li><code>{{.Fingerprint}}</code>: {{.Reason}} ({{.Owner}}, expired {{.Expires}}){{if .Fires}}, the finding is reported again{{end}}</li>{{end}}</ul>{{end}}
+{{with .R.Baseline}}<h3>Baseline</h3><p><code>{{.File}}</code>: {{.New}} new, {{.Unchanged}} unchanged, {{len .Resolved}} resolved.</p>{{with .Resolved}}<ul>{{range .}}<li><code>{{.Rule}}</code> <code>{{.Entry}}{{.Resource}}</code>{{with .Jewel}} → <code>{{.}}</code>{{end}}</li>{{end}}</ul>{{end}}{{end}}
+</section>
+{{end}}
+
+<section id="rules" aria-labelledby="rules-h">
+<h2 id="rules-h">Rules</h2>
+<table><thead><tr><th scope="col">Rule</th><th scope="col">Title</th><th scope="col">ATT&amp;CK</th></tr></thead>
+<tbody>{{range .R.Rules}}<tr><td><code>{{.ID}}</code> {{.Version}}</td><td>{{.Title}}</td><td>{{range $i, $t := .Techniques}}{{if $i}}, {{end}}{{$t}}{{end}}</td></tr>{{end}}</tbody></table>
+</section>
+</main>
+<script type="application/json" id="clapa-report">{{.Data}}</script>
+<script>{{.JS}}</script>
+</body>
+</html>
+{{define "steps"}}<table class="steps"><thead><tr><th scope="col">Edge</th><th scope="col">Side</th><th scope="col">Kind</th><th scope="col">What</th><th scope="col">Cost</th></tr></thead>
+<tbody>{{range .}}<tr class="kind-{{.Kind}}"><td><code>{{.Edge}}</code></td><td>{{.Side}}</td><td>{{.Kind}}</td><td>{{if eq .Kind "resolve"}}decide <code>{{.Policy}}</code>: <code>{{.Resolve}}</code> (no change){{else}}change <code>{{.Policy}}</code>{{if eq .Kind "revoke"}}<br><span class="warn">removes an explicit grant: confirm it is not needed</span>{{end}}{{end}}</td><td>{{.Cost}}</td></tr>{{end}}</tbody></table>{{end}}

@@ -58,6 +58,7 @@ const (
 	extUnifiedDF = "github.com/aymanbagabas/go-udiff"
 	extYAMLv3    = "go.yaml.in/yaml/v3"
 	extXMod      = "golang.org/x/mod"
+	extXNetHTML  = "golang.org/x/net/html" // tests of the HTML report parse its output
 )
 
 // coreModel is the set of core packages most rule-layer packages build on.
@@ -171,7 +172,7 @@ func pureRules() []*Rule {
 		{Package: "internal/report/console", Layer: LayerPure, Internal: []string{"internal/report", "pkg/schema"}},
 		{Package: "internal/report/jsonreport", Layer: LayerPure, Internal: []string{"internal/report", "pkg/schema"}},
 		{Package: "internal/report/sarif", Layer: LayerPure, Internal: []string{"internal/report", "pkg/schema"}},
-		{Package: "internal/report/htmlreport", Layer: LayerPure, Internal: []string{"internal/report", "pkg/schema"}},
+		{Package: "internal/report/htmlreport", Layer: LayerPure, Internal: []string{"internal/report", "pkg/schema"}, External: []string{extXNetHTML}},
 		{Package: "internal/report/junit", Layer: LayerPure, Internal: []string{"internal/report", "pkg/schema"}},
 		{Package: "internal/report/markdown", Layer: LayerPure, Internal: []string{"internal/report", "pkg/schema"}},
 		{Package: "internal/llm", Layer: LayerPure, Internal: []string{"pkg/schema", "internal/redact"}},

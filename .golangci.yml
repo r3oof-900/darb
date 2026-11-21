@@ -1582,6 +1582,8 @@ linters:
             - "$gostd"
             - "github.com/r3oof-900/clapa/internal/report$"
             - "github.com/r3oof-900/clapa/pkg/schema$"
+            - "golang.org/x/net/html$"
+            - "golang.org/x/net/html/"
           deny:
             - pkg: "os"
               desc: "forbidden in the pure layer (docs/DESIGN.md section 3)"

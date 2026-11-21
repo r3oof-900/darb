@@ -1,0 +1,29 @@
+:root{color-scheme:light dark;--bg:#fff;--fg:#1b1f24;--muted:#57606a;--line:#d0d7de;--card:#f6f8fa;--crit:#a40e26;--high:#bc4c00;--med:#9a6700;--low:#0969da;--info:#57606a;--warn:#9a6700}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--muted:#8d96a0;--line:#30363d;--card:#161b22;--crit:#ff7b72;--high:#ffa657;--med:#d29922;--low:#58a6ff;--info:#8d96a0;--warn:#d29922}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+header,main{max-width:72rem;margin:0 auto;padding:0 1rem}
+header{border-bottom:1px solid var(--line);padding-top:1rem}
+h1{margin:.2rem 0;font-size:1.5rem}
+h2{border-bottom:1px solid var(--line);padding-bottom:.2rem;margin-top:2rem}
+h3{font-size:1.05rem;margin:.2rem 0 .4rem;overflow-wrap:anywhere}
+h4{font-size:.95rem;margin:.6rem 0 .2rem}
+code{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}
+.meta,.muted{color:var(--muted)}
+.warn,.pending{color:var(--warn)}
+table{border-collapse:collapse;width:100%;margin:.4rem 0}
+th,td{border:1px solid var(--line);padding:.25rem .5rem;text-align:left;vertical-align:top}
+.counts td,.counts th{text-align:center}
+.finding{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:.6rem .9rem;margin:.8rem 0}
+.finding[hidden]{display:none}
+.badge{display:inline-block;border-radius:4px;padding:0 .4rem;font-size:.8rem;font-weight:600;border:1px solid currentColor}
+.sev-critical{color:var(--crit)}.sev-high{color:var(--high)}.sev-medium{color:var(--med)}.sev-low{color:var(--low)}.sev-info{color:var(--info)}
+.badge.status{color:var(--warn)}
+.path{margin:.2rem 0;padding-left:1.6rem}
+.fix{border-top:1px dashed var(--line);margin-top:.4rem}
+details{margin:.3rem 0}
+summary{cursor:pointer;color:var(--muted)}
+#filters{display:flex;flex-wrap:wrap;gap:.6rem 1.2rem;align-items:center;margin:.6rem 0}
+#filters[hidden]{display:none}
+fieldset{border:1px solid var(--line);border-radius:6px;padding:.2rem .6rem}
+input[type=search]{min-width:14rem}

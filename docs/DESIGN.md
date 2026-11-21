@@ -166,7 +166,7 @@ generates. Rules for reading the table:
 | `internal/remediate` | core | `internal/model`, `internal/arn`, `internal/iampolicy`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/findings` | — | — |
 | `internal/report` | pure | `pkg/schema`, `internal/model`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/scoring`, `internal/findings`, `internal/coverage`, `internal/version` | — | — |
 | `internal/report/console` | pure | `internal/report`, `pkg/schema` | — | — |
-| `internal/report/htmlreport` | pure | `internal/report`, `pkg/schema` | — | — |
+| `internal/report/htmlreport` | pure | `internal/report`, `pkg/schema` | `golang.org/x/net/html` | — |
 | `internal/report/jsonreport` | pure | `internal/report`, `pkg/schema` | — | — |
 | `internal/report/junit` | pure | `internal/report`, `pkg/schema` | — | — |
 | `internal/report/markdown` | pure | `internal/report`, `pkg/schema` | — | — |
@@ -1469,7 +1469,16 @@ Users can raise it per gap kind in `clapa.yaml`; the report shows the tolerance 
   in `partialFingerprints`.
 - **HTML** — single file, `html/template`, assets via `embed`, strict CSP
   (`default-src 'none'`, hashed inline script/style), data embedded as escaped JSON;
-  test with a resource named `<script>`.
+  test with a resource named `<script>`. Implemented in Phase 7
+  (`--format html`, `internal/report/htmlreport`): the page is rendered in
+  full by the template (findings, paths, the cut with each step's side, kind
+  and cost, resolve steps and the pending note, the alternative, also_fixes,
+  coverage, intended access, triage, rules); the script only filters the
+  findings already in the page (severity, status, text) and never writes
+  markup; no network, no timestamp (two renderings are identical). Tests
+  (`htmlreport_test.go`): hostile names (`<script>`, an attribute breakout, an
+  early `</script>`) stay text, the policy hashes exactly the page's style and
+  script, the data block is the report.
 - **Console** — concise by default, `-v` for detail, `NO_COLOR`, plain when not a
   TTY. **All untrusted strings are stripped of control characters** before printing
   (terminal escape injection via resource names; see THREAT_MODEL.md).
