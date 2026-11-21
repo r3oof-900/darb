@@ -134,9 +134,9 @@ func TestEveryVulnerableScenarioIsFixed(t *testing.T) {
 			}
 		}
 	}
-	// 01, 04 (2), 04b, 05 (2), 06, 07, 08 (2), 09, 12, 14 (2), 16, 17.
-	if fixed != 16 {
-		t.Fatalf("%d findings fixed, want 16", fixed)
+	// 01, 01b, 04 (2), 04b, 05 (2), 06, 07, 08 (2), 09, 12, 14 (2), 16, 17.
+	if fixed != 17 {
+		t.Fatalf("%d findings fixed, want 17", fixed)
 	}
 }
 
@@ -247,5 +247,47 @@ func TestExposureRemediation(t *testing.T) {
 	}
 	if !r.Accepted() || !strings.Contains(r.Patch.Diff(), "+  type: ClusterIP") {
 		t.Fatalf("the exposure removed: %v %v %+v", r.Memory.Reasons, r.Files.Reasons, r.Patch)
+	}
+}
+
+// The two strategies on the files (Phase 5 review): after the mitigation
+// the broad grant is still a finding (the scan is not clean: exit 1); after
+// the verified root-cause fix of 1b it is gone and the scan is clean.
+func TestMitigationLeavesTheBroadGrant(t *testing.T) {
+	broad := func(a *Analysis) string {
+		for i := range a.Findings {
+			if a.Findings[i].Rule == "CLAPA-POST-008" && a.Findings[i].Resource == apiRole {
+				return a.Findings[i].Fingerprint
+			}
+		}
+		t.Fatal("no CLAPA-POST-008 for the role")
+		return ""
+	}
+	in, l, a := scanFixture(t, "01_classic/vulnerable", nil)
+	r, err := Remediate(t.Context(), in, l, a, findingFor(a, "CLAPA-PATH-001", piiBucket).Fingerprint)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Plan.Strategy != remediate.StrategyMitigation || !r.Accepted() || r.Note == "" ||
+		len(r.Others) != 1 || r.Others[0].Plan.Suggestion == "" || r.Others[0].Accepted() {
+		t.Fatalf("1: mitigation first, the root cause an unverified suggestion: %+v", r.Plan)
+	}
+	if _, still := r.Files.After.Findings[broad(a)]; !still || r.Files.After.ExitCode != 1 {
+		t.Fatalf("1: after the mitigation the broad grant stays reported (exit 1): %+v", r.Files.After)
+	}
+
+	in, l, a = scanFixture(t, "01b_classic_intended/vulnerable", nil)
+	r, err = Remediate(t.Context(), in, l, a, findingFor(a, "CLAPA-PATH-001", piiBucket).Fingerprint)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Plan.Strategy != remediate.StrategyRootCause || !r.Accepted() || r.Note != "" || len(r.Others) != 1 || !r.Others[0].Accepted() {
+		t.Fatalf("1b: a verified root cause first, then the mitigation: %+v", r.Plan)
+	}
+	if _, still := r.Files.After.Findings[broad(a)]; still || r.Files.After.ExitCode != 0 {
+		t.Fatalf("1b: after the root-cause fix the broad grant is gone and the scan is clean: %+v", r.Files.After)
+	}
+	if !strings.Contains(r.Patch.Diff(), "+      { Sid = \"DecryptAnything\", Effect = \"Allow\", Action = [\"kms:Decrypt\"], Resource = [aws_kms_key.receipts.arn] },") {
+		t.Fatalf("1b: the Allow itself narrowed: %s", r.Patch.Diff())
 	}
 }

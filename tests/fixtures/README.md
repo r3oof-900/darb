@@ -44,6 +44,7 @@ diff is a behaviour change.
 | 14 | `14_same_names_two_accounts` | role `app` and bucket `data-<account>` in two accounts (snapshot); workloads `apps/app-a` and `apps/app-b` assume each account's role by IRSA | two distinct nodes, two findings, nothing crosses between the accounts | account 444455556666's role can only list |
 | 15 | `15_empty_input` | nothing to scan | `collected: 0` → exit 3, never "0 findings" | one namespace manifest |
 | 16 | `16_malformed_inputs` | malformed YAML and HCL next to a valid copy of scenario 1 | both reported with file:line; the rest is loaded | valid files only |
+| 1b | `01b_classic_intended` | scenario 1 + receipts bucket (own key), read declared in `intended_access` | path; verified root-cause fix | `kms:Decrypt` narrowed to the receipts key |
 | 17 | `17_pod_identity_classic` | scenario 1 through EKS Pod Identity: association payments/api, trust `pods.eks.amazonaws.com` for `sts:AssumeRole` + `sts:TagSession` pinned by session tags, agent add-on | path (as scenario 1) | as scenario 1 fixed |
 
 For the "no path" scenarios (2, 3, 11) the vulnerable variant is the near-miss

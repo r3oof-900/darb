@@ -11,7 +11,7 @@
       "source": "clapa.yaml (clusters.prod)"
     }
   ],
-  "collected": 11,
+  "collected": 12,
   "entry_points": [
     {
       "public": "true",
@@ -26,20 +26,7 @@
       "workload": "k8s:prod/payments/Deployment/api"
     }
   ],
-  "gaps": [
-    {
-      "Kind": "unresolved",
-      "Source": "normalize-terraform",
-      "File": "terraform/account_b.tf",
-      "Line": 26,
-      "Address": "aws_s3_bucket.warehouse",
-      "Service": "",
-      "Region": "",
-      "Account": "",
-      "API": "",
-      "Detail": "Block Public Access of this bucket is not in the input (no aws_s3_bucket_public_access_block); unknown"
-    }
-  ],
+  "gaps": [],
   "mappings": [],
   "network_policies": [],
   "node_groups": [],
@@ -119,7 +106,7 @@
       },
       "kind": "aws:s3:bucket",
       "region": "us-east-1",
-      "restrict_public_buckets": "unknown",
+      "restrict_public_buckets": "true",
       "source": "terraform/account_b.tf:26-32 (aws_s3_bucket.warehouse)"
     }
   ],

@@ -17,6 +17,8 @@ type stmtList interface {
 	// removeValues removes an edit's values from statement i; true when
 	// nothing is left of the element (the statement goes).
 	removeValues(i int, e *remediate.Edit) (bool, error)
+	// setValues makes statement i's element exactly the edit's values.
+	setValues(i int, e *remediate.Edit) error
 	// commit removes the statements and appends the new ones.
 	commit(removed map[int]bool, added []string) error
 }
@@ -52,12 +54,15 @@ func editOne(l stmtList, e *remediate.Edit, id string) (gone bool, added string,
 			return false, "", todo("%s", err.Error())
 		}
 		return false, s, nil
-	case remediate.OpRemoveStatement, remediate.OpRemoveValues:
+	case remediate.OpRemoveStatement, remediate.OpRemoveValues, remediate.OpSetValues:
 		if e.Index < 0 || e.Index >= l.count() {
 			return false, "", fmt.Errorf("patch: %s has no statement %d", id, e.Index)
 		}
 		if e.Op == remediate.OpRemoveStatement {
 			return true, "", nil
+		}
+		if e.Op == remediate.OpSetValues {
+			return false, "", l.setValues(e.Index, e)
 		}
 		gone, err := l.removeValues(e.Index, e)
 		return gone, "", err

@@ -37,6 +37,13 @@
       "score": 600,
       "severity": "high",
       "defaults_used": []
+    },
+    {
+      "rule": "CLAPA-POST-008",
+      "resource": "arn:aws:s3:::acme-marketing-leads",
+      "score": 600,
+      "severity": "high",
+      "defaults_used": []
     }
   ],
   "absent": [],

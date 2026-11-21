@@ -155,7 +155,7 @@ func (p *patcher) placeAll(inv *model.Inventory, edits []remediate.Edit) ([]*pol
 		e := &edits[i]
 		var err error
 		switch e.Op {
-		case remediate.OpAddStatement, remediate.OpRemoveValues, remediate.OpRemoveStatement:
+		case remediate.OpAddStatement, remediate.OpRemoveValues, remediate.OpRemoveStatement, remediate.OpSetValues:
 			pe, ok := byDoc[e.Policy]
 			if !ok {
 				doc := remediate.Document(inv, e.Policy)

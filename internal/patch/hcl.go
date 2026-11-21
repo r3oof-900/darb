@@ -212,6 +212,8 @@ func (p *patcher) byHand(pe *policyEdits) string {
 			parts = append(parts, fmt.Sprintf("remove %s from the %s of statement %d", strings.Join(e.Values, ", "), e.Element, e.Index))
 		case remediate.OpRemoveStatement:
 			parts = append(parts, fmt.Sprintf("remove statement %d", e.Index))
+		case remediate.OpSetValues:
+			parts = append(parts, fmt.Sprintf("set the %s of statement %d to %s", e.Element, e.Index, strings.Join(e.Values, ", ")))
 		case remediate.OpNodeMetadata, remediate.OpRemoveHostNetwork, remediate.OpRemoveExposure, remediate.OpRestrictPublic:
 		}
 	}
@@ -290,6 +292,38 @@ func (l *hclStmts) removeValues(i int, e *remediate.Edit) (bool, error) {
 		return false, todo("statement %d is not an object literal", i)
 	}
 	return l.c.removeValues(so, e)
+}
+
+func (l *hclStmts) setValues(i int, e *remediate.Edit) error {
+	so, ok := l.stmts[i].(*hclsyntax.ObjectConsExpr)
+	if !ok {
+		return todo("statement %d is not an object literal", i)
+	}
+	val, err := l.c.elementValue(e, hclValue, func(k, v string) string { return "{ " + k + " = " + v + " }" })
+	if err != nil {
+		return todo("%s", err.Error())
+	}
+	f := l.c.f
+	if it := objectItem(so, e.Element); it != nil {
+		r := it.ValueExpr.Range()
+		f.replace(r.Start.Byte, r.End.Byte, val)
+		return nil
+	}
+	if it := objectItem(so, "Not"+e.Element); it != nil {
+		f.replace(it.KeyExpr.Range().Start.Byte, it.ValueExpr.Range().End.Byte, e.Element+" = "+val)
+		return nil
+	}
+	return todo("statement %d has no %s to narrow", i, e.Element)
+}
+
+// elementValue renders the values of a set-values edit: a list of
+// resources, or an AWS principal object (obj renders {AWS = list}).
+func (c *pctx) elementValue(e *remediate.Edit, render func(value) string, obj func(k, v string) string) (string, error) {
+	l, err := list(e.Values, c.resolve, render)
+	if err != nil || e.Element == "Resource" {
+		return l, err
+	}
+	return obj("AWS", l), nil
 }
 
 func (l *hclStmts) commit(removed map[int]bool, added []string) error {

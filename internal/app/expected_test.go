@@ -54,6 +54,17 @@ type expectedFinding struct {
 	// cheapest fix of each alternative_fix edge.
 	OtherSide         []expectedFix `json:"other_side_fix"`
 	AlternativeDetail []expectedFix `json:"alternative_fix_detail"`
+	// Remediation: the strategies in output order, which are verified on
+	// both levels, and the advice (DESIGN.md §9.2); or missing: an UNKNOWN
+	// path gets what would decide it, no fix.
+	Remediation *expectedRemediation `json:"remediation"`
+}
+
+type expectedRemediation struct {
+	Order    []string `json:"order"`
+	Verified []bool   `json:"verified"`
+	Note     string   `json:"note"`
+	Missing  bool     `json:"missing"`
 }
 
 type expectedFix struct {
@@ -300,6 +311,19 @@ func TestExpectedFindings(t *testing.T) {
 		}
 		for _, d := range compareExpected(t, &exp, a) {
 			report = append(report, name+": "+d)
+		}
+		for i := range exp.Findings {
+			e := &exp.Findings[i]
+			if e.Remediation == nil {
+				continue
+			}
+			for j := range a.Findings {
+				if matches(e, &a.Findings[j]) {
+					for _, d := range compareRemediation(t, in, l, a, e, &a.Findings[j]) {
+						report = append(report, name+": "+describe(e)+": "+d)
+					}
+				}
+			}
 		}
 	}
 	compareWithOpen(t, report)

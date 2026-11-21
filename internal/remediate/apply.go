@@ -16,7 +16,7 @@ func Apply(inv *model.Inventory, edits []Edit) (*model.Inventory, error) {
 	for i := range edits {
 		e := &edits[i]
 		switch e.Op {
-		case OpAddStatement, OpRemoveValues, OpRemoveStatement:
+		case OpAddStatement, OpRemoveValues, OpRemoveStatement, OpSetValues:
 			if _, seen := byDoc[e.Policy]; !seen {
 				order = append(order, e.Policy)
 			}
@@ -58,7 +58,7 @@ func applyFact(out *model.Inventory, e *Edit) {
 			s.RestrictPublicBuckets = model.True
 			return r.WithS3(s)
 		})
-	case OpAddStatement, OpRemoveValues, OpRemoveStatement:
+	case OpAddStatement, OpRemoveValues, OpRemoveStatement, OpSetValues:
 	}
 }
 
@@ -102,7 +102,10 @@ func editDocument(doc *model.PolicyDocument, edits []Edit) (*model.PolicyDocumen
 		if e.Index < 0 || e.Index >= len(inputs) {
 			return nil, fmt.Errorf("remediate: %s has no statement %d", doc.ID(), e.Index)
 		}
-		if e.Op == OpRemoveStatement || removeValues(inputs[e.Index], e) {
+		switch {
+		case e.Op == OpSetValues:
+			setValues(inputs[e.Index], e)
+		case e.Op == OpRemoveStatement || removeValues(inputs[e.Index], e):
 			removed[e.Index] = true
 		}
 	}
@@ -115,6 +118,20 @@ func editDocument(doc *model.PolicyDocument, edits []Edit) (*model.PolicyDocumen
 	return model.NewPolicyDocument(&model.PolicyInput{
 		ID: doc.ID(), Kind: doc.Kind(), Version: doc.Version(), Source: *doc.Source(), Statements: append(kept, added...),
 	})
+}
+
+// setValues makes the element exactly e.Values: Resource (not NotResource),
+// or an AWS Principal (not NotPrincipal).
+func setValues(in *model.StatementInput, e *Edit) {
+	if e.Element == "Resource" {
+		in.Resource, in.NotResource = slices.Clone(e.Values), nil
+		return
+	}
+	refs := make([]model.PrincipalRef, len(e.Values))
+	for i, v := range e.Values {
+		refs[i] = model.PrincipalRef{Type: model.PrincipalAWS, Value: v}
+	}
+	in.Principal, in.NotPrincipal = model.NewPrincipalSpec(false, refs), nil
 }
 
 // removeValues removes e.Values from the statement's element; true when the

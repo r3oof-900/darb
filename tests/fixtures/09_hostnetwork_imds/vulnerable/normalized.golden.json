@@ -11,7 +11,7 @@
       "source": "terraform/nodes.tf:1-7 (aws_eks_cluster.prod)"
     }
   ],
-  "collected": 8,
+  "collected": 9,
   "entry_points": [
     {
       "public": "unknown",
@@ -20,20 +20,7 @@
     }
   ],
   "exposures": [],
-  "gaps": [
-    {
-      "Kind": "unresolved",
-      "Source": "normalize-terraform",
-      "File": "terraform/nodes.tf",
-      "Line": 52,
-      "Address": "aws_s3_bucket.exports",
-      "Service": "",
-      "Region": "",
-      "Account": "",
-      "API": "",
-      "Detail": "Block Public Access of this bucket is not in the input (no aws_s3_bucket_public_access_block); unknown"
-    }
-  ],
+  "gaps": [],
   "mappings": [],
   "network_policies": [],
   "node_groups": [
@@ -85,7 +72,7 @@
       },
       "kind": "aws:s3:bucket",
       "region": "us-east-1",
-      "restrict_public_buckets": "unknown",
+      "restrict_public_buckets": "true",
       "source": "terraform/nodes.tf:52-57 (aws_s3_bucket.exports)"
     }
   ],

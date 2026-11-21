@@ -47,6 +47,9 @@ type Analysis struct {
 	CatalogVersion string           `json:"rule_catalog_version"`
 	Registry       *rules.Registry  `json:"-"`
 	AccessGraph    *graph.Graph     `json:"-"`
+	// intended: the edges on the paths of declared intended access (the
+	// root-cause fixes are narrowed to what they use).
+	intended map[graph.EdgeID]bool
 }
 
 // GraphStats summarise the access graph.
@@ -97,7 +100,7 @@ func Analyze(l *Loaded, cfg *config.Config, failOn string) (*Analysis, error) {
 		Findings: fs, Notes: append(built.Notes, notModelled()...), Gaps: l.Gaps, Collected: l.Collected,
 		IntendedAccess: verifyIntended(g, cfg, intended, entries, opts),
 		Graph:          GraphStats{Nodes: g.NumNodes(), Edges: g.NumEdges(), Pairs: len(pairs)},
-		CatalogVersion: catalog.Version, Registry: reg, AccessGraph: g,
+		CatalogVersion: catalog.Version, Registry: reg, AccessGraph: g, intended: uncuttable,
 	}
 	a.GapsCounted = gapsOverTolerance(l.Gaps, cfg)
 	a.ExitCode = findings.ExitCode(fs, failOn, l.Collected, a.GapsCounted)

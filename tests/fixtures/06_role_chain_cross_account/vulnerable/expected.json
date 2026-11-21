@@ -40,7 +40,18 @@
           "cost": 5
         }
       ],
-      "alternative_fix_detail": []
+      "alternative_fix_detail": [],
+      "remediation": {
+        "order": [
+          "mitigation",
+          "root-cause"
+        ],
+        "verified": [
+          true,
+          false
+        ],
+        "note": "declare intended_access to get a verified root-cause fix"
+      }
     },
     {
       "rule": "CLAPA-POST-006",
@@ -56,6 +67,20 @@
       "resource": "k8s:prod//Namespace/payments",
       "score": 245,
       "severity": "low",
+      "defaults_used": []
+    },
+    {
+      "rule": "CLAPA-POST-008",
+      "resource": "arn:aws:iam::111122223333:role/payments-api",
+      "score": 600,
+      "severity": "high",
+      "defaults_used": []
+    },
+    {
+      "rule": "CLAPA-POST-008",
+      "resource": "arn:aws:iam::444455556666:role/analytics-admin",
+      "score": 600,
+      "severity": "high",
       "defaults_used": []
     }
   ],

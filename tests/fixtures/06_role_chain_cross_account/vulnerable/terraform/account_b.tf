@@ -41,3 +41,14 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "warehouse" {
     }
   }
 }
+
+# Block Public Access, declared so that the scan has no coverage gap for
+# this bucket (Phase 5 review: fixtures state the setting instead of a
+# raised gap tolerance).
+resource "aws_s3_bucket_public_access_block" "warehouse" {
+  bucket                  = aws_s3_bucket.warehouse.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}

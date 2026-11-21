@@ -21,10 +21,15 @@ import (
 	"github.com/r3oof-900/clapa/internal/verify"
 )
 
-// Remediation is the verified remediation of one finding (DESIGN.md §9).
+// Remediation is one fix of a finding, verified on both levels (DESIGN.md
+// §9): the first in the output order, with the finding's other strategies
+// in Others (DESIGN.md §9.2: a verified root-cause fix first; otherwise the
+// mitigation first, the root cause as an unverified suggestion, and Note).
 type Remediation struct {
 	Finding *rules.Finding
 	Plan    *remediate.Plan
+	Others  []*Remediation
+	Note    string
 	// Memory is the level-1 verification (the model), Files the level-2
 	// one (the patch rescanned from scratch); a fix is accepted only when
 	// both are OK.
@@ -80,36 +85,52 @@ func analyzer(l *Loaded, cfg *config.Config, failOn string) verify.Analyzer {
 	}
 }
 
-// PlanFix plans and verifies in memory the remediation of the finding with
-// fingerprint fp (level 1 only; Remediate adds the patch and level 2).
-func PlanFix(l *Loaded, cfg *config.Config, a *Analysis, fp string) (*Remediation, error) {
+// Remediate plans, patches and verifies on both levels every strategy of
+// the remediation of the finding with fingerprint fp, and orders them.
+func Remediate(ctx context.Context, in *Inputs, l *Loaded, a *Analysis, fp string) (*Remediation, error) {
 	f, err := findFinding(a, fp)
 	if err != nil {
 		return nil, err
 	}
-	plan := remediate.ForFinding(&remediate.Input{Inventory: l.Inventory, Graph: a.AccessGraph}, f)
-	r := &Remediation{Finding: f, Plan: plan}
-	switch {
-	case len(plan.Missing) > 0:
-		r.Memory = verify.Outcome{Reasons: []string{"the finding is not confirmed: no patch until it is decided"}}
-	case plan.NoFix:
-		r.Memory = verify.Outcome{Reasons: []string{"no fix within the constraints (intended access, uncuttable edges)"}}
-	default:
-		r.Memory = verify.InMemory(l.Inventory, resultOf(a), plan, analyzer(l, cfg, DefaultFailOn))
+	plans := remediate.ForFinding(&remediate.Input{Inventory: l.Inventory, Graph: a.AccessGraph, Intended: a.intended}, f)
+	fixes := make([]*Remediation, 0, len(plans))
+	for _, p := range plans {
+		r := &Remediation{Finding: f, Plan: p}
+		switch {
+		case len(p.Missing) > 0:
+			r.Memory = verify.Outcome{Reasons: []string{"the finding is not confirmed: no patch until it is decided"}}
+		case p.NoFix:
+			r.Memory = verify.Outcome{Reasons: []string{"no fix within the constraints (intended access, uncuttable edges)"}}
+		case p.Suggestion != "":
+			r.Memory = verify.Outcome{Reasons: []string{"a suggestion, not verified: no declared intended access uses the grant"}}
+		default:
+			r.Memory = verify.InMemory(l.Inventory, resultOf(a), p, analyzer(l, in.Config, DefaultFailOn))
+		}
+		if err := finishFix(ctx, in, l, r); err != nil {
+			return nil, err
+		}
+		fixes = append(fixes, r)
 	}
-	return r, nil
+	return order(fixes), nil
 }
 
-// Remediate plans, patches and verifies on both levels the remediation of
-// the finding with fingerprint fp: in memory (the model), then the patch on
-// a copy of the inputs rescanned from scratch, whose result must be the
-// in-memory one exactly (DESIGN.md §9.2).
-func Remediate(ctx context.Context, in *Inputs, l *Loaded, a *Analysis, fp string) (*Remediation, error) {
-	r, err := PlanFix(l, in.Config, a, fp)
-	if err != nil {
-		return nil, err
+// NoteIntended is the advice given with an unverified root cause.
+const NoteIntended = "declare intended_access to get a verified root-cause fix"
+
+// order: a verified root-cause fix first; otherwise the mitigation first,
+// with the root cause after it as an unverified suggestion, and the advice.
+func order(fixes []*Remediation) *Remediation {
+	if len(fixes) == 1 {
+		return fixes[0]
 	}
-	return r, finishFix(ctx, in, l, r)
+	root, mitigation := fixes[0], fixes[1]
+	if root.Accepted() {
+		root.Others = []*Remediation{mitigation}
+		return root
+	}
+	mitigation.Others = []*Remediation{root}
+	mitigation.Note = NoteIntended
+	return mitigation
 }
 
 // verifyPlan verifies a given plan for a finding on both levels (the plan

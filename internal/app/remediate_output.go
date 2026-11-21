@@ -9,11 +9,13 @@ import (
 	"strings"
 
 	"github.com/r3oof-900/clapa/internal/patch"
+	"github.com/r3oof-900/clapa/internal/remediate"
 )
 
 // WriteRemediation prints a remediation: the finding, what is missing (an
-// UNKNOWN path), each change with its side, kind and cost, both
-// verifications, the patch and the JSON policies.
+// UNKNOWN path), then each fix in order — its strategy, each change with
+// its side, kind and cost, both verifications, the patch and JSON
+// policies — and the advice when the root cause is not verified.
 func WriteRemediation(w io.Writer, r *Remediation) {
 	p := func(a ...any) { _, _ = fmt.Fprintln(w, a...) }
 	f := r.Finding
@@ -27,6 +29,36 @@ func WriteRemediation(w io.Writer, r *Remediation) {
 	}
 	if r.Plan.NoFix {
 		p("no fix within the constraints (intended access, uncuttable edges)")
+		return
+	}
+	for i, fix := range append([]*Remediation{r}, r.Others...) {
+		if i > 0 {
+			p()
+		}
+		writeFix(w, fix)
+	}
+	if r.Note != "" {
+		p()
+		p(r.Note)
+	}
+}
+
+// Strategy is how a fix is labelled.
+func Strategy(r *Remediation) string {
+	switch {
+	case r.Plan.Strategy == remediate.StrategyMitigation:
+		return "mitigation: blocks this path only; the broad grant remains"
+	case r.Plan.Suggestion != "":
+		return "root-cause fix: a suggestion, not verified, not applied by --write"
+	}
+	return "root-cause fix"
+}
+
+func writeFix(w io.Writer, r *Remediation) {
+	p := func(a ...any) { _, _ = fmt.Fprintln(w, a...) }
+	p("==", Strategy(r))
+	if r.Plan.Suggestion != "" {
+		p("  " + r.Plan.Suggestion)
 		return
 	}
 	for i := range r.Plan.Changes {

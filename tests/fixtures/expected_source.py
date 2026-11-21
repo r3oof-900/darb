@@ -380,6 +380,79 @@ E["17_pod_identity_classic/fixed"] = {"derived_from": "13.2 row 17 fixed (as sce
                                       "absent": ABSENT_PII}
 
 
+# CLAPA-POST-008 (Phase 5 review): a broad grant of a sensitive action.
+# Derived by hand from each fixture's policies, before the rule existed:
+# an Allow of kms:Decrypt, sts:AssumeRole, iam:PassRole, s3:GetObject,
+# secretsmanager:GetSecretValue or ssm:GetParameter (or a wildcard covering
+# one) on every resource ("*"), with no condition or only organization /
+# account conditions, that the principal's permissions boundary does not
+# take away; or a resource policy granting one to Principal "*" under the
+# same conditions. One finding per principal or resource: base high 600,
+# confidence high: 600, high.
+def broad_grant(resource):
+    return posture("CLAPA-POST-008", resource, 600, "high")
+
+
+ADMIN_ROLE = "arn:aws:iam::444455556666:role/analytics-admin"
+BROAD = {
+    "01_classic/vulnerable": [ROLE],                          # kms:Decrypt on "*"
+    "06_role_chain_cross_account/vulnerable": [ROLE, ADMIN_ROLE],  # sts:AssumeRole on "*"; AdministratorAccess
+    "06_role_chain_cross_account/fixed": [ADMIN_ROLE],        # AdministratorAccess stays
+    "07_passrole_lambda/vulnerable": [ROLE],                  # iam:PassRole on "*"
+    "09_hostnetwork_imds/vulnerable": [NODE],                 # s3:GetObject on "*"
+    "09_hostnetwork_imds/fixed": [NODE],                      # the fixed variant fixes IMDS only
+    "10_kms_principal_org_id/vulnerable": [SHARED_KEY],       # key policy: Principal "*", org condition only
+    "11_boundary_deny/vulnerable": [ROLE],                    # boundary allows everything else
+    "12_public_bucket/vulnerable": [LEADS],                   # bucket policy: Principal "*"
+    "16_malformed_inputs/vulnerable": [ROLE],                 # kms:Decrypt on "*"
+    "16_malformed_inputs/fixed": [ROLE],                      # same role file
+    "17_pod_identity_classic/vulnerable": [ROLE],             # kms:Decrypt on "*"
+}
+# 11 fixed: kms:Decrypt on "*" is written, but the boundary allows only
+# sqs:* and logs:*, so the grant has no effect: no finding.
+for variant, resources in BROAD.items():
+    E[variant]["findings"] += [broad_grant(r) for r in resources]
+
+
+# Remediation strategies (Phase 5 review). A root-cause fix narrows the
+# broad Allow to what declared intended access uses through it; without
+# intended access it is an unverified suggestion, the mitigation (a Deny for
+# this path only) comes first, with the advice to declare intended access.
+NOTE_INTENDED = "declare intended_access to get a verified root-cause fix"
+MITIGATION_FIRST = {"order": ["mitigation", "root-cause"], "verified": [True, False], "note": NOTE_INTENDED}
+
+
+def with_remediation(variant, rule, jewel, remediation):
+    for f in E[variant]["findings"]:
+        if f["rule"] == rule and f.get("jewel") == jewel:
+            f["remediation"] = remediation
+            return
+    raise KeyError(variant)
+
+
+# 1 and 6: kms:Decrypt / sts:AssumeRole on "*", no intended access declared.
+with_remediation("01_classic/vulnerable", "CLAPA-PATH-001", PII, MITIGATION_FIRST)
+with_remediation("06_role_chain_cross_account/vulnerable", "CLAPA-PATH-001", WAREHOUSE, MITIGATION_FIRST)
+# 10: UNKNOWN until the organization ID is known: what is missing, no fix.
+with_remediation("10_kms_principal_org_id/vulnerable", "CLAPA-PATH-001", PII, {"missing": True})
+
+# 1b - scenario 1 plus the API's legitimate use, declared: it reads the
+# payment receipts bucket (its own KMS key). The PII path is scenario 1's
+# (729, critical; cut: the broad decrypt, identity, narrow, 1). The intended
+# path decrypts the receipts key through DecryptAnything, so the root cause
+# narrows its Resource from "*" to exactly that key: it removes the PII
+# decrypt and keeps the intended read; verified, it comes first, then the
+# mitigation (also verified). The receipts key has no rotation (as in 1
+# fixed). The fixed variant is that root-cause fix applied.
+E["01b_classic_intended/vulnerable"] = {"derived_from": "Phase 5 review: scenario 1 with intended_access declared",
+    "findings": [classic(), rotation_off(RECEIPTS_KEY), no_default_deny(NS_PAYMENTS), broad_grant(ROLE)],
+    "intended_access": intended("verified")}
+with_remediation("01b_classic_intended/vulnerable", "CLAPA-PATH-001", PII, {"order": ["root-cause", "mitigation"], "verified": [True, True]})
+E["01b_classic_intended/fixed"] = {"derived_from": "Phase 5 review: the root-cause fix of 1b applied (kms:Decrypt on the receipts key only)",
+    "findings": [rotation_off(RECEIPTS_KEY), no_default_deny(NS_PAYMENTS)],
+    "absent": ABSENT_PII, "intended_access": intended("verified")}
+
+
 def write(name, doc):
     out = {"format": "clapa-expected/v1"}
     out.update(doc)

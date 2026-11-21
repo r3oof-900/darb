@@ -8,7 +8,6 @@ import (
 
 	"github.com/r3oof-900/clapa/internal/graph"
 	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/rules"
 )
 
 // Remediation (DESIGN.md §9). A finding's plan has one change per cut edge,
@@ -31,6 +30,9 @@ const (
 	// "Principal") of statement Index of Policy; the statement goes when
 	// none remain.
 	OpRemoveValues Op = "remove-values"
+	// OpSetValues replaces the Element of statement Index of Policy with
+	// Values (a root-cause fix: the broad grant made exact).
+	OpSetValues Op = "set-values"
 	// OpRemoveStatement removes statement Index of Policy.
 	OpRemoveStatement Op = "remove-statement"
 	// OpNodeMetadata sets a node group's instance metadata options: Tokens
@@ -81,37 +83,22 @@ type Plan struct {
 	Missing []string
 	// NoFix: no finite cut within the constraints (intended access,
 	// uncuttable edges).
-	NoFix   bool
-	Changes []Change
+	NoFix bool
+	// Strategy: StrategyRootCause or StrategyMitigation.
+	Strategy string
+	Changes  []Change
+	// Suggestion: a root-cause fix the input cannot verify (no declared
+	// intended access uses the grant): what to narrow, by hand; no edits.
+	Suggestion string
 }
 
 // Input is what the generator reads.
 type Input struct {
 	Inventory *model.Inventory
 	Graph     *graph.Graph
-}
-
-// ForFinding plans the remediation of one finding: the chosen side of each
-// cut edge, or what is missing when the finding is not confirmed.
-func ForFinding(in *Input, f *rules.Finding) *Plan {
-	p := &Plan{Fingerprint: f.Fingerprint}
-	if !f.Confirmed {
-		p.Missing = Missing(in.Graph, f.PathEdges)
-		return p
-	}
-	if f.NoFix {
-		p.NoFix = true
-		return p
-	}
-	for _, id := range f.ChokepointEdge {
-		e := in.Graph.Edge(id)
-		if len(e.Fixes) == 0 {
-			p.NoFix = true
-			continue
-		}
-		p.Changes = append(p.Changes, ForEdge(in, id, &e.Fixes[0]))
-	}
-	return p
+	// Intended: the edges on the paths that realise declared intended
+	// access (with the edges derived ones stand for).
+	Intended map[graph.EdgeID]bool
 }
 
 // ForEdge generates the change that breaks one edge on one of its sides.

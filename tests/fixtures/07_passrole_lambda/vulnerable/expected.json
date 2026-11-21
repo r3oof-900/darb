@@ -57,6 +57,13 @@
       "score": 245,
       "severity": "low",
       "defaults_used": []
+    },
+    {
+      "rule": "CLAPA-POST-008",
+      "resource": "arn:aws:iam::111122223333:role/payments-api",
+      "score": 600,
+      "severity": "high",
+      "defaults_used": []
     }
   ],
   "absent": [],

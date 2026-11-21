@@ -41,7 +41,10 @@
           "fix_kind": "revoke",
           "cost": 3
         }
-      ]
+      ],
+      "remediation": {
+        "missing": true
+      }
     },
     {
       "rule": "CLAPA-POST-006",
@@ -57,6 +60,13 @@
       "resource": "k8s:prod//Namespace/payments",
       "score": 245,
       "severity": "low",
+      "defaults_used": []
+    },
+    {
+      "rule": "CLAPA-POST-008",
+      "resource": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.shared",
+      "score": 600,
+      "severity": "high",
       "defaults_used": []
     }
   ],

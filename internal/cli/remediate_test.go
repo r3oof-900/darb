@@ -156,3 +156,21 @@ func TestRemediateUnknown(t *testing.T) {
 		}
 	}
 }
+
+// With intended access declared, --write applies the verified root-cause
+// fix (first in the output): the Allow itself is narrowed.
+func TestRemediateWritesRootCause(t *testing.T) {
+	dir := copyFixture(t, "01b_classic_intended/vulnerable")
+	fp := pathFingerprint(t, inputArgs(dir))
+	code, out, errOut := run(t, append(append([]string{"remediate", "--write", "--force"}, inputArgs(dir)...), fp)...)
+	if code != ExitOK || !strings.HasPrefix(strings.SplitN(out, "== ", 2)[1], "root-cause fix") || !strings.Contains(out, "wrote terraform/role.tf") {
+		t.Fatalf("%d %s %s", code, out, errOut)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "terraform", "role.tf")) //nolint:gosec // G304: the test's own copy.
+	if !strings.Contains(string(data), `Action = ["kms:Decrypt"], Resource = [aws_kms_key.receipts.arn]`) {
+		t.Fatalf("the Allow is not narrowed: %s", data)
+	}
+	if code, out, _ := run(t, append(append([]string{"scan"}, inputArgs(dir)...), "--format", "json")...); code != ExitOK || strings.Contains(out, `"rule": "CLAPA-POST-008"`) {
+		t.Fatalf("after the root-cause fix: %d %s", code, out)
+	}
+}

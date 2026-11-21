@@ -45,3 +45,14 @@ resource "aws_iam_role_policy" "payments_api" {
     Statement = [{ Effect = "Allow", Action = "s3:GetObject", Resource = "${aws_s3_bucket.customer_pii.arn}/*" }]
   })
 }
+
+# Block Public Access, declared so that the scan has no coverage gap for
+# this bucket (Phase 5 review: fixtures state the setting instead of a
+# raised gap tolerance).
+resource "aws_s3_bucket_public_access_block" "customer_pii" {
+  bucket                  = aws_s3_bucket.customer_pii.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}

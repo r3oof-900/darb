@@ -98,6 +98,19 @@ func (l *jsonStmts) removeValues(i int, e *remediate.Edit) (bool, error) {
 	return false, nil
 }
 
+func (l *jsonStmts) setValues(i int, e *remediate.Edit) error {
+	v := l.items[i].member(e.Element)
+	if v == nil {
+		return todo("statement %d has no %s to narrow (a Not%s is changed by hand)", i, e.Element, e.Element)
+	}
+	val, err := l.c.elementValue(e, jsonValue, func(k, v string) string { return "{\"" + k + "\": " + v + "}" })
+	if err != nil {
+		return todo("%s", err.Error())
+	}
+	l.c.f.replace(l.base+v.start, l.base+v.end, val)
+	return nil
+}
+
 func (l *jsonStmts) commit(removed map[int]bool, added []string) error {
 	f := l.c.f
 	if l.stmt.kind == 'o' {
@@ -263,6 +276,20 @@ func (l *dataStmts) lists(b *hclsyntax.Block, element string) []*hclsyntax.Attri
 		}
 	}
 	return out
+}
+
+func (l *dataStmts) setValues(i int, e *remediate.Edit) error {
+	a := l.stmts[i].Body.Attributes["resources"]
+	if e.Element != "Resource" || a == nil {
+		return todo("narrow the %s of statement %d of the data source by hand to %s", e.Element, i, strings.Join(e.Values, ", "))
+	}
+	val, err := list(e.Values, l.c.resolve, hclValue)
+	if err != nil {
+		return todo("%s", err.Error())
+	}
+	r := a.Expr.Range()
+	l.c.f.replace(r.Start.Byte, r.End.Byte, val)
+	return nil
 }
 
 func (l *dataStmts) commit(removed map[int]bool, added []string) error {
