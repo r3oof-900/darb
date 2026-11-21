@@ -82,7 +82,7 @@ func Rules() []*Rule {
 }
 
 func coreRules() []*Rule {
-	ruleDeps := coreModel("internal/eval", "internal/graph", "internal/paths", "internal/rules", "internal/scoring", "internal/access")
+	ruleDeps := coreModel("internal/eval", "internal/eval/match", "internal/graph", "internal/paths", "internal/rules", "internal/scoring", "internal/access")
 	return []*Rule{
 		{Package: "internal/arn", Layer: LayerCore},
 		{Package: "internal/model", Layer: LayerCore, Internal: []string{"internal/arn"}},

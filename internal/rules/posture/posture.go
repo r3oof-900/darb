@@ -130,6 +130,14 @@ func Rules() []rules.Rule {
 				[]string{"01_classic/vulnerable"}, []string{"test:TestPostureRules/default-deny"}),
 			graph.Medium, defaultDeny,
 		},
+		&rule{
+			meta(BroadGrant, "Sensitive action granted on every resource or to every principal",
+				"kms:Decrypt, sts:AssumeRole, iam:PassRole, s3:GetObject, secretsmanager:GetSecretValue or ssm:GetParameter on \"*\" (or to Principal \"*\"), scoped at most to an organization or account: every new key, role, bucket or secret is reachable the moment it exists. A fix that blocks one path leaves this grant; this finding keeps it in view.",
+				scoring.BaseHigh, []string{"T1078.004"},
+				[]rules.Reference{ref("IAM › Security best practices: apply least-privilege permissions", "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html")},
+				[]string{"01_classic/vulnerable", "10_kms_principal_org_id/vulnerable"}, []string{"01_classic/fixed", "11_boundary_deny/fixed"}),
+			graph.High, broadGrants,
+		},
 	}
 }
 

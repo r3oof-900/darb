@@ -8,8 +8,9 @@ import (
 // A setting the input does not state takes its documented default only when
 // that default is deterministic; the node then lists the default's key in
 // its Defaulted settings, and evidence says "value_source: default" with the
-// reference below. Settings without a deterministic default (IMDS, S3 Block
-// Public Access) stay unknown and are coverage gaps (docs/DESIGN.md §4.7).
+// reference below. Settings without a deterministic default (IMDS; S3 Block
+// Public Access of a bucket that already exists) stay unknown and are
+// coverage gaps (docs/DESIGN.md §4.7).
 
 // Keys of documented defaults.
 const (
@@ -24,6 +25,7 @@ const (
 	DefaultUnsetRoleBindings = "terraform.aws_iam_role.managed_policy_arns"
 	DefaultNetPolTypes       = "k8s.networkPolicy.policyTypes"
 	DefaultOIDCAudience      = "eks.irsa.oidc-provider-audience"
+	DefaultS3NewBucketBPA    = "s3.block-public-access.new-bucket"
 )
 
 // DocumentedDefault is one deterministic default and where it is documented.
@@ -73,6 +75,14 @@ func DocumentedDefaults() []DocumentedDefault {
 			DefaultS3Encryption, "S3 bucket without a default encryption configuration", "SSE-S3 (AES256)",
 			"https://docs.aws.amazon.com/AmazonS3/latest/userguide/default-bucket-encryption.html",
 			"applies server-side encryption with Amazon S3 managed keys (SSE-S3) as the base level of encryption for every bucket",
+		},
+		{
+			// Only for a bucket a plan creates: the setting of an existing
+			// bucket may have been changed outside the input.
+			DefaultS3NewBucketBPA, "S3 Block Public Access of a bucket a Terraform plan creates, with no aws_s3_bucket_public_access_block",
+			"all four settings on (restrict_public_buckets = true)",
+			"https://aws.amazon.com/blogs/aws/heads-up-amazon-s3-security-changes-are-coming-in-april-of-2023/",
+			"newly created buckets [...] will by default have S3 Block Public Access enabled",
 		},
 		{
 			DefaultPodIdentitySTags, "Pod Identity association disableSessionTags", "false",

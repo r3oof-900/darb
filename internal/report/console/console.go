@@ -61,7 +61,7 @@ func finding(p *printer, f *schema.Finding) {
 	}
 	p.printf("[%s %d]%s %s  %s\n", strings.ToUpper(f.Severity), f.Score, confirmed, f.Rule, f.Title)
 	if f.Resource != "" {
-		p.printf("    resource: %s\n", f.Resource)
+		p.resource(f)
 	} else {
 		p.printf("    %s -> %s\n", f.Entry, f.Jewel)
 		for _, step := range f.Path {
@@ -107,5 +107,14 @@ func (p *printer) step(prefix string, s *schema.FixStep) {
 	p.printf("%s%s side, %s: change %s (cost %d)\n", prefix, s.Side, s.Kind, s.Policy, s.Cost)
 	if s.Kind == "revoke" {
 		p.printf("%s  this removes an explicit grant; confirm it is not needed\n", strings.Repeat(" ", len(prefix)))
+	}
+}
+
+// resource prints a posture finding's resource and the evidence: which
+// statement or setting it is (a broad grant names its statement).
+func (p *printer) resource(f *schema.Finding) {
+	p.printf("    resource: %s\n", f.Resource)
+	for _, ev := range f.Evidence {
+		p.printf("    evidence: %s\n", ev)
 	}
 }

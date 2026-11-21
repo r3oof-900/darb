@@ -63,6 +63,23 @@ spec:
       securityContext: {privileged: true}
 `
 
+// bpaPlan creates bucket "created" and leaves bucket "existing" as it is.
+const bpaPlan = `{
+  "format_version": "1.2", "terraform_version": "1.17.1",
+  "planned_values": {"root_module": {"resources": [
+    {"address": "aws_s3_bucket.created", "mode": "managed", "type": "aws_s3_bucket", "name": "created",
+     "provider_name": "registry.terraform.io/hashicorp/aws", "schema_version": 0, "values": {"bucket": "created"}},
+    {"address": "aws_s3_bucket.existing", "mode": "managed", "type": "aws_s3_bucket", "name": "existing",
+     "provider_name": "registry.terraform.io/hashicorp/aws", "schema_version": 0, "values": {"bucket": "existing"}}
+  ]}},
+  "resource_changes": [
+    {"address": "aws_s3_bucket.created", "mode": "managed", "type": "aws_s3_bucket", "name": "created",
+     "provider_name": "registry.terraform.io/hashicorp/aws", "change": {"actions": ["create"], "before": null, "after": {"bucket": "created"}, "after_unknown": {}}},
+    {"address": "aws_s3_bucket.existing", "mode": "managed", "type": "aws_s3_bucket", "name": "existing",
+     "provider_name": "registry.terraform.io/hashicorp/aws", "change": {"actions": ["no-op"], "before": {"bucket": "existing"}, "after": {"bucket": "existing"}, "after_unknown": {}}}
+  ]
+}`
+
 func k8sOnly(in *Inputs) { in.K8sDirs = []K8sDir{{Path: "k8s", Cluster: "prod"}} }
 func tfOnly(in *Inputs)  { in.TerraformDirs = []string{"terraform"} }
 
@@ -180,6 +197,38 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "kms" {
 						t.Errorf("stated: %+v %v", r.Encryption(), r.Defaulted())
 					}
 				}
+			}
+		}},
+		{model.DefaultS3NewBucketBPA, func(t *testing.T) {
+			// A bucket a plan creates gets Block Public Access on (all four
+			// settings); a bucket that already exists (no-op) stays unknown,
+			// a coverage gap, as does any bucket read statically.
+			l := loadTree(t, map[string]string{"plan.json": bpaPlan}, func(in *Inputs) {
+				in.TerraformPlans = []PlanInput{{Path: "plan.json"}}
+			})
+			for _, r := range l.Inventory.Resources {
+				defaulted := slices.Contains(r.Defaulted(), model.DefaultS3NewBucketBPA)
+				switch r.ARN() {
+				case "arn:aws:s3:::created":
+					if r.S3().RestrictPublicBuckets != model.True || !defaulted {
+						t.Errorf("created: %+v %v", r.S3(), r.Defaulted())
+					}
+				case "arn:aws:s3:::existing":
+					if r.S3().RestrictPublicBuckets != model.Unknown || defaulted {
+						t.Errorf("existing: %+v %v", r.S3(), r.Defaulted())
+					}
+				default:
+					t.Errorf("unexpected bucket %s", r.ARN())
+				}
+			}
+			gaps := 0
+			for i := range l.Gaps {
+				if strings.Contains(l.Gaps[i].Detail, "Block Public Access") {
+					gaps++
+				}
+			}
+			if gaps != 1 {
+				t.Errorf("one gap, for the existing bucket: %d", gaps)
 			}
 		}},
 		{model.DefaultPodIdentitySTags, func(t *testing.T) {

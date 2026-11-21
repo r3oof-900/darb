@@ -159,6 +159,10 @@ type Resource struct {
 	Root  string
 	Attrs *Object
 	Pos   Pos
+	// Action is the planned change of a resource read from a plan's
+	// resource_changes ("create", "update", "no-op", "delete-create", ...);
+	// "" in static mode, where nothing says whether the resource exists.
+	Action string
 }
 
 // ConfigAddress is the address without the instance key.

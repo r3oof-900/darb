@@ -119,9 +119,17 @@ func (n *norm) addBuckets(buckets map[string]*bucketFacts) {
 		if f.encDefault {
 			defaulted = append(defaulted, model.DefaultS3Encryption)
 		}
-		if !f.restrictSeen {
-			// No deterministic default: new buckets block public access, but a
-			// bucket's settings can be changed outside this input.
+		switch {
+		case f.restrictSeen:
+		case r.Action == "create":
+			// A bucket the plan creates gets all four Block Public Access
+			// settings (DESIGN.md §4.7); deterministic, since nothing outside
+			// the input has changed it yet.
+			f.restrict = model.True
+			defaulted = append(defaulted, model.DefaultS3NewBucketBPA)
+		default:
+			// No deterministic default: an existing bucket's settings (or any
+			// bucket's, read statically) can be changed outside this input.
 			n.gap(coverage.KindUnresolved, r, "Block Public Access of this bucket is not in the input (no aws_s3_bucket_public_access_block); unknown")
 		}
 		res := model.NewResource(&model.ResourceInput{

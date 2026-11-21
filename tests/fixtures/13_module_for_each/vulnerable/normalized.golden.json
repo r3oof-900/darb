@@ -32,18 +32,6 @@
   "exposures": [],
   "gaps": [
     {
-      "Kind": "unresolved",
-      "Source": "normalize-terraform",
-      "File": "plan.json",
-      "Line": 0,
-      "Address": "aws_s3_bucket.customer_pii",
-      "Service": "",
-      "Region": "",
-      "Account": "",
-      "API": "",
-      "Detail": "Block Public Access of this bucket is not in the input (no aws_s3_bucket_public_access_block); unknown"
-    },
-    {
       "Kind": "unknown-after-apply",
       "Source": "terraform-plan",
       "File": "plan.json",
@@ -803,7 +791,9 @@
       "arn": "arn:aws:s3:::acme-customer-pii",
       "classification": "pii",
       "classified_by": "tag:DataClass",
-      "defaulted": [],
+      "defaulted": [
+        "s3.block-public-access.new-bucket"
+      ],
       "encryption": {
         "Type": "AES256",
         "KeyARN": "",
@@ -811,7 +801,7 @@
       },
       "kind": "aws:s3:bucket",
       "region": "us-east-1",
-      "restrict_public_buckets": "unknown",
+      "restrict_public_buckets": "true",
       "source": "plan.json (aws_s3_bucket.customer_pii)"
     }
   ],

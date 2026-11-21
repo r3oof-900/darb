@@ -152,6 +152,11 @@ func (c *converter) resource(module string, sr *tfjson.StateResource) *tfraw.Res
 	var unknown any
 	if rc, ok := c.changes[sr.Address]; ok && rc.Change != nil {
 		unknown = rc.Change.AfterUnknown
+		acts := make([]string, len(rc.Change.Actions))
+		for i, a := range rc.Change.Actions {
+			acts[i] = string(a)
+		}
+		r.Action = strings.Join(acts, "-")
 	}
 	cfg := c.configs[r.ConfigAddress()]
 	r.Attrs = c.object(sr.AttributeValues, unknown, cfg, r)
