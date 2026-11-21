@@ -99,6 +99,7 @@ func finding(f *rules.Finding) schema.Finding {
 		Chokepoints: f.Chokepoints, CutCost: f.CutCost, NoFix: f.NoFix, AlternativeFix: f.Alternative, Fix: steps(f.Fix), OtherSideFix: steps(f.OtherSideFix), AlternativeFixDetail: steps(f.AlternativeDetail), SharedFixPossible: f.SharedFix,
 		DefaultsUsed: []schema.Default{}, Evidence: f.Evidence, Fingerprint: f.Fingerprint, Location: location(&f.Location),
 		WorstCasePath: f.WorstCasePath, RemediationStatus: f.RemediationStatus,
+		Hops: hops(f.Hops), WorstCaseHops: hops(f.WorstCaseHops),
 	}
 	if f.Kind == rules.KindPath {
 		also, unc := make([]schema.FindingRef, 0, len(f.AlsoFixes)), make([]schema.UncuttableEdge, 0, len(f.Uncuttable))
@@ -152,4 +153,15 @@ func status(f *rules.Finding) string {
 		return rules.StatusConfirmed
 	}
 	return rules.StatusUnconfirmed
+}
+
+func hops(hs []rules.Hop) []schema.Hop {
+	if len(hs) == 0 {
+		return nil
+	}
+	out := make([]schema.Hop, len(hs))
+	for i, h := range hs {
+		out[i] = schema.Hop(h)
+	}
+	return out
 }

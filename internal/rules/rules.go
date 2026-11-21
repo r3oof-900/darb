@@ -104,7 +104,11 @@ type Finding struct {
 	// WorstCasePath: when a less certain path of the same rule scores
 	// higher than the primary path (the best of the strongest status), that
 	// path; the severity is its score (Phase 6 review).
-	WorstCasePath []string        `json:"worst_case_path,omitempty"`
+	WorstCasePath []string `json:"worst_case_path,omitempty"`
+	// Hops, WorstCaseHops: the same paths as edges with both ends, for the
+	// path view of the HTML report.
+	Hops          []Hop           `json:"hops,omitempty"`
+	WorstCaseHops []Hop           `json:"worst_case_hops,omitempty"`
 	Paths         int             `json:"paths_found,omitempty"`
 	Truncated     bool            `json:"paths_truncated,omitempty"`
 	Factors       scoring.Factors `json:"factors"`
@@ -173,6 +177,23 @@ type FixStep struct {
 	// Resolve: the command that decides a resolve step.
 	Resolve string `json:"resolve,omitempty"`
 }
+
+// Hop is one edge of a path: its kind, both ends (identity and node kind),
+// and whether the finding's cut breaks it (HopCut, HopResolve or "").
+type Hop struct {
+	Kind     string `json:"kind"`
+	From     string `json:"from"`
+	To       string `json:"to"`
+	FromKind string `json:"from_kind"`
+	ToKind   string `json:"to_kind"`
+	Cut      string `json:"cut,omitempty"`
+}
+
+// How a hop is cut.
+const (
+	HopCut     = "cut"
+	HopResolve = "resolve"
+)
 
 // FindingRef names a path finding by rule, entry and jewel.
 type FindingRef struct {

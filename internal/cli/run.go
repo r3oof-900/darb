@@ -22,7 +22,7 @@ const usage = `usage:
              [--k8s DIR[=CLUSTER]]... [--aws-snapshot DIR]... [--live-aws [AWS flags]]
              [--live-k8s CONTEXT[=CLUSTER]]... [--k8s-eks NAME]... [--kubeconfig FILE] [--insecure]
              [--format console|json|sarif|html] [--output FILE] [--fail-on critical|high|medium|low|info]
-             [--ignore FILE] [--baseline PREVIOUS.json]
+             [--ignore FILE] [--baseline PREVIOUS.json] [--fixes] [--timestamps]
   clapa collect-snapshot --out DIR [AWS flags]
              AWS flags: [--aws-profile P] [--aws-region R]... [--aws-assume-role ARN]...
              [--aws-external-id ID] [--aws-concurrency N] [--aws-call-timeout D]
@@ -70,6 +70,7 @@ func (l *list) Set(v string) error { *l = append(*l, v); return nil }
 
 type scanFlags struct {
 	root, cfg, format, output, failOn, ignore, baseline string
+	fixes, timestamps                                   bool
 	plans, tfDirs, k8sDirs, snapshots                   list
 	aws                                                 awsFlags
 	k8s                                                 k8sFlags
@@ -80,6 +81,8 @@ func parseScan(args []string, stderr io.Writer) (*scanFlags, bool) {
 	fset := flag.NewFlagSet("scan", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	scanFlagsOn(fset, f)
+	fset.BoolVar(&f.fixes, "fixes", false, "remediate every path finding: strategies, patches and both verifications in the report (slower)")
+	fset.BoolVar(&f.timestamps, "timestamps", false, "state when the report was generated (otherwise two scans of the same input are identical)")
 	if err := fset.Parse(args); err != nil || fset.NArg() > 0 {
 		return nil, false
 	}
@@ -147,7 +150,17 @@ func scan(ctx context.Context, args []string, stdout, stderr io.Writer, env *Env
 		return ExitUsage
 	}
 	app.ApplyTriage(a, t, f.failOn)
-	return write(app.Report(a, cfg, f.failOn), f.format, f.output, stdout, stderr)
+	rep := app.Report(a, cfg, f.failOn)
+	if f.fixes {
+		if err := app.AttachFixes(ctx, in, l, a, rep); err != nil {
+			_, _ = fmt.Fprintln(stderr, "clapa:", err)
+			return ExitInternal
+		}
+	}
+	if f.timestamps {
+		rep.GeneratedAt = env.now().UTC().Format(time.RFC3339)
+	}
+	return write(rep, f.format, f.output, stdout, stderr)
 }
 
 // triage reads the suppression file and the baseline report.

@@ -43,9 +43,11 @@ type Analysis struct {
 	Gaps           []coverage.Gap   `json:"gaps"`
 	Collected      int              `json:"collected"`
 	GapsCounted    int              `json:"gaps_over_tolerance"`
-	ExitCode       int              `json:"exit_code"`
-	Graph          GraphStats       `json:"graph"`
-	CatalogVersion string           `json:"rule_catalog_version"`
+	// Inputs: what was scanned, with digests (Loaded.Inputs).
+	Inputs         []schema.ScannedInput `json:"-"`
+	ExitCode       int                   `json:"exit_code"`
+	Graph          GraphStats            `json:"graph"`
+	CatalogVersion string                `json:"rule_catalog_version"`
 	// Triage results (ApplyTriage): suppressed findings, expired
 	// suppressions, the baseline comparison.
 	Suppressed  []schema.SuppressedFinding  `json:"-"`
@@ -120,7 +122,7 @@ func analyze(l *Loaded, cfg *config.Config, failOn string, edit func(*graph.Grap
 		Findings: fs, Notes: slices.Concat(built.Notes, l.Notes, notModelled()), Gaps: l.Gaps, Collected: l.Collected,
 		IntendedAccess: verifyIntended(g, cfg, intended, entries, opts),
 		Graph:          GraphStats{Nodes: g.NumNodes(), Edges: g.NumEdges(), Pairs: len(pairs)},
-		CatalogVersion: catalog.Version, Registry: reg, AccessGraph: g, intended: uncuttable,
+		CatalogVersion: catalog.Version, Registry: reg, AccessGraph: g, intended: uncuttable, Inputs: l.Inputs,
 	}
 	a.GapsCounted = gapsOverTolerance(l.Gaps, cfg)
 	a.ExitCode = findings.ExitCode(fs, failOn, l.Collected, a.GapsCounted)

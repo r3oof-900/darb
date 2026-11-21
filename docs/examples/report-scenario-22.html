@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;sha256-&#43;o5&#43;8vXOkEFbedayWV90ZK3Gq2FyrEz&#43;GE3Yb4zF4Qs=&#39;; script-src &#39;sha256-HWDQQS6cRP7A2zp2bfIhHBpggeyS1SyXPx&#43;HaFLRtig=&#39;; img-src &#39;none&#39;; base-uri &#39;none&#39;; form-action &#39;none&#39;">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CLAPA report</title>
+<style>:root{color-scheme:light dark;--node:#ffffff;--ok:#1a7f37;--addbg:#dafbe1;--addfg:#116329;--delbg:#ffebe9;--delfg:#82071e;--cut:#cf222e;--resolve:#9a6700;--bg:#fff;--fg:#1b1f24;--muted:#57606a;--line:#d0d7de;--card:#f6f8fa;--crit:#a40e26;--high:#bc4c00;--med:#9a6700;--low:#0969da;--info:#57606a;--warn:#9a6700}
+@media (prefers-color-scheme:dark){:root{--node:#0d1117;--ok:#3fb950;--addbg:#12261e;--addfg:#7ee787;--delbg:#25171c;--delfg:#ffa198;--cut:#ff7b72;--resolve:#d29922;--bg:#0d1117;--fg:#e6edf3;--muted:#8d96a0;--line:#30363d;--card:#161b22;--crit:#ff7b72;--high:#ffa657;--med:#d29922;--low:#58a6ff;--info:#8d96a0;--warn:#d29922}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+header,main{max-width:72rem;margin:0 auto;padding:0 1rem}
+header{border-bottom:1px solid var(--line);padding-top:1rem}
+h1{margin:.2rem 0;font-size:1.5rem}
+h2{border-bottom:1px solid var(--line);padding-bottom:.2rem;margin-top:2rem}
+h3{font-size:1.05rem;margin:.2rem 0 .4rem;overflow-wrap:anywhere}
+h4{font-size:.95rem;margin:.6rem 0 .2rem}
+code{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}
+.meta,.muted{color:var(--muted)}
+.warn,.pending{color:var(--warn)}
+table{border-collapse:collapse;width:100%;margin:.4rem 0}
+th,td{border:1px solid var(--line);padding:.25rem .5rem;text-align:left;vertical-align:top}
+.counts td,.counts th{text-align:center}
+.finding{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:.6rem .9rem;margin:.8rem 0}
+.finding[hidden]{display:none}
+.badge{display:inline-block;border-radius:4px;padding:0 .4rem;font-size:.8rem;font-weight:600;border:1px solid currentColor}
+.sev-critical{color:var(--crit)}.sev-high{color:var(--high)}.sev-medium{color:var(--med)}.sev-low{color:var(--low)}.sev-info{color:var(--info)}
+.badge.status{color:var(--warn)}
+.path{margin:.2rem 0;padding-left:1.6rem}
+.fix{border-top:1px dashed var(--line);margin-top:.4rem}
+details{margin:.3rem 0}
+summary{cursor:pointer;color:var(--muted)}
+#filters{display:flex;flex-wrap:wrap;gap:.6rem 1.2rem;align-items:center;margin:.6rem 0}
+#filters[hidden]{display:none}
+fieldset{border:1px solid var(--line);border-radius:6px;padding:.2rem .6rem}
+input[type=search]{min-width:14rem}
+.pathview{margin:.4rem 0;overflow-x:auto}
+.pathview svg{width:100%;max-width:1140px;height:auto;font:11px ui-monospace,SFMono-Regular,Consolas,monospace}
+.pathview .node rect{fill:var(--node);stroke:var(--line);stroke-width:1.5}
+.pathview .node.workload rect{stroke:var(--low)}.pathview .node.account rect{stroke:var(--info)}
+.pathview .node.role rect{stroke:var(--med)}.pathview .node.key rect{stroke:var(--high)}
+.pathview .node.data rect{stroke:var(--crit);stroke-width:2.5}
+.pathview .ntype{fill:var(--muted);font-size:10px}
+.pathview .nname{fill:var(--fg);font-weight:600}
+.pathview .edge path{fill:none;stroke:var(--muted);stroke-width:1.5}
+.pathview .edge text{fill:var(--muted);font-size:10px}
+.pathview .edge.cut path{stroke:var(--cut);stroke-width:2.5;stroke-dasharray:7 4}
+.pathview .edge.cut text{fill:var(--cut);font-weight:600}
+.pathview .edge.resolve path{stroke:var(--resolve);stroke-width:2;stroke-dasharray:2 3}
+.pathview .edge.resolve text{fill:var(--resolve);font-weight:600}
+.pathview .arrowhead{fill:var(--muted)}.pathview .arrowhead.cut{fill:var(--cut)}.pathview .arrowhead.resolve{fill:var(--resolve)}
+.pathview .mark{font-size:13px}
+.fixes{border-top:1px dashed var(--line);margin-top:.4rem}
+.strategy{margin:.4rem 0 .6rem}
+h5{font-size:.9rem;margin:.4rem 0 .2rem}
+.strategy.root-cause .badge{color:var(--low)}.strategy.mitigation .badge{color:var(--warn)}
+.verify .ok{color:var(--ok)}.verify .no{color:var(--cut)}
+.digest{font-size:12px}
+pre{overflow-x:auto;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:.5rem;font:12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}
+.diff span{display:block;white-space:pre}
+.diff .add{background:var(--addbg);color:var(--addfg)}.diff .del{background:var(--delbg);color:var(--delfg)}
+.diff .hunk{color:var(--low)}.diff .file{color:var(--muted);font-weight:600}
+.note{color:var(--warn)}
+@media print{
+:root{--bg:#fff;--fg:#000;--muted:#333;--line:#888;--card:#fff;--node:#fff;--crit:#000;--high:#000;--med:#000;--low:#000;--info:#000;--warn:#000;--cut:#000;--resolve:#000;--ok:#000;--addbg:#fff;--addfg:#000;--delbg:#fff;--delfg:#000}
+body{font-size:11pt}
+#filters,summary::marker{display:none}
+details::details-content{content-visibility:visible;display:block}
+summary{color:#000;font-weight:600}
+.finding{break-before:page;border:1px solid #888}
+.finding:first-of-type{break-before:auto}
+.pathview,tr,.diff span,h3,h4{break-inside:avoid}
+pre,.diff span{white-space:pre-wrap;overflow-wrap:anywhere;overflow:visible}
+.badge{border:1.5px solid #000}
+
+.diff .add{font-weight:700}.diff .del{text-decoration:line-through}
+.pathview .edge.cut path{stroke-width:3}
+.pathview .node.data rect{stroke-width:3}
+a{color:#000}
+}
+</style>
+</head>
+<body>
+<header>
+<h1>CLAPA report</h1>
+<p class="meta">clapa dev (unknown) · rule catalog 1.2.1 · threat model: every workload may be compromised · fail on high · exit code 3</p>
+</header>
+<main>
+<section id="inputs" aria-labelledby="inputs-h">
+<h2 id="inputs-h">Scanned inputs</h2>
+<p>clapa dev (unknown), rule catalog 1.2.1.</p>
+<table><thead><tr><th scope="col">Input</th><th scope="col">Source</th><th scope="col">SHA-256</th></tr></thead>
+<tbody><tr><td>terraform-dir</td><td><code>terraform</code></td><td><code class="digest">sha256:4b8c44b0ad708331c49b502fe593e93a72b1741bc8d057397c630f4734eca26d</code></td></tr><tr><td>k8s-manifests</td><td><code>k8s</code> cluster <code>arn:aws:eks:us-east-1:111122223333:cluster/prod</code></td><td><code class="digest">sha256:f9b8503b43b6e54900a19049c1820ec085cc0d182e52d9798fc604859d3d0412</code></td></tr></tbody></table>
+</section>
+
+<section id="summary" aria-labelledby="summary-h">
+<h2 id="summary-h">Summary</h2>
+<table class="counts">
+<thead><tr><th scope="col" class="sev-critical">critical</th><th scope="col" class="sev-high">high</th><th scope="col" class="sev-medium">medium</th><th scope="col" class="sev-low">low</th><th scope="col" class="sev-info">info</th><th scope="col">findings</th></tr></thead>
+<tbody><tr><td>0</td><td>0</td><td>2</td><td>2</td><td>0</td><td>4</td></tr></tbody>
+</table>
+<p>0 confirmed unless denied, 1 unconfirmed. The severity is the worst case of every unknown, whatever the status.</p>
+<p>12 objects collected; 1 coverage gaps (1 over tolerance); graph: 9 nodes, 19 edges, 1 entry–jewel pairs.</p>
+
+
+</section>
+
+<section id="findings" aria-labelledby="findings-h">
+<h2 id="findings-h">Findings</h2>
+<form id="filters" hidden>
+<fieldset><legend>Severity</legend><label><input type="checkbox" value="critical" checked> critical</label> <label><input type="checkbox" value="high" checked> high</label> <label><input type="checkbox" value="medium" checked> medium</label> <label><input type="checkbox" value="low" checked> low</label> <label><input type="checkbox" value="info" checked> info</label> </fieldset>
+<label>Status <select><option value="">any</option><option value="confirmed">confirmed</option><option value="confirmed_unless_denied">confirmed unless denied</option><option value="unconfirmed">unconfirmed</option></select></label>
+<label>Search <input type="search" autocomplete="off"></label>
+<output><span id="shown">4</span> shown</output>
+</form>
+
+
+<article class="finding" data-severity="medium" data-status="confirmed" data-text="clapa-post-006 kms key rotation is off   arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii ffa1ec9b58f3b1f68b5d93e30ebf038eefed9cc36220bf3c5f2f6c618d1de9e3">
+<h3><span class="badge sev-medium">MEDIUM 350</span> <code>CLAPA-POST-006</code> KMS key rotation is off</h3>
+
+<p>Resource <code>arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii</code></p>
+
+
+
+
+
+
+
+
+<details><summary>Evidence, defaults and location</summary>
+<h4>Relies on documented defaults</h4><ul><li><code>Terraform aws_kms_key enable_key_rotation</code> = <code>false</code> (https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key)</li></ul>
+<h4>Evidence</h4><ul><li><code>key at terraform/pii_kms_bucket.tf:1-3 (aws_kms_key.pii)</code></li></ul>
+<p>At <code>terraform/pii_kms_bucket.tf:1</code> <code>aws_kms_key.pii</code></p>
+<p class="muted">Fingerprint <code>ffa1ec9b58f3b1f68b5d93e30ebf038eefed9cc36220bf3c5f2f6c618d1de9e3</code></p>
+</details>
+</article>
+
+<article class="finding" data-severity="medium" data-status="unconfirmed" data-text="clapa-path-001 a workload can read crown-jewel data k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/deployment/app arn:aws:s3:::acme-customer-pii  4b7379190c10624c49266603bca2ec515cbc9586592ffc3d4fd63712e09cc402">
+<h3><span class="badge sev-medium">MEDIUM 291</span> <span class="badge status">UNCONFIRMED</span> <code>CLAPA-PATH-001</code> A workload can read crown-jewel data</h3>
+<p class="muted">Confidence low: the severity is the worst case of the unknowns below.</p>
+<p><code>k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app</code> → <code>arn:aws:s3:::acme-customer-pii</code></p>
+<div class="undecided"><h4>Undecided</h4><ul><li>Condition kms:EncryptionContext:aws:s3:arn of aws_iam_role_policy.app comes from var.pii_bucket_arn, which is not known statically: set pii_bucket_arn with -var-file, or scan a Terraform plan (--plan)</li></ul></div>
+<figure class="pathview"><svg viewBox="0 0 1160 74" role="img" aria-label="path of 3 edges from k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app to arn:aws:s3:::acme-customer-pii" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="clapa-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead" d="M0 0L10 5L0 10z"/></marker><marker id="clapa-arrow-cut" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead cut" d="M0 0L10 5L0 10z"/></marker><marker id="clapa-arrow-resolve" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead resolve" d="M0 0L10 5L0 10z"/></marker></defs>
+<g class="edge"><path d="M190 37H326" marker-end="url(#clapa-arrow)"/><text x="198" y="31"><tspan x="198" dy="0">RUNS_AS</tspan></text></g>
+<g class="edge"><path d="M510 37H646" marker-end="url(#clapa-arrow)"/><text x="518" y="31"><tspan x="518" dy="0">ASSUMES</tspan></text></g>
+<g class="edge resolve"><path d="M830 37H966" marker-end="url(#clapa-arrow-resolve)"/><text x="838" y="31"><tspan x="838" dy="0">CAN_READ_PLAINTEXT</tspan> <tspan class="mark">?</tspan></text></g>
+<g class="node workload"><title>k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app</title><rect x="10" y="10" width="180" height="54" rx="6"/><text class="ntype" x="20" y="30">workload</text><text class="nname" x="20" y="50">app</text></g>
+<g class="node account"><title>k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app</title><rect x="330" y="10" width="180" height="54" rx="6"/><text class="ntype" x="340" y="30">service account</text><text class="nname" x="340" y="50">app</text></g>
+<g class="node role"><title>arn:aws:iam::111122223333:role/app</title><rect x="650" y="10" width="180" height="54" rx="6"/><text class="ntype" x="660" y="30">IAM role</text><text class="nname" x="660" y="50">app</text></g>
+<g class="node data"><title>arn:aws:s3:::acme-customer-pii</title><rect x="970" y="10" width="180" height="54" rx="6"/><text class="ntype" x="980" y="30">S3 bucket</text><text class="nname" x="980" y="50">acme-customer-pii</text></g>
+</svg></figure>
+<ol class="path"><li><code>RUNS_AS k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app</code></li><li><code>ASSUMES arn:aws:iam::111122223333:role/app</code></li><li><code>CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii</code></li></ol>
+<p class="muted">1 path found.</p>
+
+
+<div class="fix">
+<h4>Cheapest fix (cost 0)</h4>
+<p class="muted">Remediation status: partial, pending resolution.</p>
+<p class="pending">Resolve the unknowns listed, then rescan: the fix may need more steps once they are known.</p>
+<table class="steps"><thead><tr><th scope="col">Edge</th><th scope="col">Side</th><th scope="col">Kind</th><th scope="col">What</th><th scope="col">Cost</th></tr></thead>
+<tbody><tr class="kind-resolve"><td><code>CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/app -&gt; arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii</code></td><td>identity</td><td>resolve</td><td>decide <code>aws_iam_role_policy.app</code>: <code>-var-file (pii_bucket_arn)</code> (no change)</td><td>0</td></tr></tbody></table>
+<details><summary>Other sides of these edges</summary><table class="steps"><thead><tr><th scope="col">Edge</th><th scope="col">Side</th><th scope="col">Kind</th><th scope="col">What</th><th scope="col">Cost</th></tr></thead>
+<tbody><tr class="kind-narrow"><td><code>CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/app -&gt; arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii</code></td><td>resource</td><td>narrow</td><td>change <code>arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii key policy</code></td><td>2</td></tr></tbody></table></details>
+<details><summary>Alternative fix (shares no edge with the cheapest)</summary><table class="steps"><thead><tr><th scope="col">Edge</th><th scope="col">Side</th><th scope="col">Kind</th><th scope="col">What</th><th scope="col">Cost</th></tr></thead>
+<tbody><tr class="kind-revoke"><td><code>CAN_READ arn:aws:iam::111122223333:role/app -&gt; arn:aws:s3:::acme-customer-pii</code></td><td>identity</td><td>revoke</td><td>change <code>aws_iam_role_policy.app</code><br><span class="warn">removes an explicit grant: confirm it is not needed</span></td><td>3</td></tr></tbody></table></details>
+
+
+
+</div>
+
+
+<div class="fixes"><h4>Verified fixes</h4>
+<p class="pending">Resolve first (no change): <code>aws_iam_role_policy.app: -var-file (pii_bucket_arn)</code></p>
+<p>Not confirmed, no patch until decided. What would decide it:</p><ul><li>Condition kms:EncryptionContext:aws:s3:arn of aws_iam_role_policy.app comes from var.pii_bucket_arn, which is not known statically: set pii_bucket_arn with -var-file, or scan a Terraform plan (--plan)</li></ul>
+
+
+
+</div>
+<details><summary>Evidence, defaults and location</summary>
+<h4>Relies on documented defaults</h4><ul><li><code>ServiceAccount annotation eks.amazonaws.com/audience</code> = <code>sts.amazonaws.com</code> (https://github.com/aws/amazon-eks-pod-identity-webhook)</li><li><code>client IDs (audiences) of a cluster&#39;s IAM OIDC provider that is not in the input</code> = <code>sts.amazonaws.com</code> (https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html)</li></ul>
+<h4>Evidence</h4><ul><li><code>Allow aws_iam_role.app.assume_role_policy #0</code></li><li><code>audience sts.amazonaws.com</code></li><li><code>Allow aws_iam_role_policy.app ReadCustomerData</code></li><li><code>Allow aws_iam_role_policy.app DecryptPII</code></li></ul>
+<p>At <code>k8s/apps.yaml:14</code> <code>Deployment/apps/app</code></p>
+<p class="muted">Fingerprint <code>4b7379190c10624c49266603bca2ec515cbc9586592ffc3d4fd63712e09cc402</code></p>
+</details>
+</article>
+
+<article class="finding" data-severity="low" data-status="confirmed" data-text="clapa-post-007 namespace has no default-deny ingress networkpolicy   k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//namespace/apps f7c4b5e9013eb276d27a3804234e373b2e8ec1afe64251688128353eaeda846d">
+<h3><span class="badge sev-low">LOW 245</span> <code>CLAPA-POST-007</code> Namespace has no default-deny ingress NetworkPolicy</h3>
+
+<p>Resource <code>k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/apps</code></p>
+
+
+
+
+
+
+
+
+<details><summary>Evidence, defaults and location</summary>
+
+<h4>Evidence</h4><ul><li><code>no NetworkPolicy selects every pod for ingress with no rules</code></li></ul>
+<p>At <code>k8s/apps.yaml:14</code> <code>Deployment/apps/app</code></p>
+<p class="muted">Fingerprint <code>f7c4b5e9013eb276d27a3804234e373b2e8ec1afe64251688128353eaeda846d</code></p>
+</details>
+</article>
+
+<article class="finding" data-severity="low" data-status="confirmed" data-text="clapa-path-002 privilege escalation leads to crown-jewel data k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/deployment/app arn:aws:s3:::acme-customer-pii  66b47a2c6c8c809e9c75bd563f374547815983d64a77bfa2f490ef7ad12b7553">
+<h3><span class="badge sev-low">LOW 235</span> <code>CLAPA-PATH-002</code> Privilege escalation leads to crown-jewel data</h3>
+
+<p><code>k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app</code> → <code>arn:aws:s3:::acme-customer-pii</code></p>
+
+<figure class="pathview"><svg viewBox="0 0 1160 198" role="img" aria-label="path of 5 edges from k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app to arn:aws:s3:::acme-customer-pii" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="clapa-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead" d="M0 0L10 5L0 10z"/></marker><marker id="clapa-arrow-cut" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead cut" d="M0 0L10 5L0 10z"/></marker><marker id="clapa-arrow-resolve" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead resolve" d="M0 0L10 5L0 10z"/></marker></defs>
+<g class="edge"><path d="M190 37H326" marker-end="url(#clapa-arrow)"/><text x="198" y="31"><tspan x="198" dy="0">RUNS_AS</tspan></text></g>
+<g class="edge"><path d="M510 37H646" marker-end="url(#clapa-arrow)"/><text x="518" y="31"><tspan x="518" dy="0">ASSUMES</tspan></text></g>
+<g class="edge"><path d="M830 37H966" marker-end="url(#clapa-arrow)"/><text x="838" y="31"><tspan x="838" dy="0">ASSUMES</tspan></text></g>
+<g class="edge cut"><path d="M1060 64V99H100V130" marker-end="url(#clapa-arrow-cut)"/><text x="108" y="83"><tspan x="108" dy="0">CAN_ESCALATE</tspan><tspan x="108" dy="12">[iam:modify-policy]</tspan> <tspan class="mark">✂</tspan></text></g>
+<g class="edge"><path d="M190 161H326" marker-end="url(#clapa-arrow)"/><text x="198" y="155"><tspan x="198" dy="0">CAN_READ_PLAINTEXT</tspan></text></g>
+<g class="node workload"><title>k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app</title><rect x="10" y="10" width="180" height="54" rx="6"/><text class="ntype" x="20" y="30">workload</text><text class="nname" x="20" y="50">app</text></g>
+<g class="node account"><title>k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app</title><rect x="330" y="10" width="180" height="54" rx="6"/><text class="ntype" x="340" y="30">service account</text><text class="nname" x="340" y="50">app</text></g>
+<g class="node role"><title>arn:aws:iam::111122223333:role/app</title><rect x="650" y="10" width="180" height="54" rx="6"/><text class="ntype" x="660" y="30">IAM role</text><text class="nname" x="660" y="50">app</text></g>
+<g class="node role"><title>arn:aws:iam::111122223333:role/ops</title><rect x="970" y="10" width="180" height="54" rx="6"/><text class="ntype" x="980" y="30">IAM role</text><text class="nname" x="980" y="50">ops</text></g>
+<g class="node role"><title>arn:aws:iam::111122223333:role/ops</title><rect x="10" y="134" width="180" height="54" rx="6"/><text class="ntype" x="20" y="154">role, any permission</text><text class="nname" x="20" y="174">ops</text></g>
+<g class="node data"><title>arn:aws:s3:::acme-customer-pii</title><rect x="330" y="134" width="180" height="54" rx="6"/><text class="ntype" x="340" y="154">S3 bucket</text><text class="nname" x="340" y="174">acme-customer-pii</text></g>
+</svg></figure>
+<ol class="path"><li><code>RUNS_AS k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app</code></li><li><code>ASSUMES arn:aws:iam::111122223333:role/app</code></li><li><code>ASSUMES arn:aws:iam::111122223333:role/ops</code></li><li><code>CAN_ESCALATE arn:aws:iam::111122223333:role/ops</code></li><li><code>CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii</code></li></ol>
+<p class="muted">2 paths found.</p>
+
+
+<div class="fix">
+<h4>Cheapest fix (cost 4)</h4>
+<p class="muted">Remediation status: complete.</p>
+
+<table class="steps"><thead><tr><th scope="col">Edge</th><th scope="col">Side</th><th scope="col">Kind</th><th scope="col">What</th><th scope="col">Cost</th></tr></thead>
+<tbody><tr class="kind-revoke"><td><code>CAN_ESCALATE[iam:modify-policy] arn:aws:iam::111122223333:role/ops -&gt; arn:aws:iam::111122223333:role/ops</code></td><td>identity</td><td>revoke</td><td>change <code>Allow aws_iam_role_policy.ops RewriteSelf</code><br><span class="warn">removes an explicit grant: confirm it is not needed</span></td><td>4</td></tr></tbody></table>
+
+<details><summary>Alternative fix (shares no edge with the cheapest)</summary><table class="steps"><thead><tr><th scope="col">Edge</th><th scope="col">Side</th><th scope="col">Kind</th><th scope="col">What</th><th scope="col">Cost</th></tr></thead>
+<tbody><tr class="kind-revoke"><td><code>ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app -&gt; arn:aws:iam::111122223333:role/app</code></td><td>trust</td><td>revoke</td><td>change <code>arn:aws:iam::111122223333:role/app trust policy</code><br><span class="warn">removes an explicit grant: confirm it is not needed</span></td><td>7</td></tr></tbody></table></details>
+
+
+
+</div>
+
+
+<div class="fixes"><h4>Verified fixes</h4>
+
+
+
+<div class="strategy root-cause"><h5><span class="badge">root-cause</span></h5>
+
+<table class="steps"><thead><tr><th scope="col">Change</th><th scope="col">Side</th><th scope="col">Kind</th><th scope="col">Cost</th><th scope="col">What</th></tr></thead>
+<tbody><tr class="kind-revoke"><td><code>CAN_ESCALATE[iam:modify-policy] arn:aws:iam::111122223333:role/ops -&gt; arn:aws:iam::111122223333:role/ops</code></td><td>identity</td><td>revoke</td><td>4</td><td>remove the explicit grant (Allow aws_iam_role_policy.ops RewriteSelf)<br><span class="warn">removes an explicit grant: confirm it is not needed</span></td></tr></tbody></table>
+<p class="verify"><span class="ok">✔ verified in memory</span> · <span class="ok">✔ verified on patched files</span></p>
+
+
+<details class="patch"><summary>Patch</summary><pre class="diff"><span class="file">--- a/terraform/role_ops.tf</span><span class="file">&#43;&#43;&#43; b/terraform/role_ops.tf</span><span class="hunk">@@ -5,14 &#43;5,3 @@</span><span class="ctx">     Statement = [{ Effect = &#34;Allow&#34;, Principal = { AWS = aws_iam_role.app.arn }, Action = &#34;sts:AssumeRole&#34; }]</span><span class="ctx">   })</span><span class="ctx"> }</span><span class="del">-</span><span class="del">-resource &#34;aws_iam_role_policy&#34; &#34;ops&#34; {</span><span class="del">-  name = &#34;ops&#34;</span><span class="del">-  role = aws_iam_role.ops.id</span><span class="del">-  policy = jsonencode({</span><span class="del">-    Version = &#34;2012-10-17&#34;</span><span class="del">-    Statement = [</span><span class="del">-      { Sid = &#34;RewriteSelf&#34;, Effect = &#34;Allow&#34;, Action = [&#34;iam:PutRolePolicy&#34;], Resource = &#34;arn:aws:iam::111122223333:role/ops&#34; },</span><span class="del">-    ]</span><span class="del">-  })</span><span class="del">-}</span></pre></details>
+
+</div>
+
+</div>
+<details><summary>Evidence, defaults and location</summary>
+<h4>Relies on documented defaults</h4><ul><li><code>ServiceAccount annotation eks.amazonaws.com/audience</code> = <code>sts.amazonaws.com</code> (https://github.com/aws/amazon-eks-pod-identity-webhook)</li><li><code>client IDs (audiences) of a cluster&#39;s IAM OIDC provider that is not in the input</code> = <code>sts.amazonaws.com</code> (https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html)</li></ul>
+<h4>Evidence</h4><ul><li><code>Allow aws_iam_role.app.assume_role_policy #0</code></li><li><code>audience sts.amazonaws.com</code></li><li><code>Allow aws_iam_role_policy.app UseOps</code></li><li><code>Allow aws_iam_role.ops.assume_role_policy #0</code></li><li><code>Allow aws_iam_role_policy.ops RewriteSelf</code></li><li><code>iam:PutRolePolicy on arn:aws:iam::111122223333:role/ops</code></li><li><code>Allow clapa:any-permission #0</code></li><li><code>Allow clapa:any-permission #0</code></li><li><code>Allow aws_kms_key.pii.policy Enable IAM User Permissions</code></li></ul>
+<p>At <code>k8s/apps.yaml:14</code> <code>Deployment/apps/app</code></p>
+<p class="muted">Fingerprint <code>66b47a2c6c8c809e9c75bd563f374547815983d64a77bfa2f490ef7ad12b7553</code></p>
+</details>
+</article>
+
+</section>
+
+
+
+<section id="coverage" aria-labelledby="coverage-h">
+<h2 id="coverage-h">Coverage</h2>
+<table><thead><tr><th scope="col">Kind</th><th scope="col">Where</th><th scope="col">Detail</th></tr></thead>
+<tbody><tr><td>unresolved</td><td><code>terraform-hcl terraform/role_app.tf:15 aws_iam_role_policy.app</code></td><td>var.pii_bucket_arn: depends on var.pii_bucket_arn, which has no known value</td></tr></tbody></table>
+<h3>Notes</h3><ul><li><strong>not-modelled</strong> Kubernetes Secrets mounted into pods: a pod that mounts a Secret (volume, env, envFrom) reads it through the kubelet, and whoever may create pods in its namespace can mount any of them; only RBAC get, list and watch reads are edges</li><li><strong>not-modelled</strong> Secrets Manager and SSM resource sharing: cross-account access is evaluated from the resource policies collected; AWS RAM shares of advanced parameters are not collected</li></ul>
+</section>
+
+
+
+<section id="rules" aria-labelledby="rules-h">
+<h2 id="rules-h">Rules</h2>
+<table><thead><tr><th scope="col">Rule</th><th scope="col">Title</th><th scope="col">ATT&amp;CK</th></tr></thead>
+<tbody><tr><td><code>CLAPA-PATH-001</code> 1.0.0</td><td>A workload can read crown-jewel data</td><td>T1078.004, T1530</td></tr><tr><td><code>CLAPA-PATH-002</code> 1.0.0</td><td>Privilege escalation leads to crown-jewel data</td><td>T1098, T1548, T1610, T1530</td></tr><tr><td><code>CLAPA-PATH-003</code> 1.0.0</td><td>Crown-jewel data is publicly readable</td><td>T1530</td></tr><tr><td><code>CLAPA-POST-001</code> 1.0.1</td><td>IRSA trust policy accepts any service account</td><td>T1078.004</td></tr><tr><td><code>CLAPA-POST-002</code> 1.0.0</td><td>Node group allows IMDSv1</td><td>T1552.005</td></tr><tr><td><code>CLAPA-POST-003</code> 1.0.0</td><td>Container runs privileged</td><td>T1611</td></tr><tr><td><code>CLAPA-POST-004</code> 1.0.0</td><td>Service account token mounted in a workload whose account has RBAC permissions</td><td>T1528</td></tr><tr><td><code>CLAPA-POST-005</code> 1.0.0</td><td>Crown-jewel bucket has Block Public Access off</td><td>T1530</td></tr><tr><td><code>CLAPA-POST-006</code> 1.0.0</td><td>KMS key rotation is off</td><td></td></tr><tr><td><code>CLAPA-POST-007</code> 1.0.0</td><td>Namespace has no default-deny ingress NetworkPolicy</td><td></td></tr><tr><td><code>CLAPA-POST-008</code> 1.1.0</td><td>Sensitive action granted on every resource or to every principal</td><td>T1078.004</td></tr></tbody></table>
+</section>
+</main>
+<script type="application/json" id="clapa-report">{"schema":"clapa-report/v1","tool":{"name":"clapa","version":"dev","commit":"unknown","rule_catalog_version":"1.2.1","information_uri":"https://github.com/r3oof-900/clapa"},"inputs":[{"kind":"terraform-dir","path":"terraform","digest":"sha256:4b8c44b0ad708331c49b502fe593e93a72b1741bc8d057397c630f4734eca26d"},{"kind":"k8s-manifests","path":"k8s","cluster":"arn:aws:eks:us-east-1:111122223333:cluster/prod","digest":"sha256:f9b8503b43b6e54900a19049c1820ec085cc0d182e52d9798fc604859d3d0412"}],"threat_model":{"assume_compromised":true,"fail_on":"high"},"summary":{"findings":4,"by_severity":{"low":2,"medium":2},"unconfirmed":1,"confirmed_unless_denied":0},"findings":[{"rule":"CLAPA-POST-006","rule_version":"1.0.0","kind":"posture","title":"KMS key rotation is off","severity":"medium","score":350,"factors":{"confidence":1000},"confirmed":true,"status":"confirmed","confidence":"high","resource":"arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii","defaults_used":[{"key":"terraform.aws_kms_key.enable_key_rotation","setting":"Terraform aws_kms_key enable_key_rotation","value":"false","value_source":"default","reference":"https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key"}],"evidence":["key at terraform/pii_kms_bucket.tf:1-3 (aws_kms_key.pii)"],"location":{"file":"terraform/pii_kms_bucket.tf","start_line":1,"end_line":3,"address":"aws_kms_key.pii"},"fingerprint":"ffa1ec9b58f3b1f68b5d93e30ebf038eefed9cc36220bf3c5f2f6c618d1de9e3"},{"rule":"CLAPA-PATH-001","rule_version":"1.0.0","kind":"path","title":"A workload can read crown-jewel data","severity":"medium","score":291,"factors":{"exposure":400,"hops":810,"preconditions":1000,"confidence":400,"likelihood":324,"classification":900,"blast_radius":1000,"impact":900},"confirmed":false,"status":"unconfirmed","confidence":"low","undecided":["Condition kms:EncryptionContext:aws:s3:arn of aws_iam_role_policy.app comes from var.pii_bucket_arn, which is not known statically: set pii_bucket_arn with -var-file, or scan a Terraform plan (--plan)"],"entry":"k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app","jewel":"arn:aws:s3:::acme-customer-pii","path":["RUNS_AS k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app","ASSUMES arn:aws:iam::111122223333:role/app","CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"],"paths_found":1,"chokepoints":["CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/app -\u003e arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii"],"alternative_fix":["CAN_READ arn:aws:iam::111122223333:role/app -\u003e arn:aws:s3:::acme-customer-pii"],"fix":[{"edge":"CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/app -\u003e arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii","side":"identity","fix_kind":"resolve","policy":"aws_iam_role_policy.app","cost":0,"resolve":"-var-file (pii_bucket_arn)"}],"other_side_fix":[{"edge":"CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/app -\u003e arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii","side":"resource","fix_kind":"narrow","policy":"arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii key policy","cost":2}],"alternative_fix_detail":[{"edge":"CAN_READ arn:aws:iam::111122223333:role/app -\u003e arn:aws:s3:::acme-customer-pii","side":"identity","fix_kind":"revoke","policy":"aws_iam_role_policy.app","cost":3}],"hops":[{"kind":"RUNS_AS","from":"k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app","to":"k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app","from_kind":"k8s:workload","to_kind":"k8s:serviceaccount"},{"kind":"ASSUMES","from":"k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app","to":"arn:aws:iam::111122223333:role/app","from_kind":"k8s:serviceaccount","to_kind":"aws:iam:role"},{"kind":"CAN_READ_PLAINTEXT","from":"arn:aws:iam::111122223333:role/app","to":"arn:aws:s3:::acme-customer-pii","from_kind":"aws:iam:role","to_kind":"aws:s3:bucket","cut":"resolve"}],"also_fixes":[],"uncuttable":[],"remediation_status":"partial_pending_resolution","defaults_used":[{"key":"eks.irsa.audience","setting":"ServiceAccount annotation eks.amazonaws.com/audience","value":"sts.amazonaws.com","value_source":"default","reference":"https://github.com/aws/amazon-eks-pod-identity-webhook"},{"key":"eks.irsa.oidc-provider-audience","setting":"client IDs (audiences) of a cluster's IAM OIDC provider that is not in the input","value":"sts.amazonaws.com","value_source":"default","reference":"https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html"}],"evidence":["Allow aws_iam_role.app.assume_role_policy #0","audience sts.amazonaws.com","Allow aws_iam_role_policy.app ReadCustomerData","Allow aws_iam_role_policy.app DecryptPII"],"location":{"file":"k8s/apps.yaml","start_line":14,"end_line":14,"address":"Deployment/apps/app"},"fingerprint":"4b7379190c10624c49266603bca2ec515cbc9586592ffc3d4fd63712e09cc402","remediation":{"fixes":[],"pending":["aws_iam_role_policy.app: -var-file (pii_bucket_arn)"],"missing":["Condition kms:EncryptionContext:aws:s3:arn of aws_iam_role_policy.app comes from var.pii_bucket_arn, which is not known statically: set pii_bucket_arn with -var-file, or scan a Terraform plan (--plan)"]}},{"rule":"CLAPA-POST-007","rule_version":"1.0.0","kind":"posture","title":"Namespace has no default-deny ingress NetworkPolicy","severity":"low","score":245,"factors":{"confidence":700},"confirmed":true,"status":"confirmed","confidence":"medium","resource":"k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/apps","defaults_used":[],"evidence":["no NetworkPolicy selects every pod for ingress with no rules"],"location":{"file":"k8s/apps.yaml","start_line":14,"end_line":14,"address":"Deployment/apps/app"},"fingerprint":"f7c4b5e9013eb276d27a3804234e373b2e8ec1afe64251688128353eaeda846d"},{"rule":"CLAPA-PATH-002","rule_version":"1.0.0","kind":"path","title":"Privilege escalation leads to crown-jewel data","severity":"low","score":235,"factors":{"exposure":400,"hops":656,"preconditions":1000,"confidence":1000,"likelihood":262,"classification":900,"blast_radius":1000,"impact":900},"confirmed":true,"status":"confirmed","confidence":"high","entry":"k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app","jewel":"arn:aws:s3:::acme-customer-pii","path":["RUNS_AS k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app","ASSUMES arn:aws:iam::111122223333:role/app","ASSUMES arn:aws:iam::111122223333:role/ops","CAN_ESCALATE arn:aws:iam::111122223333:role/ops","CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"],"paths_found":2,"chokepoints":["CAN_ESCALATE[iam:modify-policy] arn:aws:iam::111122223333:role/ops -\u003e arn:aws:iam::111122223333:role/ops"],"cut_cost":4,"alternative_fix":["ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app -\u003e arn:aws:iam::111122223333:role/app"],"fix":[{"edge":"CAN_ESCALATE[iam:modify-policy] arn:aws:iam::111122223333:role/ops -\u003e arn:aws:iam::111122223333:role/ops","side":"identity","fix_kind":"revoke","policy":"Allow aws_iam_role_policy.ops RewriteSelf","cost":4}],"alternative_fix_detail":[{"edge":"ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app -\u003e arn:aws:iam::111122223333:role/app","side":"trust","fix_kind":"revoke","policy":"arn:aws:iam::111122223333:role/app trust policy","cost":7}],"hops":[{"kind":"RUNS_AS","from":"k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app","to":"k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app","from_kind":"k8s:workload","to_kind":"k8s:serviceaccount"},{"kind":"ASSUMES","from":"k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app","to":"arn:aws:iam::111122223333:role/app","from_kind":"k8s:serviceaccount","to_kind":"aws:iam:role"},{"kind":"ASSUMES","from":"arn:aws:iam::111122223333:role/app","to":"arn:aws:iam::111122223333:role/ops","from_kind":"aws:iam:role","to_kind":"aws:iam:role"},{"kind":"CAN_ESCALATE[iam:modify-policy]","from":"arn:aws:iam::111122223333:role/ops","to":"arn:aws:iam::111122223333:role/ops","from_kind":"aws:iam:role","to_kind":"aws:iam:role:any-permission","cut":"cut"},{"kind":"CAN_READ_PLAINTEXT","from":"arn:aws:iam::111122223333:role/ops","to":"arn:aws:s3:::acme-customer-pii","from_kind":"aws:iam:role:any-permission","to_kind":"aws:s3:bucket"}],"also_fixes":[],"uncuttable":[],"remediation_status":"complete","defaults_used":[{"key":"eks.irsa.audience","setting":"ServiceAccount annotation eks.amazonaws.com/audience","value":"sts.amazonaws.com","value_source":"default","reference":"https://github.com/aws/amazon-eks-pod-identity-webhook"},{"key":"eks.irsa.oidc-provider-audience","setting":"client IDs (audiences) of a cluster's IAM OIDC provider that is not in the input","value":"sts.amazonaws.com","value_source":"default","reference":"https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html"}],"evidence":["Allow aws_iam_role.app.assume_role_policy #0","audience sts.amazonaws.com","Allow aws_iam_role_policy.app UseOps","Allow aws_iam_role.ops.assume_role_policy #0","Allow aws_iam_role_policy.ops RewriteSelf","iam:PutRolePolicy on arn:aws:iam::111122223333:role/ops","Allow clapa:any-permission #0","Allow clapa:any-permission #0","Allow aws_kms_key.pii.policy Enable IAM User Permissions"],"location":{"file":"k8s/apps.yaml","start_line":14,"end_line":14,"address":"Deployment/apps/app"},"fingerprint":"66b47a2c6c8c809e9c75bd563f374547815983d64a77bfa2f490ef7ad12b7553","remediation":{"fixes":[{"fix_strategy":"root-cause","changes":[{"edge":"CAN_ESCALATE[iam:modify-policy] arn:aws:iam::111122223333:role/ops -\u003e arn:aws:iam::111122223333:role/ops","side":"identity","fix_kind":"revoke","cost":4,"why":"remove the explicit grant (Allow aws_iam_role_policy.ops RewriteSelf)"}],"verified_in_memory":true,"verified_on_patched_files":true,"diff":"--- a/terraform/role_ops.tf\n+++ b/terraform/role_ops.tf\n@@ -5,14 +5,3 @@\n     Statement = [{ Effect = \"Allow\", Principal = { AWS = aws_iam_role.app.arn }, Action = \"sts:AssumeRole\" }]\n   })\n }\n-\n-resource \"aws_iam_role_policy\" \"ops\" {\n-  name = \"ops\"\n-  role = aws_iam_role.ops.id\n-  policy = jsonencode({\n-    Version = \"2012-10-17\"\n-    Statement = [\n-      { Sid = \"RewriteSelf\", Effect = \"Allow\", Action = [\"iam:PutRolePolicy\"], Resource = \"arn:aws:iam::111122223333:role/ops\" },\n-    ]\n-  })\n-}\n"}]}}],"intended_access":[],"coverage":{"collected":12,"gaps_over_tolerance":1,"gaps":[{"kind":"unresolved","source":"terraform-hcl","file":"terraform/role_app.tf","line":15,"address":"aws_iam_role_policy.app","detail":"var.pii_bucket_arn: depends on var.pii_bucket_arn, which has no known value"}],"notes":[{"kind":"not-modelled","subject":"Kubernetes Secrets mounted into pods","detail":"a pod that mounts a Secret (volume, env, envFrom) reads it through the kubelet, and whoever may create pods in its namespace can mount any of them; only RBAC get, list and watch reads are edges"},{"kind":"not-modelled","subject":"Secrets Manager and SSM resource sharing","detail":"cross-account access is evaluated from the resource policies collected; AWS RAM shares of advanced parameters are not collected"}]},"graph":{"nodes":9,"edges":19,"entry_jewel_pairs":1},"rules":[{"id":"CLAPA-PATH-001","version":"1.0.0","kind":"path","title":"A workload can read crown-jewel data","rationale":"An entry workload reaches the plaintext of classified data through its identity (IRSA, Pod Identity, role chaining, node role): a compromise of the workload is a compromise of the data.","attack_techniques":["T1078.004","T1530"],"references":["https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html","https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingKMSEncryption.html"]},{"id":"CLAPA-PATH-002","version":"1.0.0","kind":"path","title":"Privilege escalation leads to crown-jewel data","rationale":"The path to the data uses an escalation primitive (iam:PassRole into compute, Kubernetes pod creation as another service account): permissions that look harmless on their own reach the data.","attack_techniques":["T1098","T1548","T1610","T1530"],"references":["https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_passrole.html","https://kubernetes.io/docs/concepts/security/rbac-good-practices/"]},{"id":"CLAPA-PATH-003","version":"1.0.0","kind":"path","title":"Crown-jewel data is publicly readable","rationale":"A resource policy grants a public principal read access and Block Public Access does not stop it: anyone on the internet reads the data.","attack_techniques":["T1530"],"references":["https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html"]},{"id":"CLAPA-POST-001","version":"1.0.1","kind":"posture","title":"IRSA trust policy accepts any service account","rationale":"The trust policy allows sts:AssumeRoleWithWebIdentity for a service account it was not written for (wildcard :sub, or :aud only): any pod of the cluster, or of a namespace (a wildcard scoped to it), that gets an STS token can assume the role. Probed with a service account not in the input, in a namespace of its own and in every namespace of the cluster.","attack_techniques":["T1078.004"],"references":["https://docs.aws.amazon.com/eks/latest/userguide/associate-service-account-role.html"]},{"id":"CLAPA-POST-002","version":"1.0.0","kind":"posture","title":"Node group allows IMDSv1","rationale":"IMDSv1 answers any request from a pod: the node's instance role credentials are one HTTP GET away.","attack_techniques":["T1552.005"],"references":["https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html"]},{"id":"CLAPA-POST-003","version":"1.0.0","kind":"posture","title":"Container runs privileged","rationale":"A privileged container is essentially root on the host: it can reach the node's credentials and every pod on it.","attack_techniques":["T1611"],"references":["https://kubernetes.io/docs/concepts/security/pod-security-standards/"]},{"id":"CLAPA-POST-004","version":"1.0.0","kind":"posture","title":"Service account token mounted in a workload whose account has RBAC permissions","rationale":"The token gives anyone in the pod the service account's Kubernetes permissions; mount it only where the workload calls the API.","attack_techniques":["T1528"],"references":["https://kubernetes.io/docs/concepts/security/service-accounts/"]},{"id":"CLAPA-POST-005","version":"1.0.0","kind":"posture","title":"Crown-jewel bucket has Block Public Access off","rationale":"With restrict_public_buckets off, a public bucket policy takes effect: one policy edit away from public data.","attack_techniques":["T1530"],"references":["https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html"]},{"id":"CLAPA-POST-006","version":"1.0.0","kind":"posture","title":"KMS key rotation is off","rationale":"Without automatic rotation a customer managed key's material never changes, so exposure of the material lasts.","attack_techniques":[],"references":["https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html"]},{"id":"CLAPA-POST-007","version":"1.0.0","kind":"posture","title":"Namespace has no default-deny ingress NetworkPolicy","rationale":"Without a default deny, every pod accepts traffic from every other pod, so one compromised pod reaches all.","attack_techniques":[],"references":["https://kubernetes.io/docs/concepts/services-networking/network-policies/"]},{"id":"CLAPA-POST-008","version":"1.1.0","kind":"posture","title":"Sensitive action granted on every resource or to every principal","rationale":"kms:Decrypt, sts:AssumeRole, iam:PassRole, s3:GetObject, secretsmanager:GetSecretValue or ssm:GetParameter on \"*\" (or to Principal \"*\"), scoped at most to an organization or account: every new key, role, bucket or secret is reachable the moment it exists. A fix that blocks one path leaves this grant; this finding keeps it in view. High when an entry point reaches the principal holding the grant, medium when none does (accounts hold intended admin roles); the evidence says which entries (reachable_from).","attack_techniques":["T1078.004"],"references":["https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html"]}],"exit_code":3}</script>
+<script>// Filters the findings already in the page by severity, status and text.
+// It only shows or hides elements and writes a count: it never builds markup
+// from report data (THREAT_MODEL.md).
+(function () {
+  'use strict';
+  var form = document.getElementById('filters');
+  if (!form) {
+    return;
+  }
+  var boxes = form.querySelectorAll('input[type=checkbox]');
+  var status = form.querySelector('select');
+  var search = form.querySelector('input[type=search]');
+  var shown = document.getElementById('shown');
+  var findings = document.querySelectorAll('article.finding');
+  function apply() {
+    var wanted = {};
+    boxes.forEach(function (b) { wanted[b.value] = b.checked; });
+    var st = status.value;
+    var text = search.value.toLowerCase();
+    var n = 0;
+    findings.forEach(function (a) {
+      var ok = wanted[a.dataset.severity] !== false &&
+        (st === '' || a.dataset.status === st) &&
+        (text === '' || a.dataset.text.indexOf(text) >= 0);
+      a.hidden = !ok;
+      if (ok) {
+        n++;
+      }
+    });
+    shown.textContent = String(n);
+  }
+  form.addEventListener('input', apply);
+  form.addEventListener('change', apply);
+  form.addEventListener('submit', function (e) { e.preventDefault(); });
+  form.hidden = false;
+  apply();
+  // Printing shows everything: every finding and every <details> open;
+  // after printing, the reader's view comes back.
+  var opened = [];
+  window.addEventListener('beforeprint', function () {
+    findings.forEach(function (a) { a.dataset.wasHidden = a.hidden ? '1' : ''; a.hidden = false; });
+    document.querySelectorAll('details:not([open])').forEach(function (d) { d.open = true; opened.push(d); });
+  });
+  window.addEventListener('afterprint', function () {
+    opened.forEach(function (d) { d.open = false; });
+    opened = [];
+    findings.forEach(function (a) { a.hidden = a.dataset.wasHidden === '1'; });
+  });
+}());
+</script>
+</body>
+</html>
+
+
+

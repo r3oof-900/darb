@@ -14,6 +14,13 @@
 <p class="meta">{{.R.Tool.Name}} {{.R.Tool.Version}}{{with .R.Tool.Commit}} ({{.}}){{end}} · rule catalog {{.R.Tool.RuleCatalog}} · threat model: {{if .R.ThreatModel.AssumeCompromised}}every workload may be compromised{{else}}exposed entry points only{{end}} · fail on {{.R.ThreatModel.FailOn}} · exit code {{.R.ExitCode}}</p>
 </header>
 <main>
+<section id="inputs" aria-labelledby="inputs-h">
+<h2 id="inputs-h">Scanned inputs</h2>
+<p>{{.R.Tool.Name}} {{.R.Tool.Version}}{{with .R.Tool.Commit}} ({{.}}){{end}}, rule catalog {{.R.Tool.RuleCatalog}}{{with .R.GeneratedAt}}, generated {{.}}{{end}}.</p>
+{{if .R.Inputs}}<table><thead><tr><th scope="col">Input</th><th scope="col">Source</th><th scope="col">SHA-256</th></tr></thead>
+<tbody>{{range .R.Inputs}}<tr><td>{{.Kind}}</td><td>{{with .Path}}<code>{{.}}</code>{{end}}{{with .Cluster}} cluster <code>{{.}}</code>{{end}}{{with .Accounts}} accounts {{range $i, $a := .}}{{if $i}}, {{end}}<code>{{$a}}</code>{{end}}{{end}}{{with .Regions}} regions {{range $i, $a := .}}{{if $i}}, {{end}}<code>{{$a}}</code>{{end}}{{end}}</td><td><code class="digest">{{.Digest}}</code></td></tr>{{end}}</tbody></table>{{else}}<p>No input was scanned.</p>{{end}}
+</section>
+
 <section id="summary" aria-labelledby="summary-h">
 <h2 id="summary-h">Summary</h2>
 <table class="counts">
@@ -23,6 +30,7 @@
 <p>{{.R.Summary.ConfirmedUnlessDenied}} confirmed unless denied, {{.R.Summary.Unconfirmed}} unconfirmed. The severity is the worst case of every unknown, whatever the status.</p>
 <p>{{.R.Coverage.Collected}} objects collected; {{len .R.Coverage.Gaps}} coverage gaps ({{.R.Coverage.GapsOverTolerance}} over tolerance); graph: {{.R.Graph.Nodes}} nodes, {{.R.Graph.Edges}} edges, {{.R.Graph.Pairs}} entry–jewel pairs.</p>
 {{if not .R.Coverage.Collected}}<p class="warn">Nothing was collected: this is not a clean result.</p>{{end}}
+{{if unfixed .R}}<p class="muted">The fixes below are the cheapest cuts; run <code>clapa scan --fixes</code> (or <code>clapa remediate</code>) for the verified fixes, their strategy and their patches.</p>{{end}}
 </section>
 
 <section id="findings" aria-labelledby="findings-h">
@@ -40,12 +48,14 @@
 {{if ne .Status "confirmed"}}<p class="muted">Confidence {{.Confidence}}: the severity is the worst case of the unknowns below.</p>{{end}}
 {{if .Resource}}<p>Resource <code>{{.Resource}}</code></p>{{else}}<p><code>{{.Entry}}</code> → <code>{{.Jewel}}</code></p>{{end}}
 {{with .Undecided}}<div class="undecided"><h4>Undecided</h4><ul>{{range .}}<li>{{.}}</li>{{end}}</ul></div>{{end}}
+{{with layout .Hops}}{{template "path" .}}{{end}}
 {{with .Path}}<ol class="path">{{range .}}<li><code>{{.}}</code></li>{{end}}</ol>{{end}}
 {{if .PathsFound}}<p class="muted">{{.PathsFound}} path{{if ne .PathsFound 1}}s{{end}} found{{if .PathsTruncated}} (truncated: more exist){{end}}.</p>{{end}}
-{{with .WorstCasePath}}<details><summary>Worst-case path (scores higher, less certain)</summary><ol class="path">{{range .}}<li><code>{{.}}</code></li>{{end}}</ol></details>{{end}}
+{{if .WorstCasePath}}<details><summary>Worst-case path (scores higher, less certain)</summary>{{with layout .WorstCaseHops}}{{template "path" .}}{{end}}<ol class="path">{{range .WorstCasePath}}<li><code>{{.}}</code></li>{{end}}</ol></details>{{end}}
 {{if .Chokepoints}}
 <div class="fix">
 <h4>Cheapest fix (cost {{.CutCost}})</h4>
+<p class="muted">Remediation status: {{if pending .}}partial, pending resolution{{else}}complete{{end}}.</p>
 {{if pending .}}<p class="pending">Resolve the unknowns listed, then rescan: the fix may need more steps once they are known.</p>{{end}}
 {{template "steps" .Fix}}
 {{with .OtherSideFix}}<details><summary>Other sides of these edges</summary>{{template "steps" .}}</details>{{end}}
@@ -56,6 +66,7 @@
 </div>
 {{end}}
 {{if .NoFix}}<p class="warn">No fix within the configured constraints (intended access, uncuttable edges).</p>{{end}}
+{{with .Remediation}}{{template "fixes" .}}{{end}}
 <details><summary>Evidence, defaults and location</summary>
 {{with .DefaultsUsed}}<h4>Relies on documented defaults</h4><ul>{{range .}}<li><code>{{.Setting}}</code> = <code>{{.Value}}</code> ({{.Reference}})</li>{{end}}</ul>{{end}}
 {{with .Evidence}}<h4>Evidence</h4><ul>{{range .}}<li><code>{{.}}</code></li>{{end}}</ul>{{end}}
@@ -102,3 +113,24 @@
 </html>
 {{define "steps"}}<table class="steps"><thead><tr><th scope="col">Edge</th><th scope="col">Side</th><th scope="col">Kind</th><th scope="col">What</th><th scope="col">Cost</th></tr></thead>
 <tbody>{{range .}}<tr class="kind-{{.Kind}}"><td><code>{{.Edge}}</code></td><td>{{.Side}}</td><td>{{.Kind}}</td><td>{{if eq .Kind "resolve"}}decide <code>{{.Policy}}</code>: <code>{{.Resolve}}</code> (no change){{else}}change <code>{{.Policy}}</code>{{if eq .Kind "revoke"}}<br><span class="warn">removes an explicit grant: confirm it is not needed</span>{{end}}{{end}}</td><td>{{.Cost}}</td></tr>{{end}}</tbody></table>{{end}}
+{{define "path"}}<figure class="pathview"><svg viewBox="0 0 {{.W}} {{.H}}" role="img" aria-label="{{.Label}}" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="clapa-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead" d="M0 0L10 5L0 10z"/></marker><marker id="clapa-arrow-cut" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead cut" d="M0 0L10 5L0 10z"/></marker><marker id="clapa-arrow-resolve" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead resolve" d="M0 0L10 5L0 10z"/></marker></defs>
+{{range $e := .Edges}}<g class="edge{{with .Class}} {{.}}{{end}}">{{if eq .Class "cut"}}<path d="{{.D}}" marker-end="url(#clapa-arrow-cut)"/>{{else if eq .Class "resolve"}}<path d="{{.D}}" marker-end="url(#clapa-arrow-resolve)"/>{{else}}<path d="{{.D}}" marker-end="url(#clapa-arrow)"/>{{end}}<text x="{{.LX}}" y="{{.LY}}">{{range $i, $l := $e.Lines}}<tspan x="{{$e.LX}}" dy="{{if $i}}12{{else}}0{{end}}">{{$l}}</tspan>{{end}}{{with .Mark}} <tspan class="mark">{{.}}</tspan>{{end}}</text></g>
+{{end}}{{range .Nodes}}<g class="node {{.Class}}"><title>{{.Full}}</title><rect x="{{.X}}" y="{{.Y}}" width="180" height="54" rx="6"/><text class="ntype" x="{{.TX}}" y="{{.TY}}">{{.Type}}</text><text class="nname" x="{{.TX}}" y="{{.NY}}">{{.Name}}</text></g>
+{{end}}</svg></figure>{{end}}
+{{define "fixes"}}<div class="fixes"><h4>Verified fixes</h4>
+{{with .Pending}}<p class="pending">Resolve first (no change): {{range $i, $s := .}}{{if $i}}; {{end}}<code>{{$s}}</code>{{end}}</p>{{end}}
+{{with .Missing}}<p>Not confirmed, no patch until decided. What would decide it:</p><ul>{{range .}}<li>{{.}}</li>{{end}}</ul>{{end}}
+{{if .NoFix}}<p class="warn">No fix within the configured constraints.</p>{{end}}
+{{range .Fixes}}<div class="strategy {{.Strategy}}"><h5><span class="badge">{{.Strategy}}</span>{{if eq .Strategy "mitigation"}} <span class="warn">mitigation: blocks this path only; the broad grant remains</span>{{end}}</h5>
+{{with .Suggestion}}<p>A suggestion, not verified, not applied by <code>--write</code>: {{.}}</p>{{end}}
+{{with .Changes}}<table class="steps"><thead><tr><th scope="col">Change</th><th scope="col">Side</th><th scope="col">Kind</th><th scope="col">Cost</th><th scope="col">What</th></tr></thead>
+<tbody>{{range .}}<tr class="kind-{{.Kind}}"><td><code>{{.Edge}}</code></td><td>{{.Side}}</td><td>{{.Kind}}</td><td>{{.Cost}}</td><td>{{.Why}}{{with .TODO}}<br><span class="warn">TODO: {{.}}</span>{{end}}{{if eq .Kind "revoke"}}<br><span class="warn">removes an explicit grant: confirm it is not needed</span>{{end}}</td></tr>{{end}}</tbody></table>{{end}}
+<p class="verify"><span class="{{if .VerifiedInMemory}}ok{{else}}no{{end}}">{{if .VerifiedInMemory}}✔ verified in memory{{else}}✘ not verified in memory{{end}}</span> · <span class="{{if .VerifiedOnFiles}}ok{{else}}no{{end}}">{{if .VerifiedOnFiles}}✔ verified on patched files{{else}}✘ not verified on patched files{{end}}</span>{{with .Pending}} · <span class="pending">{{.}}</span>{{end}}</p>
+{{with .Reasons}}<ul class="reasons">{{range .}}<li>{{.}}</li>{{end}}</ul>{{end}}
+{{with .TODO}}<ul>{{range .}}<li class="warn">TODO: {{.}}</li>{{end}}</ul>{{end}}
+{{with .Diff}}<details class="patch"><summary>Patch</summary><pre class="diff">{{range difflines .}}<span class="{{.Class}}">{{.Text}}</span>{{end}}</pre></details>{{end}}
+{{range .Policies}}<details><summary>Policy <code>{{.ID}}</code></summary>{{with .Note}}<p>{{.}}</p>{{end}}{{with .Document}}<pre>{{.}}</pre>{{end}}</details>{{end}}
+</div>{{end}}
+{{with .Note}}<p class="note">{{.}}</p>{{end}}
+</div>{{end}}

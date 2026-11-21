@@ -29,8 +29,9 @@ func hostileReport() *schema.Report {
 	also := []schema.FindingRef{{Rule: "CLAPA-PATH-002", Entry: scriptName, Jewel: breakout}}
 	unc := []schema.UncuttableEdge{{Edge: endOfData, Reason: "no single change breaks it"}}
 	return &schema.Report{
-		Schema: "clapa-report/v1",
+		Schema: "clapa-report/v1", GeneratedAt: "2026-11-22T00:00:00Z",
 		Tool:   schema.Tool{Name: "clapa", Version: "test", RuleCatalog: "1"},
+		Inputs: []schema.ScannedInput{{Kind: "terraform-dir", Path: scriptName, Digest: "sha256:00"}, {Kind: "aws-live", Accounts: []string{breakout}, Regions: []string{endOfData}, Digest: "sha256:01"}},
 		Summary: schema.Summary{
 			Findings: 2, BySeverity: map[string]int{"critical": 1, "high": 1},
 			Unconfirmed: 1,
@@ -41,6 +42,26 @@ func hostileReport() *schema.Report {
 				Status: "unconfirmed", Confidence: "low", Undecided: []string{scriptName},
 				Entry: breakout, Jewel: scriptName, Path: []string{"RUNS_AS " + scriptName, "CAN_READ_PLAINTEXT " + endOfData},
 				PathsFound: 2, PathsTruncated: true, WorstCasePath: []string{"ASSUMES " + breakout},
+				Hops: []schema.Hop{
+					{Kind: "RUNS_AS", From: breakout, To: scriptName, FromKind: "k8s:workload", ToKind: "k8s:serviceaccount"},
+					{Kind: "ASSUMES" + scriptName, From: scriptName, To: endOfData, FromKind: "k8s:serviceaccount", ToKind: "aws:iam:role", Cut: "resolve"},
+					{Kind: "CAN_ESCALATE[iam:modify-policy]", From: endOfData, To: endOfData, FromKind: "aws:iam:role", ToKind: "aws:iam:role:any-permission"},
+					{Kind: "CAN_READ_PLAINTEXT", From: endOfData, To: templateText, FromKind: "aws:iam:role:any-permission", ToKind: "aws:s3:bucket", Cut: "cut"},
+					{Kind: "CAN_READ_PLAINTEXT", From: templateText, To: scriptName, FromKind: "aws:s3:bucket", ToKind: "x:unknown"},
+				},
+				WorstCaseHops: []schema.Hop{{Kind: "ASSUMES", From: breakout, To: scriptName, FromKind: "k8s:workload", ToKind: "aws:iam:role", Cut: "cut"}},
+				Remediation: &schema.Remediation{
+					Pending: []string{scriptName}, Note: breakout,
+					Fixes: []schema.Fix{
+						{
+							Strategy: "mitigation", Changes: []schema.Change{{Edge: endOfData, Side: "identity", Kind: "narrow", Cost: 1, Why: scriptName, TODO: breakout}},
+							VerifiedInMemory: true, VerifiedOnFiles: true, Pending: scriptName,
+							Diff: "--- a/" + scriptName + "\n+++ b/x\n@@ -1 +1 @@\n-" + breakout + "\n+" + endOfData + "\n " + templateText + "\n",
+							TODO: []string{scriptName}, Policies: []schema.Policy{{ID: scriptName, Note: breakout, Document: endOfData}},
+						},
+						{Strategy: "root-cause", Suggestion: scriptName, Changes: []schema.Change{}, Reasons: []string{breakout}},
+					},
+				},
 				Chokepoints: []string{"CAN_READ " + breakout}, CutCost: 3, Fix: steps, OtherSideFix: steps[:1], AlternativeFixDetail: steps[1:],
 				SharedFixPossible: []string{scriptName}, AlsoFixes: &also, Uncuttable: &unc, RemediationStatus: "partial_pending_resolution",
 				DefaultsUsed: []schema.Default{{Key: "k", Setting: scriptName, Value: breakout, ValueSource: "default", Reference: endOfData}},
@@ -116,7 +137,7 @@ func TestHostileNamesAreText(t *testing.T) {
 		switch n.Data {
 		case "script":
 			scripts = append(scripts, n)
-		case "img", "iframe", "object", "embed", "link", "base":
+		case "img", "iframe", "object", "embed", "link", "base", "foreignobject", "use", "image", "a":
 			t.Errorf("unexpected element <%s>", n.Data)
 		}
 		for _, a := range n.Attr {
@@ -233,4 +254,75 @@ func mustAsset(t *testing.T, name string) string {
 		t.Fatal(err)
 	}
 	return string(b)
+}
+
+// The path view is static SVG: no script in it, the cut edge dashed and
+// marked, the resolve step marked, the worst-case path in <details>, and
+// the same report gives the same bytes.
+func TestPathViewIsStatic(t *testing.T) {
+	r := hostileReport()
+	out := render(t, r)
+	figures := strings.Count(out, `<figure class="pathview">`)
+	if figures != 2 {
+		t.Fatalf("%d path views, want the path and the worst-case path", figures)
+	}
+	first := firstFigure(out)
+	for _, want := range []string{`<g class="edge cut">`, `<g class="edge resolve">`, "✂", ">?<", `marker-end="url(#clapa-arrow-cut)"`} {
+		if !strings.Contains(first, want) {
+			t.Errorf("the path view lacks %s", want)
+		}
+	}
+	if strings.Contains(first, "style=") || strings.Contains(strings.ToLower(first), "<script") {
+		t.Error("the path view has an inline style or a script")
+	}
+	if !strings.Contains(out, "<details><summary>Worst-case path") {
+		t.Error("the worst-case path is not in <details>")
+	}
+	if strings.Contains(first, scriptName) || !strings.Contains(first, "&lt;script&gt;") {
+		t.Error("names in the SVG are not escaped text")
+	}
+	if firstFigure(render(t, r)) != first {
+		t.Error("the same report gives a different path view")
+	}
+}
+
+// firstFigure: the first path view of a page, or "".
+func firstFigure(page string) string {
+	_, rest, _ := strings.Cut(page, `<figure class="pathview">`)
+	fig, _, _ := strings.Cut(rest, "</figure>")
+	return fig
+}
+
+// The policy depends only on the embedded assets, never on the report.
+func TestCSPDoesNotDependOnTheReport(t *testing.T) {
+	csp := func(out string) string {
+		i := strings.Index(out, `http-equiv="Content-Security-Policy" content="`)
+		rest := out[i+len(`http-equiv="Content-Security-Policy" content="`):]
+		return rest[:strings.IndexByte(rest, '"')]
+	}
+	a := csp(render(t, hostileReport()))
+	b := csp(render(t, &schema.Report{Summary: schema.Summary{BySeverity: map[string]int{}}}))
+	if a != b || a == "" {
+		t.Fatalf("policy changes with the report: %q vs %q", a, b)
+	}
+}
+
+// Fixes: the strategy, the mitigation warning, both verifications, the
+// patch as classed lines, the advice.
+func TestFixesSection(t *testing.T) {
+	out := render(t, hostileReport())
+	for _, want := range []string{
+		"mitigation: blocks this path only; the broad grant remains",
+		"✔ verified in memory", "✔ verified on patched files", "✘ not verified in memory",
+		`<span class="add">`, `<span class="del">`, `<span class="hunk">`, `<span class="file">`,
+		"Resolve first (no change)", "Remediation status: partial, pending resolution",
+		"Scanned inputs", "generated 2026-11-22T00:00:00Z",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the report lacks %q", want)
+		}
+	}
+	if strings.Index(out, `class="strategy mitigation"`) > strings.Index(out, `class="strategy root-cause"`) {
+		t.Error("the fixes are not in the order given (the app orders them, DESIGN.md 9.2)")
+	}
 }

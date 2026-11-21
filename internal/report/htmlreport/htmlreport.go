@@ -107,8 +107,21 @@ var funcs = template.FuncMap{
 		return strings.ToLower(strings.Join([]string{f.Rule, f.Title, f.Entry, f.Jewel, f.Resource, f.Fingerprint}, " "))
 	},
 	"pending": func(f *schema.Finding) bool { return f.RemediationStatus == "partial_pending_resolution" },
-	"refs":    deref[schema.FindingRef],
-	"uncut":   deref[schema.UncuttableEdge],
+	"layout":  layout,
+	// difflines: a unified diff's lines, each with its class (add, del,
+	// hunk, file, ctx) for the CSS; the text stays text.
+	"difflines": difflines,
+	// unfixed: some path finding has a cut but no verified fix in the report.
+	"unfixed": func(r *schema.Report) bool {
+		for i := range r.Findings {
+			if f := &r.Findings[i]; len(f.Chokepoints) > 0 && f.Remediation == nil {
+				return true
+			}
+		}
+		return false
+	},
+	"refs":  deref[schema.FindingRef],
+	"uncut": deref[schema.UncuttableEdge],
 }
 
 func deref[T any](p *[]T) []T {
@@ -116,4 +129,26 @@ func deref[T any](p *[]T) []T {
 		return nil
 	}
 	return *p
+}
+
+type diffLine struct{ Class, Text string }
+
+func difflines(diff string) []diffLine {
+	lines := strings.Split(strings.TrimSuffix(diff, "\n"), "\n")
+	out := make([]diffLine, 0, len(lines))
+	for _, l := range lines {
+		c := "ctx"
+		switch {
+		case strings.HasPrefix(l, "+++"), strings.HasPrefix(l, "---"):
+			c = "file"
+		case strings.HasPrefix(l, "@@"):
+			c = "hunk"
+		case strings.HasPrefix(l, "+"):
+			c = "add"
+		case strings.HasPrefix(l, "-"):
+			c = "del"
+		}
+		out = append(out, diffLine{c, l})
+	}
+	return out
 }

@@ -6,8 +6,13 @@ const Version = "clapa-report/v1"
 
 // Report is the document every output format renders.
 type Report struct {
-	Schema         string           `json:"schema"`
-	Tool           Tool             `json:"tool"`
+	Schema string `json:"schema"`
+	Tool   Tool   `json:"tool"`
+	// GeneratedAt: when the report was made (RFC 3339, UTC); only with
+	// --timestamps, so that two scans of the same input are identical.
+	GeneratedAt string `json:"generated_at,omitempty"`
+	// Inputs: what was scanned, each with a digest.
+	Inputs         []ScannedInput   `json:"inputs,omitempty"`
 	ThreatModel    ThreatModel      `json:"threat_model"`
 	Summary        Summary          `json:"summary"`
 	Findings       []Finding        `json:"findings"`
@@ -21,6 +26,69 @@ type Report struct {
 	ExpiredSuppressions []ExpiredSuppression `json:"expired_suppressions,omitempty"`
 	Baseline            *Baseline            `json:"baseline,omitempty"`
 	ExitCode            int                  `json:"exit_code"`
+}
+
+// ScannedInput is one input of the scan: a path under the scan root (a
+// Terraform directory or plan, a manifest directory, an AWS snapshot) or a
+// live source (AWS accounts and regions, a cluster by its key), and the
+// SHA-256 of what was read: the files (path, length and content of each, in
+// order) or, for a live source, the collected data as JSON.
+type ScannedInput struct {
+	Kind     string   `json:"kind"`
+	Path     string   `json:"path,omitempty"`
+	Cluster  string   `json:"cluster,omitempty"`
+	Accounts []string `json:"accounts,omitempty"`
+	Regions  []string `json:"regions,omitempty"`
+	Digest   string   `json:"digest"`
+}
+
+// Remediation is the verified remediation of a finding (scan --fixes):
+// its fixes in output order (DESIGN.md §9.2: a verified root-cause fix
+// first; otherwise the mitigation, then the root cause as a suggestion,
+// and Note), the resolve steps to run first, what would decide an
+// unconfirmed path.
+type Remediation struct {
+	Fixes   []Fix    `json:"fixes"`
+	Note    string   `json:"note,omitempty"`
+	Pending []string `json:"pending,omitempty"`
+	Missing []string `json:"missing,omitempty"`
+	NoFix   bool     `json:"no_fix_within_constraints,omitempty"`
+}
+
+// Fix is one strategy: its changes, both verifications and the patch.
+type Fix struct {
+	// Strategy: "root-cause" (narrows or removes the grant) or "mitigation"
+	// (blocks this path only; the broad grant remains).
+	Strategy   string   `json:"fix_strategy"`
+	Suggestion string   `json:"suggestion,omitempty"`
+	Changes    []Change `json:"changes"`
+	// VerifiedInMemory: level 1, the change applied to the model;
+	// VerifiedOnFiles: level 2, the patched files rescanned from scratch.
+	VerifiedInMemory bool     `json:"verified_in_memory"`
+	VerifiedOnFiles  bool     `json:"verified_on_patched_files"`
+	Reasons          []string `json:"reasons,omitempty"`
+	// Pending: only the known steps are verified (resolve steps first).
+	Pending  string   `json:"pending,omitempty"`
+	Diff     string   `json:"diff,omitempty"`
+	TODO     []string `json:"todo,omitempty"`
+	Policies []Policy `json:"policies,omitempty"`
+}
+
+// Change breaks one edge.
+type Change struct {
+	Edge string `json:"edge"`
+	Side string `json:"side"`
+	Kind string `json:"fix_kind"`
+	Cost int64  `json:"cost"`
+	Why  string `json:"why,omitempty"`
+	TODO string `json:"todo,omitempty"`
+}
+
+// Policy is a changed snapshot or live policy document, as JSON.
+type Policy struct {
+	ID       string `json:"id"`
+	Note     string `json:"note,omitempty"`
+	Document string `json:"document,omitempty"`
 }
 
 // Tool identifies the build and the rule catalog.
@@ -109,6 +177,11 @@ type Finding struct {
 	// WorstCasePath: a less certain path of the same rule that scores
 	// higher than Path (the severity is its score).
 	WorstCasePath []string `json:"worst_case_path,omitempty"`
+	// Hops, WorstCaseHops: path and worst_case_path as edges with both
+	// ends and their node kinds; cut is "cut" when the cheapest fix
+	// changes that edge, "resolve" when it only resolves unknowns on it.
+	Hops          []Hop `json:"hops,omitempty"`
+	WorstCaseHops []Hop `json:"worst_case_hops,omitempty"`
 	// AlsoFixes: path findings of other rules the cut also fixes; Uncuttable:
 	// underlying edges of a cut derived read no change breaks (both stated
 	// for every path finding).
@@ -121,6 +194,8 @@ type Finding struct {
 	Evidence          []string  `json:"evidence,omitempty"`
 	Location          *Location `json:"location,omitempty"`
 	Fingerprint       string    `json:"fingerprint"`
+	// Remediation: with scan --fixes, the finding's verified fixes.
+	Remediation *Remediation `json:"remediation,omitempty"`
 }
 
 // FixStep is one change that breaks one edge.
@@ -136,6 +211,16 @@ type FixStep struct {
 	// Resolve: for fix_kind "resolve" (an unknown to decide, cost 0, no
 	// patch), the command that decides it.
 	Resolve string `json:"resolve,omitempty"`
+}
+
+// Hop is one edge of a path.
+type Hop struct {
+	Kind     string `json:"kind"`
+	From     string `json:"from"`
+	To       string `json:"to"`
+	FromKind string `json:"from_kind"`
+	ToKind   string `json:"to_kind"`
+	Cut      string `json:"cut,omitempty"`
 }
 
 // FindingRef names a path finding.

@@ -1479,6 +1479,29 @@ Users can raise it per gap kind in `clapa.yaml`; the report shows the tolerance 
   (`htmlreport_test.go`): hostile names (`<script>`, an attribute breakout, an
   early `</script>`) stay text, the policy hashes exactly the page's style and
   script, the data block is the report.
+  After the first review: a **path view** per finding (and for the
+  worst-case path, in `<details>`): static SVG laid out in Go and rendered
+  by `html/template`, one box per node (workload, service account, role,
+  key, data), one arrow per edge with its kind, wrapped after four boxes;
+  the cut edge dashed and marked ✂, a resolve step dotted and marked `?`;
+  no script draws it, names are escaped text, colours are CSS classes (the
+  policy does not change), the same report gives the same bytes. The
+  report states its **scanned inputs** (each path, or live accounts and
+  regions, or cluster by key, with the SHA-256 of what was read, schema
+  `inputs`), the tool and rule-catalog versions, and, with `--timestamps`,
+  when it was made (`generated_at`). `scan --fixes` runs the remediation
+  of every path finding (the same plans, patches and two-level
+  verification as `clapa remediate`) and puts it in the report
+  (`remediation`: each fix's `fix_strategy`, `root-cause` or `mitigation`
+  with "blocks this path only; the broad grant remains", its changes,
+  `verified_in_memory`, `verified_on_patched_files`, the diff, the order
+  of §9.2 and its advice); the page shows the diff in `<details>`, its
+  lines coloured by CSS only. Printing (`@media print`, and the script
+  opening every `<details>` before printing): filters hidden, each
+  finding on a new page, black and white with dashes and marks for what
+  colour showed. `docs/examples/report-scenario-01.html` and
+  `report-scenario-22.html` are made by the tool (`scan --fixes --format
+  html`); `TestExampleReports` fails when they are not what it makes now.
 - **Console** — concise by default, `-v` for detail, `NO_COLOR`, plain when not a
   TTY. **All untrusted strings are stripped of control characters** before printing
   (terminal escape injection via resource names; see THREAT_MODEL.md).

@@ -27,6 +27,7 @@ import (
 	normk8s "github.com/r3oof-900/clapa/internal/normalize/k8s"
 	normtf "github.com/r3oof-900/clapa/internal/normalize/terraform"
 	"github.com/r3oof-900/clapa/internal/safeio"
+	"github.com/r3oof-900/clapa/pkg/schema"
 )
 
 // Inputs lists what to scan; paths are slash-separated, relative to Root.
@@ -72,6 +73,8 @@ type Loaded struct {
 	// Collected counts the inputs that produced data. Zero means the scan
 	// saw nothing (exit code 3), never "0 findings".
 	Collected int
+	// Inputs: what was scanned, with digests (the report's inputs).
+	Inputs []schema.ScannedInput
 }
 
 // Load collects every input and normalizes it into one inventory.
@@ -102,7 +105,7 @@ func Load(ctx context.Context, in *Inputs) (*Loaded, error) {
 	return &Loaded{
 		Intended:  intended,
 		Inventory: inv, EntryPoints: classify.EntryPoints(inv, *in.Config.ThreatModel.AssumeCompromised),
-		Gaps: l.rec.Gaps(), Notes: l.notes, Collected: l.collected,
+		Gaps: l.rec.Gaps(), Notes: l.notes, Collected: l.collected, Inputs: l.inputs,
 	}, nil
 }
 
@@ -114,6 +117,7 @@ type loader struct {
 	b         *normalize.Builder
 	notes     []access.Note
 	collected int
+	inputs    []schema.ScannedInput
 }
 
 func (l *loader) terraform(ctx context.Context) error {
@@ -126,6 +130,7 @@ func (l *loader) terraform(ctx context.Context) error {
 		}
 		normtf.Normalize(m, opts, l.mp, l.b, l.rec)
 		l.collected += len(m.Resources)
+		l.recordFiles(inputTerraformPlan, p.Path, "", nil)
 	}
 	for _, d := range in.TerraformDirs {
 		m, err := hclstatic.Collect(ctx, input(in, d), l.rec)
@@ -134,6 +139,7 @@ func (l *loader) terraform(ctx context.Context) error {
 		}
 		normtf.Normalize(m, opts, l.mp, l.b, l.rec)
 		l.collected += len(m.Resources)
+		l.recordFiles(inputTerraformDir, d, "", nil)
 	}
 	return nil
 }
@@ -150,6 +156,7 @@ func (l *loader) kubernetes(ctx context.Context) error {
 		}
 		normk8s.Normalize(objs, l.b, l.rec)
 		l.collected += len(objs.Items)
+		l.recordLive(inputK8sLive, key, nil, nil, objs)
 		if k.Clients.Insecure {
 			l.notes = append(l.notes, insecureNote(key))
 		}
@@ -165,6 +172,7 @@ func (l *loader) kubernetes(ctx context.Context) error {
 		}
 		normk8s.Normalize(objs, l.b, l.rec)
 		l.collected += len(objs.Items)
+		l.recordFiles(inputK8sManifests, d.Path, key, nil)
 	}
 	return nil
 }
@@ -225,6 +233,7 @@ func (l *loader) aws(ctx context.Context) error {
 			return err
 		}
 		add(snap)
+		l.recordFiles(inputAWSSnapshot, s, "", accountsOf(snap))
 	}
 	if l.in.AWSLive != nil {
 		snap, err := awslive.Collect(ctx, l.in.AWSLive, l.rec)
@@ -232,6 +241,7 @@ func (l *loader) aws(ctx context.Context) error {
 			return err
 		}
 		add(snap)
+		l.recordLive(inputAWSLive, "", accountsOf(snap), l.in.AWSLive.Regions, snap)
 	}
 	if len(l.in.AWSSnapshots) > 0 || l.in.AWSLive != nil {
 		l.notes = append(l.notes, awsNotes(all, l.mp)...)

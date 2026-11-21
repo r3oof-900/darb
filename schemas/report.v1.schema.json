@@ -9,6 +9,8 @@
   "properties": {
     "schema": {"const": "clapa-report/v1"},
     "tool": {"$ref": "#/$defs/tool"},
+    "generated_at": {"description": "When the report was made (RFC 3339, UTC); only with --timestamps.", "type": "string", "format": "date-time"},
+    "inputs": {"description": "What was scanned, each with the SHA-256 of what was read.", "type": "array", "items": {"$ref": "#/$defs/scannedInput"}},
     "threat_model": {"$ref": "#/$defs/threatModel"},
     "summary": {"$ref": "#/$defs/summary"},
     "findings": {"type": ["array", "null"], "items": {"$ref": "#/$defs/finding"}},
@@ -96,6 +98,82 @@
         "resolve": {"description": "For a resolve step: the command that decides it.", "type": "string"}
       }
     },
+    "hop": {
+      "description": "One edge of a path, with both ends and how the cheapest fix treats it.",
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "from", "to", "from_kind", "to_kind"],
+      "properties": {
+        "kind": {"type": "string"},
+        "from": {"type": "string"},
+        "to": {"type": "string"},
+        "from_kind": {"type": "string"},
+        "to_kind": {"type": "string"},
+        "cut": {"enum": ["cut", "resolve"]}
+      }
+    },
+    "scannedInput": {
+      "description": "One input of the scan and the SHA-256 of what was read.",
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "digest"],
+      "properties": {
+        "kind": {"enum": ["terraform-dir", "terraform-plan", "k8s-manifests", "aws-snapshot", "aws-live", "k8s-live"]},
+        "path": {"type": "string"},
+        "cluster": {"type": "string"},
+        "accounts": {"type": "array", "items": {"type": "string"}},
+        "regions": {"type": "array", "items": {"type": "string"}},
+        "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
+    "remediation": {
+      "description": "A finding's verified fixes (scan --fixes), in output order (DESIGN.md 9.2).",
+      "type": "object", "additionalProperties": false,
+      "required": ["fixes"],
+      "properties": {
+        "fixes": {"type": ["array", "null"], "items": {"$ref": "#/$defs/fix"}},
+        "note": {"type": "string"},
+        "pending": {"type": "array", "items": {"type": "string"}},
+        "missing": {"type": "array", "items": {"type": "string"}},
+        "no_fix_within_constraints": {"type": "boolean"}
+      }
+    },
+    "fix": {
+      "description": "One strategy: its changes, both verifications and the patch.",
+      "type": "object", "additionalProperties": false,
+      "required": ["fix_strategy", "changes", "verified_in_memory", "verified_on_patched_files"],
+      "properties": {
+        "fix_strategy": {"enum": ["root-cause", "mitigation"]},
+        "suggestion": {"type": "string"},
+        "changes": {"type": ["array", "null"], "items": {"$ref": "#/$defs/change"}},
+        "verified_in_memory": {"type": "boolean"},
+        "verified_on_patched_files": {"type": "boolean"},
+        "reasons": {"type": "array", "items": {"type": "string"}},
+        "pending": {"type": "string"},
+        "diff": {"type": "string"},
+        "todo": {"type": "array", "items": {"type": "string"}},
+        "policies": {"type": "array", "items": {"$ref": "#/$defs/policy"}}
+      }
+    },
+    "change": {
+      "type": "object", "additionalProperties": false,
+      "required": ["edge", "side", "fix_kind", "cost"],
+      "properties": {
+        "edge": {"type": "string"},
+        "side": {"type": "string"},
+        "fix_kind": {"type": "string"},
+        "cost": {"type": "integer", "minimum": 0},
+        "why": {"type": "string"},
+        "todo": {"type": "string"}
+      }
+    },
+    "policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": {"type": "string"},
+        "note": {"type": "string"},
+        "document": {"type": "string"}
+      }
+    },
     "findingRef": {
       "description": "A path finding, by rule, entry and jewel.",
       "type": "object", "additionalProperties": false,
@@ -157,6 +235,9 @@
         "alternative_fix_detail": {"description": "The cheapest fix of each alternative_fix edge.", "type": "array", "items": {"$ref": "#/$defs/fixStep"}},
         "shared_fix_possible": {"description": "Resources or policies one change to which breaks two or more chokepoint edges.", "type": "array", "items": {"type": "string"}},
         "worst_case_path": {"description": "A less certain path of the same rule that scores higher than path; the severity is its score.", "type": "array", "items": {"type": "string"}},
+        "remediation": {"$ref": "#/$defs/remediation"},
+        "hops": {"description": "path as edges with both ends.", "type": "array", "items": {"$ref": "#/$defs/hop"}},
+        "worst_case_hops": {"description": "worst_case_path as edges with both ends.", "type": "array", "items": {"$ref": "#/$defs/hop"}},
         "also_fixes": {"description": "Path findings of other rules this cut also fixes (path findings only).", "type": "array", "items": {"$ref": "#/$defs/findingRef"}},
         "uncuttable": {"description": "Underlying edges of a cut derived read that no single change breaks (path findings only).", "type": "array", "items": {"$ref": "#/$defs/uncuttableEdge"}},
         "remediation_status": {"description": "complete, or partial_pending_resolution when the cut has a resolve step: decide the unknowns, then rescan.", "enum": ["complete", "partial_pending_resolution"]},

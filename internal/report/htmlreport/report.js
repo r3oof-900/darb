@@ -34,4 +34,16 @@
   form.addEventListener('submit', function (e) { e.preventDefault(); });
   form.hidden = false;
   apply();
+  // Printing shows everything: every finding and every <details> open;
+  // after printing, the reader's view comes back.
+  var opened = [];
+  window.addEventListener('beforeprint', function () {
+    findings.forEach(function (a) { a.dataset.wasHidden = a.hidden ? '1' : ''; a.hidden = false; });
+    document.querySelectorAll('details:not([open])').forEach(function (d) { d.open = true; opened.push(d); });
+  });
+  window.addEventListener('afterprint', function () {
+    opened.forEach(function (d) { d.open = false; });
+    opened = [];
+    findings.forEach(function (a) { a.hidden = a.dataset.wasHidden === '1'; });
+  });
 }());

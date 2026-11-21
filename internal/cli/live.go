@@ -18,6 +18,15 @@ import (
 type Env struct {
 	AWS app.AWSConnector
 	K8s app.K8sConnector
+	// Now is the clock of --timestamps (tests fix it); nil: the wall clock.
+	Now func() time.Time
+}
+
+func (e *Env) now() time.Time {
+	if e == nil || e.Now == nil {
+		return time.Now()
+	}
+	return e.Now()
 }
 
 // DefaultEnv connects to AWS with the SDK's default configuration chain,

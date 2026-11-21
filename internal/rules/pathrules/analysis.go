@@ -153,8 +153,43 @@ func build(in *rules.Input, p *paths.Pair, s selection, jewels int) rules.Findin
 	if opts == nil {
 		opts = &paths.Options{Cost: func(graph.EdgeID) int64 { return paths.Default }}
 	}
-	cut(g, paths.CutFor(g, p.Entry, p.Jewel, &s.sel, opts), &f)
+	res := paths.CutFor(g, p.Entry, p.Jewel, &s.sel, opts)
+	cut(g, res, &f)
+	f.Hops = hops(g, primary, res.Ways)
+	if len(f.WorstCasePath) > 0 {
+		f.WorstCaseHops = hops(g, worst, res.Ways)
+	}
 	return f
+}
+
+// hops: a path as its edges, each with both ends and whether the cut breaks
+// it: "cut" (a change), "resolve" (only resolve steps), "" (not cut).
+func hops(g *graph.Graph, path paths.Path, ways []paths.Way) []rules.Hop {
+	out := make([]rules.Hop, 0, len(path))
+	for _, id := range path {
+		e := g.Edge(id)
+		label := graph.Label(e)
+		if e.Kind == graph.CanEscalate && e.Sub != "" {
+			label += "[" + e.Sub + "]"
+		}
+		h := rules.Hop{
+			Kind: label, From: g.Node(e.From).Identity, To: g.Node(e.To).Identity,
+			FromKind: string(g.Node(e.From).Kind), ToKind: string(g.Node(e.To).Kind),
+		}
+		for _, w := range ways {
+			if w.Edge != id && !slices.Contains(e.Under, w.Edge) {
+				continue
+			}
+			switch {
+			case w.HasKnown || len(w.Detach) > 0:
+				h.Cut = rules.HopCut
+			case h.Cut == "":
+				h.Cut = rules.HopResolve
+			}
+		}
+		out = append(out, h)
+	}
+	return out
 }
 
 // pick: the strongest status among the paths, the best path of that status

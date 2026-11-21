@@ -38,6 +38,7 @@ func Report(a *Analysis, cfg *config.Config, failOn string) *schema.Report {
 	}
 	r := report.Build(in)
 	r.Suppressed, r.ExpiredSuppressions, r.Baseline = a.Suppressed, a.Expired, a.Baseline
+	r.Inputs = a.Inputs
 	return r
 }
 

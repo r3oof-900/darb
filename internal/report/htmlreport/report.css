@@ -1,5 +1,5 @@
-:root{color-scheme:light dark;--bg:#fff;--fg:#1b1f24;--muted:#57606a;--line:#d0d7de;--card:#f6f8fa;--crit:#a40e26;--high:#bc4c00;--med:#9a6700;--low:#0969da;--info:#57606a;--warn:#9a6700}
-@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--muted:#8d96a0;--line:#30363d;--card:#161b22;--crit:#ff7b72;--high:#ffa657;--med:#d29922;--low:#58a6ff;--info:#8d96a0;--warn:#d29922}}
+:root{color-scheme:light dark;--node:#ffffff;--ok:#1a7f37;--addbg:#dafbe1;--addfg:#116329;--delbg:#ffebe9;--delfg:#82071e;--cut:#cf222e;--resolve:#9a6700;--bg:#fff;--fg:#1b1f24;--muted:#57606a;--line:#d0d7de;--card:#f6f8fa;--crit:#a40e26;--high:#bc4c00;--med:#9a6700;--low:#0969da;--info:#57606a;--warn:#9a6700}
+@media (prefers-color-scheme:dark){:root{--node:#0d1117;--ok:#3fb950;--addbg:#12261e;--addfg:#7ee787;--delbg:#25171c;--delfg:#ffa198;--cut:#ff7b72;--resolve:#d29922;--bg:#0d1117;--fg:#e6edf3;--muted:#8d96a0;--line:#30363d;--card:#161b22;--crit:#ff7b72;--high:#ffa657;--med:#d29922;--low:#58a6ff;--info:#8d96a0;--warn:#d29922}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
 header,main{max-width:72rem;margin:0 auto;padding:0 1rem}
@@ -27,3 +27,47 @@ summary{cursor:pointer;color:var(--muted)}
 #filters[hidden]{display:none}
 fieldset{border:1px solid var(--line);border-radius:6px;padding:.2rem .6rem}
 input[type=search]{min-width:14rem}
+.pathview{margin:.4rem 0;overflow-x:auto}
+.pathview svg{width:100%;max-width:1140px;height:auto;font:11px ui-monospace,SFMono-Regular,Consolas,monospace}
+.pathview .node rect{fill:var(--node);stroke:var(--line);stroke-width:1.5}
+.pathview .node.workload rect{stroke:var(--low)}.pathview .node.account rect{stroke:var(--info)}
+.pathview .node.role rect{stroke:var(--med)}.pathview .node.key rect{stroke:var(--high)}
+.pathview .node.data rect{stroke:var(--crit);stroke-width:2.5}
+.pathview .ntype{fill:var(--muted);font-size:10px}
+.pathview .nname{fill:var(--fg);font-weight:600}
+.pathview .edge path{fill:none;stroke:var(--muted);stroke-width:1.5}
+.pathview .edge text{fill:var(--muted);font-size:10px}
+.pathview .edge.cut path{stroke:var(--cut);stroke-width:2.5;stroke-dasharray:7 4}
+.pathview .edge.cut text{fill:var(--cut);font-weight:600}
+.pathview .edge.resolve path{stroke:var(--resolve);stroke-width:2;stroke-dasharray:2 3}
+.pathview .edge.resolve text{fill:var(--resolve);font-weight:600}
+.pathview .arrowhead{fill:var(--muted)}.pathview .arrowhead.cut{fill:var(--cut)}.pathview .arrowhead.resolve{fill:var(--resolve)}
+.pathview .mark{font-size:13px}
+.fixes{border-top:1px dashed var(--line);margin-top:.4rem}
+.strategy{margin:.4rem 0 .6rem}
+h5{font-size:.9rem;margin:.4rem 0 .2rem}
+.strategy.root-cause .badge{color:var(--low)}.strategy.mitigation .badge{color:var(--warn)}
+.verify .ok{color:var(--ok)}.verify .no{color:var(--cut)}
+.digest{font-size:12px}
+pre{overflow-x:auto;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:.5rem;font:12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}
+.diff span{display:block;white-space:pre}
+.diff .add{background:var(--addbg);color:var(--addfg)}.diff .del{background:var(--delbg);color:var(--delfg)}
+.diff .hunk{color:var(--low)}.diff .file{color:var(--muted);font-weight:600}
+.note{color:var(--warn)}
+@media print{
+:root{--bg:#fff;--fg:#000;--muted:#333;--line:#888;--card:#fff;--node:#fff;--crit:#000;--high:#000;--med:#000;--low:#000;--info:#000;--warn:#000;--cut:#000;--resolve:#000;--ok:#000;--addbg:#fff;--addfg:#000;--delbg:#fff;--delfg:#000}
+body{font-size:11pt}
+#filters,summary::marker{display:none}
+details::details-content{content-visibility:visible;display:block}
+summary{color:#000;font-weight:600}
+.finding{break-before:page;border:1px solid #888}
+.finding:first-of-type{break-before:auto}
+.pathview,tr,.diff span,h3,h4{break-inside:avoid}
+pre,.diff span{white-space:pre-wrap;overflow-wrap:anywhere;overflow:visible}
+.badge{border:1.5px solid #000}
+
+.diff .add{font-weight:700}.diff .del{text-decoration:line-through}
+.pathview .edge.cut path{stroke-width:3}
+.pathview .node.data rect{stroke-width:3}
+a{color:#000}
+}
