@@ -4,6 +4,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Dependencies must be at least two weeks old (tools/depage checks it in CI).
+    cooldown:
+      default-days: 14
     groups:
       k8s:
         patterns: ["k8s.io/*", "sigs.k8s.io/*"]
@@ -13,3 +16,6 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Dependencies must be at least two weeks old (tools/depage checks it in CI).
+    cooldown:
+      default-days: 14

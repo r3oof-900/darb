@@ -57,6 +57,7 @@ const (
 	extXSync     = "golang.org/x/sync"
 	extUnifiedDF = "github.com/aymanbagabas/go-udiff"
 	extYAMLv3    = "go.yaml.in/yaml/v3"
+	extXMod      = "golang.org/x/mod"
 )
 
 // coreModel is the set of core packages most rule-layer packages build on.
@@ -254,5 +255,6 @@ func toolingRules() []*Rule {
 		{Package: "tools/archgen", Layer: LayerTooling, Internal: []string{"internal/archtest"}},
 		{Package: "tools/refresh-managed-policies", Layer: LayerTooling, External: []string{extAWSSDK}},
 		{Package: "tools/benchgate", Layer: LayerTooling},
+		{Package: "tools/depage", Layer: LayerTooling, External: []string{extXMod}},
 	}
 }

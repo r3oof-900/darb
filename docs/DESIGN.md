@@ -181,6 +181,7 @@ generates. Rules for reading the table:
 | `pkg/schema` | pure | — (leaf) | — | — |
 | `tools/archgen` | tooling | `internal/archtest` | — | — |
 | `tools/benchgate` | tooling | — (leaf) | — | — |
+| `tools/depage` | tooling | — (leaf) | `golang.org/x/mod` | — |
 | `tools/refresh-managed-policies` | tooling | — (leaf) | `github.com/aws/aws-sdk-go-v2` | — |
 
 Standard-library packages denied in non-test files, by layer (an entry also denies its subpackages):

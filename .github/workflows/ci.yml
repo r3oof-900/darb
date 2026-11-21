@@ -109,5 +109,7 @@ jobs:
           go-version: "1.27.x"
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./...
+      - name: dependency age (at least 14 days at the commit time)
+        run: go run ./tools/depage --at "$(git log -1 --format=%cI)"
       - name: gitleaks
         run: go run github.com/zricethezav/gitleaks/v8@v8.30.1 git --redact --no-banner

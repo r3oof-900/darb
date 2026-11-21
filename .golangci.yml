@@ -2116,6 +2116,28 @@ linters:
               desc: "forbidden in the tooling layer (docs/DESIGN.md section 3)"
             - pkg: "testing"
               desc: "forbidden in the tooling layer (docs/DESIGN.md section 3)"
+        tools-depage:
+          list-mode: strict
+          files:
+            - "**/tools/depage/*.go"
+            - "!$test"
+          allow:
+            - "$gostd"
+            - "golang.org/x/mod$"
+            - "golang.org/x/mod/"
+          deny:
+            - pkg: "os/exec"
+              desc: "forbidden in the tooling layer (docs/DESIGN.md section 3)"
+            - pkg: "syscall"
+              desc: "forbidden in the tooling layer (docs/DESIGN.md section 3)"
+            - pkg: "plugin"
+              desc: "forbidden in the tooling layer (docs/DESIGN.md section 3)"
+            - pkg: "unsafe"
+              desc: "forbidden in the tooling layer (docs/DESIGN.md section 3)"
+            - pkg: "text/template"
+              desc: "forbidden in the tooling layer (docs/DESIGN.md section 3)"
+            - pkg: "testing"
+              desc: "forbidden in the tooling layer (docs/DESIGN.md section 3)"
         tools-refresh-managed-policies:
           list-mode: strict
           files:
