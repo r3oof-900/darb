@@ -266,6 +266,6 @@ func toolingRules() []*Rule {
 		{Package: "tools/archgen", Layer: LayerTooling, Internal: []string{"internal/archtest"}},
 		{Package: "tools/refresh-managed-policies", Layer: LayerTooling, External: []string{extAWSSDK}},
 		{Package: "tools/benchgate", Layer: LayerTooling},
-		{Package: "tools/depage", Layer: LayerTooling, External: []string{extXMod}},
+		{Package: "tools/depage", Layer: LayerTooling, External: []string{extXMod, extYAMLv3}},
 	}
 }

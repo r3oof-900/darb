@@ -1,0 +1,4 @@
+# Exceptions to the two-week minimum age (tools/depage/allow.go): only a
+# release that fixes a vulnerability, with its advisory and an expiry date.
+# Empty: every dependency is at least two weeks old.
+[]

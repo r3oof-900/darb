@@ -2151,6 +2151,8 @@ linters:
             - "$gostd"
             - "golang.org/x/mod$"
             - "golang.org/x/mod/"
+            - "go.yaml.in/yaml/v3$"
+            - "go.yaml.in/yaml/v3/"
           deny:
             - pkg: "os/exec"
               desc: "forbidden in the tooling layer (docs/DESIGN.md section 3)"

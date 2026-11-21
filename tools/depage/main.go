@@ -35,6 +35,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, client *h
 	at := fs.String("at", "", "reference time, RFC 3339 (default: now)")
 	minAge := fs.Duration("min-age", 14*24*time.Hour, "minimum age of every requirement")
 	proxy := fs.String("proxy", "https://proxy.golang.org", "Go module proxy")
+	allowFile := fs.String("allow", "tools/depage/allow.yaml", "exceptions for security fixes (see allow.go)")
 	if err := fs.Parse(args); err != nil || fs.NArg() > 1 {
 		return 2
 	}
@@ -61,8 +62,14 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, client *h
 		_, _ = fmt.Fprintln(stderr, "depage:", err)
 		return 2
 	}
+	entries, err := loadAllow(*allowFile)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, "depage:", err)
+		return 2
+	}
 	f := &fetcher{client: client, proxy: strings.TrimSuffix(*proxy, "/")}
-	tooNew, err := check(ctx, mf.Require, ref.Add(-*minAge), f)
+	c := &checker{f: f, cutoff: ref.Add(-*minAge), ref: ref, allow: entries}
+	tooNew, err := c.check(ctx, mf.Require, stdout)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, "depage:", err)
 		return 2
@@ -78,15 +85,35 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, client *h
 	return 0
 }
 
-func check(ctx context.Context, reqs []*modfile.Require, cutoff time.Time, f *fetcher) ([]string, error) {
+// checker compares each requirement's release time with the cutoff.
+type checker struct {
+	f      *fetcher
+	cutoff time.Time
+	ref    time.Time
+	allow  []allowEntry
+}
+
+// check returns the requirements that are too new and not allowed; it
+// prints each allowed one, with its advisory and expiry.
+func (c *checker) check(ctx context.Context, reqs []*modfile.Require, stdout io.Writer) ([]string, error) {
 	var out []string
 	for _, r := range reqs {
-		t, err := f.released(ctx, r.Mod.Path, r.Mod.Version)
+		t, err := c.f.released(ctx, r.Mod.Path, r.Mod.Version)
 		if err != nil {
 			return nil, err
 		}
-		if t.After(cutoff) {
-			out = append(out, fmt.Sprintf("too new: %s %s released %s", r.Mod.Path, r.Mod.Version, t.Format(time.RFC3339)))
+		if !t.After(c.cutoff) {
+			continue
+		}
+		line := fmt.Sprintf("too new: %s %s released %s", r.Mod.Path, r.Mod.Version, t.Format(time.RFC3339))
+		switch e, ok := allowed(c.allow, r.Mod.Path, r.Mod.Version, c.ref); {
+		case ok:
+			_, _ = fmt.Fprintln(stdout, "allowed:", r.Mod.Path, r.Mod.Version, "released", t.Format(time.RFC3339),
+				"("+e.Advisory+", until "+e.Expires+": "+e.Reason+")")
+		case e != nil:
+			out = append(out, line+" (its exception for "+e.Advisory+" expired on "+e.Expires+")")
+		default:
+			out = append(out, line)
 		}
 	}
 	sort.Strings(out)
