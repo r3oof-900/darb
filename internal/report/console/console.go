@@ -63,10 +63,7 @@ func finding(p *printer, f *schema.Finding) {
 	if f.Resource != "" {
 		p.resource(f)
 	} else {
-		p.printf("    %s -> %s\n", f.Entry, f.Jewel)
-		for _, step := range f.Path {
-			p.printf("      %s\n", step)
-		}
+		p.path(f)
 	}
 	if len(f.Chokepoints) > 0 {
 		p.printf("    cheapest fix (cost %d): %s\n", f.CutCost, strings.Join(f.Chokepoints, "; "))
@@ -116,5 +113,17 @@ func (p *printer) resource(f *schema.Finding) {
 	p.printf("    resource: %s\n", f.Resource)
 	for _, ev := range f.Evidence {
 		p.printf("    evidence: %s\n", ev)
+	}
+}
+
+// path prints a path finding's entry and jewel, what would decide it when
+// it is unconfirmed, and its steps.
+func (p *printer) path(f *schema.Finding) {
+	p.printf("    %s -> %s\n", f.Entry, f.Jewel)
+	for _, u := range f.Undecided {
+		p.printf("    undecided: %s\n", u)
+	}
+	for _, step := range f.Path {
+		p.printf("      %s\n", step)
 	}
 }

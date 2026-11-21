@@ -104,6 +104,9 @@ type Finding struct {
 	Factors    scoring.Factors `json:"factors"`
 	Confirmed  bool            `json:"confirmed"`
 	Confidence string          `json:"confidence"`
+	// Undecided: for an unconfirmed path, what would decide it (a context
+	// key to assume, a value a plan resolves, a precondition to state).
+	Undecided []string `json:"undecided,omitempty"`
 	// Chokepoints: the cheapest fix (the weighted min cut).
 	Chokepoints    []string       `json:"chokepoints,omitempty"`
 	ChokepointIDs  []model.ID     `json:"-"`

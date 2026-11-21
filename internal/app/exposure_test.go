@@ -98,3 +98,15 @@ func TestTrustWildcardInOneNamespace(t *testing.T) {
 		t.Fatalf("a namespace-scoped wildcard trust must be reported: %+v", f)
 	}
 }
+
+// An unconfirmed path says why: what would decide it (scenario 10: the
+// organization ID the key policy conditions on).
+func TestUnconfirmedPathSaysWhy(t *testing.T) {
+	f := findingFor(analyzeVariant(t, "10_kms_principal_org_id/vulnerable", nil), "CLAPA-PATH-001", piiBucket)
+	if f == nil || f.Confirmed || len(f.Undecided) != 1 || !strings.Contains(f.Undecided[0], `assume: {"aws:PrincipalOrgID"`) {
+		t.Fatalf("undecided: %+v", f)
+	}
+	if g := findingFor(analyzeVariant(t, "01_classic/vulnerable", nil), "CLAPA-PATH-001", piiBucket); len(g.Undecided) != 0 {
+		t.Fatalf("a confirmed path has nothing undecided: %v", g.Undecided)
+	}
+}

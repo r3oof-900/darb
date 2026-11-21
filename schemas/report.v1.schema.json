@@ -116,6 +116,7 @@
         "factors": {"$ref": "#/$defs/factors"},
         "confirmed": {"type": "boolean"},
         "confidence": {"enum": ["high", "medium", "low"]},
+        "undecided": {"description": "For an unconfirmed path: what would decide it (a context key to assume, a value a plan resolves, a precondition to state).", "type": "array", "items": {"type": "string"}},
         "entry": {"description": "Path findings: the entry point's canonical identity.", "type": "string"},
         "jewel": {"description": "Path findings: the crown jewel.", "type": "string"},
         "resource": {"description": "Posture findings: the resource.", "type": "string"},

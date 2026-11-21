@@ -142,6 +142,7 @@ func describePath(g *graph.Graph, best paths.Path, f *rules.Finding) {
 	}
 	if !f.Confirmed {
 		conf = graph.Low
+		f.Undecided = g.Undecided(best)
 	}
 	f.Confidence = conf.String()
 	for d := range defaults {

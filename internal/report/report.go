@@ -86,7 +86,7 @@ func Build(in *Input) *schema.Report {
 func finding(f *rules.Finding) schema.Finding {
 	out := schema.Finding{
 		Rule: f.Rule, RuleVersion: f.Version, Kind: f.Kind, Title: f.Title,
-		Severity: f.Factors.Severity, Score: f.Factors.Score, Confirmed: f.Confirmed, Confidence: f.Confidence,
+		Severity: f.Factors.Severity, Score: f.Factors.Score, Confirmed: f.Confirmed, Undecided: f.Undecided, Confidence: f.Confidence,
 		Factors: schema.Factors{
 			Exposure: f.Factors.Exposure, Hops: f.Factors.Hops, Preconditions: f.Factors.Preconditions,
 			Confidence: f.Factors.Confidence, Likelihood: f.Factors.Likelihood, Classification: f.Factors.Classification,

@@ -64,15 +64,17 @@ type Factors struct {
 
 // Finding is one result.
 type Finding struct {
-	Rule           string   `json:"rule"`
-	RuleVersion    string   `json:"rule_version"`
-	Kind           string   `json:"kind"`
-	Title          string   `json:"title"`
-	Severity       string   `json:"severity"`
-	Score          int      `json:"score"`
-	Factors        Factors  `json:"factors"`
-	Confirmed      bool     `json:"confirmed"`
-	Confidence     string   `json:"confidence"`
+	Rule        string  `json:"rule"`
+	RuleVersion string  `json:"rule_version"`
+	Kind        string  `json:"kind"`
+	Title       string  `json:"title"`
+	Severity    string  `json:"severity"`
+	Score       int     `json:"score"`
+	Factors     Factors `json:"factors"`
+	Confirmed   bool    `json:"confirmed"`
+	Confidence  string  `json:"confidence"`
+	// Undecided: for an unconfirmed path, what would decide it.
+	Undecided      []string `json:"undecided,omitempty"`
 	Entry          string   `json:"entry,omitempty"`
 	Jewel          string   `json:"jewel,omitempty"`
 	Resource       string   `json:"resource,omitempty"`
