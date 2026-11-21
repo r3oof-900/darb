@@ -12,7 +12,7 @@
   ],
   "absent": [
     {
-      "rule": "CLAPA-PATH-002",
+      "rule": "CLAPA-PATH-001",
       "jewel": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials"
     },
     {

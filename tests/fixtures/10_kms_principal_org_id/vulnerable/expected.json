@@ -13,8 +13,8 @@
       ],
       "confirmed": false,
       "confidence": "low",
-      "score": 291,
-      "severity": "medium",
+      "score": 729,
+      "severity": "critical",
       "chokepoints": [
         "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.shared"
       ],
@@ -41,6 +41,10 @@
           "fix_kind": "revoke",
           "cost": 3
         }
+      ],
+      "status": "unconfirmed",
+      "undecided": [
+        "aws:PrincipalOrgID"
       ],
       "remediation": {
         "missing": true

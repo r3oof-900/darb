@@ -689,6 +689,36 @@ condition key, policy variable, or principal). Combination:
 - Information order: `DENY`, `IMPLICIT_DENY` < `UNKNOWN` < `ALLOW` for access
   purposes. Property tests (§6.4) are stated against this order.
 
+**Two kinds of UNKNOWN (Phase 6 review).** An `UNKNOWN` decision says why
+(`Decision.DenyOnly`):
+
+- **deny-only:** every required allow is definitely satisfied, and only
+  *unknown* Deny statements stand between the request and `ALLOW`. Resolved
+  in the attacker's favour (no unknown Deny applies), the request is allowed.
+- **needs an unknown allow:** some required allow (identity, resource or
+  key policy, boundary, SCP, session policy) is satisfied only by *unknown*
+  statements.
+
+Severity is computed from the resolution that gives the attacker the most
+access (SCORING.md §1): an UNKNOWN is never a reason for a lower score. The
+kind of UNKNOWN sets the path's **status** and **confidence** only:
+
+| Status | When | Confidence |
+|---|---|---|
+| `confirmed` | no UNKNOWN on the path, every precondition known satisfied | the lowest edge confidence (`high`, or `medium` for a lower-confidence escalation) |
+| `confirmed_unless_denied` | the only UNKNOWNs on the path are deny-only | `medium` |
+| `unconfirmed` | the path needs an unknown allow, or an UNKNOWN precondition, or an UNKNOWN fact (an RBAC role or a key not in the input) | `low` |
+
+A derived edge (`CAN_READ_PLAINTEXT`) takes the kind of its underlying edges.
+Every unknown is named in the finding's `undecided`, with what resolves it:
+`tools/refresh-managed-policies` for an AWS managed policy missing from the
+snapshot, `assume:` in clapa.yaml for a context key, `--plan` for a value
+Terraform resolves, the input to add for a key or a role outside it.
+`--fail-on` counts every status at its (worst-case) severity. Property tests:
+every resolution of a path's unknowns scores at most what is reported, and
+adding an unknown policy to a principal never lowers a severity
+(`TestUnknownsNeverLowerSeverity`).
+
 ### 6.3 Matching and conditions
 
 - **Actions**: case-insensitive, `*` and `?` over the full `service:action`,
@@ -789,12 +819,22 @@ compute-create, `CreatePolicyVersion`, `Attach/PutRolePolicy`,
 `EXPOSED_TO`, plus `MAPS_TO` (IAM principal → K8s user/group via `aws-auth` or
 access entries).
 
+**Escalation (Phase 6 review).** `CAN_ESCALATE` means obtaining **another**
+identity: creating a pod as another service account, `pods/exec` into
+another's pod, `impersonate`, `serviceaccounts/token` for another service
+account (RBAC); `iam:PassRole` into compute, rewriting a trust or a policy
+(IAM). A workload using its own credentials, cloud or Kubernetes, is
+`RUNS_AS`; a path with a `CAN_ESCALATE` edge is `CLAPA-PATH-002`, one without
+is `CLAPA-PATH-001`. Minting a token for the account itself
+(`ASSUMES[minted-self]`, scenario 4b) is not another identity, so scenario 4b
+is `CLAPA-PATH-001`.
+
 **Edge semantics (Phase 4, written before the access builder):**
 
 | Edge | From → to | Exists when | Cost |
 |---|---|---|---|
 | `RUNS_AS` | workload → its service account | always (the cloud identity a pod's credentials carry) | 100 |
-| `CAN_ESCALATE[k8s-token]` | workload → its service account | the service account token is mounted (`automountServiceAccountToken`, §4.7 default `true`); needed to use the account's **Kubernetes** permissions. The IRSA web-identity token is projected separately and does not need it | 3 |
+| `RUNS_AS[k8s-token]` | workload → its service account | the service account token is mounted (`automountServiceAccountToken`, §4.7 default `true`): the pod acts in the Kubernetes API as its **own** service account. That is direct access, like `RUNS_AS`, not escalation (Phase 6 review; it was `CAN_ESCALATE[k8s-token]`). The IRSA web-identity token is projected separately and does not need it. After it, a path may use the account's RBAC (§7.4 modes) | 3 (workload, narrow: `automountServiceAccountToken: false`) |
 | `CAN_ESCALATE[rbac]` | service account → service account | RBAC lets the first `create pods` or `pods/exec`, `create serviceaccounts/token`, or `impersonate serviceaccounts` in a namespace: it can act as any of that namespace's service accounts | 5 |
 | `ASSUMES[irsa]` | service account → role | the service account carries `eks.amazonaws.com/role-arn`, so its pods get a token for its `eks.amazonaws.com/audience`; the role's trust allows `sts:AssumeRoleWithWebIdentity` for its `sub`/`aud`, **and** the OIDC provider accepts the audience: STS requires `aud` to be one of the provider's client IDs (IAM User Guide › "Create an OpenID Connect (OIDC) identity provider"). A provider in the input decides by its `client_id_list`; without one, `sts.amazonaws.com` is accepted as a documented default (§4.7) and any other audience is UNKNOWN. The annotation is not a security boundary: the token works with every role that accepts it | 5 |
 | `ASSUMES[projected]` | workload → role | the pod spec projects a `serviceAccountToken` volume with an audience: the same check as IRSA, with no annotation needed | 5 |
@@ -807,7 +847,7 @@ access entries).
 | `MAPS_TO` | IAM principal → Kubernetes user / group | `aws-auth` `mapRoles`/`mapUsers` (a `rolearn` carries no path, so a role matches by account and name) or an EKS access entry (`aws_eks_access_entry`: user name, groups). The subject's RBAC then gives `CAN_ESCALATE[rbac]`; `system:masters` is cluster-admin without a binding. An access policy association gives the principal the policy's rules directly (ClusterAdmin: all; Admin: create pods, impersonate service accounts; Edit: create pods; View, AdminView: read only — EKS User Guide › "Access policy permissions"); another policy is UNKNOWN | 8 |
 | `NODE_ROLE` | workload → node role of its cluster's node groups | IMDS is reachable: `hostNetwork: true` (any token setting, unless `http_endpoint` is disabled), or `http_tokens` optional, or hop limit ≥ 2; precondition, factor 900 when known, 500 when unknown | 3 |
 | `CAN_READ`, `CAN_DECRYPT[for J]`, `CAN_READ_PLAINTEXT` | principal → jewel / key | §7.3 | §9.1 |
-| `CAN_READ_PLAINTEXT[k8s]` | Kubernetes subject (service account, user, group, or an IAM principal by EKS access policy) → Kubernetes Secret | RBAC lets the subject `get`, `list` or `watch` the Secret: core API group, `secrets` or `*`, its namespace (or cluster-wide), and no `resourceNames` or its name. `list` and `watch` return the data too. The API returns the value decoded, so there is no decrypt step. A role that is not in the input makes the edge UNKNOWN. **The path search allows it only after `CAN_ESCALATE[k8s-token]`, a `MAPS_TO` or an RBAC escalation**, never with the cloud identity alone (`paths.allowed`). A path through the pod's own token therefore contains `CAN_ESCALATE` and is `CLAPA-PATH-002` (scenario 21) | 5 (rbac, revoke) |
+| `CAN_READ_PLAINTEXT[k8s]` | Kubernetes subject (service account, user, group, or an IAM principal by EKS access policy) → Kubernetes Secret | RBAC lets the subject `get`, `list` or `watch` the Secret: core API group, `secrets` or `*`, its namespace (or cluster-wide), and no `resourceNames` or its name. `list` and `watch` return the data too. The API returns the value decoded, so there is no decrypt step. A role that is not in the input makes the edge UNKNOWN. **The path search allows it only after `RUNS_AS[k8s-token]`, a `MAPS_TO` or an RBAC escalation**, never with the cloud identity alone (`paths.allowed`). A read with the pod's own token is direct access: `CLAPA-PATH-001` (scenario 21); its severity comes from the Secret's classification (§5), as for any target | 5 (rbac, revoke) |
 
 ### 7.3 Encrypted data access
 
@@ -850,8 +890,13 @@ conditions use the same key.
 - **The AWS managed keys.** For `aws/secretsmanager` and `aws/ssm`, principals
   of the resource's account may decrypt, and no other account may (documented
   defaults, §4.7).
-- **Unknown keys.** A key that is not in the input, or an alias that is not
-  resolved, makes `CAN_DECRYPT` **UNKNOWN**, never denied.
+- **Unknown keys (every encrypted target, S3 included; Phase 6 review).** A
+  key that is not in the input, or an alias that is not resolved, is a key
+  whose key policy is unknown: `CAN_DECRYPT` is UNKNOWN (an unknown allow:
+  the key policy must allow), never "no edge", and the scan records a
+  coverage gap naming the key and the resource it protects. The path is
+  `unconfirmed` at its worst-case severity. The anonymous caller still cannot
+  use a KMS key.
 - **Sources.** Snapshots and live collection; also Terraform
   (`aws_secretsmanager_secret` and its policy, `aws_ssm_parameter`). A secret's
   ARN suffix is unresolved until apply, so a policy naming one exact secret ARN
@@ -889,7 +934,7 @@ independently of the attack path to Z.
 
 **Implementation (Phase 4).** The search runs over (node, mode) states: after
 `RUNS_AS` a pod holds its cloud identity but not its Kubernetes token, after
-`CAN_ESCALATE[k8s-token]` only the token, after creating a pod both (§7.2). Per
+`RUNS_AS[k8s-token]` only the token, after creating a pod both (§7.2). Per
 entry: one breadth-first reachability, one depth-first walk that collects the
 paths to all of its jewels (100 per jewel, depth 10; a jewel is marked
 truncated when a cap or the depth bound stops a walk that could still reach
@@ -1458,6 +1503,9 @@ Decided while implementing:
 | Constraint | Effect today | Must be resolved by | Plan |
 |---|---|---|---|
 | **AWS managed policy snapshot has 3 policies** (`AdministratorAccess`, `AmazonS3FullAccess`, `AmazonS3ReadOnlyAccess`) — recorded after the Phase 3 review | every other AWS managed policy attached to a role is an unknown Allow + unknown Deny and a `not-modelled` gap: never "no permissions", but paths through such roles are UNKNOWN (confidence low) instead of decided | **before any scan of a real account** (live collectors meet real accounts, where most roles use managed policies). Phase 6 itself is tested on fakes, LocalStack and kind only | `tools/refresh-managed-policies` is **ready and tested** (546ec63): it lists every AWS-owned policy (`iam:ListPolicies`, `Scope=AWS`) and fetches each `DefaultVersionId` (`iam:GetPolicyVersion`), nothing else; `--profile` selects the profile, the SDK reads its credentials; the snapshot (format v2) records the date, partition, count and each default version, sorted, byte-for-byte deterministic. The refresh was **deferred on 2026-11-21**: only a valid profile is missing (the one tried was not found in `C:\Users\<user>\.aws\{config,credentials}`). Run: `go run ./tools/refresh-managed-policies --profile <profile>`, then review the diff and the scenarios whose results change, and commit the snapshot alone. Until then a live or snapshot scan reports every attached managed policy that is not in the snapshot (Phase 6) |
+| **Kubernetes Secrets mounted into pods** (volumes, `env`, `envFrom`), and Secrets read through pod creation — recorded at the Phase 6 review | a workload that mounts a Secret reads it through the kubelet without any RBAC, and whoever may create pods in a namespace can mount its Secrets; neither is an edge, so such reads are missed (listed in every report as `not-modelled`) | **priority 1**: before any scan of a real cluster is trusted for Secrets (it is the most common way pods read Secrets) | a `CAN_READ_PLAINTEXT[mount]` edge from the workload to each Secret its pod spec names, and from `CAN_ESCALATE[rbac]` holders (create pods) to the namespace's Secrets |
+| **S3 account-level Block Public Access** (`s3:GetAccountPublicAccessBlock`) — Phase 6 review | a bucket without its own setting is treated as not blocked: a path the account setting blocks can be reported (a false positive), never hidden | **priority 2**: before live scans are used to decide public exposure | collect the account setting and combine it with the bucket's (the stricter applies) |
+| **AWS RAM shares of advanced SSM parameters** — Phase 6 review | cross-account access is evaluated from the resource policies collected; a RAM share not reflected in them is missed | **priority 3**: before multi-account parameter sharing is in scope | collect RAM resource shares (`ram:ListResources`, `ram:GetResourceShareAssociations`) for parameters |
 | Coverage tolerance counts gaps | plan gaps for provider-computed attributes (`arn`, `id`, …) are recorded; the exit-code tolerance does not exist yet | Phase 5 (exit codes) | count only gaps that a decision used (section 4.6, "Provider-computed attributes") |
 
 Workflows that only make sense once their subject exists (`bench.yml` — Phase 4,

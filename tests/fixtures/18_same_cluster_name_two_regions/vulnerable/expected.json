@@ -34,7 +34,8 @@
         }
       ],
       "other_side_fix": [],
-      "alternative_fix_detail": []
+      "alternative_fix_detail": [],
+      "status": "confirmed"
     },
     {
       "rule": "CLAPA-PATH-001",
@@ -66,7 +67,8 @@
         }
       ],
       "other_side_fix": [],
-      "alternative_fix_detail": []
+      "alternative_fix_detail": [],
+      "status": "confirmed"
     },
     {
       "rule": "CLAPA-POST-007",

@@ -41,7 +41,11 @@ POD_IDENTITY_DEFAULTS = ["eks.pod-identity.disableSessionTags"]
 
 def path_finding(rule, entry, jewel, path, score, severity, chokepoints, alternative=None,
                  confirmed=True, confidence="high", defaults=None, fix=None, other_side=None,
-                 alternative_detail=None):
+                 alternative_detail=None, status=None, undecided=None):
+    # Phase 6 review (DESIGN.md 6.2, SCORING.md 1): the score is the worst
+    # case of every unknown; the status says what kind of unknown there is.
+    status = status or ("confirmed" if confirmed else "unconfirmed")
+    assert confirmed == (status == "confirmed")
     # Phase 5, step 1: every finding with a cut states the side, kind and
     # cost of the chosen fix, of the other sides of the cut edges, and of the
     # alternative's fix (empty lists when there are none), so any change of a
@@ -53,6 +57,7 @@ def path_finding(rule, entry, jewel, path, score, severity, chokepoints, alterna
         "confirmed": confirmed, "confidence": confidence, "score": score, "severity": severity,
         "chokepoints": chokepoints, "alternative_fix": alternative or [], "defaults_used": defaults or [],
         "fix": fix or [], "other_side_fix": other_side or [], "alternative_fix_detail": alternative_detail or [],
+        "status": status, **({"undecided": undecided} if undecided else {}),
     }
 
 
@@ -167,8 +172,10 @@ for n, row in (("04_wildcard_sub", 4), ("05_aud_only", 5)):
 
 # 4b - added in the Phase 4 review: a service account without annotation
 # whose Role may create pods in its namespace mints an sts.amazonaws.com
-# token for itself (CAN_ESCALATE[k8s-token], then ASSUMES via the minted
-# token) and the wildcard trust accepts it. builder is not exposed (400),
+# token for itself (RUNS_AS[k8s-token], then ASSUMES via the minted token)
+# and the wildcard trust accepts it. Phase 6 review: the pod's own token and
+# a token minted for its own account are not another identity (DESIGN.md
+# 7.2), so the path is CLAPA-PATH-001 (it was CLAPA-PATH-002). builder is not exposed (400),
 # 3 edges (810): 324; 324 x 900 = 291, medium. The token is mounted by
 # default; the OIDC provider is not in the input, so its audience is the
 # documented sts.amazonaws.com.
@@ -176,15 +183,15 @@ BUILDER = f"k8s:{PROD}/tools/Deployment/builder"
 NS_TOOLS_4B = f"k8s:{PROD}//Namespace/tools"
 cut, alt = decrypt_cut(ROLE, PII_KEY, PII)
 E["04b_create_pods_wildcard/vulnerable"] = {"derived_from": "13.2 row 4b (Phase 4 review)", "findings": [
-    path_finding("CLAPA-PATH-002", BUILDER, PII,
-                 [f"CAN_ESCALATE k8s:{PROD}/tools/ServiceAccount/builder", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
+    path_finding("CLAPA-PATH-001", BUILDER, PII,
+                 [f"RUNS_AS[k8s-token] k8s:{PROD}/tools/ServiceAccount/builder", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
                  291, "medium", cut, alt, defaults=[OIDC_DEFAULT, AUTOMOUNT_DEFAULT], **pii_decrypt_fixes(cut, alt)),
     posture("CLAPA-POST-001", ROLE, 600, "high"),
     posture("CLAPA-POST-004", BUILDER, 350, "medium", [AUTOMOUNT_DEFAULT]),
     no_default_deny(NS_TOOLS_4B)]}
 E["04b_create_pods_wildcard/fixed"] = {"derived_from": "13.2 row 4b fixed: :sub pinned to payments/api", "findings": [
     posture("CLAPA-POST-004", BUILDER, 350, "medium", [AUTOMOUNT_DEFAULT]), no_default_deny(NS_TOOLS_4B)],
-    "absent": [{"rule": "CLAPA-PATH-002", "entry": BUILDER, "jewel": PII}, {"rule": "CLAPA-POST-001", "resource": ROLE}]}
+    "absent": [{"rule": "CLAPA-PATH-001", "entry": BUILDER, "jewel": PII}, {"rule": "CLAPA-POST-001", "resource": ROLE}]}
 
 # 6 - sts:AssumeRole on * -> AdministratorAccess role in account B -> PII in B.
 # 4 edges (hops 729), exposure 1000: likelihood 729; 729 x 900 = 656, high.
@@ -235,7 +242,7 @@ cut, alt = decrypt_cut(ROLE, PII_KEY, PII)
 E["08_rbac_create_pods/vulnerable"] = {"derived_from": "13.2 row 8", "findings": [
     classic(),
     path_finding("CLAPA-PATH-002", CI, PII,
-                 [f"CAN_ESCALATE {SA_CI}", f"CAN_ESCALATE {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
+                 [f"RUNS_AS[k8s-token] {SA_CI}", f"CAN_ESCALATE {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
                  261, "medium", cut, alt, defaults=IRSA_DEFAULTS + [AUTOMOUNT_DEFAULT], **pii_decrypt_fixes(cut, alt)),
     posture("CLAPA-POST-004", CI, 350, "medium", [AUTOMOUNT_DEFAULT]),
     no_default_deny(NS_PAYMENTS)]}
@@ -266,8 +273,10 @@ E["09_hostnetwork_imds/fixed"] = {"derived_from": "13.2 row 9 fixed: IMDSv2 requ
                                              {"rule": "CLAPA-POST-002", "resource": f"eks-nodegroup:{PROD}/default"}]}
 
 # 10 - decrypt only from a key policy with aws:PrincipalOrgID, org not configured:
-# UNKNOWN, unconfirmed, confidence low (400): 1000 x 810 = 810; 810 x 400 = 324;
-# 324 x 900 = 291, medium.
+# UNKNOWN, and it needs an unknown allow (the key policy's condition):
+# unconfirmed, confidence low. Phase 6 review: the score is the worst case,
+# the org ID matching: 1000 x 810 = 810; 810 x 900 = 729, critical (it was
+# 291, medium, when confidence was a factor).
 # Cut (fourth Phase 4 review): the role has no kms:Decrypt of its own; the
 # key policy grants it to Principal "*" with aws:PrincipalOrgID, a broad
 # grant: narrow the key policy, cost 2. The alternative is the read, an
@@ -276,7 +285,8 @@ SHARED_KEY = f"arn:aws:kms:us-east-1:{ACCT}:key/tf-aws_kms_key.shared"
 cut, alt = decrypt_cut(ROLE, SHARED_KEY, PII)
 E["10_kms_principal_org_id/vulnerable"] = {"derived_from": "13.2 row 10 (no organization ID configured)", "findings": [
     path_finding("CLAPA-PATH-001", API, PII, [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
-                 291, "medium", cut, alt, confirmed=False, confidence="low", defaults=IRSA_DEFAULTS,
+                 729, "critical", cut, alt, confirmed=False, confidence="low", defaults=IRSA_DEFAULTS,
+                 undecided=["aws:PrincipalOrgID"],
                  fix=[step(cut[0], "resource", "narrow", 2)], other_side=[],
                  alternative_detail=[step(alt[0], "identity", "revoke", 3)]),
     rotation_off(SHARED_KEY), no_default_deny(NS_PAYMENTS)]}
@@ -307,15 +317,16 @@ E["12_public_bucket/fixed"] = {"derived_from": "13.2 row 12 fixed: Block Public 
 # 13 - module + for_each -> 3 IRSA roles for 3 SAs, SSE-S3 PII bucket.
 # Plan: CronJobs are not exposed (400), 3 edges (810): 400 x 810 = 324;
 # 324 x 900 = 291, medium; cut CAN_READ (no decrypt under SSE-S3).
-# Static: role names unresolved -> UNKNOWN, confidence low:
-# 324 x 400 = 129; 129 x 900 = 116, low; exit 3 at default tolerance (the
-# unconfirmed findings are below the default --fail-on high).
+# Static: role names unresolved -> UNKNOWN that needs an unknown allow,
+# unconfirmed, confidence low. Phase 6 review: worst case 324 x 900 = 291,
+# medium (it was 116, low); exit 3 at default tolerance (the unconfirmed
+# findings are below the default --fail-on high).
 NS_ANALYTICS = f"k8s:{PROD}//Namespace/analytics"
 def reader(name, static=False):
     role = f"arn:aws:iam::{ACCT}:role/reader-" + ("${clapa:unresolved:each.value}" if static else name)
     return path_finding("CLAPA-PATH-001", f"k8s:{PROD}/analytics/CronJob/{name}", PII,
                         [f"RUNS_AS k8s:{PROD}/analytics/ServiceAccount/{name}", f"ASSUMES {role}", f"CAN_READ_PLAINTEXT {PII}"],
-                        116 if static else 291, "low" if static else "medium", [f"CAN_READ {role} -> {PII}"],
+                        291, "medium", [f"CAN_READ {role} -> {PII}"],
                         confirmed=not static, confidence="low" if static else "high", defaults=IRSA_DEFAULTS,
                         # s3:GetObject on "arn:aws:s3:::${var.bucket}/*": the plan resolves it
                         # to the PII bucket's objects, explicit; statically var.bucket is
@@ -516,18 +527,18 @@ for n, jewel, key, other in (
 
 # 21 - Kubernetes Secret. ci-runner (not exposed: 400) runs as ci, whose
 # Role may get secrets in payments; its token is mounted by default. The
-# path is its Kubernetes token (CAN_ESCALATE[k8s-token], DESIGN.md 7.2),
-# then the RBAC read of payments/db-credentials (DataClass secret):
-# CLAPA-PATH-002. 2 edges (900): 400 x 900 = 360; x 1000 = 360, medium.
+# path is its own Kubernetes token (RUNS_AS[k8s-token], DESIGN.md 7.2:
+# direct access, Phase 6 review), then the RBAC read of
+# payments/db-credentials (DataClass secret, 1000): CLAPA-PATH-001. 2 edges (900): 400 x 900 = 360; x 1000 = 360, medium.
 # The cut is turning the token mount off (workload, narrow, 3), cheaper
 # than revoking the RBAC read (5); neither edge is derived, so no
 # alternative. CLAPA-POST-004 on ci-runner (token mounted by default, the
 # account has RBAC): 350, medium. Fixed: the pod sets
 # automountServiceAccountToken: false: no path, no CLAPA-POST-004.
 K8S_SECRET = f"k8s:{PROD}/payments/Secret/db-credentials"
-TOKEN_EDGE = f"CAN_ESCALATE {CI} -> {SA_CI}"
+TOKEN_EDGE = f"RUNS_AS[k8s-token] {CI} -> {SA_CI}"
 E["21_k8s_secret/vulnerable"] = {"derived_from": "Phase 6 instruction: Kubernetes Secrets as targets", "findings": [
-    path_finding("CLAPA-PATH-002", CI, K8S_SECRET, [f"CAN_ESCALATE {SA_CI}", f"CAN_READ_PLAINTEXT {K8S_SECRET}"],
+    path_finding("CLAPA-PATH-001", CI, K8S_SECRET, [f"RUNS_AS[k8s-token] {SA_CI}", f"CAN_READ_PLAINTEXT {K8S_SECRET}"],
                  360, "medium", [TOKEN_EDGE], [], defaults=[AUTOMOUNT_DEFAULT],
                  fix=[step(TOKEN_EDGE, "workload", "narrow", 3)],
                  # The read's one side is the RBAC rule (revoke, 5): it is not on the cut,
@@ -537,7 +548,48 @@ E["21_k8s_secret/vulnerable"] = {"derived_from": "Phase 6 instruction: Kubernete
     no_default_deny(NS_PAYMENTS)]}
 E["21_k8s_secret/fixed"] = {"derived_from": "Phase 6 instruction, fixed: automountServiceAccountToken: false",
                             "findings": [no_default_deny(NS_PAYMENTS)],
-                            "absent": [{"rule": "CLAPA-PATH-002", "jewel": K8S_SECRET}, {"rule": "CLAPA-POST-004", "resource": CI}]}
+                            "absent": [{"rule": "CLAPA-PATH-001", "jewel": K8S_SECRET}, {"rule": "CLAPA-POST-004", "resource": CI}]}
+
+# Phase 6 review, item 2 - 01_classic/key_outside_input: scenario 1 with the
+# PII bucket encrypted by a key that is not in the input (aws_kms_key.pii
+# removed; kms_master_key_id is a literal key ARN). The key's policy is
+# unknown, so CAN_DECRYPT needs an unknown allow (KMS requires the key
+# policy to allow): unconfirmed, confidence low, a coverage gap names the
+# key. Worst case: 729, critical, as scenario 1. Cut: the decrypt has no
+# side (DESIGN.md 9.1, SCORING.md 4.1-4.2): without the identity policies
+# the unknown key policy may still allow, and the unknown key policy may
+# let the role rewrite it (kms:PutKeyPolicy), so neither side counts. The
+# cut is the read, explicit: revoke, identity, 3; the decrypt is the
+# alternative, with no fix. CLAPA-POST-008 on the role (kms:Decrypt on "*").
+OUTSIDE_KEY = f"arn:aws:kms:us-east-1:{ACCT}:key/0b1c2d3e-0000-4000-8000-000000000001"
+E["01_classic/key_outside_input"] = {"derived_from": "Phase 6 review, item 2: a KMS key outside the input", "findings": [
+    path_finding("CLAPA-PATH-001", API, PII, [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
+                 729, "critical", [f"CAN_READ {ROLE} -> {PII}"], [f"CAN_DECRYPT[for {PII}] {ROLE} -> {OUTSIDE_KEY}"],
+                 confirmed=False, confidence="low", defaults=IRSA_DEFAULTS, undecided=[OUTSIDE_KEY + " is not in the input"],
+                 fix=[step(f"CAN_READ {ROLE} -> {PII}", "identity", "revoke", 3)], other_side=[], alternative_detail=[]),
+    broad_grant(ROLE), no_default_deny(NS_PAYMENTS)]}
+
+# Phase 6 review, item 1 - 19_secrets_manager/unknown_managed_policy:
+# scenario 19 with the AWS managed policy ReadOnlyAccess attached to
+# payments-api; it is not in the vendored snapshot, so its document is an
+# unknown Allow and an unknown Deny. The read and the decrypt are still
+# granted by the role's inline policy and the key policy: their only
+# unknown is a possible Deny: confirmed_unless_denied, confidence medium.
+# The score is the worst case, no unknown Deny applying: 810, critical (it
+# was 324 when confidence was a factor). Cut: under the worst case the
+# unknown policy may let the role rewrite its own grants (iam:PutRolePolicy),
+# the key policy (kms:PutKeyPolicy) and the secret's resource policy
+# (secretsmanager:PutResourcePolicy), so nothing after the role is
+# cuttable (SCORING.md 4.2); the cut is the hop into it: the IRSA trust
+# names payments:api exactly, an explicit grant: revoke, trust side, 7.
+TRUST_EDGE = f"ASSUMES {SA_API} -> {ROLE}"
+E["19_secrets_manager/unknown_managed_policy"] = {
+    "derived_from": "Phase 6 review, item 1: an unknown AWS managed policy never lowers the severity", "findings": [
+        path_finding("CLAPA-PATH-001", API, SECRET, [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {SECRET}"],
+                     810, "critical", [TRUST_EDGE], [], confirmed=False, status="confirmed_unless_denied", confidence="medium",
+                     defaults=IRSA_DEFAULTS, undecided=["ReadOnlyAccess", "tools/refresh-managed-policies"],
+                     fix=[step(TRUST_EDGE, "trust", "revoke", 7)], other_side=[], alternative_detail=[]),
+        broad_grant(ROLE), no_default_deny(NS_PAYMENTS)]}
 
 # Remediation strategies (Phase 5 review). A root-cause fix narrows the
 # broad Allow to what declared intended access uses through it; without

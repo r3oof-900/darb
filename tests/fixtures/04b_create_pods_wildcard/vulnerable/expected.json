@@ -3,11 +3,11 @@
   "derived_from": "13.2 row 4b (Phase 4 review)",
   "findings": [
     {
-      "rule": "CLAPA-PATH-002",
+      "rule": "CLAPA-PATH-001",
       "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/tools/Deployment/builder",
       "jewel": "arn:aws:s3:::acme-customer-pii",
       "path": [
-        "CAN_ESCALATE k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/tools/ServiceAccount/builder",
+        "RUNS_AS[k8s-token] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/tools/ServiceAccount/builder",
         "ASSUMES arn:aws:iam::111122223333:role/payments-api",
         "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
       ],
@@ -48,7 +48,8 @@
           "fix_kind": "revoke",
           "cost": 3
         }
-      ]
+      ],
+      "status": "confirmed"
     },
     {
       "rule": "CLAPA-POST-001",

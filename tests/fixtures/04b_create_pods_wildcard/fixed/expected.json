@@ -21,7 +21,7 @@
   ],
   "absent": [
     {
-      "rule": "CLAPA-PATH-002",
+      "rule": "CLAPA-PATH-001",
       "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/tools/Deployment/builder",
       "jewel": "arn:aws:s3:::acme-customer-pii"
     },

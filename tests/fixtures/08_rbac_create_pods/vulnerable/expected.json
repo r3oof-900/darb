@@ -48,14 +48,15 @@
           "fix_kind": "revoke",
           "cost": 3
         }
-      ]
+      ],
+      "status": "confirmed"
     },
     {
       "rule": "CLAPA-PATH-002",
       "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner",
       "jewel": "arn:aws:s3:::acme-customer-pii",
       "path": [
-        "CAN_ESCALATE k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci",
+        "RUNS_AS[k8s-token] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci",
         "CAN_ESCALATE k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api",
         "ASSUMES arn:aws:iam::111122223333:role/payments-api",
         "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
@@ -98,7 +99,8 @@
           "fix_kind": "revoke",
           "cost": 3
         }
-      ]
+      ],
+      "status": "confirmed"
     },
     {
       "rule": "CLAPA-POST-004",

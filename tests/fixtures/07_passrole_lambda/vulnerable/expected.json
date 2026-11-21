@@ -49,7 +49,8 @@
           "fix_kind": "revoke",
           "cost": 3
         }
-      ]
+      ],
+      "status": "confirmed"
     },
     {
       "rule": "CLAPA-POST-007",

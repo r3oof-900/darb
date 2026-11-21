@@ -12,7 +12,7 @@ division after each multiplication, so scores are bit-identical on every platfor
 
 ```
 score      = likelihood ⊗ impact                      (0–1000)
-likelihood = exposure ⊗ hops ⊗ preconditions ⊗ confidence
+likelihood = exposure ⊗ hops ⊗ preconditions
 impact     = min(1000, classification ⊗ blast_radius)
 ```
 
@@ -22,8 +22,16 @@ impact     = min(1000, classification ⊗ blast_radius)
 |---|---|---|
 | **exposure** — entry point | `1000` public `LoadBalancer` / `Ingress`; `800` `NodePort`; `500` internal load balancer; `400` any workload under the "assume any pod compromised" threat model | entry-point classification (DESIGN.md §5) |
 | **hops** | `1000` for 1 edge, then × `900` per extra edge: 1→1000, 2→900, 3→810, 4→729, 5→656, … | number of edges on the path |
-| **preconditions** | product over the path's preconditions: `900` each if known satisfied (extra attacker effort, e.g. reaching IMDS); `500` each if UNKNOWN | edge preconditions (e.g. `NODE_ROLE`) |
-| **confidence** | lowest edge confidence on the path: `high` 1000, `medium` 700, `low` 400 | edge confidence (e.g. `low` when it depends on `Unresolved` values) |
+| **preconditions** | product over the path's preconditions: `900` each (extra attacker effort, e.g. reaching IMDS), whether known satisfied or UNKNOWN: an UNKNOWN precondition is resolved as satisfied (the worst case) | edge preconditions (e.g. `NODE_ROLE`) |
+
+**Worst case (Phase 6 review).** The score is that of the resolution of every
+UNKNOWN that gives the attacker the most access: an UNKNOWN edge counts as
+allowed, an UNKNOWN precondition as satisfied. Doubt lowers the **confidence**
+and sets the **status** (DESIGN.md §6.2), never the score: otherwise anyone
+could hide a critical path in CI by attaching a managed policy CLAPA does not
+know. `confidence` is still reported per finding, and as the factor
+`confidence` (the weight of the confidence level: `high` 1000, `medium` 700,
+`low` 400) for reading, but it is **not** multiplied into the score.
 
 ### 1.2 Impact factors
 
@@ -42,9 +50,10 @@ impact     = min(1000, classification ⊗ blast_radius)
 | low | 100–249 |
 | info | < 100 |
 
-A path whose decision anywhere is `UNKNOWN` keeps its computed score but is marked
-**unconfirmed**, carries `confidence: low`, and lists the unresolved conditions;
-`--fail-on` counts it (safer: an unknown is not a pass).
+A path whose decision anywhere is `UNKNOWN` keeps its worst-case score and is
+marked `confirmed_unless_denied` (confidence `medium`) or `unconfirmed`
+(confidence `low`), DESIGN.md §6.2, and lists what would decide it;
+`--fail-on` counts it at that score (an unknown is not a pass).
 
 ### 1.4 Worked example (fixture 01, classic)
 
@@ -117,7 +126,7 @@ or turning off something specific):
 | `NODE_ROLE`, pod without hostNetwork (require IMDSv2, hop limit 1) | node | narrow | **3** |
 | `NODE_ROLE`, hostNetwork pod (turn the node group's metadata endpoint off) | node | revoke | **5** |
 | `NODE_ROLE`, hostNetwork pod on a node that already keeps pods out (remove hostNetwork) | workload | revoke | **5** |
-| `CAN_ESCALATE` via K8s token (`automountServiceAccountToken: false`) | workload | narrow | **3** |
+| `RUNS_AS[k8s-token]`: the pod's own Kubernetes token (`automountServiceAccountToken: false`) | workload | narrow | **3** |
 | `CAN_ESCALATE` via K8s RBAC (remove/limit the binding) | rbac | revoke | **5** |
 | `CAN_READ_PLAINTEXT[k8s]` (RBAC `get`/`list`/`watch` on a Kubernetes Secret; remove/limit the rule) | rbac | revoke | **5** |
 | `MAPS_TO` (`aws-auth` / access entry) | mapping | revoke | **8** |

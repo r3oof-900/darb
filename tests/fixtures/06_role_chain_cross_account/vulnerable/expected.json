@@ -41,6 +41,7 @@
         }
       ],
       "alternative_fix_detail": [],
+      "status": "confirmed",
       "remediation": {
         "order": [
           "mitigation",

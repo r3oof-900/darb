@@ -3,11 +3,11 @@
   "derived_from": "Phase 6 instruction: Kubernetes Secrets as targets",
   "findings": [
     {
-      "rule": "CLAPA-PATH-002",
+      "rule": "CLAPA-PATH-001",
       "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner",
       "jewel": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials",
       "path": [
-        "CAN_ESCALATE k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci",
+        "RUNS_AS[k8s-token] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci",
         "CAN_READ_PLAINTEXT k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials"
       ],
       "confirmed": true,
@@ -15,7 +15,7 @@
       "score": 360,
       "severity": "medium",
       "chokepoints": [
-        "CAN_ESCALATE k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci"
+        "RUNS_AS[k8s-token] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci"
       ],
       "alternative_fix": [],
       "defaults_used": [
@@ -23,14 +23,15 @@
       ],
       "fix": [
         {
-          "edge": "CAN_ESCALATE k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci",
+          "edge": "RUNS_AS[k8s-token] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci",
           "side": "workload",
           "fix_kind": "narrow",
           "cost": 3
         }
       ],
       "other_side_fix": [],
-      "alternative_fix_detail": []
+      "alternative_fix_detail": [],
+      "status": "confirmed"
     },
     {
       "rule": "CLAPA-POST-004",
