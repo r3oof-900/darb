@@ -1043,6 +1043,16 @@ policy would add a `CLAPA-PATH-002` for every target it already reads.
   `role/app` reads the data itself, confirmed, and could also rewrite its own
   policy: that escalation is dominated.
 
+A dominated path is hidden from the report, not removed: it belongs to the
+finding that dominates it for the **cut** and for **verification**. The cut
+of the dominating finding breaks all its paths, the dominated ones included;
+otherwise cutting the direct path alone would make the escalation no longer
+dominated, a new `CLAPA-PATH-002` would appear for the same pair, and the
+fix would not fix the problem. Verification rejects a fix after which any
+finding appears for the same (entry, jewel): in scenario 22's dominance
+variant, cutting `role/app`'s decrypt alone is rejected
+(`TestDominatedPathsStayInTheCut`).
+
 **Suppressions** (`.clapa-ignore.yaml`, or `--ignore FILE`; Phase 6):
 
 - Keyed by fingerprint, each with a mandatory `reason`, `owner` and `expires`

@@ -101,7 +101,15 @@
       "alternative_fix_detail": [],
       "status": "confirmed",
       "also_fixes": [],
-      "uncuttable": []
+      "uncuttable": [],
+      "alternative_cut": [
+        {
+          "edge": "CAN_ESCALATE arn:aws:iam::111122223333:role/ops -> arn:aws:iam::111122223333:role/ops",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 4
+        }
+      ]
     },
     {
       "rule": "CLAPA-POST-006",

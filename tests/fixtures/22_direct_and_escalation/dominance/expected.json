@@ -17,14 +17,50 @@
       "score": 291,
       "severity": "medium",
       "chokepoints": [
-        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app -> arn:aws:iam::111122223333:role/app"
+        "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/app -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+        "CAN_ESCALATE arn:aws:iam::111122223333:role/app -> arn:aws:iam::111122223333:role/app"
       ],
-      "alternative_fix": [],
+      "alternative_fix": [
+        "CAN_READ arn:aws:iam::111122223333:role/app -> arn:aws:s3:::acme-customer-pii"
+      ],
       "defaults_used": [
         "eks.irsa.audience",
         "eks.irsa.oidc-provider-audience"
       ],
       "fix": [
+        {
+          "edge": "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/app -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+          "side": "identity",
+          "fix_kind": "narrow",
+          "cost": 1
+        },
+        {
+          "edge": "CAN_ESCALATE arn:aws:iam::111122223333:role/app -> arn:aws:iam::111122223333:role/app",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 4
+        }
+      ],
+      "other_side_fix": [
+        {
+          "edge": "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/app -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+          "side": "resource",
+          "fix_kind": "narrow",
+          "cost": 2
+        }
+      ],
+      "alternative_fix_detail": [
+        {
+          "edge": "CAN_READ arn:aws:iam::111122223333:role/app -> arn:aws:s3:::acme-customer-pii",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 3
+        }
+      ],
+      "status": "confirmed",
+      "also_fixes": [],
+      "uncuttable": [],
+      "alternative_cut": [
         {
           "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app -> arn:aws:iam::111122223333:role/app",
           "side": "trust",
@@ -32,11 +68,9 @@
           "cost": 7
         }
       ],
-      "other_side_fix": [],
-      "alternative_fix_detail": [],
-      "status": "confirmed",
-      "also_fixes": [],
-      "uncuttable": []
+      "shared_fix_possible": [
+        "arn:aws:iam::111122223333:role/app"
+      ]
     },
     {
       "rule": "CLAPA-POST-006",

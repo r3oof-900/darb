@@ -226,15 +226,14 @@ side it can rewrite does not count either; the cut moves before it:
   and it writes the grant back on the resource. Across accounts its identity
   grant is still required, so that side still counts.
 
-- **A principal that can rewrite its own policies** (`iam:PutRolePolicy`,
-  `iam:AttachRolePolicy` or `iam:CreatePolicyVersion` on itself, with its own
-  permissions) undoes any cut of its own grants, and, by granting itself the
-  rewrite actions, of every resource policy that delegates to IAM (a key
-  policy naming the account root, a bucket without a policy): none of its
-  edges after it has a side, as for a role with any permission (Phase 6
-  review, scenario 22's dominance variant). Access it could regain only
-  through *another* identity (an escalation) does not count: that cut holds,
-  since the other identity's path is its own finding (scenario 22).
+The ability to grant oneself access again is not a fixed property of a role:
+it is itself permissions, which the graph holds as `CAN_ESCALATE` edges to the
+"role with any permission" node, and those edges are cut like any other (a
+role's own `iam:PutRolePolicy` grant: identity side). Only the synthetic node
+has no identity side, and nothing after it is cuttable; the min-cut finds when
+cutting the escalation together with the direct grant is cheaper than cutting
+before the role (scenario 22, dominance variant; decided at the Phase 6
+review).
 
 Scenario 6 is the reference: `analytics-admin` can rewrite its own policies, the
 warehouse key's policy and the bucket policy, so nothing after it is cuttable;

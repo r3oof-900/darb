@@ -41,7 +41,8 @@ POD_IDENTITY_DEFAULTS = ["eks.pod-identity.disableSessionTags"]
 
 def path_finding(rule, entry, jewel, path, score, severity, chokepoints, alternative=None,
                  confirmed=True, confidence="high", defaults=None, fix=None, other_side=None,
-                 alternative_detail=None, status=None, undecided=None, also_fixes=None, uncuttable=None):
+                 alternative_detail=None, status=None, undecided=None, also_fixes=None, uncuttable=None,
+                 alternative_cut=None, shared_fix=None):
     # Phase 6 review (DESIGN.md 6.2, SCORING.md 1): the score is the worst
     # case of every unknown; the status says what kind of unknown there is.
     status = status or ("confirmed" if confirmed else "unconfirmed")
@@ -61,6 +62,11 @@ def path_finding(rule, entry, jewel, path, score, severity, chokepoints, alterna
         # Phase 6 review: the findings of other rules the cut also fixes, and
         # the underlying edges of a cut derived read that no change breaks.
         "also_fixes": also_fixes or [], "uncuttable": [{"edge": e} for e in (uncuttable or [])],
+        # Phase 6 review, round 4 (pending the field decision): the cheapest
+        # complete cut sharing no edge with the chosen one, and the policies
+        # one change to which breaks two or more cut edges.
+        **({"alternative_cut": alternative_cut} if alternative_cut is not None else {}),
+        **({"shared_fix_possible": shared_fix} if shared_fix is not None else {}),
     }
 
 
@@ -630,11 +636,17 @@ E["19_secrets_manager/unknown_managed_policy"] = {
 #
 # CLAPA-PATH-002: RUNS_AS, ASSUMES app, ASSUMES ops, CAN_ESCALATE ops,
 # CAN_READ_PLAINTEXT: 5 edges (656): 400 x 656 = 262; x 900 = 235, low;
-# confirmed. Not dominated: role/ops has no access of its own. Nothing after
-# role/ops is cuttable (it rewrites its own policies, SCORING.md 4.2); the
-# cut is ASSUMES app -> ops: role/app's sts:AssumeRole names role/ops,
-# explicit: revoke, identity, 3; role/ops's trust names role/app: revoke,
-# trust, 7. Neither cut breaks the other finding's path: also_fixes empty.
+# confirmed. Not dominated: role/ops has no access of its own. Nothing
+# after the "any permission" node is cuttable (SCORING.md 4.2), but the edge
+# into it is: CAN_ESCALATE ops -> ops is role/ops's own iam:PutRolePolicy on
+# its ARN, explicit: revoke, identity, 4 (SCORING.md 4.1, IAM escalation);
+# an IAM role has no resource policy for that action: no other side. The
+# min-cut (Phase 6 review, round 4) is ASSUMES app -> ops: role/app's
+# sts:AssumeRole names role/ops, explicit: revoke, identity, 3; role/ops's
+# trust names role/app: revoke, trust, 7. The alternative cut, sharing no
+# edge with it, is the root cause: CAN_ESCALATE ops, revoke, identity, 4
+# (the IRSA trust, 7, is dearer). Neither cut breaks the other finding's
+# path: also_fixes empty.
 #
 # CLAPA-POST-006 on the key (rotation by the Terraform default) and
 # CLAPA-POST-007 on apps. The unresolved variable is a coverage gap: exit 3
@@ -653,13 +665,40 @@ def app_direct(confirmed):
         return path_finding("CLAPA-PATH-001", APP, PII, path, 291, "medium", cut, alt,
                             confirmed=False, confidence="low", defaults=IRSA_DEFAULTS, undecided=["pii_bucket_arn", "--plan"],
                             **pii_decrypt_fixes(cut, alt))
-    # Dominance variant: role/app can rewrite its own policy, so none of its
-    # own grants, nor the key policy (it delegates to the account root),
-    # survives as a cut (SCORING.md 4.2); the cut is the IRSA hop into it:
-    # its trust names apps:app exactly: revoke, trust, 7.
+    # Dominance variant (Phase 6 review, round 4). role/app reads the
+    # bucket, decrypts with no condition (confirmed) and may iam:PutRolePolicy
+    # on itself. Its escalation path (RUNS_AS, ASSUMES app, CAN_ESCALATE app,
+    # CAN_READ_PLAINTEXT, confirmed) is dominated and hidden, but it stays in
+    # this finding's cut (DESIGN.md 8): the cut must break both paths.
+    # Capacities (SCORING.md 4.1):
+    #   RUNS_AS 100; ASSUMES sa -> app, the IRSA trust names apps:app
+    #   exactly: revoke, trust, 7 (role/app's side: none, IRSA);
+    #   CAN_DECRYPT[for PII] app -> key: kms:Decrypt on the key ARN, no
+    #   encryption-context condition, broad: narrow, identity, 1 (the
+    #   default key policy, account root: narrow, resource, 2);
+    #   CAN_READ app -> PII: s3:GetObject on the bucket's objects, explicit:
+    #   revoke, identity, 3 (no bucket policy: no other side);
+    #   CAN_ESCALATE app -> app: iam:PutRolePolicy on role/app's own ARN,
+    #   explicit: revoke, identity, 4 (no other side);
+    #   after the "any permission" node: uncuttable.
+    # Cuts breaking both paths: {decrypt 1, escalate 4} = 5;
+    # {read 3, escalate 4} = 7; {trust} = 7; {RUNS_AS} = 100. The min-cut is
+    # 5. Cutting the decrypt alone (1) is not a cut: the escalation path
+    # survives and becomes a CLAPA-PATH-002 (TestDominatedPathsStayInTheCut).
+    # The alternative cut sharing no edge with it: the IRSA trust, 7 (the
+    # {read, escalate} cut shares the escalation). alternative_fix (G, the
+    # other cuttable underlying edge of the cut derived read): the read,
+    # revoke, 3. Both identity fixes are statements of role/app's one inline
+    # policy (data-access): shared_fix_possible names role/app.
+    decrypt = f"CAN_DECRYPT[for {PII}] {APP_ROLE} -> {PII_KEY}"
+    escalate = f"CAN_ESCALATE {APP_ROLE} -> {APP_ROLE}"
+    read = f"CAN_READ {APP_ROLE} -> {PII}"
     trust = f"ASSUMES {SA_APP} -> {APP_ROLE}"
-    return path_finding("CLAPA-PATH-001", APP, PII, path, 291, "medium", [trust], [], defaults=IRSA_DEFAULTS,
-                        fix=[step(trust, "trust", "revoke", 7)], other_side=[], alternative_detail=[])
+    return path_finding("CLAPA-PATH-001", APP, PII, path, 291, "medium", [decrypt, escalate], [read], defaults=IRSA_DEFAULTS,
+                        fix=[step(decrypt, "identity", "narrow", 1), step(escalate, "identity", "revoke", 4)],
+                        other_side=[step(decrypt, "resource", "narrow", 2)],
+                        alternative_detail=[step(read, "identity", "revoke", 3)],
+                        alternative_cut=[step(trust, "trust", "revoke", 7)], shared_fix=[APP_ROLE])
 
 
 OPS_EDGE = f"ASSUMES {APP_ROLE} -> {OPS_ROLE}"
@@ -670,7 +709,8 @@ E["22_direct_and_escalation/vulnerable"] = {
         path_finding("CLAPA-PATH-002", APP, PII,
                      [f"RUNS_AS {SA_APP}", f"ASSUMES {APP_ROLE}", f"ASSUMES {OPS_ROLE}", f"CAN_ESCALATE {OPS_ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
                      235, "low", [OPS_EDGE], [], defaults=IRSA_DEFAULTS,
-                     fix=[step(OPS_EDGE, "identity", "revoke", 3)], other_side=[step(OPS_EDGE, "trust", "revoke", 7)], alternative_detail=[]),
+                     fix=[step(OPS_EDGE, "identity", "revoke", 3)], other_side=[step(OPS_EDGE, "trust", "revoke", 7)], alternative_detail=[],
+                     alternative_cut=[step(f"CAN_ESCALATE {OPS_ROLE} -> {OPS_ROLE}", "identity", "revoke", 4)]),
         rotation_off(PII_KEY), no_default_deny(NS_APPS_22)]}
 E["22_direct_and_escalation/fixed"] = {
     "derived_from": "Phase 6 review, fixed: role/ops can no longer rewrite its own policy", "exit_code": 3, "findings": [
