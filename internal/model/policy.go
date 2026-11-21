@@ -219,6 +219,28 @@ func (s *Statement) Resources() (resources []string, negated bool) {
 // Conditions returns a copy of the conditions.
 func (s *Statement) Conditions() []Condition { return slices.Clone(s.conditions) }
 
+// Input returns a mutable copy of the statement, for building a changed
+// policy (remediation).
+func (s *Statement) Input() *StatementInput {
+	in := &StatementInput{Sid: s.sid, Effect: s.effect, Conditions: slices.Clone(s.conditions)}
+	if s.notPrincipal {
+		in.NotPrincipal = s.principal
+	} else {
+		in.Principal = s.principal
+	}
+	if s.notAction {
+		in.NotAction = slices.Clone(s.actions)
+	} else {
+		in.Action = slices.Clone(s.actions)
+	}
+	if s.notResource {
+		in.NotResource = slices.Clone(s.resources)
+	} else {
+		in.Resource = slices.Clone(s.resources)
+	}
+	return in
+}
+
 // Label is "Sid" if set, else "#index".
 func (s *Statement) Label() string {
 	if s.sid != "" {

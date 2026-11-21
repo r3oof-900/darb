@@ -294,3 +294,46 @@ func TestTriMarshalText(t *testing.T) {
 		}
 	}
 }
+
+// The remediation copies: a statement back to its input (every element and
+// its negated form), a workload without hostNetwork, a bucket with other
+// S3 settings. The originals do not change.
+func TestRemediationCopies(t *testing.T) {
+	spec := NewPrincipalSpec(false, []PrincipalRef{{Type: PrincipalAWS, Value: "arn:aws:iam::1:role/r"}})
+	for _, in := range []*StatementInput{
+		{
+			Sid: "A", Effect: EffectAllow, Principal: spec, Action: []string{"s3:GetObject"}, Resource: []string{"arn:aws:s3:::b/*"},
+			Conditions: []Condition{NewCondition("StringEquals", "aws:PrincipalOrgID", []string{"o-1"})},
+		},
+		{Effect: EffectDeny, NotPrincipal: spec, NotAction: []string{"s3:PutObject"}, NotResource: []string{"arn:aws:s3:::x/*"}},
+	} {
+		s, err := NewStatement(0, in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		back, err := NewStatement(0, s.Input())
+		if err != nil {
+			t.Fatal(err)
+		}
+		bp, bn := back.Principal()
+		sp, sn := s.Principal()
+		ba, ban := back.Actions()
+		sa, san := s.Actions()
+		br, brn := back.Resources()
+		sr, srn := s.Resources()
+		if back.Sid() != s.Sid() || back.Effect() != s.Effect() || bp != sp || bn != sn || !slices.Equal(ba, sa) || ban != san ||
+			!slices.Equal(br, sr) || brn != srn || len(back.Conditions()) != len(s.Conditions()) {
+			t.Errorf("statement %+v does not round-trip through Input", in)
+		}
+	}
+	src := FileLocation("w.yaml", 1, 2, "")
+	w := NewWorkload(&WorkloadInput{Cluster: "c", Namespace: "n", Kind: "DaemonSet", Name: "d", HostNetwork: true, Source: src})
+	if c := w.WithoutHostNetwork(); c.HostNetwork() || !w.HostNetwork() || c.ID() != w.ID() {
+		t.Error("WithoutHostNetwork")
+	}
+	r := NewResource(&ResourceInput{Kind: KindS3Bucket, ARN: "arn:aws:s3:::b", Source: src})
+	before := r.S3()
+	if c := r.WithS3(S3Settings{RestrictPublicBuckets: True}); c.S3().RestrictPublicBuckets != True || r.S3() != before || c.ID() != r.ID() {
+		t.Error("WithS3")
+	}
+}

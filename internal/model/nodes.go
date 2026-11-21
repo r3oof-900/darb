@@ -142,6 +142,14 @@ func (r *Resource) WithClassification(class, by string) *Resource {
 // Source returns where the resource was defined.
 func (r *Resource) Source() *SourceLocation { s := r.source; return &s }
 
+// WithS3 returns a copy of r with other S3 settings (remediation).
+func (r *Resource) WithS3(s S3Settings) *Resource {
+	c := *r
+	c.tags, c.defaulted = slices.Clone(r.tags), slices.Clone(r.defaulted)
+	c.s3 = s
+	return &c
+}
+
 // WorkloadInput is the mutable input to NewWorkload.
 type WorkloadInput struct {
 	Cluster        string
@@ -220,6 +228,15 @@ func (w *Workload) AutomountToken() Tri { return w.automountToken }
 
 // Source returns where the workload was defined.
 func (w *Workload) Source() *SourceLocation { s := w.source; return &s }
+
+// WithoutHostNetwork returns a copy of w whose pods do not use the node's
+// network namespace (remediation).
+func (w *Workload) WithoutHostNetwork() *Workload {
+	c := *w
+	c.projected, c.defaulted = slices.Clone(w.projected), slices.Clone(w.defaulted)
+	c.hostNetwork = false
+	return &c
+}
 
 // TrustRelationship binds a role to its trust policy (a resource-based
 // policy on the role).

@@ -6,6 +6,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.48.0
 	github.com/aws/aws-sdk-go-v2/config v1.33.21
 	github.com/aws/aws-sdk-go-v2/service/iam v1.68.0
+	github.com/aymanbagabas/go-udiff v0.4.1
 	github.com/hashicorp/hcl/v2 v2.25.0
 	github.com/hashicorp/terraform-json v0.29.0
 	github.com/zclconf/go-cty v1.20.0
