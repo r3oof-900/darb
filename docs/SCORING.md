@@ -177,8 +177,10 @@ missing key or role). Where a side mixes known and unknown grants, the known
 ones get their usual fix and the unknown one a resolve step (scenario 19 with
 ReadOnlyAccess: narrow the inline `kms:Decrypt`, 1, and resolve
 ReadOnlyAccess, 0: cut 1). The §4.2 guards (a principal that may rewrite the
-target's policy) stay worst case and do not remove a resolve step: resolving
-the document decides them too. A cut with a resolve step has
+target's policy) never remove a resolve step: a guard is about changes the
+principal could undo, and a resolve step is not a change but knowledge;
+resolving the key policy also decides whether the role may rewrite it
+(decided at the Phase 6 review). A cut with a resolve step has
 `remediation_status: partial_pending_resolution` (otherwise `complete`);
 `--write` applies only its known steps; the verifier checks those and states
 that the paths depending on the unknown must be rescanned after resolution.
@@ -298,7 +300,16 @@ needs), with the trust side (cost 5) as the other fix.
   included (DESIGN.md §8); `alternative_fix_detail`: the cheapest fix of each
   of its edges, with side, kind and cost. It is the min-cut computed again
   with the chosen cut's edges uncuttable, so its ties are the min-cut's
-  (closest to the entry). A cut that contains `RUNS_AS`, the workload's
+  (closest to the entry). With resolve steps (§4.1, Phase 6 review): a tie
+  between a known step and a resolve step cannot happen (a known step costs
+  at least 1, a resolve step 0); between two cuts of resolve steps only, the
+  one with fewer distinct resolving commands wins, then the one closest to
+  the entry. When the chosen cut has a resolve step, the alternative is the
+  cheapest cut sharing no edge with it **made of known steps only**, so the
+  user has a fix to apply now; if there is none, `alternative_fix: []`
+  (scenario 13 static: the trust and the read both rest on unresolved
+  values). An alternative made only of resolve steps whose commands are a
+  subset of the chosen cut's is never offered. A cut that contains `RUNS_AS`, the workload's
   identity edge (100), or any other edge from Kubernetes facts with a fixed
   cost of 100 or more, is never offered: changing a workload's identity is
   not a useful alternative. `RUNS_AS[k8s-token]` (5) is not excluded. When none is

@@ -399,14 +399,16 @@ def reader(name, static=False):
         # Round 7: statically the trust's :sub (...:analytics:${each.value})
         # and the read's Resource (${var.bucket}/*) are unresolved: each edge
         # rests only on an unknown Allow, so each is resolved (0, --plan).
-        # Equal cuts: the min-cut's tie rule, closest to the entry, takes
-        # the trust; the read is the alternative.
+        # Equal cuts, one command each (--plan): closest to the entry, the
+        # trust. A cut with a resolve step takes an alternative of known
+        # steps only; the read is a resolve step too and RUNS_AS is never
+        # offered: alternative_fix [] (SCORING.md 4.3).
         return path_finding("CLAPA-PATH-001", f"k8s:{PROD}/analytics/CronJob/{name}", PII,
                             [f"RUNS_AS k8s:{PROD}/analytics/ServiceAccount/{name}", f"ASSUMES {role}", f"CAN_READ_PLAINTEXT {PII}"],
-                            291, "medium", [trust], [f"CAN_READ {role} -> {PII}"],
+                            291, "medium", [trust], [],
                             confirmed=False, confidence="low", defaults=IRSA_DEFAULTS,
                             fix=[step(trust, "trust", "resolve", 0, resolve="--plan")], other_side=[],
-                            alternative_detail=[step(f"CAN_READ {role} -> {PII}", "identity", "resolve", 0, resolve="--plan")])
+                            alternative_detail=[])
     return path_finding("CLAPA-PATH-001", f"k8s:{PROD}/analytics/CronJob/{name}", PII,
                         [f"RUNS_AS k8s:{PROD}/analytics/ServiceAccount/{name}", f"ASSUMES {role}", f"CAN_READ_PLAINTEXT {PII}"],
                         291, "medium", [f"CAN_READ {role} -> {PII}"], [trust],
