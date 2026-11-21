@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/r3oof-900/clapa/schemas/report.v1.schema.json",
+  "title": "CLAPA report (clapa-report/v1)",
+  "description": "The document every CLAPA output format renders (pkg/schema). Fields are only added within a major version; every object is closed, so a field this schema does not describe fails validation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "tool", "threat_model", "summary", "findings", "intended_access", "coverage", "graph", "rules", "exit_code"],
+  "properties": {
+    "schema": {"const": "clapa-report/v1"},
+    "tool": {"$ref": "#/$defs/tool"},
+    "threat_model": {"$ref": "#/$defs/threatModel"},
+    "summary": {"$ref": "#/$defs/summary"},
+    "findings": {"type": ["array", "null"], "items": {"$ref": "#/$defs/finding"}},
+    "intended_access": {"type": ["array", "null"], "items": {"$ref": "#/$defs/intendedAccess"}},
+    "coverage": {"$ref": "#/$defs/coverage"},
+    "graph": {"$ref": "#/$defs/graph"},
+    "rules": {"type": ["array", "null"], "items": {"$ref": "#/$defs/rule"}},
+    "exit_code": {"description": "0 clean, 1 findings at or above fail_on, 2 usage or configuration error, 3 incomplete scan, 4 internal error.", "enum": [0, 1, 2, 3, 4]}
+  },
+  "$defs": {
+    "severity": {"enum": ["critical", "high", "medium", "low", "info"]},
+    "tool": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "version", "commit", "rule_catalog_version", "information_uri"],
+      "properties": {
+        "name": {"const": "clapa"},
+        "version": {"type": "string"},
+        "commit": {"type": "string"},
+        "rule_catalog_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "information_uri": {"type": "string"}
+      }
+    },
+    "threatModel": {
+      "type": "object", "additionalProperties": false,
+      "required": ["assume_compromised", "fail_on"],
+      "properties": {
+        "assume_compromised": {"type": "boolean"},
+        "fail_on": {"$ref": "#/$defs/severity"}
+      }
+    },
+    "summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["findings", "by_severity", "unconfirmed"],
+      "properties": {
+        "findings": {"type": "integer", "minimum": 0},
+        "by_severity": {
+          "type": ["object", "null"],
+          "propertyNames": {"$ref": "#/$defs/severity"},
+          "additionalProperties": {"type": "integer", "minimum": 0}
+        },
+        "unconfirmed": {"type": "integer", "minimum": 0}
+      }
+    },
+    "location": {
+      "description": "A file and lines, or an ARN and the API call that returned it.",
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "file": {"type": "string"},
+        "start_line": {"type": "integer", "minimum": 0},
+        "end_line": {"type": "integer", "minimum": 0},
+        "address": {"type": "string"},
+        "arn": {"type": "string"},
+        "api": {"type": "string"}
+      }
+    },
+    "factors": {
+      "description": "The score's factors, per mille (SCORING.md).",
+      "type": "object", "additionalProperties": false,
+      "required": ["confidence"],
+      "properties": {
+        "exposure": {"type": "integer", "minimum": 0, "maximum": 1000},
+        "hops": {"type": "integer", "minimum": 0, "maximum": 1000},
+        "preconditions": {"type": "integer", "minimum": 0, "maximum": 1000},
+        "confidence": {"type": "integer", "minimum": 0, "maximum": 1000},
+        "likelihood": {"type": "integer", "minimum": 0, "maximum": 1000},
+        "classification": {"type": "integer", "minimum": 0, "maximum": 1000},
+        "blast_radius": {"type": "integer", "minimum": 0, "maximum": 1000},
+        "impact": {"type": "integer", "minimum": 0, "maximum": 1000}
+      }
+    },
+    "fixStep": {
+      "description": "One change that breaks one edge (SCORING.md 4).",
+      "type": "object", "additionalProperties": false,
+      "required": ["edge", "side", "fix_kind", "policy", "cost"],
+      "properties": {
+        "edge": {"type": "string"},
+        "side": {"enum": ["identity", "resource", "trust", "workload", "rbac", "mapping", "node", "exposure"]},
+        "fix_kind": {"description": "narrow: make a broad grant specific; revoke: remove an explicit grant (confirm it is not needed).", "enum": ["narrow", "revoke"]},
+        "policy": {"type": "string"},
+        "cost": {"type": "integer", "minimum": 1}
+      }
+    },
+    "default": {
+      "description": "A documented default a finding relies on (DESIGN.md 4.7).",
+      "type": "object", "additionalProperties": false,
+      "required": ["key", "setting", "value", "value_source", "reference"],
+      "properties": {
+        "key": {"type": "string"},
+        "setting": {"type": "string"},
+        "value": {"type": "string"},
+        "value_source": {"const": "default"},
+        "reference": {"type": "string"}
+      }
+    },
+    "finding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["rule", "rule_version", "kind", "title", "severity", "score", "factors", "confirmed", "confidence", "defaults_used", "fingerprint"],
+      "properties": {
+        "rule": {"type": "string", "pattern": "^CLAPA-(PATH|POST)-[0-9]{3}$"},
+        "rule_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "kind": {"enum": ["path", "posture"]},
+        "title": {"type": "string"},
+        "severity": {"$ref": "#/$defs/severity"},
+        "score": {"type": "integer", "minimum": 0, "maximum": 1000},
+        "factors": {"$ref": "#/$defs/factors"},
+        "confirmed": {"type": "boolean"},
+        "confidence": {"enum": ["high", "medium", "low"]},
+        "entry": {"description": "Path findings: the entry point's canonical identity.", "type": "string"},
+        "jewel": {"description": "Path findings: the crown jewel.", "type": "string"},
+        "resource": {"description": "Posture findings: the resource.", "type": "string"},
+        "path": {"type": "array", "items": {"type": "string"}},
+        "paths_found": {"type": "integer", "minimum": 0},
+        "paths_truncated": {"type": "boolean"},
+        "chokepoints": {"description": "The cut: the cheapest edges whose removal breaks every path.", "type": "array", "items": {"type": "string"}},
+        "cut_cost": {"type": "integer", "minimum": 0},
+        "no_fix_within_constraints": {"type": "boolean"},
+        "alternative_fix": {"description": "For a cut derived read (CAN_READ_PLAINTEXT): the other underlying edge, whatever its cost.", "type": "array", "items": {"type": "string"}},
+        "fix": {"description": "The side the cut chose for each chokepoint edge (its cheapest fix).", "type": "array", "items": {"$ref": "#/$defs/fixStep"}},
+        "other_side_fix": {"description": "The other sides that also break a chokepoint edge, dearer.", "type": "array", "items": {"$ref": "#/$defs/fixStep"}},
+        "alternative_fix_detail": {"description": "The cheapest fix of each alternative_fix edge.", "type": "array", "items": {"$ref": "#/$defs/fixStep"}},
+        "shared_fix_possible": {"description": "Resources one change to whose policy breaks two or more chokepoint edges; cut_cost then overstates the fix.", "type": "array", "items": {"type": "string"}},
+        "defaults_used": {"type": ["array", "null"], "items": {"$ref": "#/$defs/default"}},
+        "evidence": {"type": "array", "items": {"type": "string"}},
+        "location": {"$ref": "#/$defs/location"},
+        "fingerprint": {"description": "sha256 of the rule, its major version and the entry and jewel (or the resource): the problem, not its fix.", "type": "string", "pattern": "^[0-9a-f]{64}$"}
+      },
+      "allOf": [
+        {"if": {"properties": {"kind": {"const": "path"}}}, "then": {"required": ["entry", "jewel"]}},
+        {"if": {"properties": {"kind": {"const": "posture"}}}, "then": {"required": ["resource"]}}
+      ]
+    },
+    "intendedAccess": {
+      "type": "object", "additionalProperties": false,
+      "required": ["principal", "action", "resource", "status"],
+      "properties": {
+        "principal": {"type": "string"},
+        "action": {"type": "string"},
+        "resource": {"type": "string"},
+        "status": {"enum": ["verified", "unconfirmed", "not-satisfied", "not-modelled"]},
+        "detail": {"type": "string"}
+      }
+    },
+    "coverage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["collected", "gaps_over_tolerance", "gaps", "notes"],
+      "properties": {
+        "collected": {"description": "Inputs that produced data; 0 means nothing was scanned (exit 3), never a clean result.", "type": "integer", "minimum": 0},
+        "gaps_over_tolerance": {"type": "integer", "minimum": 0},
+        "gaps": {"type": ["array", "null"], "items": {"$ref": "#/$defs/gap"}},
+        "notes": {"type": ["array", "null"], "items": {"$ref": "#/$defs/note"}}
+      }
+    },
+    "gap": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "source", "detail"],
+      "properties": {
+        "kind": {"type": "string"},
+        "source": {"type": "string"},
+        "file": {"type": "string"},
+        "line": {"type": "integer", "minimum": 0},
+        "address": {"type": "string"},
+        "account": {"type": "string"},
+        "api": {"type": "string"},
+        "detail": {"type": "string"}
+      }
+    },
+    "note": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "subject", "detail"],
+      "properties": {
+        "kind": {"type": "string"},
+        "subject": {"type": "string"},
+        "detail": {"type": "string"}
+      }
+    },
+    "graph": {
+      "type": "object", "additionalProperties": false,
+      "required": ["nodes", "edges", "entry_jewel_pairs"],
+      "properties": {
+        "nodes": {"type": "integer", "minimum": 0},
+        "edges": {"type": "integer", "minimum": 0},
+        "entry_jewel_pairs": {"type": "integer", "minimum": 0}
+      }
+    },
+    "rule": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "version", "kind", "title", "rationale", "attack_techniques", "references"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^CLAPA-(PATH|POST)-[0-9]{3}$"},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "kind": {"enum": ["path", "posture"]},
+        "title": {"type": "string"},
+        "rationale": {"type": "string"},
+        "attack_techniques": {"type": ["array", "null"], "items": {"type": "string"}},
+        "references": {"type": ["array", "null"], "items": {"type": "string"}}
+      }
+    }
+  }
+}

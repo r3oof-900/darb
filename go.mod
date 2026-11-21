@@ -9,6 +9,7 @@ require (
 	github.com/aymanbagabas/go-udiff v0.4.1
 	github.com/hashicorp/hcl/v2 v2.25.0
 	github.com/hashicorp/terraform-json v0.29.0
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 	github.com/zclconf/go-cty v1.20.0
 	go.yaml.in/yaml/v3 v3.0.6
 	k8s.io/api v0.37.2
