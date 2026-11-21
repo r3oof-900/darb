@@ -119,6 +119,7 @@ or turning off something specific):
 | `NODE_ROLE`, hostNetwork pod on a node that already keeps pods out (remove hostNetwork) | workload | revoke | **5** |
 | `CAN_ESCALATE` via K8s token (`automountServiceAccountToken: false`) | workload | narrow | **3** |
 | `CAN_ESCALATE` via K8s RBAC (remove/limit the binding) | rbac | revoke | **5** |
+| `CAN_READ_PLAINTEXT[k8s]` (RBAC `get`/`list`/`watch` on a Kubernetes Secret; remove/limit the rule) | rbac | revoke | **5** |
 | `MAPS_TO` (`aws-auth` / access entry) | mapping | revoke | **8** |
 | `RUNS_AS` (change the workload's identity) | workload | revoke | **100** |
 | `PROTECTS` | none | structural fact, not a permission | **∞** |

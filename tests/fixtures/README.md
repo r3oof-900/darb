@@ -46,6 +46,10 @@ diff is a behaviour change.
 | 16 | `16_malformed_inputs` | malformed YAML and HCL next to a valid copy of scenario 1 | both reported with file:line; the rest is loaded | valid files only |
 | 1b | `01b_classic_intended` | scenario 1 + receipts bucket (own key), read declared in `intended_access` | path; verified root-cause fix | `kms:Decrypt` narrowed to the receipts key |
 | 17 | `17_pod_identity_classic` | scenario 1 through EKS Pod Identity: association payments/api, trust `pods.eks.amazonaws.com` for `sts:AssumeRole` + `sts:TagSession` pinned by session tags, agent add-on | path (as scenario 1) | as scenario 1 fixed |
+| 18 | `18_same_cluster_name_two_regions` | two clusters named `prod` (eu-west-1, us-east-1), `apps/app` in each bound to its own role; manifests in `k8s/<region>/` | two paths, nothing crossing, no gap | the us-east-1 role only lists |
+| 19 | `19_secrets_manager` | IRSA → role → `GetSecretValue` + `kms:Decrypt` on `*` → Secrets Manager secret | path | decrypt conditioned on another secret's `SecretARN` |
+| 20 | `20_ssm_securestring` | IRSA → role → `ssm:GetParameter` + `kms:Decrypt` on `*` → SecureString | path | decrypt conditioned on another parameter's `PARAMETER_ARN` |
+| 21 | `21_k8s_secret` | token mounted + RBAC `get secrets` → Kubernetes Secret | escalation path | `automountServiceAccountToken: false` |
 
 For the "no path" scenarios (2, 3, 11) the vulnerable variant is the near-miss
 configuration that must *not* produce a path; the fixed variant is a hardened

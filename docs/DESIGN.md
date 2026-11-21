@@ -372,25 +372,108 @@ it. The output is deterministic.
 
 ### 4.4 Live AWS
 
-Read-only. `docs/PERMISSIONS.md` (Phase 6) lists a minimal custom policy; AWS
-managed `SecurityAudit` + `ViewOnlyAccess` suffice. SDK paginators everywhere,
-`retry.NewAdaptiveMode`, `errgroup.SetLimit` per service (configurable), per-call
-`context` timeout, multi-region, multi-account via `sts:AssumeRole` (optionally
-enumerating accounts with AWS Organizations).
+Read-only (`internal/collect/awslive`). `docs/PERMISSIONS.md` lists the minimal
+policy, and tests keep it identical to the calls the code makes. The
+`SecurityAudit` + `ViewOnlyAccess` expectation is not verified until the
+managed-policy snapshot is refreshed (§12.1).
 
-**Partial failure is first-class.** Each `AccessDenied`, throttle or timeout is a
-`coverage.Gap{Service, Region, Account, API, Reason}`. Coverage per service =
-completed collection units ÷ known units. If a list call fails, the denominator is
-unknown and that service-region reports `coverage: unknown` (never 100%). Nothing
-collected ⇒ exit 3; "0 findings" is never printed for an empty scan.
+Collected:
+
+- STS: identifies the account.
+- IAM: `GetAccountAuthorizationDetails`, every page.
+- S3: every bucket's location, policy, default encryption, Block Public Access
+  and tags, read from a client in the bucket's region.
+- KMS, per region: keys and aliases; for each key its metadata and key policy,
+  and for customer managed keys their rotation and tags.
+- EKS: clusters (OIDC issuer) and Pod Identity associations.
+- Secrets Manager and SSM: metadata and resource policies, **never a value**.
+  The client interfaces are read-only by test, and a test fails if the
+  collector's source names a value read.
+
+Mechanics:
+
+- SDK paginators everywhere.
+- `retry.NewAdaptiveMode`.
+- A timeout per call (each page of a list).
+- `errgroup.SetLimit` per service and region.
+- Several regions (`--aws-region`, repeatable; the default is the profile's
+  region).
+- Several accounts with `sts:AssumeRole` (`--aws-assume-role`, repeatable).
+  Enumerating accounts through AWS Organizations is not built.
+
+**Partial failure is first-class.** Every call is recorded with its outcome in
+`awsraw.Call`; `manifest.json` lists the same calls in a snapshot.
+
+- A failed call is a coverage gap. Live and snapshot data map calls to gaps the
+  same way (`awsraw.Call.Gap`).
+- A resource policy whose call failed is **unknown**, never "no policy".
+- Per service and region, coverage is computed from the calls
+  (`awsraw.ServiceCoverage`): the units are the items the list call returned,
+  and complete units are those with no failed call. A list call that failed or
+  was not made leaves the size unknown. The console prints every incomplete or
+  unknown coverage as a warning.
+- Nothing collected is exit 3.
+- Every live or snapshot report lists the attached AWS managed policies missing
+  from the vendored snapshot (count and names). The console warns:
+  "managed policy snapshot is incomplete: run tools/refresh-managed-policies".
+  An UNKNOWN that comes from such a policy names it in `undecided`.
+
+Not collected, and stated in every live or snapshot report:
+
+- account-level S3 Block Public Access. A bucket without its own setting is
+  treated as not blocked, which can report a path the account setting blocks,
+  but never hides one.
+
+Tests run against fakes (`awsfake`), against the SDK's own clients over
+in-memory HTTP stubs (pagination, AccessDenied, throttling with retries), and
+against LocalStack in `integration.yml`. LocalStack images from 2026.03 on
+require an account token, so the job pins 4.14.0, the last image without one,
+by digest. LocalStack's free services do not include EKS, so EKS is covered by
+the fakes and stubs only. No test reaches AWS: the integration test refuses an
+endpoint that is not on the runner.
 
 ### 4.5 Live Kubernetes
 
-`client-go` only (never `kubectl`); kubeconfig contexts or in-memory EKS token
-(SigV4-presigned `sts:GetCallerIdentity` with the `x-k8s-aws-id` header). List with
-`Limit`/`Continue` pagination. Tokens are never logged. TLS verification on;
-`--insecure` prints a loud warning and is recorded in the report. Non-TTY never
-prompts; missing config is a clear error.
+`client-go` only (`internal/collect/k8s/live`):
+
+- **Kinds:** every kind §4.2 analyses is listed across namespaces with
+  `Limit`/`Continue`. A list that fails, even part-way, keeps nothing of that
+  kind and is a coverage gap.
+- **Secrets:** listed as **metadata only** (`PartialObjectMetadataList`: the
+  API server never sends their data).
+- **ConfigMaps:** only `kube-system/aws-auth` is read.
+- **Owned objects:** those a workload controller owns are skipped, since the
+  owner's template is analysed, as in a manifest scan. Objects owned by any
+  other controller (a custom resource, for example) are kept.
+
+Connections:
+
+- `--live-k8s CONTEXT[=CLUSTER]`: a kubeconfig context, non-interactive, TLS
+  verified.
+- `--k8s-eks NAME`: an in-memory token, a SigV4-presigned
+  `sts:GetCallerIdentity` that signs `x-k8s-aws-id`, renewed before it expires.
+  The endpoint, CA and ARN come from `eks:DescribeCluster`.
+- **Credential plugins are refused.** A kubeconfig user that runs an exec (or
+  auth-provider) credential plugin is refused, since CLAPA runs no external
+  commands. The error names the context, says why, and gives the alternatives:
+  `--k8s-eks NAME` for EKS, or a kubeconfig with a static token or a client
+  certificate otherwise.
+- **`--insecure`:** turns TLS verification off for the `--live-k8s` clusters.
+  This is warned on stderr and recorded in the report.
+- Tokens are never logged.
+
+Tests:
+
+- **Fake API servers:** lists, pages, part-way failures, forbidden lists,
+  nothing listed.
+- **The EKS token:** built offline with the real STS presigner.
+- **Manifests vs live:** every scenario's manifests, served by a fake API
+  server and collected live, normalize to the manifest scan's inventory.
+- **A kind cluster** (`integration.yml`; kind v0.33.0, node v1.37.0, pinned by
+  digest). Scenario manifests are applied, then read as a service account bound
+  to exactly the ClusterRole of `docs/PERMISSIONS.md`. The test expects no
+  access-denied gap, every manifest object collected the same, and a Secret
+  received without its data.
 
 ### 4.6 Decisions made while implementing (Phase 3)
 
@@ -442,6 +525,9 @@ on 2026-11-20 and has a test in `internal/app/defaults_test.go`
 | `s3.default-encryption` | S3 bucket without a default encryption configuration | SSE-S3 (`AES256`) | S3 User Guide: SSE-S3 is "the base level of encryption for every bucket"; "Starting January 5, 2023, all new object uploads to Amazon S3 are automatically encrypted" — https://docs.aws.amazon.com/AmazonS3/latest/userguide/default-bucket-encryption.html |
 | `s3.block-public-access.new-bucket` | S3 Block Public Access of a bucket a **Terraform plan creates** (`resource_changes` action `create`) with no `aws_s3_bucket_public_access_block` | all four settings on (`restrict_public_buckets = true`) | AWS News Blog › "Heads-Up: Amazon S3 Security Changes Are Coming in April of 2023" (13 Dec 2022; its update of 27 Apr 2023 says the change is in effect for all new buckets in all Regions): newly created buckets "[…] will by default have S3 Block Public Access enabled", including those created with the S3 API, the CLI, the SDKs or CloudFormation (Terraform creates buckets through the S3 API) — https://aws.amazon.com/blogs/aws/heads-up-amazon-s3-security-changes-are-coming-in-april-of-2023/ . The S3 User Guide states the default without a date: "By default, all four Block Public Access settings are enabled." (Creating a general purpose bucket › Using the S3 console) — https://docs.aws.amazon.com/AmazonS3/latest/userguide/create-bucket-overview.html . The User Guide pages read on 2026-11-21 do not state the April 2023 date; its FAQ page (create-bucket-faq.html) now redirects to the S3 welcome page. |
 | `eks.pod-identity.disableSessionTags` | Pod Identity association `disableSessionTags` | `false` | EKS API › CreatePodIdentityAssociation — https://docs.aws.amazon.com/eks/latest/APIReference/API_CreatePodIdentityAssociation.html |
+| `kms.aws-managed-key.rotation` | rotation of an AWS managed KMS key (`KeyManager: AWS`), not collected | `true` (every year) | KMS Developer Guide › "Rotate AWS KMS keys": "AWS KMS automatically rotates AWS managed keys every year"; "You cannot enable or disable key rotation for AWS managed keys." — https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html (read 2026-11-21) |
+| `secretsmanager.aws-managed-key` | a secret encrypted with the AWS managed key `aws/secretsmanager` | principals of the secret's account may decrypt through Secrets Manager; no other account | Secrets Manager User Guide › "Secret encryption and decryption": the key policy allows use "only when Secrets Manager makes the request on the user's behalf" (`kms:ViaService`, `kms:CallerAccount`); "AWS managed keys do not support cross-account access" — https://docs.aws.amazon.com/secretsmanager/latest/userguide/security-encryption.html (read 2026-11-21) |
+| `ssm.aws-managed-key` | a SecureString encrypted with the AWS managed key `aws/ssm` | every IAM principal of the parameter's account may decrypt; no other account | Systems Manager User Guide: "The default AWS KMS key has Decrypt permission for all IAM principals within the AWS account" — https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-access.html ; "AWS managed keys cannot be shared" — https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-shared-parameters.html (read 2026-11-21) |
 | `terraform.aws_iam_role.managed_policy_arns` | Terraform `aws_iam_role` `managed_policy_arns` / `inline_policy` not configured | no attachments added | AWS provider › aws_iam_role: "If this attribute is not configured, Terraform will ignore policy attachments to this resource." — https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role |
 
 **No deterministic default — unknown, and a coverage gap:**
@@ -468,9 +554,26 @@ identities:
 
 - AWS: full ARN including partition and account (S3 bucket ARNs carry no account,
   which is fine: names are unique per partition).
-- Kubernetes: `k8s:{cluster}/{namespace}/{kind}/{name}`; `{cluster}` is the EKS
-  cluster ARN when known, else the user-supplied `--k8s-cluster` name. Scanning
-  more than one cluster without distinct names is a usage error (exit 2).
+- Kubernetes: `k8s:{cluster key}/{namespace}/{kind}/{name}`. The cluster key
+  (`model.ClusterKey`) is the cluster's **ARN** when its account and region are
+  known (`arn:<partition>:eks:<region>:<account>:cluster/<name>`). Otherwise it
+  is the name the user gives (`--k8s DIR=CLUSTER`, `--live-k8s CONTEXT=CLUSTER`).
+  Kubernetes input that names no cluster, with none in `clapa.yaml`, uses
+  `default` (`model.DefaultClusterName`).
+- **Every producer uses the same key** (Phase 6), so cross-layer joins hold:
+  - Terraform references by `cluster_name`, in the resource's account and
+    region;
+  - the AWS collectors (`DescribeCluster`, Pod Identity associations);
+  - `clapa.yaml` clusters;
+  - manifests and live clusters.
+- **Two clusters of one name** in two regions or accounts are two clusters:
+  their objects never collide and no edge joins them (scenario 18).
+- **Resolving a name.** A Kubernetes input names its cluster by ARN or by name.
+  A name resolves against `clapa.yaml`, Terraform and AWS (in that load order),
+  and must match one cluster. A name matching several clusters is a
+  configuration error (exit 2) that lists their ARNs, never a guess. A name
+  nothing describes is its own key. `clapa.yaml` may keep writing
+  `k8s:<name>/...` principals: they resolve the same way.
 - Terraform resources with an unknown ARN: `tf:{root-module-digest}/{provider-config}/{address}`;
   the normalizer links them to ARN nodes when the ARN becomes known.
 
@@ -704,6 +807,7 @@ access entries).
 | `MAPS_TO` | IAM principal → Kubernetes user / group | `aws-auth` `mapRoles`/`mapUsers` (a `rolearn` carries no path, so a role matches by account and name) or an EKS access entry (`aws_eks_access_entry`: user name, groups). The subject's RBAC then gives `CAN_ESCALATE[rbac]`; `system:masters` is cluster-admin without a binding. An access policy association gives the principal the policy's rules directly (ClusterAdmin: all; Admin: create pods, impersonate service accounts; Edit: create pods; View, AdminView: read only — EKS User Guide › "Access policy permissions"); another policy is UNKNOWN | 8 |
 | `NODE_ROLE` | workload → node role of its cluster's node groups | IMDS is reachable: `hostNetwork: true` (any token setting, unless `http_endpoint` is disabled), or `http_tokens` optional, or hop limit ≥ 2; precondition, factor 900 when known, 500 when unknown | 3 |
 | `CAN_READ`, `CAN_DECRYPT[for J]`, `CAN_READ_PLAINTEXT` | principal → jewel / key | §7.3 | §9.1 |
+| `CAN_READ_PLAINTEXT[k8s]` | Kubernetes subject (service account, user, group, or an IAM principal by EKS access policy) → Kubernetes Secret | RBAC lets the subject `get`, `list` or `watch` the Secret: core API group, `secrets` or `*`, its namespace (or cluster-wide), and no `resourceNames` or its name. `list` and `watch` return the data too. The API returns the value decoded, so there is no decrypt step. A role that is not in the input makes the edge UNKNOWN. **The path search allows it only after `CAN_ESCALATE[k8s-token]`, a `MAPS_TO` or an RBAC escalation**, never with the cloud identity alone (`paths.allowed`). A path through the pod's own token therefore contains `CAN_ESCALATE` and is `CLAPA-PATH-002` (scenario 21) | 5 (rbac, revoke) |
 
 ### 7.3 Encrypted data access
 
@@ -718,6 +822,44 @@ authorization step, so `CAN_READ` alone yields plaintext (S3 User Guide › "Usi
 server-side encryption with Amazon S3 managed keys"). When the encryption
 configuration is unknown (not in the input), the edge to plaintext is `UNKNOWN`
 with a recorded gap, never assumed in either direction.
+
+**Secret stores (Phase 6).** Each one reads with its own API and decrypts with
+its own encryption context (`model.EncryptionContextKey`), and the remediation
+conditions use the same key.
+
+- **Secrets Manager.** `CAN_READ` is `secretsmanager:GetSecretValue`, evaluated
+  on the identity policies and the secret's resource policy.
+  `CAN_DECRYPT[for S]` is `kms:Decrypt` with:
+  - the encryption context `SecretARN` = the secret's ARN, and
+    `SecretVersionId` unknown (Secrets Manager User Guide › "Secret encryption
+    and decryption");
+  - `kms:EncryptionContextKeys`;
+  - `kms:ViaService` = `secretsmanager.<region>.amazonaws.com`;
+  - `kms:CallerAccount`.
+- **SSM Parameter Store.** `CAN_READ` is any of:
+  - `ssm:GetParameter`, `GetParameters` or `GetParameterHistory` on the
+    parameter's ARN;
+  - `GetParametersByPath` on any ancestor path, since it is authorized on the
+    path (Systems Manager User Guide › "Restricting access to Parameter Store
+    parameters using IAM policies").
+
+  A SecureString also needs `CAN_DECRYPT` with the context `PARAMETER_ARN` and
+  `kms:ViaService` = `ssm.<region>.amazonaws.com` (Systems Manager User Guide ›
+  "AWS KMS encryption for … SecureString parameters"). `String` and
+  `StringList` parameters are plaintext.
+- **The AWS managed keys.** For `aws/secretsmanager` and `aws/ssm`, principals
+  of the resource's account may decrypt, and no other account may (documented
+  defaults, §4.7).
+- **Unknown keys.** A key that is not in the input, or an alias that is not
+  resolved, makes `CAN_DECRYPT` **UNKNOWN**, never denied.
+- **Sources.** Snapshots and live collection; also Terraform
+  (`aws_secretsmanager_secret` and its policy, `aws_ssm_parameter`). A secret's
+  ARN suffix is unresolved until apply, so a policy naming one exact secret ARN
+  is UNKNOWN for it.
+- **Not modelled**, and listed in every report:
+  - Secrets mounted into pods (volumes, `env`, `envFrom`), and Secrets read
+    through pod creation;
+  - AWS RAM shares of advanced parameters.
 
 **Decision.** `CAN_DECRYPT` edges are **qualified by the protected resource**: the
 edge `role —CAN_DECRYPT[for bucket Z]→ key K` is evaluated with Z's encryption
@@ -812,10 +954,24 @@ to stay the same. File lines are left out too, so moving code does not reset
 suppressions. One finding exists per (rule, entry, jewel), so the fingerprint
 stays unique (scenario 14 checks distinct fingerprints).
 
-**Suppressions** (`.clapa-ignore.yaml`): keyed by fingerprint, each with mandatory
-`reason`, `owner`, `expires` (date). Missing fields = config error (exit 2).
-Expired suppressions re-fire and are listed. `--baseline previous.json` reports only
-new and resolved findings.
+**Suppressions** (`.clapa-ignore.yaml`, or `--ignore FILE`; Phase 6):
+
+- Keyed by fingerprint, each with a mandatory `reason`, `owner` and `expires`
+  (date, inclusive).
+- A missing field is a configuration error (exit 2), and so is an explicit
+  `--ignore` file that does not exist. The default file may be absent.
+- A suppressed finding moves to the report's `suppressed` list and does not
+  count for the exit code.
+- An expired suppression does not apply: its finding fires again, it is listed
+  in `expired_suppressions`, and the console warns.
+
+**`--baseline previous.json`** takes a previous JSON report:
+
+- only new findings are reported, and they decide the exit code;
+- `baseline.resolved` lists the previous report's findings that are gone;
+- a suppressed finding is still there, so it is not resolved.
+
+Tested end to end through the CLI.
 
 Scoring: `docs/SCORING.md`.
 
@@ -1122,6 +1278,28 @@ explanation" and HTML-escaped like any other untrusted string.
 Commands: `scan`, `explain`, `graph`, `remediate`, `rules list|show`,
 `collect-snapshot`, `doctor`, `version` (spec §11.1).
 
+**Phase 6 commands and flags.**
+
+- `clapa collect-snapshot --out DIR`: live, read-only, writes a new bundle.
+  Exit 3 when calls failed, and no bundle when nothing was collected.
+- On `clapa scan`:
+  - `--live-aws` with the AWS flags (`--aws-profile`, `--aws-region`,
+    `--aws-assume-role`, `--aws-external-id`, `--aws-concurrency`,
+    `--aws-call-timeout`);
+  - `--aws-snapshot DIR` (was `--snapshot`);
+  - `--live-k8s CONTEXT[=CLUSTER]`, `--k8s-eks NAME`, `--kubeconfig`,
+    `--insecure`;
+  - `--ignore FILE`, `--baseline PREVIOUS.json`.
+- `remediate` refuses live input, since it has no files to patch: run
+  `collect-snapshot` and remediate the snapshot.
+
+The console prints the coverage notes a reader must see before trusting the
+result as `WARNING:` lines:
+- a managed-policy snapshot that is incomplete;
+- service coverage that is incomplete or unknown;
+- TLS verification turned off;
+- expired suppressions.
+
 **Flag — `doctor` vs "no os/exec".** `doctor` does not run external binaries; it
 reports the Go runtime, kubeconfig/AWS config presence, and probes read-only API
 permissions (`sts:GetCallerIdentity`, `iam:SimulatePrincipalPolicy` when allowed).
@@ -1216,8 +1394,8 @@ risk":
 
 | Missing | Effect | When |
 |---|---|---|
-| Secrets Manager, SSM SecureString and Kubernetes Secrets as targets | only S3 buckets are read targets | deferred until after Phase 5 (§12.2, item 5) |
-| Suppression file (`.clapa-ignore.yaml`) and `--baseline` flags | the logic exists in `internal/findings`; the CLI does not read the files yet | deferred until after Phase 5 (§12.2, item 4) |
+| ~~Secrets Manager, SSM SecureString and Kubernetes Secrets as targets~~ | done in Phase 6 (§7.3); what is still not modelled about them is listed in every report | — |
+| ~~Suppression file and `--baseline`~~ | done in Phase 6 (§8) | — |
 
 ### 12.0b Phase 5 status
 
@@ -1242,6 +1420,39 @@ exit at 1 (01, 06, 07, 12, 16, 17), as do the findings the fix is not about
 a TODO; 14's fix is a policy document for the account; 16 keeps its parse
 gaps by design.
 
+### 12.0c Phase 6 status
+
+Done:
+
+- **Collectors:** the live AWS collector (§4.4); `collect-snapshot` and the
+  bundle writer (§4.3); the live Kubernetes collector (§4.5).
+- **CLI:** the live and snapshot flags, suppressions and baseline (§8, §11);
+  `docs/PERMISSIONS.md`.
+- **Cluster identity by ARN** (§5, scenario 18).
+- **Targets:** Secrets Manager, SSM SecureString and Kubernetes Secrets
+  (§7.3, scenarios 19–21).
+- **Reports:** the managed-policy coverage note and its console warning; the
+  per-service coverage notes.
+- **Tooling:** `tools/depage` with its security exceptions
+  (`tools/depage/allow.yaml`), in CI at the commit time; Dependabot cooldown of
+  14 days.
+- **CI:** `integration.yml` (LocalStack, kind).
+
+Every scenario matches its `expected.json`. Scenarios 18–21 matched on the
+first run of the engine after their files were written. Every vulnerable
+scenario's fix verifies on both levels, except 10 (UNKNOWN) and 13 (module
+input), as before.
+
+Decided while implementing:
+
+- **LocalStack image.** LocalStack's current images need an account token, so
+  the job pins the last image that runs without one (§4.4).
+- **Rotation of AWS managed keys.** The collector does not invent the answer;
+  the normalizer applies it as a documented default (§4.7), so a snapshot file
+  never claims a call that was not made.
+- **Names in the bundle.** Name escaping (`!x` for an upper-case letter) keeps
+  two names that differ only in case apart on case-insensitive file systems.
+
 ### 12.1 Known constraints carried between phases
 
 | Constraint | Effect today | Must be resolved by | Plan |
@@ -1260,8 +1471,8 @@ added in those phases rather than as placeholders.
 | 1 | **Report JSON Schema** — **done** (after Phase 5): `schemas/report.v1.schema.json` (draft 2020-12) describes `clapa-report/v1` from `pkg/schema`, every object closed, with the Phase 4/5 meanings (`alternative_fix`, `alternative_fix_detail`, `fix_kind`, `fix`, `other_side_fix`, `shared_fix_possible`). `TestEveryReportMatchesTheSchema` validates the JSON report of every fixture variant and mode; `TestSchemaDescribesTheGoTypes` fails on a field in the Go types and not the schema, or the other way. | — |
 | 2 | **Independent comparison with the previous tool** — **done** (2026-11-21): docs/COMPARISON_PREVIOUS_TOOL.md. Its four samples, scanned by both tools on separate copies outside this repository: no sample grants an S3 read, so CLAPA reports no path where the previous tool reports decrypt as exfiltration; one CLAPA defect found and fixed (`CLAPA-POST-001` missed a wildcard scoped to one namespace; rule 1.0.1). | — |
 | 3 | **Real console output** of scenarios 01, 04b and 10, shown in review as the CLI prints it (not reconstructed). | Done: the three outputs captured from `clapa scan` on the fixtures, after Phase 5's fields are final. |
-| 4 | **`.clapa-ignore.yaml` and `--baseline` in the CLI.** The suppression and baseline logic exists in `internal/findings`; the CLI does not read the files. | Done: both wired, with the config errors of §8 (missing `reason` / `owner` / `expires` is exit 2), expired suppressions re-firing, and tests through the CLI. |
-| 5 | **Secrets Manager, SSM SecureString and Kubernetes Secrets as targets** (crown jewels with read edges, like S3). | New target kinds need their collectors, normalizers and read semantics (KMS for Secrets Manager and SecureString, RBAC `get secrets` for Kubernetes). Done: each with fixtures and expected files written by hand first. |
+| 4 | **`.clapa-ignore.yaml` and `--baseline` in the CLI** — **done** (Phase 6, 92e5612): both wired, with the config errors of §8, expired suppressions re-firing, and tests through the CLI (§8). | — |
+| 5 | **Secrets Manager, SSM SecureString and Kubernetes Secrets as targets** — **done** (Phase 6, d3b6405 then 5bff8d3): collectors, normalizers and read semantics (§7.3, §7.2); scenarios 19–21 with their expected files committed by hand before the engine read them. | — |
 
 ## 13. Test fixtures
 
@@ -1327,6 +1538,10 @@ Encryption type of every jewel bucket is stated explicitly in the fixture
 | 16 | One malformed YAML file and one malformed HCL file next to a valid copy of scenario 1 | as scenario 1 in the valid files | both errors reported with `file:line`; the scenario-1 path is still found (proves the scan continued) |
 | 1b | Scenario 1 plus the API's legitimate use, declared in `intended_access`: it reads the receipts bucket (SSE-KMS, its own key) | role policy as scenario 1 plus `s3:GetObject` on the receipts bucket | the PII path as scenario 1; remediation: a **verified root-cause** fix first (`kms:Decrypt` narrowed to the receipts key), then the mitigation; fixed: that root cause applied |
 | 17 | Scenario 1 through **EKS Pod Identity** (added after the Phase 3 review): `aws_eks_pod_identity_association` payments/api → role trusting `pods.eks.amazonaws.com` for `sts:AssumeRole` + `sts:TagSession`, pinned by `aws:RequestTag/kubernetes-namespace` and `…/kubernetes-service-account`; `eks-pod-identity-agent` add-on | as scenario 1 | as scenario 1: the path, with the association and trust decision as evidence |
+| 18 | (Phase 6) Two EKS clusters named `prod` in one account, eu-west-1 and us-east-1; each has `apps/app` bound by IRSA to its own role (`app-eu`, `app-us`), each reading its region's SSE-S3 PII bucket | each role: `s3:GetObject` on its own bucket | two paths with distinct fingerprints; no edge between the clusters (`no_edges`); no coverage gap (exit 0) |
+| 19 | (Phase 6) Scenario 1 with a **Secrets Manager** secret (`DataClass: secret`) under a customer managed key | `secretsmanager:GetSecretValue` on the secret's ARN + `kms:Decrypt` on `*` | path, 810 critical; cut: the broad decrypt |
+| 20 | (Phase 6) Scenario 1 with an **SSM SecureString** parameter under a customer managed key | `ssm:GetParameter` on the parameter's ARN + `kms:Decrypt` on `*` | path, 810 critical; cut: the broad decrypt |
+| 21 | (Phase 6) A **Kubernetes Secret** (`DataClass: secret`); `payments/ci` may `get secrets` in `payments`, its token mounted by default | RBAC `get secrets` | `CLAPA-PATH-002` (token, then the RBAC read), 360 medium; cut: the token mount |
 
 Fixed variants remove exactly the cause the scenario tests (e.g. scenario 1 scopes
 `s3:GetObject` and `kms:Decrypt` to the workload's legitimate bucket and key, with an
