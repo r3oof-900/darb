@@ -476,6 +476,69 @@ for variant, resources in BROAD.items():
     E[variant]["findings"] += [broad_grant(*r) if isinstance(r, tuple) else broad_grant(r) for r in resources]
 
 
+# 19-21 - secrets as targets (Phase 6, DESIGN.md 7.3). Written before the
+# engine read any of them.
+#
+# 19 - Secrets Manager. payments/api (public LoadBalancer, IRSA, as in
+# scenario 1) reads the secret prod/db (DataClass secret) through
+# secretsmanager:GetSecretValue on its exact ARN, and decrypts with
+# kms:Decrypt on "*" (no encryption-context condition) under a customer
+# managed key whose key policy is the default (the account root, kms:*).
+# Exposure 1000, 3 edges (810): likelihood 810; secret 1000 x blast radius
+# 1000 = 1000: 810, critical. The cut is the decrypt, broad: narrow,
+# identity, 1; the key policy is broad too: narrow, resource side, 2; the
+# alternative is the read, an explicit grant: revoke, identity, 3 (the
+# secret has no resource policy: no other side). CLAPA-POST-008 on the
+# role (kms:Decrypt on "*", reached from api): 600, high.
+SECRET = f"arn:aws:secretsmanager:us-east-1:{ACCT}:secret:prod/db-aaaaaa"
+SECRET_KEY = f"arn:aws:kms:us-east-1:{ACCT}:key/11111111-2222-3333-4444-555555555555"
+# 20 - SSM SecureString: the same shape, ssm:GetParameter on the
+# parameter's exact ARN, kms:Decrypt on "*" under a customer managed key.
+PARAM = f"arn:aws:ssm:us-east-1:{ACCT}:parameter/prod/db/password"
+PARAM_KEY = f"arn:aws:kms:us-east-1:{ACCT}:key/66666666-7777-8888-9999-000000000000"
+
+
+def secret_target(jewel, key):
+    cut, alt = decrypt_cut(ROLE, key, jewel)
+    return path_finding("CLAPA-PATH-001", API, jewel,
+                        [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {jewel}"],
+                        810, "critical", cut, alt, defaults=IRSA_DEFAULTS, **pii_decrypt_fixes(cut, alt))
+
+
+for n, jewel, key, other in (
+        ("19_secrets_manager", SECRET, SECRET_KEY, "the decrypt is conditioned on another secret's SecretARN encryption context"),
+        ("20_ssm_securestring", PARAM, PARAM_KEY, "the decrypt is conditioned on another parameter's PARAMETER_ARN encryption context")):
+    E[f"{n}/vulnerable"] = {"derived_from": "Phase 6 instruction: " + n.split("_", 1)[1].replace("_", " ") + " as a target",
+                            "findings": [secret_target(jewel, key), broad_grant(ROLE), no_default_deny(NS_PAYMENTS)]}
+    E[f"{n}/fixed"] = {"derived_from": "Phase 6 instruction, fixed: " + other,
+                       "findings": [no_default_deny(NS_PAYMENTS)],
+                       "absent": [{"rule": "CLAPA-PATH-001", "jewel": jewel}, {"rule": "CLAPA-POST-008", "resource": ROLE}]}
+
+# 21 - Kubernetes Secret. ci-runner (not exposed: 400) runs as ci, whose
+# Role may get secrets in payments; its token is mounted by default. The
+# path is its Kubernetes token (CAN_ESCALATE[k8s-token], DESIGN.md 7.2),
+# then the RBAC read of payments/db-credentials (DataClass secret):
+# CLAPA-PATH-002. 2 edges (900): 400 x 900 = 360; x 1000 = 360, medium.
+# The cut is turning the token mount off (workload, narrow, 3), cheaper
+# than revoking the RBAC read (5); neither edge is derived, so no
+# alternative. CLAPA-POST-004 on ci-runner (token mounted by default, the
+# account has RBAC): 350, medium. Fixed: the pod sets
+# automountServiceAccountToken: false: no path, no CLAPA-POST-004.
+K8S_SECRET = f"k8s:{PROD}/payments/Secret/db-credentials"
+TOKEN_EDGE = f"CAN_ESCALATE {CI} -> {SA_CI}"
+E["21_k8s_secret/vulnerable"] = {"derived_from": "Phase 6 instruction: Kubernetes Secrets as targets", "findings": [
+    path_finding("CLAPA-PATH-002", CI, K8S_SECRET, [f"CAN_ESCALATE {SA_CI}", f"CAN_READ_PLAINTEXT {K8S_SECRET}"],
+                 360, "medium", [TOKEN_EDGE], [], defaults=[AUTOMOUNT_DEFAULT],
+                 fix=[step(TOKEN_EDGE, "workload", "narrow", 3)],
+                 # The read's one side is the RBAC rule (revoke, 5): it is not on the cut,
+                 # and the cut edge (a fact) has no other side.
+                 other_side=[], alternative_detail=[]),
+    posture("CLAPA-POST-004", CI, 350, "medium", [AUTOMOUNT_DEFAULT]),
+    no_default_deny(NS_PAYMENTS)]}
+E["21_k8s_secret/fixed"] = {"derived_from": "Phase 6 instruction, fixed: automountServiceAccountToken: false",
+                            "findings": [no_default_deny(NS_PAYMENTS)],
+                            "absent": [{"rule": "CLAPA-PATH-002", "jewel": K8S_SECRET}, {"rule": "CLAPA-POST-004", "resource": CI}]}
+
 # Remediation strategies (Phase 5 review). A root-cause fix narrows the
 # broad Allow to what declared intended access uses through it; without
 # intended access it is an unverified suggestion, the mitigation (a Deny for

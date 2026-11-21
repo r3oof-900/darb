@@ -1,0 +1,71 @@
+{
+  "format": "clapa-expected/v1",
+  "derived_from": "Phase 6 instruction: secrets manager as a target",
+  "findings": [
+    {
+      "rule": "CLAPA-PATH-001",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
+      "jewel": "arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa",
+      "path": [
+        "RUNS_AS k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api",
+        "ASSUMES arn:aws:iam::111122223333:role/payments-api",
+        "CAN_READ_PLAINTEXT arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 810,
+      "severity": "critical",
+      "chokepoints": [
+        "CAN_DECRYPT[for arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555"
+      ],
+      "alternative_fix": [
+        "CAN_READ arn:aws:iam::111122223333:role/payments-api -> arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa"
+      ],
+      "defaults_used": [
+        "eks.irsa.audience",
+        "eks.irsa.oidc-provider-audience"
+      ],
+      "fix": [
+        {
+          "edge": "CAN_DECRYPT[for arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555",
+          "side": "identity",
+          "fix_kind": "narrow",
+          "cost": 1
+        }
+      ],
+      "other_side_fix": [
+        {
+          "edge": "CAN_DECRYPT[for arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555",
+          "side": "resource",
+          "fix_kind": "narrow",
+          "cost": 2
+        }
+      ],
+      "alternative_fix_detail": [
+        {
+          "edge": "CAN_READ arn:aws:iam::111122223333:role/payments-api -> arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 3
+        }
+      ]
+    },
+    {
+      "rule": "CLAPA-POST-008",
+      "resource": "arn:aws:iam::111122223333:role/payments-api",
+      "score": 600,
+      "severity": "high",
+      "defaults_used": []
+    },
+    {
+      "rule": "CLAPA-POST-007",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/payments",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": []
+    }
+  ],
+  "absent": [],
+  "intended_access": [],
+  "no_edges": []
+}

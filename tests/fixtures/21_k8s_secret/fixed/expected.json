@@ -1,0 +1,25 @@
+{
+  "format": "clapa-expected/v1",
+  "derived_from": "Phase 6 instruction, fixed: automountServiceAccountToken: false",
+  "findings": [
+    {
+      "rule": "CLAPA-POST-007",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/payments",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": []
+    }
+  ],
+  "absent": [
+    {
+      "rule": "CLAPA-PATH-002",
+      "jewel": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials"
+    },
+    {
+      "rule": "CLAPA-POST-004",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner"
+    }
+  ],
+  "intended_access": [],
+  "no_edges": []
+}

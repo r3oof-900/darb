@@ -1,0 +1,1 @@
+{"Parameters": [{"Name": "/prod/db/password", "ARN": "arn:aws:ssm:us-east-1:111122223333:parameter/prod/db/password", "Type": "SecureString", "KeyId": "arn:aws:kms:us-east-1:111122223333:key/66666666-7777-8888-9999-000000000000", "Tier": "Standard"}]}
