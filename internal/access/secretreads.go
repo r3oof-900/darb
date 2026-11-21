@@ -20,6 +20,7 @@ type secretRead struct {
 	targets  func(j *model.Resource) []string // the resource ARNs the actions are authorized on
 	contexts func(j *model.Resource) map[string][]string
 	service  string // kms:ViaService prefix: "secretsmanager", "ssm"
+	rewrite  string // the action that rewrites the resource policy
 	managed  string // the AWS managed key's alias
 	label    string // "secret resource policy"
 	defaults string // the documented default of the AWS managed key
@@ -37,7 +38,7 @@ func secretsManagerRead() *secretRead {
 				"kms:EncryptionContext:SecretARN": {j.ARN()}, "kms:EncryptionContextKeys": {"SecretARN", "SecretVersionId"},
 			}
 		},
-		service: "secretsmanager", managed: "alias/aws/secretsmanager", label: "secret resource policy",
+		service: "secretsmanager", rewrite: "secretsmanager:PutResourcePolicy", managed: "alias/aws/secretsmanager", label: "secret resource policy",
 		defaults: model.DefaultSecretsManagedKey,
 	}
 }
@@ -57,7 +58,7 @@ func parameterRead() *secretRead {
 				"kms:EncryptionContext:PARAMETER_ARN": {j.ARN()}, "kms:EncryptionContextKeys": {"PARAMETER_ARN"},
 			}
 		},
-		service: "ssm", managed: "alias/aws/ssm", label: "parameter resource policy",
+		service: "ssm", rewrite: "ssm:PutResourcePolicy", managed: "alias/aws/ssm", label: "parameter resource policy",
 		defaults: model.DefaultSSMManagedKey,
 	}
 }
@@ -99,9 +100,10 @@ func (b *builder) readSecret(role *model.Principal, j *model.Resource, how *secr
 	if !grants(read.Verdict) {
 		return
 	}
+	rewrite := b.canDo(role, how.rewrite, j.ARN(), j.Account(), b.policies[j.ID()], false)
 	readEdge := b.edge(role.ID(), j.ID(), graph.CanRead, "", &read, func(e *graph.Edge) {
 		e.Fixes = nonNil(b.policyFixes(graph.CanRead, best, set, role, j.ARN(), how.label,
-			&grantTarget{action: best.Action, resource: best.Resource, principal: identityOf(role)}, false))
+			&grantTarget{action: best.Action, resource: best.Resource, principal: identityOf(role)}, rewrite))
 	})
 	verdict, under := read.Verdict, []graph.EdgeID{readEdge}
 	if enc := j.Encryption(); enc.Type == "aws:kms" {

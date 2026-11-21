@@ -51,11 +51,10 @@ func ConfidenceWeight(c graph.Confidence) int {
 }
 
 // PreconditionWeight is 900 when known satisfied, 500 when unknown.
-func PreconditionWeight(p *graph.Precondition) int {
-	if p.State == model.True {
-		return 900
-	}
-	return 500
+// An UNKNOWN precondition counts as satisfied: the score is the worst case
+// (SCORING.md 1).
+func PreconditionWeight(_ *graph.Precondition) int {
+	return 900
 }
 
 // Exposure of an entry point (classify.EntryPoint reason and publicness).
@@ -133,8 +132,10 @@ func Path(g *graph.Graph, path []graph.EdgeID, exposure, classification, jewelsF
 		}
 		conf = min(conf, e.Confidence)
 	}
+	// Confidence is reported, never multiplied: doubt lowers the confidence,
+	// not the score (SCORING.md 1, Phase 6 review).
 	f.Confidence = ConfidenceWeight(conf)
-	f.Likelihood = Mul(Mul(Mul(f.Exposure, f.Hops), f.Preconditions), f.Confidence)
+	f.Likelihood = Mul(Mul(f.Exposure, f.Hops), f.Preconditions)
 	f.Classification = classification
 	f.BlastRadius = BlastRadius(jewelsFromEntry)
 	f.Impact = min(1000, Mul(f.Classification, f.BlastRadius))
@@ -190,7 +191,7 @@ func FixCost(kind graph.Kind, sub, side, fixKind string) int64 {
 		return 5 + revoke // tighten the trust: sub, aud, principal, ExternalId
 	case graph.SideWorkload:
 		switch {
-		case kind == graph.CanEscalate && sub == "k8s-token":
+		case kind == graph.RunsAs && sub == "k8s-token":
 			return 3 // automountServiceAccountToken: false
 		case kind == graph.NodeRole:
 			return 5 // remove hostNetwork

@@ -47,7 +47,7 @@ func synthetic(s shape, seed uint64) (g *graph.Graph, entries, jewels []graph.No
 	for i, w := range ws {
 		sa := sas[i%len(sas)]
 		edge(w, sa, graph.RunsAs, "")
-		edge(w, sa, graph.CanEscalate, "k8s-token")
+		edge(w, sa, graph.RunsAs, "k8s-token")
 	}
 	for i, sa := range sas {
 		edge(sa, roles[i%len(roles)], graph.Assumes, "irsa")

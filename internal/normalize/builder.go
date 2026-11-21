@@ -91,6 +91,9 @@ func (b *Builder) AddCluster(c *model.Cluster) {
 	}
 }
 
+// Resources returns the resources added so far.
+func (b *Builder) Resources() []*model.Resource { return slices.Clone(b.inv.Resources) }
+
 // ClusterKeys returns the keys of the clusters added so far whose name is
 // name, sorted.
 func (b *Builder) ClusterKeys(name string) []string {

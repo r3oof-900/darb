@@ -143,7 +143,10 @@ func (b *builder) edge(from, to model.ID, kind graph.Kind, sub string, d *eval.D
 		Verdict: d.Verdict, Confidence: graph.High, Evidence: evidence(d),
 	}
 	if d.Verdict == eval.Unknown {
-		e.Confidence = graph.Low
+		e.Confidence, e.DenyOnly = graph.Low, d.DenyOnly
+		if d.DenyOnly {
+			e.Confidence = graph.Medium
+		}
 		for _, u := range d.Unresolved {
 			e.Unresolved = append(e.Unresolved, graph.Unknown{Policy: u.PolicyID, Element: u.Element, Key: u.Key, Reason: u.Reason})
 		}

@@ -88,6 +88,7 @@ func Load(ctx context.Context, in *Inputs) (*Loaded, error) {
 			return nil, serr
 		}
 	}
+	l.keysOutsideInput()
 	addConfiguredClusters(in.Config, l.b)
 	inv, err := l.b.Build()
 	if err != nil {

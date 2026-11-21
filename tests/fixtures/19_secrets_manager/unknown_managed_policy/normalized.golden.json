@@ -1,0 +1,152 @@
+{
+  "addons": [],
+  "boundaries": [],
+  "clusters": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "name": "prod",
+      "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
+      "region": "us-east-1",
+      "source": "clapa.yaml (clusters.prod)"
+    }
+  ],
+  "collected": 5,
+  "entry_points": [
+    {
+      "public": "true",
+      "reason": "exposed:Service/LoadBalancer",
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api"
+    }
+  ],
+  "exposures": [
+    {
+      "public": "true",
+      "via": "Service/LoadBalancer",
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api"
+    }
+  ],
+  "gaps": [
+    {
+      "Kind": "not-modelled",
+      "Source": "normalize-aws",
+      "File": "",
+      "Line": 0,
+      "Address": "arn:aws:iam::aws:policy/ReadOnlyAccess",
+      "Service": "",
+      "Region": "",
+      "Account": "111122223333",
+      "API": "",
+      "Detail": "managed policy document not available; treated as unknown"
+    }
+  ],
+  "mappings": [],
+  "network_policies": [],
+  "node_groups": [],
+  "pod_identity": [],
+  "policies": [
+    {
+      "kind": "identity",
+      "policy": "arn:aws:iam::111122223333:role/payments-api#inline/app",
+      "source": "arn:aws:iam::111122223333:role/payments-api via iam:GetAccountAuthorizationDetails",
+      "statements": [
+        "Allow secretsmanager:GetSecretValue on arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa (0 conditions)",
+        "Allow kms:Decrypt on * (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/payments-api",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "identity",
+      "policy": "arn:aws:iam::aws:policy/ReadOnlyAccess",
+      "source": "arn:aws:iam::aws:policy/ReadOnlyAccess via iam:GetAccountAuthorizationDetails",
+      "statements": [
+        "Allow ${clapa:unresolved:arn_aws_iam__aws_policy_ReadOnlyAccess} on ${clapa:unresolved:arn_aws_iam__aws_policy_ReadOnlyAccess} (0 conditions)",
+        "Deny ${clapa:unresolved:arn_aws_iam__aws_policy_ReadOnlyAccess} on * (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/payments-api",
+      "unresolved_statements": 2
+    },
+    {
+      "kind": "resource",
+      "policy": "arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555#key-policy",
+      "source": "arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555 via kms:GetKeyPolicy",
+      "statements": [
+        "Allow kms:* on * (0 conditions)"
+      ],
+      "target": "arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555",
+      "unresolved_statements": 0
+    }
+  ],
+  "principals": [
+    {
+      "account": "111122223333",
+      "identity": "arn:aws:iam::111122223333:role/payments-api",
+      "kind": "aws:iam:role",
+      "source": "arn:aws:iam::111122223333:role/payments-api via iam:GetAccountAuthorizationDetails"
+    }
+  ],
+  "rbac": [],
+  "resources": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa",
+      "classification": "secret",
+      "classified_by": "tag:DataClass",
+      "defaulted": [],
+      "kind": "aws:secretsmanager:secret",
+      "region": "us-east-1",
+      "source": "arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa via secretsmanager:ListSecrets"
+    },
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555",
+      "classification": "",
+      "classified_by": "",
+      "defaulted": [],
+      "key_rotation": "true",
+      "kind": "aws:kms:key",
+      "region": "us-east-1",
+      "source": "arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555 via kms:GetKeyPolicy"
+    }
+  ],
+  "service_accounts": [
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
+      "role_arn": "arn:aws:iam::111122223333:role/payments-api",
+      "source": "k8s/payments.yaml:6 (ServiceAccount/payments/api)",
+      "subject": "system:serviceaccount:payments:api"
+    }
+  ],
+  "trusts": [
+    {
+      "kind": "resource",
+      "policy": "arn:aws:iam::111122223333:role/payments-api#trust",
+      "source": "arn:aws:iam::111122223333:role/payments-api via iam:GetAccountAuthorizationDetails",
+      "statements": [
+        "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (2 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/payments-api",
+      "unresolved_statements": 0
+    }
+  ],
+  "workloads": [
+    {
+      "automount_token": "true",
+      "defaulted": [
+        "k8s.automountServiceAccountToken"
+      ],
+      "host_network": false,
+      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
+      "privileged": false,
+      "service_account": "api",
+      "source": "k8s/payments.yaml:14 (Deployment/payments/api)"
+    }
+  ]
+}

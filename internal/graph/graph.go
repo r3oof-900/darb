@@ -131,6 +131,19 @@ type Edge struct {
 	// Unresolved: for an UNKNOWN edge, what the evaluator could not decide
 	// (a remediation says what is missing instead of patching).
 	Unresolved []Unknown
+	// DenyOnly: an UNKNOWN edge whose allows all hold; only unknown Denies
+	// may block it (eval.Decision.DenyOnly, DESIGN.md 6.2).
+	DenyOnly bool
+}
+
+// Label is the edge's kind as reports print it: RUNS_AS[k8s-token] for the
+// pod's own Kubernetes token (two RUNS_AS edges join a pod and its service
+// account), otherwise the kind.
+func Label(e *Edge) string {
+	if e.Kind == RunsAs && e.Sub != "" {
+		return string(e.Kind) + "[" + e.Sub + "]"
+	}
+	return string(e.Kind)
 }
 
 // Unknown is one undecided element of a policy decision.
@@ -280,7 +293,7 @@ func (g *Graph) Out(n NodeID) []EdgeID {
 // expected.json notation).
 func (g *Graph) Describe(e EdgeID) string {
 	ed := &g.edges[e]
-	kind := string(ed.Kind)
+	kind := Label(ed)
 	if ed.For != NoNode {
 		kind += "[for " + g.nodes[ed.For].Identity + "]"
 	}

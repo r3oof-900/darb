@@ -50,8 +50,6 @@ func defaultFixes(e *graph.Edge, policy, kind string) []graph.Fix {
 		side = graph.SideWorkload
 	case graph.CanEscalate:
 		switch e.Sub {
-		case "k8s-token":
-			side = graph.SideWorkload
 		case "rbac":
 			side = graph.SideRBAC
 		default:
@@ -75,7 +73,7 @@ func defaultFixes(e *graph.Edge, policy, kind string) []graph.Fix {
 // of these sides are fixed.
 func factKind(e *graph.Edge) string {
 	switch {
-	case e.Kind == graph.NodeRole, e.Kind == graph.CanEscalate && e.Sub == "k8s-token":
+	case e.Kind == graph.NodeRole, e.Kind == graph.RunsAs && e.Sub == "k8s-token":
 		return graph.FixNarrow
 	default:
 		return graph.FixRevoke

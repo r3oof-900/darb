@@ -2,6 +2,7 @@ package aws
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/r3oof-900/clapa/internal/collect/awsraw"
 	"github.com/r3oof-900/clapa/internal/coverage"
@@ -92,7 +93,10 @@ func (n *norm) buckets() {
 		loc := apiLoc(arn, "s3:GetBucketPolicy")
 		enc := model.Encryption{BucketKey: model.Unknown} // unknown unless get-bucket-encryption was collected
 		if b.Encryption != nil {
-			enc = model.Encryption{Type: b.Encryption.SSEAlgorithm, KeyARN: b.Encryption.KMSMasterKeyID, BucketKey: optionalTri(b.Encryption.BucketKeyEnabled)}
+			enc = model.Encryption{Type: b.Encryption.SSEAlgorithm, BucketKey: optionalTri(b.Encryption.BucketKeyEnabled)}
+			if strings.HasPrefix(enc.Type, "aws:kms") {
+				enc.KeyARN = n.keyARN(b.Region, b.Encryption.KMSMasterKeyID, "alias/aws/s3")
+			}
 		}
 		restrict := model.Unknown
 		if b.PublicAccessBlock != nil {

@@ -19,3 +19,12 @@
 #     read is the alternative, revoke, cost 3).
 #
 # No difference is open.
+#
+# G (Phase 6 review, 01_classic/key_outside_input): alternative_fix. The
+#     expected file lists the decrypt edge as the alternative because the
+#     report schema says the alternative is "the other underlying edge,
+#     whatever its cost"; the engine lists only cuttable underlying edges
+#     (paths.underlying), and the decrypt through a key outside the input has
+#     no side (uncuttable). The schema text and the code disagree; waiting for
+#     a decision, not edited to match.
+01_classic/key_outside_input: CLAPA-PATH-001 k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api -> arn:aws:s3:::acme-customer-pii: alternative_fix: want ["CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/payments-api -\u003e arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001"], got []

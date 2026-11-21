@@ -58,7 +58,10 @@ func Build(in *Input) *schema.Report {
 		f := finding(&in.Findings[i])
 		r.Findings = append(r.Findings, f)
 		r.Summary.BySeverity[f.Severity]++
-		if !f.Confirmed {
+		switch f.Status {
+		case rules.StatusConfirmedUnlessDenied:
+			r.Summary.ConfirmedUnlessDenied++
+		case rules.StatusUnconfirmed:
 			r.Summary.Unconfirmed++
 		}
 	}
@@ -86,7 +89,7 @@ func Build(in *Input) *schema.Report {
 func finding(f *rules.Finding) schema.Finding {
 	out := schema.Finding{
 		Rule: f.Rule, RuleVersion: f.Version, Kind: f.Kind, Title: f.Title,
-		Severity: f.Factors.Severity, Score: f.Factors.Score, Confirmed: f.Confirmed, Undecided: f.Undecided, Confidence: f.Confidence,
+		Severity: f.Factors.Severity, Score: f.Factors.Score, Confirmed: f.Confirmed, Status: status(f), Undecided: f.Undecided, Confidence: f.Confidence,
 		Factors: schema.Factors{
 			Exposure: f.Factors.Exposure, Hops: f.Factors.Hops, Preconditions: f.Factors.Preconditions,
 			Confidence: f.Factors.Confidence, Likelihood: f.Factors.Likelihood, Classification: f.Factors.Classification,
@@ -126,4 +129,16 @@ func nonNil(s []string) []string {
 		return []string{}
 	}
 	return s
+}
+
+// status: a finding's status; a rule that does not set one is confirmed
+// when Confirmed (posture rules), unconfirmed otherwise.
+func status(f *rules.Finding) string {
+	switch {
+	case f.Status != "":
+		return f.Status
+	case f.Confirmed:
+		return rules.StatusConfirmed
+	}
+	return rules.StatusUnconfirmed
 }

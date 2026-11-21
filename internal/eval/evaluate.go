@@ -32,6 +32,9 @@ func Evaluate(req *Request, ps *PolicySet) Decision {
 		d.Missing = missing
 	default:
 		d.Verdict = Unknown
+		// Access is definitely granted and only unknown Denies stand in the
+		// way: resolved for the attacker, it is ALLOW (DESIGN.md 6.2).
+		d.DenyOnly = access == model.True
 		d.Missing = missing
 		d.Contributing = sortRefs(append(unknownDenies, r.filter(model.EffectAllow, model.Unknown)...))
 		d.Unresolved = r.unresolved()

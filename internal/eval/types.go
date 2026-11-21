@@ -138,6 +138,11 @@ type Decision struct {
 	Contributing []StatementRef
 	// Unresolved lists what made the decision UNKNOWN.
 	Unresolved []Unresolved
+	// DenyOnly: an UNKNOWN whose required allows are all definitely
+	// satisfied; only unknown Deny statements may block it (DESIGN.md 6.2).
+	// False for an UNKNOWN that needs an unknown allow, and for every other
+	// verdict.
+	DenyOnly bool
 	// Missing lists required components that did not (definitely) allow.
 	Missing []Component
 	// Assumptions lists inputs that were not modelled (e.g. no SCPs given).

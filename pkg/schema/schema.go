@@ -43,6 +43,9 @@ type Summary struct {
 	Findings    int            `json:"findings"`
 	BySeverity  map[string]int `json:"by_severity"`
 	Unconfirmed int            `json:"unconfirmed"`
+	// ConfirmedUnlessDenied counts the findings whose only UNKNOWNs are
+	// possible Denies; Unconfirmed those that need an unknown allow.
+	ConfirmedUnlessDenied int `json:"confirmed_unless_denied"`
 }
 
 // Location points at source: a file and lines, or an ARN and API call.
@@ -77,7 +80,10 @@ type Finding struct {
 	Score       int     `json:"score"`
 	Factors     Factors `json:"factors"`
 	Confirmed   bool    `json:"confirmed"`
-	Confidence  string  `json:"confidence"`
+	// Status: "confirmed", "confirmed_unless_denied" or "unconfirmed"
+	// (DESIGN.md 6.2). The severity is the worst case whatever the status.
+	Status     string `json:"status"`
+	Confidence string `json:"confidence"`
 	// Undecided: for an unconfirmed path, what would decide it.
 	Undecided      []string `json:"undecided,omitempty"`
 	Entry          string   `json:"entry,omitempty"`

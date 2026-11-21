@@ -8,7 +8,7 @@ import (
 
 // How a node was reached decides which edges may follow (DESIGN.md §7.2):
 // after RUNS_AS a pod holds its cloud identity, not its Kubernetes token;
-// after CAN_ESCALATE[k8s-token] it holds only the token (RBAC); after
+// after RUNS_AS[k8s-token] it holds only the token (RBAC); after
 // creating a pod (RBAC) it holds both.
 type mode uint8
 
@@ -21,10 +21,10 @@ const (
 
 func target(e *graph.Edge) mode {
 	switch {
+	case e.Kind == graph.RunsAs && e.Sub == "k8s-token", e.Kind == graph.MapsTo:
+		return k8s // Kubernetes API access as that subject
 	case e.Kind == graph.RunsAs:
 		return identity
-	case e.Kind == graph.CanEscalate && e.Sub == "k8s-token", e.Kind == graph.MapsTo:
-		return k8s // Kubernetes API access as that subject
 	}
 	return full
 }

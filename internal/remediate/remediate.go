@@ -121,13 +121,13 @@ func ForEdge(in *Input, id graph.EdgeID, fx *graph.Fix) Change {
 		x.nodeRole()
 	case graph.ExposedTo:
 		x.exposure()
-	case graph.CanEscalate:
+	case graph.RunsAs:
 		if e.Sub == "k8s-token" && fx.Side == graph.SideWorkload {
 			x.tokenMount()
 			break
 		}
 		c.TODO = fmt.Sprintf("no generator for %s fixes yet (%s side: %s); change it by hand", e.Kind, fx.Side, fx.Policy)
-	case graph.RunsAs, graph.MapsTo, graph.CanReadPlaintext, graph.Protects:
+	case graph.CanEscalate, graph.MapsTo, graph.CanReadPlaintext, graph.Protects:
 		c.TODO = fmt.Sprintf("no generator for %s fixes yet (%s side: %s); change it by hand", e.Kind, fx.Side, fx.Policy)
 	}
 	return c

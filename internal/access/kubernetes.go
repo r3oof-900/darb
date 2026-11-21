@@ -9,7 +9,7 @@ import (
 	"github.com/r3oof-900/clapa/internal/model"
 )
 
-// kubernetes adds RUNS_AS, CAN_ESCALATE[k8s-token], CAN_ESCALATE[rbac],
+// kubernetes adds RUNS_AS, RUNS_AS[k8s-token], CAN_ESCALATE[rbac],
 // ASSUMES[irsa] and ASSUMES[pod-identity] (DESIGN.md §7.2).
 func (b *builder) kubernetes() {
 	allow := &eval.Decision{Verdict: eval.Allow}
@@ -21,13 +21,13 @@ func (b *builder) kubernetes() {
 		b.edge(w.ID(), sa, graph.RunsAs, "", allow, nil)
 		switch w.AutomountToken() {
 		case model.True:
-			b.edge(w.ID(), sa, graph.CanEscalate, "k8s-token", allow, func(e *graph.Edge) {
+			b.edge(w.ID(), sa, graph.RunsAs, "k8s-token", allow, func(e *graph.Edge) {
 				if slices.Contains(w.Defaulted(), model.DefaultAutomountToken) {
 					e.Defaults = []string{model.DefaultAutomountToken}
 				}
 			})
 		case model.Unknown:
-			b.edge(w.ID(), sa, graph.CanEscalate, "k8s-token", &eval.Decision{Verdict: eval.Unknown}, func(e *graph.Edge) {
+			b.edge(w.ID(), sa, graph.RunsAs, "k8s-token", &eval.Decision{Verdict: eval.Unknown}, func(e *graph.Edge) {
 				e.Precondition = &graph.Precondition{Reason: "service account token mounted", State: model.Unknown}
 			})
 		case model.False:

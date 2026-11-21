@@ -42,7 +42,7 @@ func (Reporter) Write(w io.Writer, r *schema.Report) error {
 			p.printf("%-8s %d\n", sev, n)
 		}
 	}
-	p.printf("unconfirmed %d\n\n", r.Summary.Unconfirmed)
+	p.printf("confirmed unless denied %d, unconfirmed %d (severities are the worst case of every unknown)\n\n", r.Summary.ConfirmedUnlessDenied, r.Summary.Unconfirmed)
 	for i := range r.Findings {
 		finding(p, &r.Findings[i])
 	}
@@ -110,8 +110,11 @@ func arrow(jewel string) string {
 
 func finding(p *printer, f *schema.Finding) {
 	confirmed := ""
-	if !f.Confirmed {
-		confirmed = " UNCONFIRMED"
+	switch f.Status {
+	case "confirmed_unless_denied":
+		confirmed = " CONFIRMED UNLESS DENIED (confidence " + f.Confidence + ")"
+	case "unconfirmed":
+		confirmed = " UNCONFIRMED (confidence " + f.Confidence + ")"
 	}
 	p.printf("[%s %d]%s %s  %s\n", strings.ToUpper(f.Severity), f.Score, confirmed, f.Rule, f.Title)
 	if f.Resource != "" {

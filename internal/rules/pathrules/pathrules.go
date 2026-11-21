@@ -126,13 +126,12 @@ func build(in *rules.Input, p *paths.Pair, jewels int) rules.Finding {
 func describePath(g *graph.Graph, best paths.Path, f *rules.Finding) {
 	conf := graph.High
 	defaults := map[string]bool{}
+	f.Status = rules.StatusConfirmed
 	for _, id := range best {
 		e := g.Edge(id)
-		f.Path = append(f.Path, string(e.Kind)+" "+g.Node(e.To).Identity)
+		f.Path = append(f.Path, graph.Label(e)+" "+g.Node(e.To).Identity)
 		conf = min(conf, e.Confidence)
-		if e.Verdict != eval.Allow || (e.Precondition != nil && e.Precondition.State != model.True) {
-			f.Confirmed = false
-		}
+		f.Status = rules.Weaker(f.Status, edgeStatus(g, id))
 		for _, u := range append([]graph.EdgeID{id}, e.Under...) {
 			for _, d := range g.Edge(u).Defaults {
 				defaults[d] = true
@@ -140,8 +139,14 @@ func describePath(g *graph.Graph, best paths.Path, f *rules.Finding) {
 			f.Evidence = append(f.Evidence, g.Edge(u).Evidence...)
 		}
 	}
-	if !f.Confirmed {
+	f.Confirmed = f.Status == rules.StatusConfirmed
+	switch f.Status {
+	case rules.StatusConfirmedUnlessDenied:
+		conf = graph.Medium
+	case rules.StatusUnconfirmed:
 		conf = graph.Low
+	}
+	if !f.Confirmed {
 		f.Undecided = g.Undecided(best)
 	}
 	f.Confidence = conf.String()
@@ -149,6 +154,32 @@ func describePath(g *graph.Graph, best paths.Path, f *rules.Finding) {
 		f.DefaultsUsed = append(f.DefaultsUsed, d)
 	}
 	slices.Sort(f.DefaultsUsed)
+}
+
+// edgeStatus: what an edge leaves undecided (DESIGN.md 6.2). A derived
+// edge takes its underlying edges'; an UNKNOWN precondition or an UNKNOWN
+// that needs an unknown allow is unconfirmed; a deny-only UNKNOWN is
+// confirmed unless denied.
+func edgeStatus(g *graph.Graph, id graph.EdgeID) string {
+	e := g.Edge(id)
+	s := rules.StatusConfirmed
+	if e.Precondition != nil && e.Precondition.State != model.True {
+		s = rules.StatusUnconfirmed
+	}
+	if len(e.Under) > 0 {
+		for _, u := range e.Under {
+			s = rules.Weaker(s, edgeStatus(g, u))
+		}
+		return s
+	}
+	switch {
+	case e.Verdict == eval.Allow:
+	case e.DenyOnly:
+		s = rules.Weaker(s, rules.StatusConfirmedUnlessDenied)
+	default:
+		s = rules.StatusUnconfirmed
+	}
+	return s
 }
 
 // chokepoints fills the cheapest fix and its equal-cost alternatives.

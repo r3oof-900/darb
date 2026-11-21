@@ -93,17 +93,21 @@ type Finding struct {
 	Kind    string `json:"kind"`
 	Title   string `json:"title"`
 	// Path findings.
-	Entry      string          `json:"entry,omitempty"`
-	Jewel      string          `json:"jewel,omitempty"`
-	EntryID    model.ID        `json:"-"`
-	JewelID    model.ID        `json:"-"`
-	Path       []string        `json:"path,omitempty"`
-	PathEdges  []graph.EdgeID  `json:"-"`
-	Paths      int             `json:"paths_found,omitempty"`
-	Truncated  bool            `json:"paths_truncated,omitempty"`
-	Factors    scoring.Factors `json:"factors"`
-	Confirmed  bool            `json:"confirmed"`
-	Confidence string          `json:"confidence"`
+	Entry     string          `json:"entry,omitempty"`
+	Jewel     string          `json:"jewel,omitempty"`
+	EntryID   model.ID        `json:"-"`
+	JewelID   model.ID        `json:"-"`
+	Path      []string        `json:"path,omitempty"`
+	PathEdges []graph.EdgeID  `json:"-"`
+	Paths     int             `json:"paths_found,omitempty"`
+	Truncated bool            `json:"paths_truncated,omitempty"`
+	Factors   scoring.Factors `json:"factors"`
+	Confirmed bool            `json:"confirmed"`
+	// Status: StatusConfirmed, StatusConfirmedUnlessDenied or
+	// StatusUnconfirmed (DESIGN.md 6.2); the severity is the worst case
+	// whatever the status.
+	Status     string `json:"status"`
+	Confidence string `json:"confidence"`
 	// Undecided: for an unconfirmed path, what would decide it (a context
 	// key to assume, a value a plan resolves, a precondition to state).
 	Undecided []string `json:"undecided,omitempty"`
@@ -209,4 +213,32 @@ func (r *Registry) Evaluate(in *Input) []Finding {
 		return cmp.Or(cmp.Compare(a.Rule, b.Rule), cmp.Compare(a.Entry, b.Entry), cmp.Compare(a.Jewel, b.Jewel), cmp.Compare(a.Resource, b.Resource))
 	})
 	return out
+}
+
+// Finding statuses (DESIGN.md 6.2).
+const (
+	// StatusConfirmed: no UNKNOWN decides the finding.
+	StatusConfirmed = "confirmed"
+	// StatusConfirmedUnlessDenied: the only UNKNOWNs are possible Denies.
+	StatusConfirmedUnlessDenied = "confirmed_unless_denied"
+	// StatusUnconfirmed: the finding needs an unknown allow, an UNKNOWN
+	// precondition or an UNKNOWN fact to hold.
+	StatusUnconfirmed = "unconfirmed"
+)
+
+// Weaker returns the less certain of two statuses.
+func Weaker(a, b string) string {
+	rank := func(s string) int {
+		switch s {
+		case StatusConfirmed:
+			return 0
+		case StatusConfirmedUnlessDenied:
+			return 1
+		}
+		return 2
+	}
+	if rank(b) > rank(a) {
+		return b
+	}
+	return a
 }

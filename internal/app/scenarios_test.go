@@ -153,18 +153,20 @@ func TestProjectedTokenWithoutAnnotation(t *testing.T) {
 }
 
 // create on serviceaccounts/token is as good as create on pods: it mints a
-// token with any audience for any service account of the namespace.
+// token with any audience for any service account of the namespace. Minting
+// one for the account itself is not another identity (DESIGN.md 7.2): the
+// path is CLAPA-PATH-001, as scenario 4b.
 func TestTokenRequestIsLikePodCreation(t *testing.T) {
 	a := analyzeVariant(t, "04b_create_pods_wildcard/vulnerable", func(dir string) {
 		replaceIn(t, filepath.Join(dir, "k8s", "tools.yaml"), `resources: ["pods"]`, `resources: ["serviceaccounts/token"]`)
 	})
-	if f := findingFor(a, "CLAPA-PATH-002", "arn:aws:s3:::acme-customer-pii"); f == nil || f.Entry != "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/tools/Deployment/builder" {
+	if f := findingFor(a, "CLAPA-PATH-001", "arn:aws:s3:::acme-customer-pii"); f == nil || f.Entry != "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/tools/Deployment/builder" {
 		t.Errorf("token request: %+v", f)
 	}
 	a = analyzeVariant(t, "04b_create_pods_wildcard/vulnerable", func(dir string) {
 		replaceIn(t, filepath.Join(dir, "k8s", "tools.yaml"), `verbs: ["create", "get", "list"]`, `verbs: ["get", "list"]`)
 	})
-	if f := findingFor(a, "CLAPA-PATH-002", "arn:aws:s3:::acme-customer-pii"); f != nil {
+	if f := findingFor(a, "CLAPA-PATH-001", "arn:aws:s3:::acme-customer-pii"); f != nil {
 		t.Errorf("read-only RBAC mints nothing: %+v", f)
 	}
 }

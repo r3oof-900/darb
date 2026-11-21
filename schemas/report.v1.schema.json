@@ -44,7 +44,7 @@
     },
     "summary": {
       "type": "object", "additionalProperties": false,
-      "required": ["findings", "by_severity", "unconfirmed"],
+      "required": ["findings", "by_severity", "unconfirmed", "confirmed_unless_denied"],
       "properties": {
         "findings": {"type": "integer", "minimum": 0},
         "by_severity": {
@@ -52,7 +52,8 @@
           "propertyNames": {"$ref": "#/$defs/severity"},
           "additionalProperties": {"type": "integer", "minimum": 0}
         },
-        "unconfirmed": {"type": "integer", "minimum": 0}
+        "unconfirmed": {"description": "Findings that need an unknown allow (DESIGN.md 6.2).", "type": "integer", "minimum": 0},
+        "confirmed_unless_denied": {"description": "Findings whose only UNKNOWNs are possible Denies.", "type": "integer", "minimum": 0}
       }
     },
     "location": {
@@ -108,7 +109,7 @@
     },
     "finding": {
       "type": "object", "additionalProperties": false,
-      "required": ["rule", "rule_version", "kind", "title", "severity", "score", "factors", "confirmed", "confidence", "defaults_used", "fingerprint"],
+      "required": ["rule", "rule_version", "kind", "title", "severity", "score", "factors", "confirmed", "status", "confidence", "defaults_used", "fingerprint"],
       "properties": {
         "rule": {"type": "string", "pattern": "^CLAPA-(PATH|POST)-[0-9]{3}$"},
         "rule_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
@@ -117,7 +118,8 @@
         "severity": {"$ref": "#/$defs/severity"},
         "score": {"type": "integer", "minimum": 0, "maximum": 1000},
         "factors": {"$ref": "#/$defs/factors"},
-        "confirmed": {"type": "boolean"},
+        "confirmed": {"description": "status is confirmed.", "type": "boolean"},
+        "status": {"description": "DESIGN.md 6.2. The severity is the worst case of every UNKNOWN, whatever the status.", "enum": ["confirmed", "confirmed_unless_denied", "unconfirmed"]},
         "confidence": {"enum": ["high", "medium", "low"]},
         "undecided": {"description": "For an unconfirmed path: what would decide it (a context key to assume, a value a plan resolves, a precondition to state).", "type": "array", "items": {"type": "string"}},
         "entry": {"description": "Path findings: the entry point's canonical identity.", "type": "string"},

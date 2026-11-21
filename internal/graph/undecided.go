@@ -56,6 +56,10 @@ func missingOf(u *Unknown) string {
 		return fmt.Sprintf("set `assume: {%q: [...]}` in clapa.yaml: %s conditions on %s, whose value is not in the input (%s)",
 			u.Key, u.Policy, u.Key, u.Reason)
 	}
+	if key, ok := strings.CutSuffix(u.Policy, "#key-policy-not-in-input"); ok {
+		return fmt.Sprintf("the KMS key %s is not in the input, so its key policy is unknown: "+
+			"scan the key's Terraform or plan, or a snapshot of its account", key)
+	}
 	if name, ok := awsManagedPolicy(u.Policy); ok {
 		return fmt.Sprintf("the AWS managed policy %s is not in the managed policy snapshot, so what it grants is unknown: "+
 			"managed policy snapshot is incomplete: run tools/refresh-managed-policies", name)

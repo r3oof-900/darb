@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/graph"
 	"github.com/r3oof-900/clapa/internal/model"
 	"github.com/r3oof-900/clapa/internal/rules"
 )
@@ -35,12 +35,17 @@ type expectedFile struct {
 }
 
 type expectedFinding struct {
-	Rule        string   `json:"rule"`
-	Entry       *string  `json:"entry"`
-	Jewel       string   `json:"jewel"`
-	Resource    string   `json:"resource"`
-	Path        []string `json:"path"`
-	Confirmed   *bool    `json:"confirmed"`
+	Rule      string   `json:"rule"`
+	Entry     *string  `json:"entry"`
+	Jewel     string   `json:"jewel"`
+	Resource  string   `json:"resource"`
+	Path      []string `json:"path"`
+	Confirmed *bool    `json:"confirmed"`
+	// Status (DESIGN.md 6.2) and, for a path with unknowns, texts each of
+	// which some undecided entry must contain (the unknown's name, what
+	// resolves it).
+	Status      string   `json:"status"`
+	Undecided   []string `json:"undecided"`
 	Confidence  string   `json:"confidence"`
 	Score       *int     `json:"score"`
 	Severity    string   `json:"severity"`
@@ -158,6 +163,14 @@ func compareFinding(e *expectedFinding, a *rules.Finding) []string {
 	}
 	if e.Confidence != "" {
 		diff("confidence", e.Confidence, a.Confidence)
+	}
+	if e.Status != "" {
+		diff("status", e.Status, a.Status)
+	}
+	for _, want := range e.Undecided {
+		if !slices.ContainsFunc(a.Undecided, func(u string) bool { return strings.Contains(u, want) }) {
+			diffs = append(diffs, fmt.Sprintf("undecided: no entry names %q (got %q)", want, a.Undecided))
+		}
 	}
 	if e.Score != nil {
 		diff("score", *e.Score, a.Factors.Score)
@@ -362,21 +375,6 @@ func compareWithOpen(t *testing.T, report []string) {
 			t.Error("listed difference no longer occurs (remove it from testdata/open_mismatches.txt): " + line)
 		}
 	}
-}
-
-// noEdges reports every edge between nodes the expected file forbids.
-func noEdges(forbidden []expectedNoEdge, g *graph.Graph) []string {
-	var out []string
-	for _, ne := range forbidden {
-		for i := range g.NumEdges() {
-			id := graph.EdgeID(i)
-			e := g.Edge(id)
-			if g.Node(e.From).Identity == ne.From && g.Node(e.To).Identity == ne.To {
-				out = append(out, "edge must not exist: "+g.Describe(id))
-			}
-		}
-	}
-	return out
 }
 
 // The no_edges check finds an edge that exists (the account's own read).

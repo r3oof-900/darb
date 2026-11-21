@@ -233,3 +233,37 @@ func equalDecisions(a, b *Decision) bool {
 	jb, errB := json.Marshal(b)
 	return errA == nil && errB == nil && bytes.Equal(ja, jb)
 }
+
+// worstCase: whether the request is allowed when every unknown is resolved
+// in the attacker's favour (DESIGN.md 6.2).
+func worstCase(v Verdict) bool { return v == Allow || v == Unknown }
+
+// Adding a policy whose statements are unknown never lowers the worst case:
+// an unknown Allow can only add access, an unknown Deny resolved in the
+// attacker's favour does not apply; and an unknown Deny added to an ALLOW
+// gives a deny-only UNKNOWN.
+func TestPropertyUnknownPolicyNeverLowersWorstCase(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		g := genPolicySet(t)
+		req := genRequest(t)
+		before := Evaluate(req, g.build(t))
+		unknown := map[string]any{"StringEquals": map[string]any{"aws:SourceVpce": "vpce-1"}} // the generated requests leave it unknown
+		var stmts []map[string]any
+		kind := rapid.SampledFrom([]string{"allow", "deny", "both"}).Draw(t, "unknown-policy")
+		if kind != "deny" {
+			stmts = append(stmts, map[string]any{"Effect": "Allow", "Action": "*", "Resource": "*", "Condition": unknown})
+		}
+		if kind != "allow" {
+			stmts = append(stmts, map[string]any{"Effect": "Deny", "Action": "*", "Resource": "*", "Condition": unknown})
+		}
+		ps := g.build(t)
+		ps.Identity = append(ps.Identity, mustDoc(t, "unknown-managed", model.PolicyIdentity, stmts))
+		after := Evaluate(req, ps)
+		if worstCase(before.Verdict) && !worstCase(after.Verdict) {
+			t.Fatalf("an unknown policy (%s) lowered the worst case: %s -> %s", kind, before.Verdict, after.Verdict)
+		}
+		if before.Verdict == Allow && kind == "deny" && (after.Verdict != Unknown || !after.DenyOnly) {
+			t.Fatalf("an unknown Deny on an ALLOW: %s deny-only=%v, want a deny-only UNKNOWN", after.Verdict, after.DenyOnly)
+		}
+	})
+}

@@ -1,0 +1,148 @@
+{
+  "addons": [],
+  "boundaries": [],
+  "clusters": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "name": "prod",
+      "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
+      "region": "us-east-1",
+      "source": "clapa.yaml (clusters.prod)"
+    }
+  ],
+  "collected": 10,
+  "entry_points": [
+    {
+      "public": "true",
+      "reason": "exposed:Service/LoadBalancer",
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api"
+    }
+  ],
+  "exposures": [
+    {
+      "public": "true",
+      "via": "Service/LoadBalancer",
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api"
+    }
+  ],
+  "gaps": [
+    {
+      "Kind": "unresolved",
+      "Source": "inventory",
+      "File": "",
+      "Line": 0,
+      "Address": "arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "the KMS key that encrypts arn:aws:s3:::acme-customer-pii is not in the input: its key policy is unknown (scan the key's Terraform or plan, or a snapshot of its account)"
+    }
+  ],
+  "mappings": [],
+  "network_policies": [],
+  "node_groups": [],
+  "pod_identity": [],
+  "policies": [
+    {
+      "kind": "resource",
+      "policy": "arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001#key-policy-not-in-input",
+      "source": "arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001 via not in the input",
+      "statements": [
+        "Allow ${clapa:unresolved:key_policy_of_arn_aws_kms_us-east-1_111122223333_key_0b1c2d3e-0000-4000-8000-000000000001} on ${clapa:unresolved:key_policy_of_arn_aws_kms_us-east-1_111122223333_key_0b1c2d3e-0000-4000-8000-000000000001} (0 conditions)",
+        "Deny ${clapa:unresolved:key_policy_of_arn_aws_kms_us-east-1_111122223333_key_0b1c2d3e-0000-4000-8000-000000000001} on * (0 conditions)"
+      ],
+      "target": "arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001",
+      "unresolved_statements": 2
+    },
+    {
+      "kind": "identity",
+      "policy": "aws_iam_role_policy.payments_api",
+      "source": "terraform/role.tf:6-16 (aws_iam_role_policy.payments_api)",
+      "statements": [
+        "Allow s3:GetObject on arn:aws:s3:::acme-customer-pii/* (0 conditions)",
+        "Allow kms:Decrypt on * (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/payments-api",
+      "unresolved_statements": 0
+    }
+  ],
+  "principals": [
+    {
+      "account": "111122223333",
+      "identity": "arn:aws:iam::111122223333:role/payments-api",
+      "kind": "aws:iam:role",
+      "source": "terraform/role.tf:1-4 (aws_iam_role.payments_api)"
+    }
+  ],
+  "rbac": [],
+  "resources": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:s3:::acme-customer-pii",
+      "classification": "pii",
+      "classified_by": "tag:DataClass",
+      "defaulted": [],
+      "encryption": {
+        "Type": "aws:kms",
+        "KeyARN": "arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001",
+        "BucketKey": "unknown"
+      },
+      "kind": "aws:s3:bucket",
+      "region": "us-east-1",
+      "restrict_public_buckets": "true",
+      "source": "terraform/pii_kms_bucket.tf:2-7 (aws_s3_bucket.customer_pii)"
+    },
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001",
+      "classification": "",
+      "classified_by": "",
+      "defaulted": [],
+      "key_rotation": "unknown",
+      "kind": "aws:kms:key",
+      "region": "us-east-1",
+      "source": "arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001 via not in the input"
+    }
+  ],
+  "service_accounts": [
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
+      "role_arn": "arn:aws:iam::111122223333:role/payments-api",
+      "source": "k8s/payments.yaml:6 (ServiceAccount/payments/api)",
+      "subject": "system:serviceaccount:payments:api"
+    }
+  ],
+  "trusts": [
+    {
+      "kind": "resource",
+      "policy": "aws_iam_role.payments_api.assume_role_policy",
+      "source": "terraform/role.tf:1-4 (aws_iam_role.payments_api)",
+      "statements": [
+        "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (2 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/payments-api",
+      "unresolved_statements": 0
+    }
+  ],
+  "workloads": [
+    {
+      "automount_token": "true",
+      "defaulted": [
+        "k8s.automountServiceAccountToken"
+      ],
+      "host_network": false,
+      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
+      "privileged": false,
+      "service_account": "api",
+      "source": "k8s/payments.yaml:14 (Deployment/payments/api)"
+    }
+  ]
+}

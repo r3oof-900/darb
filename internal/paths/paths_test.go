@@ -44,7 +44,7 @@ func cost(g *graph.Graph) func(graph.EdgeID) int64 {
 }
 
 // After RUNS_AS a pod has its cloud identity, not its Kubernetes token:
-// RBAC escalation needs CAN_ESCALATE[k8s-token]; after the token, only RBAC
+// RBAC escalation needs RUNS_AS[k8s-token]; after the token, only RBAC
 // edges follow (DESIGN.md §7.2).
 func TestModes(t *testing.T) {
 	x := newTG()
@@ -59,7 +59,7 @@ func TestModes(t *testing.T) {
 	}
 	y := newTG()
 	y.e("w", "sa", graph.RunsAs, "")
-	y.e("w", "sa", graph.CanEscalate, "k8s-token")
+	y.e("w", "sa", graph.RunsAs, "k8s-token")
 	y.e("sa", "other", graph.CanEscalate, "rbac")
 	y.e("sa", "role", graph.Assumes, "irsa")
 	y.e("other", "role2", graph.Assumes, "irsa")
@@ -74,7 +74,7 @@ func TestModes(t *testing.T) {
 		if p.Jewel == jewel && (len(p.Paths) != 1 || len(p.Paths[0]) != 4 || g.Edge(p.Paths[0][0]).Sub != "k8s-token") {
 			t.Errorf("token -> rbac -> irsa -> read: %+v", p.Paths)
 		}
-		if p.Jewel == role && (len(p.Paths) != 1 || g.Edge(p.Paths[0][0]).Kind != graph.RunsAs) {
+		if p.Jewel == role && (len(p.Paths) != 1 || g.Edge(p.Paths[0][0]).Kind != graph.RunsAs || g.Edge(p.Paths[0][0]).Sub != "") {
 			t.Errorf("only RUNS_AS reaches the IRSA role directly: %+v", p.Paths)
 		}
 	}
