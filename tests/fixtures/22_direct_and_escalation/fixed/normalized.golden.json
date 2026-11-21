@@ -1,0 +1,171 @@
+{
+  "addons": [],
+  "boundaries": [],
+  "clusters": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "name": "prod",
+      "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
+      "region": "us-east-1",
+      "source": "clapa.yaml (clusters.prod)"
+    }
+  ],
+  "collected": 12,
+  "entry_points": [
+    {
+      "public": "unknown",
+      "reason": "assume-compromised",
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app"
+    }
+  ],
+  "exposures": [],
+  "gaps": [
+    {
+      "Kind": "unresolved",
+      "Source": "terraform-hcl",
+      "File": "terraform/role_app.tf",
+      "Line": 15,
+      "Address": "aws_iam_role_policy.app",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "var.pii_bucket_arn: depends on var.pii_bucket_arn, which has no known value"
+    }
+  ],
+  "mappings": [],
+  "network_policies": [],
+  "node_groups": [],
+  "pod_identity": [],
+  "policies": [
+    {
+      "kind": "identity",
+      "policy": "aws_iam_role_policy.app",
+      "source": "terraform/role_app.tf:6-20 (aws_iam_role_policy.app)",
+      "statements": [
+        "Allow s3:GetObject on arn:aws:s3:::acme-customer-pii/* (0 conditions)",
+        "Allow kms:Decrypt on arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii (1 conditions)",
+        "Allow sts:AssumeRole on arn:aws:iam::111122223333:role/ops (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/app",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "identity",
+      "policy": "aws_iam_role_policy.ops",
+      "source": "terraform/role_ops.tf:9-18 (aws_iam_role_policy.ops)",
+      "statements": [
+        "Allow s3:ListAllMyBuckets on * (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/ops",
+      "unresolved_statements": 0
+    },
+    {
+      "default": "kms.default-key-policy",
+      "kind": "resource",
+      "policy": "aws_kms_key.pii.policy",
+      "source": "terraform/pii_kms_bucket.tf:1-3 (aws_kms_key.pii)",
+      "statements": [
+        "Allow kms:* on * (0 conditions)"
+      ],
+      "target": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+      "unresolved_statements": 0
+    }
+  ],
+  "principals": [
+    {
+      "account": "111122223333",
+      "identity": "arn:aws:iam::111122223333:role/app",
+      "kind": "aws:iam:role",
+      "source": "terraform/role_app.tf:1-4 (aws_iam_role.app)"
+    },
+    {
+      "account": "111122223333",
+      "identity": "arn:aws:iam::111122223333:role/ops",
+      "kind": "aws:iam:role",
+      "source": "terraform/role_ops.tf:1-7 (aws_iam_role.ops)"
+    }
+  ],
+  "rbac": [],
+  "resources": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:s3:::acme-customer-pii",
+      "classification": "pii",
+      "classified_by": "tag:DataClass",
+      "defaulted": [],
+      "encryption": {
+        "Type": "aws:kms",
+        "KeyARN": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+        "BucketKey": "unknown"
+      },
+      "kind": "aws:s3:bucket",
+      "region": "us-east-1",
+      "restrict_public_buckets": "true",
+      "source": "terraform/pii_kms_bucket.tf:5-10 (aws_s3_bucket.customer_pii)"
+    },
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+      "classification": "",
+      "classified_by": "",
+      "defaulted": [
+        "terraform.aws_kms_key.enable_key_rotation"
+      ],
+      "key_rotation": "false",
+      "kind": "aws:kms:key",
+      "region": "us-east-1",
+      "source": "terraform/pii_kms_bucket.tf:1-3 (aws_kms_key.pii)"
+    }
+  ],
+  "service_accounts": [
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
+      "role_arn": "arn:aws:iam::111122223333:role/app",
+      "source": "k8s/apps.yaml:6 (ServiceAccount/apps/app)",
+      "subject": "system:serviceaccount:apps:app"
+    }
+  ],
+  "trusts": [
+    {
+      "kind": "resource",
+      "policy": "aws_iam_role.app.assume_role_policy",
+      "source": "terraform/role_app.tf:1-4 (aws_iam_role.app)",
+      "statements": [
+        "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (2 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/app",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "resource",
+      "policy": "aws_iam_role.ops.assume_role_policy",
+      "source": "terraform/role_ops.tf:1-7 (aws_iam_role.ops)",
+      "statements": [
+        "Allow sts:AssumeRole on \u003cno Resource element\u003e (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/ops",
+      "unresolved_statements": 0
+    }
+  ],
+  "workloads": [
+    {
+      "automount_token": "true",
+      "defaulted": [
+        "k8s.automountServiceAccountToken"
+      ],
+      "host_network": false,
+      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app",
+      "privileged": false,
+      "service_account": "app",
+      "source": "k8s/apps.yaml:14 (Deployment/apps/app)"
+    }
+  ]
+}

@@ -116,6 +116,12 @@ func TestEveryVulnerableScenarioIsFixed(t *testing.T) {
 				if f.Confirmed || len(r.Plan.Missing) == 0 || r.Patch != nil {
 					t.Errorf("%s: an UNKNOWN path gets what is missing, no patch: %+v", name, r.Plan)
 				}
+			case "22_direct_and_escalation":
+				// Phase 6 review: the direct path rests on an unresolved variable
+				// (a resolve step, SCORING.md 4.1): no patch until it is decided.
+				if !f.Confirmed && r.Patch != nil {
+					t.Errorf("%s: an unconfirmed path gets no patch before it is resolved: %+v", name, r.Plan)
+				}
 			case "13_module_for_each":
 				if !r.Memory.OK || r.Patch == nil || r.Patch.Complete() ||
 					!strings.Contains(r.Patch.TODO[0], `input "bucket" of module "readers" at terraform/main.tf:4`) {
