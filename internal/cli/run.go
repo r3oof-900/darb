@@ -20,6 +20,7 @@ const usage = `usage:
   clapa scan [--root DIR] [--config FILE] [--plan FILE[=TFDIR]]... [--terraform DIR]...
              [--k8s DIR[=CLUSTER]]... [--snapshot DIR]... [--format console|json|sarif]
              [--output FILE] [--fail-on critical|high|medium|low|info]
+  clapa remediate [scan input flags] [--write [--allow-revoke] [--force]] FINGERPRINT
   clapa rules list
   clapa rules show RULE-ID
   clapa version
@@ -35,6 +36,8 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) ExitCode 
 	switch args[0] {
 	case "scan":
 		return scan(ctx, args[1:], stdout, stderr)
+	case "remediate":
+		return remediateCmd(ctx, args[1:], stdout, stderr)
 	case "rules":
 		return rulesCmd(args[1:], stdout, stderr)
 	case "version":
@@ -61,6 +64,19 @@ func parseScan(args []string, stderr io.Writer) (*scanFlags, bool) {
 	f := &scanFlags{}
 	fset := flag.NewFlagSet("scan", flag.ContinueOnError)
 	fset.SetOutput(stderr)
+	scanFlagsOn(fset, f)
+	if err := fset.Parse(args); err != nil || fset.NArg() > 0 {
+		return nil, false
+	}
+	if !slices.Contains([]string{"critical", "high", "medium", "low", "info"}, f.failOn) || !slices.Contains(app.Formats(), f.format) {
+		_, _ = fmt.Fprintf(stderr, "clapa: invalid --fail-on %q or --format %q\n", f.failOn, f.format)
+		return nil, false
+	}
+	return f, true
+}
+
+// scanFlagsOn defines the input flags shared by scan and remediate.
+func scanFlagsOn(fset *flag.FlagSet, f *scanFlags) {
 	fset.StringVar(&f.root, "root", ".", "scan root; every input path is relative to it")
 	fset.StringVar(&f.cfg, "config", "", "clapa.yaml (default: clapa.yaml in the root, if present)")
 	fset.StringVar(&f.format, "format", "console", "output format: "+strings.Join(app.Formats(), ", "))
@@ -70,14 +86,6 @@ func parseScan(args []string, stderr io.Writer) (*scanFlags, bool) {
 	fset.Var(&f.tfDirs, "terraform", "Terraform directory scanned statically")
 	fset.Var(&f.k8sDirs, "k8s", "Kubernetes manifests directory, optionally =cluster name")
 	fset.Var(&f.snapshots, "snapshot", "offline AWS snapshot directory (clapa-snapshot/v1)")
-	if err := fset.Parse(args); err != nil || fset.NArg() > 0 {
-		return nil, false
-	}
-	if !slices.Contains([]string{"critical", "high", "medium", "low", "info"}, f.failOn) || !slices.Contains(app.Formats(), f.format) {
-		_, _ = fmt.Fprintf(stderr, "clapa: invalid --fail-on %q or --format %q\n", f.failOn, f.format)
-		return nil, false
-	}
-	return f, true
 }
 
 func scan(ctx context.Context, args []string, stdout, stderr io.Writer) ExitCode {
