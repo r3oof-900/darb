@@ -1,12 +1,16 @@
 package posture
 
 import (
+	"maps"
 	"slices"
 	"strings"
 
 	"github.com/r3oof-900/clapa/internal/eval/match"
+	"github.com/r3oof-900/clapa/internal/graph"
 	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/clapa/internal/paths"
 	"github.com/r3oof-900/clapa/internal/rules"
+	"github.com/r3oof-900/clapa/internal/scoring"
 )
 
 // BroadGrant is the rule of a sensitive action granted on every resource, or to every
@@ -116,6 +120,9 @@ func boundaryKeeps(b *model.PolicyDocument, action string) bool {
 type broadHit struct {
 	location model.SourceLocation
 	evidence []string
+	// toEveryone: a grant to every principal (a resource or trust policy);
+	// public: one with no condition at all (the anonymous caller too).
+	toEveryone, public bool
 }
 
 // broadSet collects the broad grants per principal or resource.
@@ -126,6 +133,10 @@ func (b broadSet) add(target model.ID, doc *model.PolicyDocument, s *model.State
 	if !ok {
 		h = &broadHit{location: *doc.Source()}
 		b[target] = h
+	}
+	if what == "to every principal" {
+		h.toEveryone = true
+		h.public = h.public || len(s.Conditions()) == 0
 	}
 	h.evidence = append(h.evidence, doc.ID()+" "+s.Label()+": "+strings.Join(actions, ", ")+" "+what)
 }
@@ -191,9 +202,59 @@ func broadGrants(in *rules.Input) []hit {
 		ids = append(ids, id)
 	}
 	slices.Sort(ids)
+	reach := reachedFrom(in)
 	out := make([]hit, 0, len(ids))
 	for _, id := range ids {
-		out = append(out, hit{resource: names[id], id: id, location: set[id].location, evidence: set[id].evidence})
+		h := set[id]
+		from := h.reachers(in, reach, id)
+		base, ev := scoring.BaseHigh, "reachable_from: ["+strings.Join(from, ", ")+"]"
+		if len(from) == 0 {
+			base, ev = scoring.BaseMedium, "reachable_from: none"
+		}
+		out = append(out, hit{base: base, resource: names[id], id: id, location: h.location, evidence: append(h.evidence, ev)})
 	}
+	return out
+}
+
+// reachedFrom maps every node an entry point reaches (through every edge:
+// RUNS_AS, IRSA, Pod Identity, CAN_ESCALATE, ASSUMES chains) to the
+// entries that reach it, by canonical identity.
+func reachedFrom(in *rules.Input) map[graph.NodeID][]string {
+	out := map[graph.NodeID][]string{}
+	entries := slices.Sorted(maps.Keys(in.Entries))
+	for _, e := range entries {
+		name := in.Graph.Node(e).Identity
+		for n := range paths.Reachable(in.Graph, e) {
+			out[n] = append(out[n], name)
+		}
+	}
+	return out
+}
+
+// reachers: the entries that can use the grant. An identity grant is used
+// by its principal; a grant to every principal by any reached principal,
+// and, with no condition, by the anonymous caller.
+func (h *broadHit) reachers(in *rules.Input, reach map[graph.NodeID][]string, id model.ID) []string {
+	var out []string
+	add := func(names []string) {
+		for _, n := range names {
+			if !slices.Contains(out, n) {
+				out = append(out, n)
+			}
+		}
+	}
+	if !h.toEveryone {
+		if n, ok := in.Graph.Lookup(id); ok {
+			add(reach[n])
+		}
+	} else {
+		for n, names := range reach {
+			k := in.Graph.Node(n).Kind
+			if k == model.KindIAMRole || k == model.KindIAMRoleAnyPermission || h.public && k == model.KindAnonymous {
+				add(names)
+			}
+		}
+	}
+	slices.Sort(out)
 	return out
 }

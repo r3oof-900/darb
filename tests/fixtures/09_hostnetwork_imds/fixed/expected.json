@@ -12,8 +12,8 @@
     {
       "rule": "CLAPA-POST-008",
       "resource": "arn:aws:iam::111122223333:role/eks-node",
-      "score": 600,
-      "severity": "high",
+      "score": 350,
+      "severity": "medium",
       "defaults_used": []
     }
   ],

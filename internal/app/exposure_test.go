@@ -1,6 +1,7 @@
 package app
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -46,5 +47,30 @@ func TestExposedToIsCuttable(t *testing.T) {
 	})
 	if f = findingFor(a, "CLAPA-PATH-001", piiBucket); f == nil || !f.NoFix {
 		t.Fatalf("assume-compromised: no fix: %+v", f)
+	}
+}
+
+// CLAPA-POST-008 is graded by reachability: analytics-admin's
+// AdministratorAccess is high while payments-api can assume it (06
+// vulnerable) and medium once nothing reaches it (06 fixed); the evidence
+// names the entries (reachable_from).
+func TestBroadGrantByReachability(t *testing.T) {
+	const admin = "arn:aws:iam::444455556666:role/analytics-admin"
+	find := func(a *Analysis) (sev string, evidence []string) {
+		for i := range a.Findings {
+			if f := &a.Findings[i]; f.Rule == "CLAPA-POST-008" && f.Resource == admin {
+				return f.Factors.Severity, f.Evidence
+			}
+		}
+		t.Fatal("no CLAPA-POST-008 for analytics-admin")
+		return "", nil
+	}
+	sev, ev := find(analyzeVariant(t, "06_role_chain_cross_account/vulnerable", nil))
+	if sev != "high" || !slices.Contains(ev, "reachable_from: [k8s:prod/payments/Deployment/api]") {
+		t.Errorf("reached: %s %v", sev, ev)
+	}
+	sev, ev = find(analyzeVariant(t, "06_role_chain_cross_account/fixed", nil))
+	if sev != "medium" || !slices.Contains(ev, "reachable_from: none") {
+		t.Errorf("not reached: %s %v", sev, ev)
 	}
 }

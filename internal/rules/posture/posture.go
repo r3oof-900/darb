@@ -38,6 +38,8 @@ type rule struct {
 }
 
 type hit struct {
+	// base overrides the rule's base severity for this hit (0: the rule's).
+	base     int
 	resource string
 	id       model.ID
 	location model.SourceLocation
@@ -52,7 +54,11 @@ func (r *rule) Evaluate(in *rules.Input) []rules.Finding {
 	hits := r.check(in)
 	for i := range hits {
 		h := &hits[i]
-		score, severity := scoring.Posture(r.meta.Base, r.confidence)
+		base := r.meta.Base
+		if h.base != 0 {
+			base = h.base
+		}
+		score, severity := scoring.Posture(base, r.confidence)
 		out = append(out, rules.Finding{
 			Resource: h.resource, ResourceID: h.id, DefaultsUsed: h.defaults, Evidence: h.evidence, Location: h.location,
 			Confirmed: true, Confidence: r.confidence.String(),
@@ -65,8 +71,12 @@ func (r *rule) Evaluate(in *rules.Input) []rules.Finding {
 func ref(t, u string) rules.Reference { return rules.Reference{Title: t, URL: u} }
 
 func meta(id, title, rationale string, base int, techniques []string, refs []rules.Reference, failing, passing []string) rules.Meta {
+	return metaV(id, "1.0.0", title, rationale, base, techniques, refs, failing, passing)
+}
+
+func metaV(id, version, title, rationale string, base int, techniques []string, refs []rules.Reference, failing, passing []string) rules.Meta {
 	return rules.Meta{
-		ID: id, Version: "1.0.0", Kind: rules.KindPosture, Title: title, Rationale: rationale, Base: base,
+		ID: id, Version: version, Kind: rules.KindPosture, Title: title, Rationale: rationale, Base: base,
 		Techniques: techniques, References: refs, Failing: failing, Passing: passing,
 	}
 }
@@ -131,8 +141,8 @@ func Rules() []rules.Rule {
 			graph.Medium, defaultDeny,
 		},
 		&rule{
-			meta(BroadGrant, "Sensitive action granted on every resource or to every principal",
-				"kms:Decrypt, sts:AssumeRole, iam:PassRole, s3:GetObject, secretsmanager:GetSecretValue or ssm:GetParameter on \"*\" (or to Principal \"*\"), scoped at most to an organization or account: every new key, role, bucket or secret is reachable the moment it exists. A fix that blocks one path leaves this grant; this finding keeps it in view.",
+			metaV(BroadGrant, "1.1.0", "Sensitive action granted on every resource or to every principal",
+				"kms:Decrypt, sts:AssumeRole, iam:PassRole, s3:GetObject, secretsmanager:GetSecretValue or ssm:GetParameter on \"*\" (or to Principal \"*\"), scoped at most to an organization or account: every new key, role, bucket or secret is reachable the moment it exists. A fix that blocks one path leaves this grant; this finding keeps it in view. High when an entry point reaches the principal holding the grant, medium when none does (accounts hold intended admin roles); the evidence says which entries (reachable_from).",
 				scoring.BaseHigh, []string{"T1078.004"},
 				[]rules.Reference{ref("IAM › Security best practices: apply least-privilege permissions", "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html")},
 				[]string{"01_classic/vulnerable", "10_kms_principal_org_id/vulnerable"}, []string{"01_classic/fixed", "11_boundary_deny/fixed"}),

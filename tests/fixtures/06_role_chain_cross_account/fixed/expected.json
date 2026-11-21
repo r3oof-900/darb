@@ -21,8 +21,8 @@
     {
       "rule": "CLAPA-POST-008",
       "resource": "arn:aws:iam::444455556666:role/analytics-admin",
-      "score": 600,
-      "severity": "high",
+      "score": 350,
+      "severity": "medium",
       "defaults_used": []
     }
   ],

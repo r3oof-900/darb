@@ -389,18 +389,28 @@ E["17_pod_identity_classic/fixed"] = {"derived_from": "13.2 row 17 fixed (as sce
 # take away; or a resource policy granting one to Principal "*" under the
 # same conditions. One finding per principal or resource: base high 600,
 # confidence high: 600, high.
-def broad_grant(resource):
-    return posture("CLAPA-POST-008", resource, 600, "high")
+def broad_grant(resource, reachable=True):
+    # Phase 5 follow-up: graded by reachability. High (600) when an entry
+    # point reaches the principal holding the grant (a workload directly,
+    # IRSA, Pod Identity, CAN_ESCALATE, an ASSUMES chain; for a grant to
+    # every principal, any reached principal, or the anonymous caller when
+    # it has no condition); medium (base 350, confidence high: 350) when no
+    # path reaches it: real accounts hold intended admin roles.
+    return posture("CLAPA-POST-008", resource, 600 if reachable else 350, "high" if reachable else "medium")
 
 
 ADMIN_ROLE = "arn:aws:iam::444455556666:role/analytics-admin"
 BROAD = {
     "01_classic/vulnerable": [ROLE],                          # kms:Decrypt on "*"
     "06_role_chain_cross_account/vulnerable": [ROLE, ADMIN_ROLE],  # sts:AssumeRole on "*"; AdministratorAccess
-    "06_role_chain_cross_account/fixed": [ADMIN_ROLE],        # AdministratorAccess stays
+    # AdministratorAccess stays, but payments-api may assume only
+    # role/reporting (not in the input): no entry reaches the admin: medium.
+    "06_role_chain_cross_account/fixed": [(ADMIN_ROLE, False)],
     "07_passrole_lambda/vulnerable": [ROLE],                  # iam:PassRole on "*"
     "09_hostnetwork_imds/vulnerable": [NODE],                 # s3:GetObject on "*"
-    "09_hostnetwork_imds/fixed": [NODE],                      # the fixed variant fixes IMDS only
+    # The fixed variant fixes IMDS only: IMDSv2, hop limit 1, no hostNetwork
+    # leave no NODE_ROLE edge, so no entry reaches the node role: medium.
+    "09_hostnetwork_imds/fixed": [(NODE, False)],
     "10_kms_principal_org_id/vulnerable": [SHARED_KEY],       # key policy: Principal "*", org condition only
     "11_boundary_deny/vulnerable": [ROLE],                    # boundary allows everything else
     "12_public_bucket/vulnerable": [LEADS],                   # bucket policy: Principal "*"
@@ -411,7 +421,7 @@ BROAD = {
 # 11 fixed: kms:Decrypt on "*" is written, but the boundary allows only
 # sqs:* and logs:*, so the grant has no effect: no finding.
 for variant, resources in BROAD.items():
-    E[variant]["findings"] += [broad_grant(r) for r in resources]
+    E[variant]["findings"] += [broad_grant(*r) if isinstance(r, tuple) else broad_grant(r) for r in resources]
 
 
 # Remediation strategies (Phase 5 review). A root-cause fix narrows the
