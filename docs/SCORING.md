@@ -309,9 +309,11 @@ needs), with the trust side (cost 5) as the other fix.
   with the chosen cut's edges uncuttable, so its ties are the min-cut's
   (closest to the entry). With resolve steps (§4.1, Phase 6 review): a tie
   between a known step and a resolve step cannot happen (a known step costs
-  at least 1, a resolve step 0); between two cuts of resolve steps only, the
-  one with fewer distinct resolving commands wins, then the one closest to
-  the entry. When the chosen cut has a resolve step, the alternative is the
+  at least 1, a resolve step 0); between cuts as cheap in known changes, the
+  one with fewer distinct resolving commands wins, then the one with fewer
+  steps, then the one closest to the entry: the user runs commands, not
+  steps (Phase 6 review; `TestResolveTieFewestCommandsThenSteps`; the engine
+  searches the sets of commands, up to 8 distinct ones). When the chosen cut has a resolve step, the alternative is the
   cheapest cut sharing no edge with it **made of known steps only**, so the
   user has a fix to apply now; if there is none, `alternative_fix: []`
   (scenario 13 static: the trust and the read both rest on unresolved

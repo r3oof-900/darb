@@ -77,10 +77,10 @@
       "score": 235,
       "severity": "low",
       "chokepoints": [
-        "ASSUMES arn:aws:iam::111122223333:role/app -> arn:aws:iam::111122223333:role/ops"
+        "CAN_ESCALATE[iam:modify-policy] arn:aws:iam::111122223333:role/ops -> arn:aws:iam::111122223333:role/ops"
       ],
       "alternative_fix": [
-        "CAN_ESCALATE[iam:modify-policy] arn:aws:iam::111122223333:role/ops -> arn:aws:iam::111122223333:role/ops"
+        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app -> arn:aws:iam::111122223333:role/app"
       ],
       "defaults_used": [
         "eks.irsa.audience",
@@ -88,26 +88,19 @@
       ],
       "fix": [
         {
-          "edge": "ASSUMES arn:aws:iam::111122223333:role/app -> arn:aws:iam::111122223333:role/ops",
-          "side": "identity",
-          "fix_kind": "revoke",
-          "cost": 3
-        }
-      ],
-      "other_side_fix": [
-        {
-          "edge": "ASSUMES arn:aws:iam::111122223333:role/app -> arn:aws:iam::111122223333:role/ops",
-          "side": "trust",
-          "fix_kind": "revoke",
-          "cost": 7
-        }
-      ],
-      "alternative_fix_detail": [
-        {
           "edge": "CAN_ESCALATE[iam:modify-policy] arn:aws:iam::111122223333:role/ops -> arn:aws:iam::111122223333:role/ops",
           "side": "identity",
           "fix_kind": "revoke",
           "cost": 4
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": [
+        {
+          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app -> arn:aws:iam::111122223333:role/app",
+          "side": "trust",
+          "fix_kind": "revoke",
+          "cost": 7
         }
       ],
       "status": "confirmed",

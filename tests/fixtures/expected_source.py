@@ -745,13 +745,19 @@ E["19_secrets_manager/unknown_managed_policy"] = {
 # after the "any permission" node is cuttable (SCORING.md 4.2), but the edge
 # into it is: CAN_ESCALATE ops -> ops is role/ops's own iam:PutRolePolicy on
 # its ARN, explicit: revoke, identity, 4 (SCORING.md 4.1, IAM escalation);
-# an IAM role has no resource policy for that action: no other side. The
-# min-cut (Phase 6 review, round 4) is ASSUMES app -> ops: role/app's
-# sts:AssumeRole names role/ops, explicit: revoke, identity, 3; role/ops's
-# trust names role/app: revoke, trust, 7. The alternative cut, sharing no
-# edge with it, is the root cause: CAN_ESCALATE ops, revoke, identity, 4
-# (the IRSA trust, 7, is dearer): it is the alternative_fix. Neither cut breaks the other finding's
-# path: also_fixes empty.
+# an IAM role has no resource policy for that action: no other side.
+# ASSUMES app -> ops has one side only: role/ops's trust names role/app's
+# ARN in the same account, and a same-account resource policy naming an IAM
+# role ARN grants on its own (DESIGN.md 6, the "Same-account effect" table;
+# IAM User Guide): without role/app's identity policies the assume is still
+# allowed, so that side does not count (SCORING.md 4.1); the trust names
+# role/app exactly: revoke, trust, 7. (Corrected at the Phase 6 review: the
+# first derivation gave it an identity side, revoke, 3; the engine was
+# right, open_mismatches group I.) The min-cut is the root cause itself:
+# CAN_ESCALATE ops, revoke, identity, 4. The cheapest cut sharing no edge
+# with it: the IRSA trust (7) or the ASSUMES trust (7), equal; closest to
+# the entry: the IRSA trust. Neither cut breaks the other finding's path:
+# also_fixes empty.
 #
 # CLAPA-POST-006 on the key (rotation by the Terraform default) and
 # CLAPA-POST-007 on apps. The unresolved variable is a coverage gap: exit 3
@@ -812,9 +818,9 @@ E["22_direct_and_escalation/vulnerable"] = {
         app_direct(False),
         path_finding("CLAPA-PATH-002", APP, PII,
                      [f"RUNS_AS {SA_APP}", f"ASSUMES {APP_ROLE}", f"ASSUMES {OPS_ROLE}", f"CAN_ESCALATE {OPS_ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
-                     235, "low", [OPS_EDGE], [OPS_ESCALATE], defaults=IRSA_DEFAULTS,
-                     fix=[step(OPS_EDGE, "identity", "revoke", 3)], other_side=[step(OPS_EDGE, "trust", "revoke", 7)],
-                     alternative_detail=[step(OPS_ESCALATE, "identity", "revoke", 4)]),
+                     235, "low", [OPS_ESCALATE], [f"ASSUMES {SA_APP} -> {APP_ROLE}"], defaults=IRSA_DEFAULTS,
+                     fix=[step(OPS_ESCALATE, "identity", "revoke", 4)], other_side=[],
+                     alternative_detail=[step(f"ASSUMES {SA_APP} -> {APP_ROLE}", "trust", "revoke", 7)]),
         rotation_off(PII_KEY), no_default_deny(NS_APPS_22)]}
 E["22_direct_and_escalation/fixed"] = {
     "derived_from": "Phase 6 review, fixed: role/ops can no longer rewrite its own policy", "exit_code": 3, "findings": [

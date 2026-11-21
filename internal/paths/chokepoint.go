@@ -104,14 +104,26 @@ func ways(g *graph.Graph, id graph.EdgeID, opts *Options) []Way {
 }
 
 // exclude: what the alternative may not use (SCORING.md §4.3).
+// exclude: what a cut may not use. For the alternative (SCORING.md §4.3):
+// the chosen cut's edges and detaches, RUNS_AS and fact sides of 100 or
+// more, and resolve steps when the chosen cut has one. commands, when set:
+// only resolve steps with these commands (the tie rule, fewestCommands).
 type exclude struct {
-	edges   map[graph.EdgeID]bool
-	groups  map[string]bool
-	pending bool // the chosen cut has a resolve step: known steps only
+	alternative bool
+	edges       map[graph.EdgeID]bool
+	groups      map[string]bool
+	pending     bool
+	commands    map[string]bool
 }
 
 func (x *exclude) skips(g *graph.Graph, w *Way) bool {
 	if x == nil {
+		return false
+	}
+	if x.commands != nil && slices.ContainsFunc(w.Resolve, func(r graph.Resolution) bool { return !x.commands[r.Command] }) {
+		return true
+	}
+	if !x.alternative {
 		return false
 	}
 	e := g.Edge(w.Edge)
@@ -158,7 +170,11 @@ func CutFor(g *graph.Graph, entry, jewel graph.NodeID, sel *Select, opts *Option
 	}
 	r := Result{Finite: true, Ways: w.chosen(cut)}
 	r.Cost, r.Steps, r.Pending = price(g, r.Ways)
-	ex := &exclude{edges: map[graph.EdgeID]bool{}, groups: map[string]bool{}, pending: r.Pending}
+	if r.Pending {
+		r.Ways = fewestCommands(g, entry, jewel, sel, opts, w, r.Cost, r.Ways)
+		r.Cost, r.Steps, r.Pending = price(g, r.Ways)
+	}
+	ex := &exclude{alternative: true, edges: map[graph.EdgeID]bool{}, groups: map[string]bool{}, pending: r.Pending}
 	for _, way := range r.Ways {
 		ex.edges[way.Edge] = true
 		for _, d := range way.Detach {
@@ -254,4 +270,84 @@ func subsetOfResolves(alt, chosen []Step) bool {
 		}
 	}
 	return true
+}
+
+// maxCommands bounds the tie rule's search (2^n cuts): beyond it the cut
+// with the fewest resolve steps stands.
+const maxCommands = 8
+
+// fewestCommands: among the cuts as cheap in known changes as the chosen
+// one, the one with the fewest distinct resolving commands, then the fewest
+// steps, then the closest to the entry (SCORING.md §4.3: the user runs
+// commands, not steps). The network prices each resolve step, not each
+// command, so the commands are searched: for k = 1, 2, ..., the cuts that
+// may use only k of them; the first k with a cut of the same known cost
+// wins, and among its cuts the fewest steps (the first set on a tie, in
+// sorted order; each cut is the one closest to the entry).
+func fewestCommands(g *graph.Graph, entry, jewel graph.NodeID, sel *Select, opts *Options, w *network, known int64, chosen []Way) []Way {
+	cmds := commandsOf(w)
+	if len(cmds) > maxCommands {
+		return chosen
+	}
+	for k := 1; k <= len(cmds); k++ {
+		var best []Way
+		bestSteps := -1
+		for _, set := range subsets(cmds, k) {
+			ws, steps, ok := cutWithin(g, entry, jewel, sel, opts, set, known)
+			if ok && (bestSteps < 0 || steps < bestSteps) {
+				best, bestSteps = ws, steps
+			}
+		}
+		if best != nil {
+			return best
+		}
+	}
+	return chosen
+}
+
+// commandsOf: the distinct resolving commands of a network, sorted.
+func commandsOf(w *network) []string {
+	var cmds []string
+	for _, u := range w.order {
+		for _, way := range u.ways {
+			for _, r := range way.Resolve {
+				if !slices.Contains(cmds, r.Command) {
+					cmds = append(cmds, r.Command)
+				}
+			}
+		}
+	}
+	slices.Sort(cmds)
+	return cmds
+}
+
+// cutWithin: the cut that may resolve only with these commands, if it is as
+// cheap in known changes as known, and its number of steps.
+func cutWithin(g *graph.Graph, entry, jewel graph.NodeID, sel *Select, opts *Options, set []string, known int64) ([]Way, int, bool) {
+	allowed := map[string]bool{}
+	for _, c := range set {
+		allowed[c] = true
+	}
+	net := newCutNetwork(g, entry, jewel, sel, opts, &exclude{commands: allowed})
+	cut, ok := net.solve()
+	if !ok {
+		return nil, 0, false
+	}
+	ws := net.chosen(cut)
+	cost, steps, _ := price(g, ws)
+	return ws, len(steps), cost == known
+}
+
+// subsets: the k-element subsets of xs, in order.
+func subsets(xs []string, k int) [][]string {
+	if k == 0 {
+		return [][]string{{}}
+	}
+	var out [][]string
+	for i := range xs {
+		for _, rest := range subsets(xs[i+1:], k-1) {
+			out = append(out, append([]string{xs[i]}, rest...))
+		}
+	}
+	return out
 }

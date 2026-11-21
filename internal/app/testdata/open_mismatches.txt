@@ -31,21 +31,9 @@
 #     in the notation and same-account update-trust, and matches every hand
 #     derivation of the group but one (I).
 #
-# I (Phase 6 review, scenario 22 vulnerable, CLAPA-PATH-002). The hand
-#     derivation gave ASSUMES role/app -> role/ops an identity side (role/app's
-#     sts:AssumeRole names role/ops: revoke, 3). role/ops's trust names
-#     role/app's ARN in the same account, and DESIGN.md 6 (the table "Same-
-#     account effect of a resource-based policy", IAM User Guide) says an
-#     implicit deny in the identity policy does not limit a same-account
-#     resource policy naming an IAM role ARN: the trust alone grants, so the
-#     identity side does not count (SCORING.md 4.1: a side counts only if the
-#     decision no longer grants without it). The edge's only side is the
-#     trust (revoke, 7); the engine's cut is CAN_ESCALATE[iam:modify-policy]
-#     role/ops (revoke, 4) and its alternative the IRSA trust (7, tied with
-#     the ASSUMES trust and closer to the entry). The derivation, not the
-#     engine, departs from the documented rule; waiting for a decision.
-22_direct_and_escalation/vulnerable: CLAPA-PATH-002 k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app -> arn:aws:s3:::acme-customer-pii: chokepoints: want ["ASSUMES arn:aws:iam::111122223333:role/app -\u003e arn:aws:iam::111122223333:role/ops"], got ["CAN_ESCALATE[iam:modify-policy] arn:aws:iam::111122223333:role/ops -\u003e arn:aws:iam::111122223333:role/ops"]
-22_direct_and_escalation/vulnerable: CLAPA-PATH-002 k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app -> arn:aws:s3:::acme-customer-pii: alternative_fix: want ["CAN_ESCALATE[iam:modify-policy] arn:aws:iam::111122223333:role/ops -\u003e arn:aws:iam::111122223333:role/ops"], got ["ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app -\u003e arn:aws:iam::111122223333:role/app"]
-22_direct_and_escalation/vulnerable: CLAPA-PATH-002 k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app -> arn:aws:s3:::acme-customer-pii: fix: want [{"edge":"ASSUMES arn:aws:iam::111122223333:role/app -\u003e arn:aws:iam::111122223333:role/ops","side":"identity","fix_kind":"revoke","cost":3}], got [{"edge":"CAN_ESCALATE[iam:modify-policy] arn:aws:iam::111122223333:role/ops -\u003e arn:aws:iam::111122223333:role/ops","side":"identity","fix_kind":"revoke","cost":4}]
-22_direct_and_escalation/vulnerable: CLAPA-PATH-002 k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app -> arn:aws:s3:::acme-customer-pii: other_side_fix: want [{"edge":"ASSUMES arn:aws:iam::111122223333:role/app -\u003e arn:aws:iam::111122223333:role/ops","side":"trust","fix_kind":"revoke","cost":7}], got []
-22_direct_and_escalation/vulnerable: CLAPA-PATH-002 k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app -> arn:aws:s3:::acme-customer-pii: alternative_fix_detail: want [{"edge":"CAN_ESCALATE[iam:modify-policy] arn:aws:iam::111122223333:role/ops -\u003e arn:aws:iam::111122223333:role/ops","side":"identity","fix_kind":"revoke","cost":4}], got [{"edge":"ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app -\u003e arn:aws:iam::111122223333:role/app","side":"trust","fix_kind":"revoke","cost":7}]
+# I (Phase 6 review, scenario 22 vulnerable, CLAPA-PATH-002) is resolved:
+#     the hand derivation was wrong (a same-account trust naming role/app's
+#     ARN grants alone, so ASSUMES role/app -> role/ops has no identity
+#     side); corrected in expected_source.py. The engine was right.
+#
+# No difference is open.
