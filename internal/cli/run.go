@@ -140,13 +140,7 @@ func inputs(f *scanFlags, cfg *config.Config) *app.Inputs {
 		in.TerraformPlans = append(in.TerraformPlans, app.PlanInput{Path: path, ConfigDir: dir})
 	}
 	for _, k := range f.k8sDirs {
-		dir, cluster, _ := strings.Cut(k, "=")
-		if cluster == "" && len(cfg.Clusters) > 0 {
-			cluster = cfg.Clusters[0].Name
-		}
-		if cluster == "" {
-			cluster = "default"
-		}
+		dir, cluster, _ := strings.Cut(k, "=") // "": resolved by app.Load
 		in.K8sDirs = append(in.K8sDirs, app.K8sDir{Path: dir, Cluster: cluster})
 	}
 	return in

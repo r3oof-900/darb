@@ -4,7 +4,7 @@
   "findings": [
     {
       "rule": "CLAPA-PATH-001",
-      "entry": "k8s:prod/monitoring/DaemonSet/node-monitor",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/monitoring/DaemonSet/node-monitor",
       "jewel": "arn:aws:s3:::acme-customer-exports",
       "path": [
         "NODE_ROLE arn:aws:iam::111122223333:role/eks-node",
@@ -34,14 +34,14 @@
     },
     {
       "rule": "CLAPA-POST-002",
-      "resource": "eks-nodegroup:prod/default",
+      "resource": "eks-nodegroup:arn:aws:eks:us-east-1:111122223333:cluster/prod/default",
       "score": 600,
       "severity": "high",
       "defaults_used": []
     },
     {
       "rule": "CLAPA-POST-007",
-      "resource": "k8s:prod//Namespace/monitoring",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/monitoring",
       "score": 245,
       "severity": "low",
       "defaults_used": []

@@ -14,12 +14,18 @@ import pathlib
 
 ACCT = "111122223333"
 ROLE = f"arn:aws:iam::{ACCT}:role/payments-api"
+# Phase 6 (cluster identity by ARN, DESIGN.md 5): a Kubernetes identity is
+# k8s:{cluster key}/{namespace}/{kind}/{name}, the key being the cluster's
+# ARN when its account and region are known. Every scenario with Kubernetes
+# input declares prod in 111122223333, us-east-1 in its clapa.yaml, so its
+# key is this ARN; it is derived from clapa.yaml, not read from the tool.
+PROD = f"arn:aws:eks:us-east-1:{ACCT}:cluster/prod"
 PII = "arn:aws:s3:::acme-customer-pii"
 PII_KEY = f"arn:aws:kms:us-east-1:{ACCT}:key/tf-aws_kms_key.pii"
 RECEIPTS_KEY = f"arn:aws:kms:us-east-1:{ACCT}:key/tf-aws_kms_key.receipts"
-API = "k8s:prod/payments/Deployment/api"
-SA_API = "k8s:prod/payments/ServiceAccount/api"
-NS_PAYMENTS = "k8s:prod//Namespace/payments"
+API = f"k8s:{PROD}/payments/Deployment/api"
+SA_API = f"k8s:{PROD}/payments/ServiceAccount/api"
+NS_PAYMENTS = f"k8s:{PROD}//Namespace/payments"
 ROTATION_DEFAULT = "terraform.aws_kms_key.enable_key_rotation"
 S3_DEFAULT = "s3.default-encryption"
 AUTOMOUNT_DEFAULT = "k8s.automountServiceAccountToken"
@@ -145,18 +151,18 @@ for v in ("vulnerable", "fixed"):
 # workload. tools/debug runs as tools/default, not exposed (exposure 400):
 # likelihood 400 x 810 = 324; 324 x 900 = 291, medium.
 # CLAPA-POST-001: base high 600, confidence high: 600, high.
-NS_TOOLS = "k8s:prod//Namespace/tools"
+NS_TOOLS = f"k8s:{PROD}//Namespace/tools"
 for n, row in (("04_wildcard_sub", 4), ("05_aud_only", 5)):
     cut, alt = decrypt_cut(ROLE, PII_KEY, PII)
-    debug = path_finding("CLAPA-PATH-001", "k8s:prod/tools/Deployment/debug", PII,
-                         ["RUNS_AS k8s:prod/tools/ServiceAccount/default", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
+    debug = path_finding("CLAPA-PATH-001", f"k8s:{PROD}/tools/Deployment/debug", PII,
+                         [f"RUNS_AS k8s:{PROD}/tools/ServiceAccount/default", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
                          291, "medium", cut, alt, defaults=IRSA_DEFAULTS, **pii_decrypt_fixes(cut, alt))
     E[f"{n}/vulnerable"] = {"derived_from": f"13.2 row {row}",
                             "findings": [classic(), debug, posture("CLAPA-POST-001", ROLE, 600, "high"),
                                          no_default_deny(NS_PAYMENTS), no_default_deny(NS_TOOLS)]}
     E[f"{n}/fixed"] = {"derived_from": f"13.2 row {row} fixed: :sub pinned to payments/api",
                        "findings": [classic(), no_default_deny(NS_PAYMENTS), no_default_deny(NS_TOOLS)],
-                       "absent": [{"rule": "CLAPA-PATH-001", "entry": "k8s:prod/tools/Deployment/debug", "jewel": PII},
+                       "absent": [{"rule": "CLAPA-PATH-001", "entry": f"k8s:{PROD}/tools/Deployment/debug", "jewel": PII},
                                   {"rule": "CLAPA-POST-001", "resource": ROLE}]}
 
 # 4b - added in the Phase 4 review: a service account without annotation
@@ -166,12 +172,12 @@ for n, row in (("04_wildcard_sub", 4), ("05_aud_only", 5)):
 # 3 edges (810): 324; 324 x 900 = 291, medium. The token is mounted by
 # default; the OIDC provider is not in the input, so its audience is the
 # documented sts.amazonaws.com.
-BUILDER = "k8s:prod/tools/Deployment/builder"
-NS_TOOLS_4B = "k8s:prod//Namespace/tools"
+BUILDER = f"k8s:{PROD}/tools/Deployment/builder"
+NS_TOOLS_4B = f"k8s:{PROD}//Namespace/tools"
 cut, alt = decrypt_cut(ROLE, PII_KEY, PII)
 E["04b_create_pods_wildcard/vulnerable"] = {"derived_from": "13.2 row 4b (Phase 4 review)", "findings": [
     path_finding("CLAPA-PATH-002", BUILDER, PII,
-                 ["CAN_ESCALATE k8s:prod/tools/ServiceAccount/builder", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
+                 [f"CAN_ESCALATE k8s:{PROD}/tools/ServiceAccount/builder", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
                  291, "medium", cut, alt, defaults=[OIDC_DEFAULT, AUTOMOUNT_DEFAULT], **pii_decrypt_fixes(cut, alt)),
     posture("CLAPA-POST-001", ROLE, 600, "high"),
     posture("CLAPA-POST-004", BUILDER, 350, "medium", [AUTOMOUNT_DEFAULT]),
@@ -223,8 +229,8 @@ E["07_passrole_lambda/fixed"] = {"derived_from": "13.2 row 7 fixed: PassRole sco
 # 400 x 729 = 291; 291 x 900 = 261, medium.
 # The api workload's own read of PII (scenario 1 shape, 729) is in both variants.
 # CLAPA-POST-004 on ci-runner: base medium 350, confidence high: 350, medium.
-CI = "k8s:prod/payments/Deployment/ci-runner"
-SA_CI = "k8s:prod/payments/ServiceAccount/ci"
+CI = f"k8s:{PROD}/payments/Deployment/ci-runner"
+SA_CI = f"k8s:{PROD}/payments/ServiceAccount/ci"
 cut, alt = decrypt_cut(ROLE, PII_KEY, PII)
 E["08_rbac_create_pods/vulnerable"] = {"derived_from": "13.2 row 8", "findings": [
     classic(),
@@ -244,20 +250,20 @@ E["08_rbac_create_pods/fixed"] = {"derived_from": "13.2 row 8 fixed: get/list/wa
 # CLAPA-POST-002: base high 600: high.
 NODE = f"arn:aws:iam::{ACCT}:role/eks-node"
 EXPORTS = "arn:aws:s3:::acme-customer-exports"
-NS_MON = "k8s:prod//Namespace/monitoring"
+NS_MON = f"k8s:{PROD}//Namespace/monitoring"
 E["09_hostnetwork_imds/vulnerable"] = {"derived_from": "13.2 row 9", "findings": [
-    path_finding("CLAPA-PATH-001", "k8s:prod/monitoring/DaemonSet/node-monitor", EXPORTS,
+    path_finding("CLAPA-PATH-001", f"k8s:{PROD}/monitoring/DaemonSet/node-monitor", EXPORTS,
                  [f"NODE_ROLE {NODE}", f"CAN_READ_PLAINTEXT {EXPORTS}"], 291, "medium",
                  [f"CAN_READ {NODE} -> {EXPORTS}"], defaults=[S3_DEFAULT],
                  # The node role grants s3:GetObject on "*": broad, narrow, identity, 1.
                  # The exports bucket has no policy and no KMS key: no other side, no alternative.
                  fix=[step(f"CAN_READ {NODE} -> {EXPORTS}", "identity", "narrow", 1)], other_side=[], alternative_detail=[]),
-    posture("CLAPA-POST-002", "eks-nodegroup:prod/default", 600, "high"),
+    posture("CLAPA-POST-002", f"eks-nodegroup:{PROD}/default", 600, "high"),
     no_default_deny(NS_MON)]}
 E["09_hostnetwork_imds/fixed"] = {"derived_from": "13.2 row 9 fixed: IMDSv2 required, hop limit 1, no hostNetwork",
                                   "findings": [no_default_deny(NS_MON)],
                                   "absent": [{"rule": "CLAPA-PATH-001", "jewel": EXPORTS},
-                                             {"rule": "CLAPA-POST-002", "resource": "eks-nodegroup:prod/default"}]}
+                                             {"rule": "CLAPA-POST-002", "resource": f"eks-nodegroup:{PROD}/default"}]}
 
 # 10 - decrypt only from a key policy with aws:PrincipalOrgID, org not configured:
 # UNKNOWN, unconfirmed, confidence low (400): 1000 x 810 = 810; 810 x 400 = 324;
@@ -304,11 +310,11 @@ E["12_public_bucket/fixed"] = {"derived_from": "13.2 row 12 fixed: Block Public 
 # Static: role names unresolved -> UNKNOWN, confidence low:
 # 324 x 400 = 129; 129 x 900 = 116, low; exit 3 at default tolerance (the
 # unconfirmed findings are below the default --fail-on high).
-NS_ANALYTICS = "k8s:prod//Namespace/analytics"
+NS_ANALYTICS = f"k8s:{PROD}//Namespace/analytics"
 def reader(name, static=False):
     role = f"arn:aws:iam::{ACCT}:role/reader-" + ("${clapa:unresolved:each.value}" if static else name)
-    return path_finding("CLAPA-PATH-001", f"k8s:prod/analytics/CronJob/{name}", PII,
-                        [f"RUNS_AS k8s:prod/analytics/ServiceAccount/{name}", f"ASSUMES {role}", f"CAN_READ_PLAINTEXT {PII}"],
+    return path_finding("CLAPA-PATH-001", f"k8s:{PROD}/analytics/CronJob/{name}", PII,
+                        [f"RUNS_AS k8s:{PROD}/analytics/ServiceAccount/{name}", f"ASSUMES {role}", f"CAN_READ_PLAINTEXT {PII}"],
                         116 if static else 291, "low" if static else "medium", [f"CAN_READ {role} -> {PII}"],
                         confirmed=not static, confidence="low" if static else "high", defaults=IRSA_DEFAULTS,
                         # s3:GetObject on "arn:aws:s3:::${var.bucket}/*": the plan resolves it
@@ -337,8 +343,8 @@ for v, why in (("vulnerable", "13.2 row 13 (static mode)"),
 # documented audience defaults.
 def own(acct, sa):
     role, bucket = f"arn:aws:iam::{acct}:role/app", f"arn:aws:s3:::data-{acct}"
-    return path_finding("CLAPA-PATH-001", f"k8s:prod/apps/Deployment/{sa}", bucket,
-                        [f"RUNS_AS k8s:prod/apps/ServiceAccount/{sa}", f"ASSUMES {role}", f"CAN_READ_PLAINTEXT {bucket}"],
+    return path_finding("CLAPA-PATH-001", f"k8s:{PROD}/apps/Deployment/{sa}", bucket,
+                        [f"RUNS_AS k8s:{PROD}/apps/ServiceAccount/{sa}", f"ASSUMES {role}", f"CAN_READ_PLAINTEXT {bucket}"],
                         291, "medium", [f"CAN_READ {role} -> {bucket}"], defaults=IRSA_DEFAULTS,
                         # The inline policy "data" grants s3:GetObject on "arn:aws:s3:::data-<acct>/*":
                         # explicit, revoke, identity, 3. SSE-S3, no bucket policy: nothing else.
@@ -346,14 +352,14 @@ def own(acct, sa):
 NO_CROSSING = [
     {"from": f"arn:aws:iam::{ACCT}:role/app", "to": f"arn:aws:s3:::data-{B}"},
     {"from": f"arn:aws:iam::{B}:role/app", "to": f"arn:aws:s3:::data-{ACCT}"},
-    {"from": "k8s:prod/apps/ServiceAccount/app-a", "to": f"arn:aws:iam::{B}:role/app"},
-    {"from": "k8s:prod/apps/ServiceAccount/app-b", "to": f"arn:aws:iam::{ACCT}:role/app"},
+    {"from": f"k8s:{PROD}/apps/ServiceAccount/app-a", "to": f"arn:aws:iam::{B}:role/app"},
+    {"from": f"k8s:{PROD}/apps/ServiceAccount/app-b", "to": f"arn:aws:iam::{ACCT}:role/app"},
 ]
 CROSS_ABSENT = [
-    {"rule": "CLAPA-PATH-001", "entry": "k8s:prod/apps/Deployment/app-a", "jewel": f"arn:aws:s3:::data-{B}"},
-    {"rule": "CLAPA-PATH-001", "entry": "k8s:prod/apps/Deployment/app-b", "jewel": f"arn:aws:s3:::data-{ACCT}"},
+    {"rule": "CLAPA-PATH-001", "entry": f"k8s:{PROD}/apps/Deployment/app-a", "jewel": f"arn:aws:s3:::data-{B}"},
+    {"rule": "CLAPA-PATH-001", "entry": f"k8s:{PROD}/apps/Deployment/app-b", "jewel": f"arn:aws:s3:::data-{ACCT}"},
 ]
-NS_APPS = "k8s:prod//Namespace/apps"
+NS_APPS = f"k8s:{PROD}//Namespace/apps"
 E["14_same_names_two_accounts/vulnerable"] = {"derived_from": "13.2 row 14 (entries added in the Phase 4 review)", "distinct_fingerprints": True,
                                               "findings": [own(ACCT, "app-a"), own(B, "app-b"), no_default_deny(NS_APPS)],
                                               "absent": CROSS_ABSENT, "no_edges": NO_CROSSING}
@@ -361,6 +367,52 @@ E["14_same_names_two_accounts/fixed"] = {"derived_from": "13.2 row 14 fixed: acc
                                          "findings": [own(ACCT, "app-a"), no_default_deny(NS_APPS)],
                                          "absent": CROSS_ABSENT + [{"rule": "CLAPA-PATH-001", "jewel": f"arn:aws:s3:::data-{B}"}],
                                          "no_edges": NO_CROSSING}
+
+# 18 - two clusters named prod in one account, in eu-west-1 and us-east-1
+# (Phase 6: cluster identity by ARN). Each has the service account apps/app,
+# annotated with a different role: app-eu trusts the eu-west-1 cluster's
+# OIDC issuer, app-us the us-east-1 one, each for
+# system:serviceaccount:apps:app; each role reads its own region's SSE-S3
+# PII bucket. The two clusters' objects have different identities (their
+# keys are their ARNs), so: two paths, nothing crossing between the
+# clusters, and no coverage gap (exit 0: both paths are medium, below
+# --fail-on high). Same arithmetic as scenario 14: not exposed (400), 3
+# edges (810): 324; x 900 = 291, medium; the cut is the explicit read
+# (revoke, identity, 3); IRSA relies on the documented audience defaults.
+EUW1 = f"arn:aws:eks:eu-west-1:{ACCT}:cluster/prod"
+USE1 = f"arn:aws:eks:us-east-1:{ACCT}:cluster/prod"
+
+
+def regional(cluster, region):
+    role, bucket = f"arn:aws:iam::{ACCT}:role/app-{region}", f"arn:aws:s3:::data-{region}"
+    return path_finding("CLAPA-PATH-001", f"k8s:{cluster}/apps/Deployment/app", bucket,
+                        [f"RUNS_AS k8s:{cluster}/apps/ServiceAccount/app", f"ASSUMES {role}", f"CAN_READ_PLAINTEXT {bucket}"],
+                        291, "medium", [f"CAN_READ {role} -> {bucket}"], defaults=IRSA_DEFAULTS,
+                        # The inline policy grants s3:GetObject on "arn:aws:s3:::data-<region>/*":
+                        # explicit, revoke, identity, 3. SSE-S3, no bucket policy: nothing else.
+                        fix=[step(f"CAN_READ {role} -> {bucket}", "identity", "revoke", 3)], other_side=[], alternative_detail=[])
+
+
+TWO_PROD_NO_CROSSING = [
+    {"from": f"k8s:{EUW1}/apps/ServiceAccount/app", "to": f"arn:aws:iam::{ACCT}:role/app-us"},
+    {"from": f"k8s:{USE1}/apps/ServiceAccount/app", "to": f"arn:aws:iam::{ACCT}:role/app-eu"},
+    {"from": f"arn:aws:iam::{ACCT}:role/app-eu", "to": "arn:aws:s3:::data-us"},
+    {"from": f"arn:aws:iam::{ACCT}:role/app-us", "to": "arn:aws:s3:::data-eu"},
+]
+TWO_PROD_CROSS_ABSENT = [
+    {"rule": "CLAPA-PATH-001", "entry": f"k8s:{EUW1}/apps/Deployment/app", "jewel": "arn:aws:s3:::data-us"},
+    {"rule": "CLAPA-PATH-001", "entry": f"k8s:{USE1}/apps/Deployment/app", "jewel": "arn:aws:s3:::data-eu"},
+]
+TWO_PROD_NS = [no_default_deny(f"k8s:{EUW1}//Namespace/apps"), no_default_deny(f"k8s:{USE1}//Namespace/apps")]
+E["18_same_cluster_name_two_regions/vulnerable"] = {
+    "derived_from": "Phase 6 instruction: two clusters named prod in two regions", "distinct_fingerprints": True, "exit_code": 0,
+    "findings": [regional(EUW1, "eu"), regional(USE1, "us")] + TWO_PROD_NS,
+    "absent": TWO_PROD_CROSS_ABSENT, "no_edges": TWO_PROD_NO_CROSSING}
+E["18_same_cluster_name_two_regions/fixed"] = {
+    "derived_from": "Phase 6 instruction, fixed: the us-east-1 role can only list its bucket", "exit_code": 0,
+    "findings": [regional(EUW1, "eu")] + TWO_PROD_NS,
+    "absent": TWO_PROD_CROSS_ABSENT + [{"rule": "CLAPA-PATH-001", "jewel": "arn:aws:s3:::data-us"}],
+    "no_edges": TWO_PROD_NO_CROSSING}
 
 # 15 - empty input: exit 3, nothing collected, never "0 findings".
 E["15_empty_input/vulnerable"] = {"derived_from": "13.2 row 15", "exit_code": 3, "collected": 0, "findings": []}

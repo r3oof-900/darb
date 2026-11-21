@@ -164,13 +164,14 @@ func (c *Config) validateAccess(add func(string, ...any)) {
 func (c *Config) validateClusters(add func(string, ...any)) {
 	seen := map[string]bool{}
 	for i, cl := range c.Clusters {
+		key := cl.Key(c.Terraform.Partition)
 		switch {
 		case cl.Name == "":
 			add("clusters[%d]: name is required", i)
-		case seen[cl.Name]:
-			add("clusters[%d]: duplicate name %q", i, cl.Name)
+		case seen[key]:
+			add("clusters[%d]: duplicate cluster %q (two clusters of one name need different accounts or regions)", i, key)
 		}
-		seen[cl.Name] = true
+		seen[key] = true
 		if cl.Account != "" && !arn.IsAccountID(cl.Account) {
 			add("clusters[%d]: account %q is not a 12-digit account ID", i, cl.Account)
 		}
@@ -178,6 +179,12 @@ func (c *Config) validateClusters(add func(string, ...any)) {
 			add("clusters[%d]: oidc_issuer must start with https://", i)
 		}
 	}
+}
+
+// Key is the cluster's identity (model.ClusterKey): its ARN when the
+// account and region are set, otherwise its name.
+func (cl *Cluster) Key(partition string) string {
+	return model.ClusterKey(model.EKSClusterARN(partition, cl.Region, cl.Account, cl.Name), cl.Name)
 }
 
 // Cluster returns the cluster with the given name.

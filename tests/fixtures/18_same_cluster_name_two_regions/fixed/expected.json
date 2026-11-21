@@ -1,0 +1,88 @@
+{
+  "format": "clapa-expected/v1",
+  "derived_from": "Phase 6 instruction, fixed: the us-east-1 role can only list its bucket",
+  "exit_code": 0,
+  "findings": [
+    {
+      "rule": "CLAPA-PATH-001",
+      "entry": "k8s:arn:aws:eks:eu-west-1:111122223333:cluster/prod/apps/Deployment/app",
+      "jewel": "arn:aws:s3:::data-eu",
+      "path": [
+        "RUNS_AS k8s:arn:aws:eks:eu-west-1:111122223333:cluster/prod/apps/ServiceAccount/app",
+        "ASSUMES arn:aws:iam::111122223333:role/app-eu",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::data-eu"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 291,
+      "severity": "medium",
+      "chokepoints": [
+        "CAN_READ arn:aws:iam::111122223333:role/app-eu -> arn:aws:s3:::data-eu"
+      ],
+      "alternative_fix": [],
+      "defaults_used": [
+        "eks.irsa.audience",
+        "eks.irsa.oidc-provider-audience"
+      ],
+      "fix": [
+        {
+          "edge": "CAN_READ arn:aws:iam::111122223333:role/app-eu -> arn:aws:s3:::data-eu",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 3
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": []
+    },
+    {
+      "rule": "CLAPA-POST-007",
+      "resource": "k8s:arn:aws:eks:eu-west-1:111122223333:cluster/prod//Namespace/apps",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": []
+    },
+    {
+      "rule": "CLAPA-POST-007",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/apps",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": []
+    }
+  ],
+  "absent": [
+    {
+      "rule": "CLAPA-PATH-001",
+      "entry": "k8s:arn:aws:eks:eu-west-1:111122223333:cluster/prod/apps/Deployment/app",
+      "jewel": "arn:aws:s3:::data-us"
+    },
+    {
+      "rule": "CLAPA-PATH-001",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app",
+      "jewel": "arn:aws:s3:::data-eu"
+    },
+    {
+      "rule": "CLAPA-PATH-001",
+      "jewel": "arn:aws:s3:::data-us"
+    }
+  ],
+  "no_edges": [
+    {
+      "from": "k8s:arn:aws:eks:eu-west-1:111122223333:cluster/prod/apps/ServiceAccount/app",
+      "to": "arn:aws:iam::111122223333:role/app-us"
+    },
+    {
+      "from": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app",
+      "to": "arn:aws:iam::111122223333:role/app-eu"
+    },
+    {
+      "from": "arn:aws:iam::111122223333:role/app-eu",
+      "to": "arn:aws:s3:::data-us"
+    },
+    {
+      "from": "arn:aws:iam::111122223333:role/app-us",
+      "to": "arn:aws:s3:::data-eu"
+    }
+  ],
+  "intended_access": []
+}

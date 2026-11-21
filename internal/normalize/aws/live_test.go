@@ -67,18 +67,21 @@ func TestFailedBucketPolicyIsUnknown(t *testing.T) {
 	}
 }
 
-// Two clusters with one name (two regions): the first is analysed, the
-// second is a visible gap, never a failed scan or a silent merge.
+// Two clusters with one name in two regions are two clusters: two keys
+// (their ARNs), each association on its own cluster, and no gap.
 func TestClustersWithTheSameName(t *testing.T) {
+	const euw1, use1 = "arn:aws:eks:eu-west-1:111122223333:cluster/prod", "arn:aws:eks:us-east-1:111122223333:cluster/prod"
 	inv, rec := build(t, &awsraw.Account{ID: "111122223333", Partition: "aws", Auth: &awsraw.AuthorizationDetails{}, Clusters: []*awsraw.Cluster{
-		{Region: "eu-west-1", Name: "prod", Arn: "arn:aws:eks:eu-west-1:111122223333:cluster/prod"},
-		{Region: "us-east-1", Name: "prod", Arn: "arn:aws:eks:us-east-1:111122223333:cluster/prod", PodIdentity: []awsraw.PodIdentityAssociation{{ClusterName: "prod"}}},
+		{Region: "eu-west-1", Name: "prod", Arn: euw1},
+		{Region: "us-east-1", Name: "prod", Arn: use1, PodIdentity: []awsraw.PodIdentityAssociation{{ClusterName: "prod", Namespace: "a", ServiceAccount: "s"}}},
 	}})
-	if len(inv.Clusters) != 1 || inv.Clusters[0].ARN != "arn:aws:eks:eu-west-1:111122223333:cluster/prod" || len(inv.PodIdentity) != 0 {
-		t.Fatalf("clusters %+v pod identity %d", inv.Clusters, len(inv.PodIdentity))
+	if len(inv.Clusters) != 2 || inv.Clusters[0].Key() != euw1 || inv.Clusters[1].Key() != use1 {
+		t.Fatalf("clusters %+v", inv.Clusters)
 	}
-	g := rec.Gaps()
-	if len(g) != 1 || g[0].Kind != coverage.KindUnsupported || g[0].Address != "arn:aws:eks:us-east-1:111122223333:cluster/prod" || !strings.Contains(g[0].Detail, "1 Pod Identity associations are not analysed") {
-		t.Fatalf("gaps %+v", g)
+	if len(inv.PodIdentity) != 1 || inv.PodIdentity[0].Cluster != use1 {
+		t.Fatalf("pod identity %+v", inv.PodIdentity)
+	}
+	if rec.Len() != 0 {
+		t.Fatalf("gaps %+v", rec.Gaps())
 	}
 }

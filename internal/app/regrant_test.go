@@ -82,7 +82,7 @@ func TestRegrantRemovesIdentitySide(t *testing.T) {
 		}
 	}
 	f = findingFor(a, "CLAPA-PATH-001", piiBucket)
-	if f == nil || len(f.Chokepoints) != 1 || f.Chokepoints[0] != "ASSUMES k8s:prod/payments/ServiceAccount/api -> "+apiRole {
+	if f == nil || len(f.Chokepoints) != 1 || f.Chokepoints[0] != "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api -> "+apiRole {
 		t.Fatalf("PutBucketPolicy + CreateGrant: the cut must be the hop into the role: %+v", f)
 	}
 }

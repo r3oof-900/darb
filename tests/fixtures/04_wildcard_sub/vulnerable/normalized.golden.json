@@ -4,7 +4,7 @@
   "clusters": [
     {
       "account": "111122223333",
-      "arn": "",
+      "arn": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
       "name": "prod",
       "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
       "region": "us-east-1",
@@ -16,19 +16,19 @@
     {
       "public": "unknown",
       "reason": "assume-compromised",
-      "workload": "k8s:prod/tools/Deployment/debug"
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/tools/Deployment/debug"
     },
     {
       "public": "true",
       "reason": "exposed:Service/LoadBalancer",
-      "workload": "k8s:prod/payments/Deployment/api"
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api"
     }
   ],
   "exposures": [
     {
       "public": "true",
       "via": "Service/LoadBalancer",
-      "workload": "k8s:prod/payments/Deployment/api"
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api"
     }
   ],
   "gaps": [],
@@ -102,19 +102,7 @@
     {
       "audience": "sts.amazonaws.com",
       "automount_token": "true",
-      "cluster": "prod",
-      "defaulted": [
-        "eks.irsa.audience",
-        "k8s.automountServiceAccountToken"
-      ],
-      "role_arn": "arn:aws:iam::111122223333:role/payments-api",
-      "source": "k8s/payments.yaml:6 (ServiceAccount/payments/api)",
-      "subject": "system:serviceaccount:payments:api"
-    },
-    {
-      "audience": "sts.amazonaws.com",
-      "automount_token": "true",
-      "cluster": "prod",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
       "defaulted": [
         "eks.irsa.audience",
         "k8s.automountServiceAccountToken"
@@ -122,6 +110,18 @@
       "role_arn": "arn:aws:iam::111122223333:role/tools-ci",
       "source": "k8s/tools.yaml:9 (ServiceAccount/tools/default)",
       "subject": "system:serviceaccount:tools:default"
+    },
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
+      "role_arn": "arn:aws:iam::111122223333:role/payments-api",
+      "source": "k8s/payments.yaml:6 (ServiceAccount/payments/api)",
+      "subject": "system:serviceaccount:payments:api"
     }
   ],
   "trusts": [
@@ -143,7 +143,7 @@
         "k8s.automountServiceAccountToken"
       ],
       "host_network": false,
-      "identity": "k8s:prod/tools/Deployment/debug",
+      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/tools/Deployment/debug",
       "privileged": false,
       "service_account": "default",
       "source": "k8s/tools.yaml:17 (Deployment/tools/debug)"
@@ -154,7 +154,7 @@
         "k8s.automountServiceAccountToken"
       ],
       "host_network": false,
-      "identity": "k8s:prod/payments/Deployment/api",
+      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
       "privileged": false,
       "service_account": "api",
       "source": "k8s/payments.yaml:14 (Deployment/payments/api)"

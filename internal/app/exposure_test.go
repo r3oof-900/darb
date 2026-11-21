@@ -68,7 +68,7 @@ func TestBroadGrantByReachability(t *testing.T) {
 		return "", nil
 	}
 	sev, ev := find(analyzeVariant(t, "06_role_chain_cross_account/vulnerable", nil))
-	if sev != "high" || !slices.Contains(ev, "reachable_from: [k8s:prod/payments/Deployment/api]") {
+	if sev != "high" || !slices.Contains(ev, "reachable_from: [k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api]") {
 		t.Errorf("reached: %s %v", sev, ev)
 	}
 	sev, ev = find(analyzeVariant(t, "06_role_chain_cross_account/fixed", nil))

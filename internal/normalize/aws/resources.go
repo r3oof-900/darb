@@ -2,7 +2,6 @@ package aws
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/r3oof-900/clapa/internal/collect/awsraw"
 	"github.com/r3oof-900/clapa/internal/coverage"
@@ -117,20 +116,19 @@ func (n *norm) buckets() {
 
 func (n *norm) clusters() {
 	for _, c := range n.acct.Clusters {
-		if n.b.Has(model.NewID("cluster", c.Name)) {
-			// Clusters are identified by name (clapa.yaml clusters[].name,
-			// --k8s DIR=CLUSTER); a second cluster of the same name in another
-			// region or account is not analysed (DESIGN.md 12.1).
-			n.gap(coverage.KindUnsupported, c.Arn, fmt.Sprintf(
-				"another cluster named %q is already in the scan; clusters are identified by name, so this one and its %d Pod Identity associations are not analysed",
-				c.Name, len(c.PodIdentity)))
-			continue
+		cluster := &model.Cluster{Name: c.Name, ARN: c.Arn, Account: n.acct.ID, Region: c.Region, OIDCIssuer: c.OIDCIssuer, Source: apiLoc(c.Arn, "eks:DescribeCluster")}
+		if cluster.ARN == "" {
+			cluster.ARN = model.EKSClusterARN(n.acct.Partition, c.Region, n.acct.ID, c.Name)
 		}
-		loc := apiLoc(c.Arn, "eks:DescribeCluster")
-		n.b.AddCluster(&model.Cluster{Name: c.Name, ARN: c.Arn, Account: n.acct.ID, Region: c.Region, OIDCIssuer: c.OIDCIssuer, Source: loc})
+		// The same cluster may come from another input (Terraform, another
+		// snapshot): one node; clusters of one name in two regions or
+		// accounts have two ARNs, so two nodes.
+		if !n.b.Has(model.NewID("cluster", cluster.Key())) {
+			n.b.AddCluster(cluster)
+		}
 		for _, a := range c.PodIdentity {
 			n.b.AddPodIdentity(&model.PodIdentityAssociation{
-				Cluster: a.ClusterName, Namespace: a.Namespace, ServiceAccount: a.ServiceAccount, RoleARN: a.RoleArn,
+				Cluster: cluster.Key(), Namespace: a.Namespace, ServiceAccount: a.ServiceAccount, RoleARN: a.RoleArn,
 				TargetRoleARN: a.TargetRoleArn, SessionTagsDisabled: optionalTri(a.DisableSessionTags),
 				Source: apiLoc(a.AssociationArn, "eks:DescribePodIdentityAssociation"),
 			})

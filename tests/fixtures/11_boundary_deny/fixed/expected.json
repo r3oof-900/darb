@@ -4,7 +4,7 @@
   "findings": [
     {
       "rule": "CLAPA-POST-007",
-      "resource": "k8s:prod//Namespace/payments",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/payments",
       "score": 245,
       "severity": "low",
       "defaults_used": []

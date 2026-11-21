@@ -1,0 +1,8 @@
+version: 1
+# Two EKS clusters named prod in one account, in two regions: their keys
+# are their ARNs, so the objects of one never collide with the other's.
+# Kubernetes manifests: k8s/<region>/ (the scenario runner passes
+# --k8s k8s/<region>=<that region's cluster ARN>).
+clusters:
+  - {name: prod, account: "111122223333", region: eu-west-1, oidc_issuer: "https://oidc.eks.eu-west-1.amazonaws.com/id/EUW1D539D4633E53DE1B716D3041E"}
+  - {name: prod, account: "111122223333", region: us-east-1, oidc_issuer: "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E"}

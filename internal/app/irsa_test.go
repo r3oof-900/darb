@@ -109,7 +109,7 @@ func TestPodIdentityThroughEvaluator(t *testing.T) {
 			const role = "arn:aws:iam::111122223333:role/payments-api"
 			trust := trustOf(t, inv, role)
 			cluster := clusterNamed(t, inv, "prod")
-			agent := access.AgentInstalled(inv, "prod")
+			agent := access.AgentInstalled(inv, cluster.Key())
 			if agent != model.True {
 				t.Fatalf("the agent add-on is in the input: %s", agent)
 			}

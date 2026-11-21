@@ -16,7 +16,7 @@
     {
       "public": "unknown",
       "reason": "assume-compromised",
-      "workload": "k8s:prod/monitoring/DaemonSet/node-monitor"
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/monitoring/DaemonSet/node-monitor"
     }
   ],
   "exposures": [],
@@ -25,7 +25,7 @@
   "network_policies": [],
   "node_groups": [
     {
-      "cluster": "prod",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
       "hop_limit": 2,
       "http_endpoint": "enabled",
       "http_tokens": "optional",
@@ -80,7 +80,7 @@
     {
       "audience": "sts.amazonaws.com",
       "automount_token": "true",
-      "cluster": "prod",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
       "defaulted": [
         "eks.irsa.audience",
         "k8s.automountServiceAccountToken"
@@ -109,7 +109,7 @@
         "k8s.automountServiceAccountToken"
       ],
       "host_network": true,
-      "identity": "k8s:prod/monitoring/DaemonSet/node-monitor",
+      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/monitoring/DaemonSet/node-monitor",
       "privileged": false,
       "service_account": "default",
       "source": "k8s/monitor.yaml:6 (DaemonSet/monitoring/node-monitor)"

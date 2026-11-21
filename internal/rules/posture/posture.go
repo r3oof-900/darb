@@ -172,8 +172,8 @@ func probeAllowed(in *rules.Input, t *model.TrustRelationship, role *model.Princ
 		if c.OIDCIssuer == "" {
 			continue
 		}
-		for _, ns := range probeNamespaces(in.Inventory, c.Name) {
-			probe := &model.ServiceAccount{Cluster: c.Name, Namespace: ns, Name: ProbeSubject, Audience: "sts.amazonaws.com"}
+		for _, ns := range probeNamespaces(in.Inventory, c.Key()) {
+			probe := &model.ServiceAccount{Cluster: c.Key(), Namespace: ns, Name: ProbeSubject, Audience: "sts.amazonaws.com"}
 			req := access.IRSARequest(probe, c, role.Identity(), role.Account(), in.Partition)
 			if d := eval.Evaluate(req, access.TrustPolicySet(t.Policy())); d.Verdict == eval.Allow {
 				return probe.SubjectString()

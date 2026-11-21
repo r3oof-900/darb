@@ -23,7 +23,7 @@ import (
 func IRSARequest(sa *model.ServiceAccount, cluster *model.Cluster, roleARN, roleAccount, partition string) *eval.Request {
 	issuer := strings.TrimSuffix(strings.TrimPrefix(cluster.OIDCIssuer, "https://"), "/")
 	in := &condition.Input{Default: condition.StateUnknown, Present: map[string][]string{}}
-	provider := model.UnresolvedPlaceholder("oidc_issuer_of_cluster_" + cluster.Name)
+	provider := model.UnresolvedPlaceholder("oidc_issuer_of_cluster_" + strings.NewReplacer(":", "_", "/", "_").Replace(cluster.Key()))
 	if issuer != "" {
 		provider = "arn:" + partition + ":iam::" + roleAccount + ":oidc-provider/" + issuer
 		in.Present[issuer+":sub"] = []string{sa.SubjectString()}

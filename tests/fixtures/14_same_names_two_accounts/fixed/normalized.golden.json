@@ -4,7 +4,7 @@
   "clusters": [
     {
       "account": "111122223333",
-      "arn": "",
+      "arn": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
       "name": "prod",
       "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
       "region": "us-east-1",
@@ -16,12 +16,12 @@
     {
       "public": "unknown",
       "reason": "assume-compromised",
-      "workload": "k8s:prod/apps/Deployment/app-a"
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app-b"
     },
     {
       "public": "unknown",
       "reason": "assume-compromised",
-      "workload": "k8s:prod/apps/Deployment/app-b"
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app-a"
     }
   ],
   "exposures": [],
@@ -105,19 +105,7 @@
     {
       "audience": "sts.amazonaws.com",
       "automount_token": "true",
-      "cluster": "prod",
-      "defaulted": [
-        "eks.irsa.audience",
-        "k8s.automountServiceAccountToken"
-      ],
-      "role_arn": "arn:aws:iam::111122223333:role/app",
-      "source": "k8s/apps.yaml:6 (ServiceAccount/apps/app-a)",
-      "subject": "system:serviceaccount:apps:app-a"
-    },
-    {
-      "audience": "sts.amazonaws.com",
-      "automount_token": "true",
-      "cluster": "prod",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
       "defaulted": [
         "eks.irsa.audience",
         "k8s.automountServiceAccountToken"
@@ -125,6 +113,18 @@
       "role_arn": "arn:aws:iam::444455556666:role/app",
       "source": "k8s/apps.yaml:33 (ServiceAccount/apps/app-b)",
       "subject": "system:serviceaccount:apps:app-b"
+    },
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
+      "role_arn": "arn:aws:iam::111122223333:role/app",
+      "source": "k8s/apps.yaml:6 (ServiceAccount/apps/app-a)",
+      "subject": "system:serviceaccount:apps:app-a"
     }
   ],
   "trusts": [
@@ -156,10 +156,10 @@
         "k8s.automountServiceAccountToken"
       ],
       "host_network": false,
-      "identity": "k8s:prod/apps/Deployment/app-a",
+      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app-b",
       "privileged": false,
-      "service_account": "app-a",
-      "source": "k8s/apps.yaml:14 (Deployment/apps/app-a)"
+      "service_account": "app-b",
+      "source": "k8s/apps.yaml:41 (Deployment/apps/app-b)"
     },
     {
       "automount_token": "true",
@@ -167,10 +167,10 @@
         "k8s.automountServiceAccountToken"
       ],
       "host_network": false,
-      "identity": "k8s:prod/apps/Deployment/app-b",
+      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app-a",
       "privileged": false,
-      "service_account": "app-b",
-      "source": "k8s/apps.yaml:41 (Deployment/apps/app-b)"
+      "service_account": "app-a",
+      "source": "k8s/apps.yaml:14 (Deployment/apps/app-a)"
     }
   ]
 }

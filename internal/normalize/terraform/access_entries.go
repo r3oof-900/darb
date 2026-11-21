@@ -14,7 +14,7 @@ import (
 // ClusterRoleBinding objects ... that specify the group name as a subject").
 func (n *norm) accessEntry(r *tfraw.Resource) {
 	get := func(k string) string { s, _ := n.str(r.Root, attr(r, k)); return s }
-	m := &model.IdentityMapping{Cluster: get("cluster_name"), PrincipalARN: get("principal_arn"), Username: get("user_name")}
+	m := &model.IdentityMapping{Cluster: n.clusterKey(r, get("cluster_name")), PrincipalARN: get("principal_arn"), Username: get("user_name")}
 	if v := attr(r, "kubernetes_groups"); v != nil && v.Kind != tfraw.KNull && !v.Computed() {
 		for _, item := range listItems(v) {
 			g, _ := n.str(r.Root, item)
@@ -55,7 +55,7 @@ func (n *norm) accessPolicy(r *tfraw.Resource) {
 	}
 	for _, ns := range namespaces {
 		n.b.AddRBAC(&model.RBACGrant{
-			Cluster: get("cluster_name"), Namespace: ns, SubjectKind: model.SubjectIAMPrincipal, SubjectName: get("principal_arn"),
+			Cluster: n.clusterKey(r, get("cluster_name")), Namespace: ns, SubjectKind: model.SubjectIAMPrincipal, SubjectName: get("principal_arn"),
 			Rules: rules, Unresolved: unresolved, Source: src(r),
 		})
 	}

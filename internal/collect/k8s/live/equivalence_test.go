@@ -32,9 +32,10 @@ func TestLiveMatchesManifests(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	dirs = clusterDirs(dirs)
 	checked := 0
 	for _, dir := range dirs {
-		name := filepath.Base(filepath.Dir(filepath.Dir(dir))) + "/" + filepath.Base(filepath.Dir(dir))
+		name, _ := filepath.Rel(filepath.Join("..", "..", "..", "..", "tests", "fixtures"), dir)
 		if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
 			continue
 		}
@@ -60,6 +61,31 @@ func TestLiveMatchesManifests(t *testing.T) {
 	if checked < 15 {
 		t.Fatalf("only %d scenarios compared", checked)
 	}
+}
+
+// clusterDirs: a k8s/ directory holding only k8s/<region>/ directories
+// (scenario 18) is one cluster per directory.
+func clusterDirs(dirs []string) []string {
+	var out []string
+	for _, d := range dirs {
+		entries, err := os.ReadDir(d)
+		if err != nil {
+			continue
+		}
+		var subs []string
+		for _, e := range entries {
+			if !e.IsDir() {
+				subs = nil
+				break
+			}
+			subs = append(subs, filepath.Join(d, e.Name()))
+		}
+		if len(subs) == 0 {
+			out = append(out, d)
+		}
+		out = append(out, subs...)
+	}
+	return out
 }
 
 // serve returns the objects an API server would hold: Secrets as their

@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apps
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app
+  namespace: apps
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/app-us
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+  namespace: apps
+spec:
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+    spec:
+      serviceAccountName: app
+      containers:
+        - name: app
+          image: registry.example.com/apps/app:1

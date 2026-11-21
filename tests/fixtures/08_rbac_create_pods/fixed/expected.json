@@ -4,10 +4,10 @@
   "findings": [
     {
       "rule": "CLAPA-PATH-001",
-      "entry": "k8s:prod/payments/Deployment/api",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
       "jewel": "arn:aws:s3:::acme-customer-pii",
       "path": [
-        "RUNS_AS k8s:prod/payments/ServiceAccount/api",
+        "RUNS_AS k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api",
         "ASSUMES arn:aws:iam::111122223333:role/payments-api",
         "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
       ],
@@ -52,7 +52,7 @@
     },
     {
       "rule": "CLAPA-POST-004",
-      "resource": "k8s:prod/payments/Deployment/ci-runner",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner",
       "score": 350,
       "severity": "medium",
       "defaults_used": [
@@ -61,7 +61,7 @@
     },
     {
       "rule": "CLAPA-POST-007",
-      "resource": "k8s:prod//Namespace/payments",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/payments",
       "score": 245,
       "severity": "low",
       "defaults_used": []
@@ -70,7 +70,7 @@
   "absent": [
     {
       "rule": "CLAPA-PATH-002",
-      "entry": "k8s:prod/payments/Deployment/ci-runner",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner",
       "jewel": "arn:aws:s3:::acme-customer-pii"
     }
   ],

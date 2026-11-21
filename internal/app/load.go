@@ -2,8 +2,11 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path"
+	"slices"
+	"strings"
 
 	"github.com/r3oof-900/clapa/internal/access"
 	"github.com/r3oof-900/clapa/internal/classify"
@@ -60,6 +63,9 @@ type Loaded struct {
 	Inventory   *model.Inventory
 	EntryPoints []classify.EntryPoint
 	Gaps        []coverage.Gap
+	// Intended is clapa.yaml's intended_access with every Kubernetes
+	// principal written with its cluster key (resolveIdentities).
+	Intended []config.IntendedAccess
 	// Notes say what a scan of AWS could not decide (managed policies
 	// missing from the snapshot, services whose coverage is incomplete).
 	Notes []access.Note
@@ -75,7 +81,9 @@ func Load(ctx context.Context, in *Inputs) (*Loaded, error) {
 		return nil, err
 	}
 	l := &loader{in: in, mp: mp, rec: &coverage.Recorder{}, b: normalize.NewBuilder()}
-	for _, step := range []func(context.Context) error{l.terraform, l.kubernetes, l.aws} {
+	// Kubernetes last: its cluster names resolve against the clusters
+	// Terraform, AWS and clapa.yaml describe (clusterKey).
+	for _, step := range []func(context.Context) error{l.terraform, l.aws, l.kubernetes} {
 		if serr := step(ctx); serr != nil {
 			return nil, serr
 		}
@@ -86,7 +94,12 @@ func Load(ctx context.Context, in *Inputs) (*Loaded, error) {
 		return nil, fmt.Errorf("normalize: %w", err)
 	}
 	inv.Resources = classify.CrownJewels(inv.Resources, jewelRules(in.Config))
+	intended, err := resolveIdentities(inv, in.Config)
+	if err != nil {
+		return nil, err
+	}
 	return &Loaded{
+		Intended:  intended,
 		Inventory: inv, EntryPoints: classify.EntryPoints(inv, *in.Config.ThreatModel.AssumeCompromised),
 		Gaps: l.rec.Gaps(), Notes: l.notes, Collected: l.collected,
 	}, nil
@@ -126,18 +139,26 @@ func (l *loader) terraform(ctx context.Context) error {
 
 func (l *loader) kubernetes(ctx context.Context) error {
 	for _, k := range l.in.K8sLive {
-		objs, err := live.Collect(ctx, &live.Options{Cluster: k.Cluster, Clients: k.Clients}, l.rec)
+		key, err := l.clusterKey(k.Cluster)
+		if err != nil {
+			return err
+		}
+		objs, err := live.Collect(ctx, &live.Options{Cluster: key, Clients: k.Clients}, l.rec)
 		if err != nil {
 			return err
 		}
 		normk8s.Normalize(objs, l.b, l.rec)
 		l.collected += len(objs.Items)
 		if k.Clients.Insecure {
-			l.notes = append(l.notes, insecureNote(k.Cluster))
+			l.notes = append(l.notes, insecureNote(key))
 		}
 	}
 	for _, d := range l.in.K8sDirs {
-		objs, err := manifests.Collect(ctx, input(l.in, d.Path), &manifests.Options{Cluster: d.Cluster}, l.rec)
+		key, err := l.clusterKey(d.Cluster)
+		if err != nil {
+			return err
+		}
+		objs, err := manifests.Collect(ctx, input(l.in, d.Path), &manifests.Options{Cluster: key}, l.rec)
 		if err != nil {
 			return err
 		}
@@ -145,6 +166,49 @@ func (l *loader) kubernetes(ctx context.Context) error {
 		l.collected += len(objs.Items)
 	}
 	return nil
+}
+
+// ErrAmbiguousCluster is returned when a cluster name given for
+// Kubernetes input matches several clusters.
+var ErrAmbiguousCluster = errors.New("ambiguous cluster")
+
+// clusterKey resolves the cluster a Kubernetes input names (--k8s
+// DIR=CLUSTER, --live-k8s CONTEXT=CLUSTER) to its key (model.ClusterKey):
+// an ARN is the key; a name is looked up in clapa.yaml and in the clusters
+// Terraform and AWS describe, and must match one cluster (two clusters of
+// one name need the ARN); a name nothing describes is its own key. No name
+// means the one configured cluster, or DefaultClusterName.
+func (l *loader) clusterKey(name string) (string, error) {
+	cfg := l.in.Config
+	if name == "" {
+		switch len(cfg.Clusters) {
+		case 0:
+			return model.DefaultClusterName, nil
+		case 1:
+			name = cfg.Clusters[0].Name
+		default:
+			return "", fmt.Errorf("%w: %w: clapa.yaml declares %d clusters: name the cluster of each Kubernetes input (DIR=CLUSTER)",
+				config.ErrInvalid, ErrAmbiguousCluster, len(cfg.Clusters))
+		}
+	}
+	if model.IsClusterARN(name) {
+		return name, nil
+	}
+	keys := l.b.ClusterKeys(name)
+	for i := range cfg.Clusters {
+		if cl := &cfg.Clusters[i]; cl.Name == name && !slices.Contains(keys, cl.Key(cfg.Terraform.Partition)) {
+			keys = append(keys, cl.Key(cfg.Terraform.Partition))
+		}
+	}
+	switch len(keys) {
+	case 0:
+		return name, nil
+	case 1:
+		return keys[0], nil
+	}
+	slices.Sort(keys)
+	return "", fmt.Errorf("%w: %w: cluster name %q matches %d clusters (%s): give the cluster's ARN (DIR=ARN, CONTEXT=ARN)",
+		config.ErrInvalid, ErrAmbiguousCluster, name, len(keys), strings.Join(keys, ", "))
 }
 
 func (l *loader) aws(ctx context.Context) error {
@@ -180,8 +244,8 @@ func input(in *Inputs, p string) *collect.Input {
 
 func terraformOptions(c *config.Config) *normtf.Options {
 	issuers := map[string]string{}
-	for _, cl := range c.Clusters {
-		issuers[cl.Name] = cl.OIDCIssuer
+	for i := range c.Clusters {
+		issuers[c.Clusters[i].Key(c.Terraform.Partition)] = c.Clusters[i].OIDCIssuer
 	}
 	return &normtf.Options{Account: c.Terraform.Account, Region: c.Terraform.Region, Partition: c.Terraform.Partition, OIDCIssuers: issuers}
 }
@@ -190,9 +254,10 @@ func terraformOptions(c *config.Config) *normtf.Options {
 // cluster whose manifests are scanned without its Terraform).
 func addConfiguredClusters(c *config.Config, b *normalize.Builder) {
 	for _, cl := range c.Clusters {
-		if !b.Has(model.NewID("cluster", cl.Name)) {
+		arn := model.EKSClusterARN(c.Terraform.Partition, cl.Region, cl.Account, cl.Name)
+		if !b.Has(model.NewID("cluster", model.ClusterKey(arn, cl.Name))) {
 			b.AddCluster(&model.Cluster{
-				Name: cl.Name, Account: cl.Account, Region: cl.Region, OIDCIssuer: cl.OIDCIssuer,
+				Name: cl.Name, ARN: arn, Account: cl.Account, Region: cl.Region, OIDCIssuer: cl.OIDCIssuer,
 				Source: model.FileLocation("clapa.yaml", 0, 0, "clusters."+cl.Name),
 			})
 		}

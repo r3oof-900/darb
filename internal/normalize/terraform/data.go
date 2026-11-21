@@ -193,11 +193,12 @@ func defaultKeyPolicy(partition, account string) string {
 
 func (n *norm) cluster(r *tfraw.Resource) {
 	name := n.nameOf(r)
-	issuer := n.opts.OIDCIssuers[name]
-	if issuer == "" {
+	c := &model.Cluster{Name: name, ARN: n.arnOf(r), Account: n.account(r), Region: n.region(r), Source: src(r)}
+	c.OIDCIssuer = n.opts.OIDCIssuers[c.Key()]
+	if c.OIDCIssuer == "" {
 		n.gap(coverage.KindUnresolved, r, "OIDC issuer of cluster "+name+" is unknown: set clusters[].oidc_issuer in clapa.yaml")
 	}
-	n.b.AddCluster(&model.Cluster{Name: name, ARN: n.arnOf(r), Account: n.account(r), Region: n.region(r), OIDCIssuer: issuer, Source: src(r)})
+	n.b.AddCluster(c)
 }
 
 // podIdentity: aws_eks_pod_identity_association (cluster_name, namespace,
@@ -220,7 +221,7 @@ func (n *norm) podIdentity(r *tfraw.Resource) {
 		n.gap(coverage.KindUnresolved, r, "disable_session_tags is not known; whether sts:TagSession is needed is unknown")
 	}
 	n.b.AddPodIdentity(&model.PodIdentityAssociation{
-		Cluster: get("cluster_name"), Namespace: get("namespace"), ServiceAccount: get("service_account"),
+		Cluster: n.clusterKey(r, get("cluster_name")), Namespace: get("namespace"), ServiceAccount: get("service_account"),
 		RoleARN: get("role_arn"), TargetRoleARN: get("target_role_arn"), SessionTagsDisabled: disabled, Defaulted: defaulted, Source: src(r),
 	})
 }
@@ -228,14 +229,14 @@ func (n *norm) podIdentity(r *tfraw.Resource) {
 func (n *norm) addon(r *tfraw.Resource) {
 	cluster, _ := n.str(r.Root, attr(r, "cluster_name"))
 	name, _ := n.str(r.Root, attr(r, "addon_name"))
-	n.b.AddAddon(&model.ClusterAddon{Cluster: cluster, Name: name, Source: src(r)})
+	n.b.AddAddon(&model.ClusterAddon{Cluster: n.clusterKey(r, cluster), Name: name, Source: src(r)})
 }
 
 // nodeGroup: IMDS settings come from the launch template; without one they
 // are unknown (EKS defaults are not assumed).
 func (n *norm) nodeGroup(r *tfraw.Resource, templates map[string]*tfraw.Resource) {
 	get := func(k string) string { s, _ := n.str(r.Root, attr(r, k)); return s }
-	ng := &model.NodeGroup{Cluster: get("cluster_name"), Name: get("node_group_name"), RoleARN: get("node_role_arn"), Source: src(r)}
+	ng := &model.NodeGroup{Cluster: n.clusterKey(r, get("cluster_name")), Name: get("node_group_name"), RoleARN: get("node_role_arn"), Source: src(r)}
 	for _, lt := range r.Attrs.Blocks("launch_template") {
 		if v, ok := lt.Get("id"); ok && v.Kind == tfraw.KRef {
 			if t := templates[r.Root+"|"+v.Ref.Address]; t != nil {

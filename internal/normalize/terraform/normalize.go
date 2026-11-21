@@ -19,7 +19,8 @@ type Options struct {
 	Account   string // default account when the provider does not pin one
 	Region    string // default region when the provider does not set one
 	Partition string // "aws" unless stated
-	// OIDCIssuers maps cluster names to IRSA issuer URLs (from clapa.yaml).
+	// OIDCIssuers maps cluster keys (model.ClusterKey) to IRSA issuer URLs
+	// (from clapa.yaml).
 	OIDCIssuers map[string]string
 }
 
@@ -113,6 +114,13 @@ func (n *norm) region(r *tfraw.Resource) string {
 // time and no policy can name literally: a KMS key ID, or the name of a
 // bucket/role created without a name: "tf-<address>".
 func pendingID(r *tfraw.Resource) string { return "tf-" + r.Address }
+
+// clusterKey is the key of the cluster a resource names by cluster_name,
+// in the resource's account and region: the cluster's ARN when both are
+// known, otherwise the name (model.ClusterKey).
+func (n *norm) clusterKey(r *tfraw.Resource, name string) string {
+	return model.ClusterKey(model.EKSClusterARN(n.opts.Partition, n.region(r), n.account(r), name), name)
+}
 
 // arnOf returns the resource's ARN: the real one when Terraform knows it,
 // otherwise a deterministic synthetic ARN of the same shape.

@@ -4,7 +4,7 @@
   "clusters": [
     {
       "account": "111122223333",
-      "arn": "",
+      "arn": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
       "name": "prod",
       "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
       "region": "us-east-1",
@@ -16,7 +16,7 @@
     {
       "public": "unknown",
       "reason": "assume-compromised",
-      "workload": "k8s:prod/tools/Deployment/builder"
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/tools/Deployment/builder"
     }
   ],
   "exposures": [],
@@ -59,7 +59,7 @@
   ],
   "rbac": [
     {
-      "cluster": "prod",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
       "namespace": "tools",
       "rules": [
         {
@@ -115,7 +115,7 @@
     {
       "audience": "sts.amazonaws.com",
       "automount_token": "true",
-      "cluster": "prod",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
       "defaulted": [
         "eks.irsa.audience",
         "k8s.automountServiceAccountToken"
@@ -144,7 +144,7 @@
         "k8s.automountServiceAccountToken"
       ],
       "host_network": false,
-      "identity": "k8s:prod/tools/Deployment/builder",
+      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/tools/Deployment/builder",
       "privileged": false,
       "service_account": "builder",
       "source": "k8s/tools.yaml:16 (Deployment/tools/builder)"

@@ -128,7 +128,7 @@ func TestProjectedTokenWithoutAnnotation(t *testing.T) {
 	}
 	pathFrom := func(a *Analysis) *rules.Finding {
 		for i := range a.Findings {
-			if a.Findings[i].Entry == "k8s:prod/tools/Deployment/debug" {
+			if a.Findings[i].Entry == "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/tools/Deployment/debug" {
 				return &a.Findings[i]
 			}
 		}
@@ -158,7 +158,7 @@ func TestTokenRequestIsLikePodCreation(t *testing.T) {
 	a := analyzeVariant(t, "04b_create_pods_wildcard/vulnerable", func(dir string) {
 		replaceIn(t, filepath.Join(dir, "k8s", "tools.yaml"), `resources: ["pods"]`, `resources: ["serviceaccounts/token"]`)
 	})
-	if f := findingFor(a, "CLAPA-PATH-002", "arn:aws:s3:::acme-customer-pii"); f == nil || f.Entry != "k8s:prod/tools/Deployment/builder" {
+	if f := findingFor(a, "CLAPA-PATH-002", "arn:aws:s3:::acme-customer-pii"); f == nil || f.Entry != "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/tools/Deployment/builder" {
 		t.Errorf("token request: %+v", f)
 	}
 	a = analyzeVariant(t, "04b_create_pods_wildcard/vulnerable", func(dir string) {
@@ -269,13 +269,13 @@ resource "aws_eks_access_policy_association" "deployer" {
 }
 `
 	for name, c := range map[string]struct{ k8s, tf, step string }{
-		"aws-auth":     {awsAuth, "", "MAPS_TO k8s:prod//Group/deployers"},
-		"access entry": {"", accessEntry, "CAN_ESCALATE k8s:prod/payments/ServiceAccount/api"},
+		"aws-auth":     {awsAuth, "", "MAPS_TO k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Group/deployers"},
+		"access entry": {"", accessEntry, "CAN_ESCALATE k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api"},
 	} {
 		a := analyzeVariant(t, "08_rbac_create_pods/fixed", deployerSetup(t, c.k8s, c.tf))
 		var f *rules.Finding
 		for i := range a.Findings {
-			if a.Findings[i].Entry == "k8s:prod/payments/Deployment/deploy" && a.Findings[i].Rule == "CLAPA-PATH-002" {
+			if a.Findings[i].Entry == "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/deploy" && a.Findings[i].Rule == "CLAPA-PATH-002" {
 				f = &a.Findings[i]
 			}
 		}
@@ -287,7 +287,7 @@ resource "aws_eks_access_policy_association" "deployer" {
 	view := strings.Replace(accessEntry, "AmazonEKSEditPolicy", "AmazonEKSViewPolicy", 1)
 	a := analyzeVariant(t, "08_rbac_create_pods/fixed", deployerSetup(t, "", view))
 	for i := range a.Findings {
-		if a.Findings[i].Entry == "k8s:prod/payments/Deployment/deploy" && a.Findings[i].Rule == "CLAPA-PATH-002" {
+		if a.Findings[i].Entry == "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/deploy" && a.Findings[i].Rule == "CLAPA-PATH-002" {
 			t.Errorf("view only: %+v", a.Findings[i])
 		}
 	}

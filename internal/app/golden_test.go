@@ -67,6 +67,34 @@ func copyTree(t *testing.T, src string) string {
 
 func exists(p string) bool { _, err := os.Stat(p); return err == nil }
 
+// k8sInputs: k8s/ is one cluster's manifests (the cluster is resolved as
+// for --k8s DIR); k8s/<region>/ directories (scenario 18) are the clusters
+// clapa.yaml declares in those regions, passed by ARN as --k8s DIR=ARN.
+func k8sInputs(t *testing.T, dir string, cfg *config.Config) []K8sDir {
+	t.Helper()
+	entries, err := os.ReadDir(filepath.Join(dir, "k8s"))
+	if err != nil {
+		return nil
+	}
+	var out []K8sDir
+	for _, e := range entries {
+		if !e.IsDir() {
+			return []K8sDir{{Path: "k8s"}}
+		}
+		key := ""
+		for i := range cfg.Clusters {
+			if cfg.Clusters[i].Region == e.Name() {
+				key = cfg.Clusters[i].Key(cfg.Terraform.Partition)
+			}
+		}
+		if key == "" {
+			t.Fatalf("k8s/%s: no cluster in clapa.yaml has that region", e.Name())
+		}
+		out = append(out, K8sDir{Path: "k8s/" + e.Name(), Cluster: key})
+	}
+	return out
+}
+
 // scansFor maps golden file names to the inputs of a fixture variant.
 func scansFor(t *testing.T, dir string) map[string]*Inputs {
 	t.Helper()
@@ -76,15 +104,9 @@ func scansFor(t *testing.T, dir string) map[string]*Inputs {
 			t.Fatalf("clapa.yaml: %v", err)
 		}
 	}
-	cluster := "default"
-	if len(cfg.Clusters) > 0 {
-		cluster = cfg.Clusters[0].Name
-	}
+	k8sDirs := k8sInputs(t, dir, cfg)
 	mk := func() *Inputs {
-		in := &Inputs{Root: dir, Config: cfg, Limits: safeio.DefaultLimits()}
-		if exists(filepath.Join(dir, "k8s")) {
-			in.K8sDirs = []K8sDir{{Path: "k8s", Cluster: cluster}}
-		}
+		in := &Inputs{Root: dir, Config: cfg, Limits: safeio.DefaultLimits(), K8sDirs: k8sDirs}
 		if exists(filepath.Join(dir, "snapshot")) {
 			in.AWSSnapshots = []string{"snapshot"}
 		}

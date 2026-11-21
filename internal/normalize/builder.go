@@ -86,9 +86,22 @@ func (b *Builder) AddServiceAccount(sa *model.ServiceAccount) {
 // AddCluster adds a cluster; a cluster may be described by several sources
 // (Terraform, snapshot, config) only once.
 func (b *Builder) AddCluster(c *model.Cluster) {
-	if b.claim(model.NewID("cluster", c.Name), "cluster "+c.Name, &c.Source) {
+	if b.claim(model.NewID("cluster", c.Key()), "cluster "+c.Key(), &c.Source) {
 		b.inv.Clusters = append(b.inv.Clusters, c)
 	}
+}
+
+// ClusterKeys returns the keys of the clusters added so far whose name is
+// name, sorted.
+func (b *Builder) ClusterKeys(name string) []string {
+	var out []string
+	for _, c := range b.inv.Clusters {
+		if c.Name == name && !slices.Contains(out, c.Key()) {
+			out = append(out, c.Key())
+		}
+	}
+	slices.Sort(out)
+	return out
 }
 
 // Relation records. These attach to nodes and are not deduplicated by ID.
@@ -146,7 +159,7 @@ func (b *Builder) Build() (*model.Inventory, error) {
 	sortByID(inv.Resources, (*model.Resource).ID)
 	sortByID(inv.Workloads, (*model.Workload).ID)
 	slices.SortFunc(inv.ServiceAccounts, func(a, c *model.ServiceAccount) int { return strings.Compare(string(a.ID), string(c.ID)) })
-	slices.SortFunc(inv.Clusters, func(a, c *model.Cluster) int { return strings.Compare(a.Name, c.Name) })
+	slices.SortFunc(inv.Clusters, func(a, c *model.Cluster) int { return strings.Compare(a.Key(), c.Key()) })
 	sortPolicies(inv.Policies)
 	sortPolicies(inv.Boundaries)
 	slices.SortFunc(inv.Trusts, func(a, c *model.TrustRelationship) int { return strings.Compare(string(a.Role()), string(c.Role())) })

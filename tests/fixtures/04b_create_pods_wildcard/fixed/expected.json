@@ -4,7 +4,7 @@
   "findings": [
     {
       "rule": "CLAPA-POST-004",
-      "resource": "k8s:prod/tools/Deployment/builder",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/tools/Deployment/builder",
       "score": 350,
       "severity": "medium",
       "defaults_used": [
@@ -13,7 +13,7 @@
     },
     {
       "rule": "CLAPA-POST-007",
-      "resource": "k8s:prod//Namespace/tools",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/tools",
       "score": 245,
       "severity": "low",
       "defaults_used": []
@@ -22,7 +22,7 @@
   "absent": [
     {
       "rule": "CLAPA-PATH-002",
-      "entry": "k8s:prod/tools/Deployment/builder",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/tools/Deployment/builder",
       "jewel": "arn:aws:s3:::acme-customer-pii"
     },
     {

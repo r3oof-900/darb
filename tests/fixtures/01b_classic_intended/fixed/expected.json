@@ -13,7 +13,7 @@
     },
     {
       "rule": "CLAPA-POST-007",
-      "resource": "k8s:prod//Namespace/payments",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/payments",
       "score": 245,
       "severity": "low",
       "defaults_used": []
@@ -31,7 +31,7 @@
   ],
   "intended_access": [
     {
-      "principal": "k8s:prod/payments/Deployment/api",
+      "principal": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
       "action": "s3:GetObject",
       "resource": "arn:aws:s3:::acme-payment-receipts/*",
       "status": "verified"

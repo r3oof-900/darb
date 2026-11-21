@@ -134,9 +134,9 @@ func TestEveryVulnerableScenarioIsFixed(t *testing.T) {
 			}
 		}
 	}
-	// 01, 01b, 04 (2), 04b, 05 (2), 06, 07, 08 (2), 09, 12, 14 (2), 16, 17.
-	if fixed != 17 {
-		t.Fatalf("%d findings fixed, want 17", fixed)
+	// 01, 01b, 04 (2), 04b, 05 (2), 06, 07, 08 (2), 09, 12, 14 (2), 16, 17, 18 (2).
+	if fixed != 19 {
+		t.Fatalf("%d findings fixed, want 19", fixed)
 	}
 }
 

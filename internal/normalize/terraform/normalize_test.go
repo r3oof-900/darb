@@ -108,7 +108,7 @@ func TestRolePoliciesAndManagedPolicies(t *testing.T) {
 // check the rendering (principals "*", not_principals, conditions, and the
 // unknown statements standing for source_policy_documents).
 func TestPolicyDocumentRendering(t *testing.T) {
-	inv, _ := load(t, &Options{Account: "111122223333", Region: "us-east-1", OIDCIssuers: map[string]string{"c": "https://x"}})
+	inv, _ := load(t, &Options{Account: "111122223333", Region: "us-east-1", OIDCIssuers: map[string]string{"arn:aws:eks:eu-west-1:111122223333:cluster/c": "https://x"}})
 	trust := inv.Trusts[0].Policy()
 	req := &eval.Request{
 		Principal: match.RequestPrincipal{

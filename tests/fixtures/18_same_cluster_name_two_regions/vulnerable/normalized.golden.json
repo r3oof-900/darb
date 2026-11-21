@@ -1,0 +1,184 @@
+{
+  "addons": [],
+  "boundaries": [],
+  "clusters": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:eks:eu-west-1:111122223333:cluster/prod",
+      "name": "prod",
+      "oidc_issuer": "https://oidc.eks.eu-west-1.amazonaws.com/id/EUW1D539D4633E53DE1B716D3041E",
+      "region": "eu-west-1",
+      "source": "clapa.yaml (clusters.prod)"
+    },
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "name": "prod",
+      "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
+      "region": "us-east-1",
+      "source": "clapa.yaml (clusters.prod)"
+    }
+  ],
+  "collected": 7,
+  "entry_points": [
+    {
+      "public": "unknown",
+      "reason": "assume-compromised",
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app"
+    },
+    {
+      "public": "unknown",
+      "reason": "assume-compromised",
+      "workload": "k8s:arn:aws:eks:eu-west-1:111122223333:cluster/prod/apps/Deployment/app"
+    }
+  ],
+  "exposures": [],
+  "gaps": [],
+  "mappings": [],
+  "network_policies": [],
+  "node_groups": [],
+  "pod_identity": [],
+  "policies": [
+    {
+      "kind": "identity",
+      "policy": "arn:aws:iam::111122223333:role/app-eu#inline/data",
+      "source": "arn:aws:iam::111122223333:role/app-eu via iam:GetAccountAuthorizationDetails",
+      "statements": [
+        "Allow s3:GetObject on arn:aws:s3:::data-eu/* (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/app-eu",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "identity",
+      "policy": "arn:aws:iam::111122223333:role/app-us#inline/data",
+      "source": "arn:aws:iam::111122223333:role/app-us via iam:GetAccountAuthorizationDetails",
+      "statements": [
+        "Allow s3:GetObject on arn:aws:s3:::data-us/* (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/app-us",
+      "unresolved_statements": 0
+    }
+  ],
+  "principals": [
+    {
+      "account": "111122223333",
+      "identity": "arn:aws:iam::111122223333:role/app-eu",
+      "kind": "aws:iam:role",
+      "source": "arn:aws:iam::111122223333:role/app-eu via iam:GetAccountAuthorizationDetails"
+    },
+    {
+      "account": "111122223333",
+      "identity": "arn:aws:iam::111122223333:role/app-us",
+      "kind": "aws:iam:role",
+      "source": "arn:aws:iam::111122223333:role/app-us via iam:GetAccountAuthorizationDetails"
+    }
+  ],
+  "rbac": [],
+  "resources": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:s3:::data-us",
+      "classification": "pii",
+      "classified_by": "tag:DataClass",
+      "defaulted": [],
+      "encryption": {
+        "Type": "AES256",
+        "KeyARN": "",
+        "BucketKey": "unknown"
+      },
+      "kind": "aws:s3:bucket",
+      "region": "us-east-1",
+      "restrict_public_buckets": "true",
+      "source": "arn:aws:s3:::data-us via s3:GetBucketPolicy"
+    },
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:s3:::data-eu",
+      "classification": "pii",
+      "classified_by": "tag:DataClass",
+      "defaulted": [],
+      "encryption": {
+        "Type": "AES256",
+        "KeyARN": "",
+        "BucketKey": "unknown"
+      },
+      "kind": "aws:s3:bucket",
+      "region": "eu-west-1",
+      "restrict_public_buckets": "true",
+      "source": "arn:aws:s3:::data-eu via s3:GetBucketPolicy"
+    }
+  ],
+  "service_accounts": [
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
+      "role_arn": "arn:aws:iam::111122223333:role/app-us",
+      "source": "k8s/us-east-1/apps.yaml:6 (ServiceAccount/apps/app)",
+      "subject": "system:serviceaccount:apps:app"
+    },
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "arn:aws:eks:eu-west-1:111122223333:cluster/prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
+      "role_arn": "arn:aws:iam::111122223333:role/app-eu",
+      "source": "k8s/eu-west-1/apps.yaml:6 (ServiceAccount/apps/app)",
+      "subject": "system:serviceaccount:apps:app"
+    }
+  ],
+  "trusts": [
+    {
+      "kind": "resource",
+      "policy": "arn:aws:iam::111122223333:role/app-eu#trust",
+      "source": "arn:aws:iam::111122223333:role/app-eu via iam:GetAccountAuthorizationDetails",
+      "statements": [
+        "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (2 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/app-eu",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "resource",
+      "policy": "arn:aws:iam::111122223333:role/app-us#trust",
+      "source": "arn:aws:iam::111122223333:role/app-us via iam:GetAccountAuthorizationDetails",
+      "statements": [
+        "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (2 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/app-us",
+      "unresolved_statements": 0
+    }
+  ],
+  "workloads": [
+    {
+      "automount_token": "true",
+      "defaulted": [
+        "k8s.automountServiceAccountToken"
+      ],
+      "host_network": false,
+      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app",
+      "privileged": false,
+      "service_account": "app",
+      "source": "k8s/us-east-1/apps.yaml:14 (Deployment/apps/app)"
+    },
+    {
+      "automount_token": "true",
+      "defaulted": [
+        "k8s.automountServiceAccountToken"
+      ],
+      "host_network": false,
+      "identity": "k8s:arn:aws:eks:eu-west-1:111122223333:cluster/prod/apps/Deployment/app",
+      "privileged": false,
+      "service_account": "app",
+      "source": "k8s/eu-west-1/apps.yaml:14 (Deployment/apps/app)"
+    }
+  ]
+}

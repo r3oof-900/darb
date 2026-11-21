@@ -5,10 +5,10 @@
   "findings": [
     {
       "rule": "CLAPA-PATH-001",
-      "entry": "k8s:prod/analytics/CronJob/etl",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/CronJob/etl",
       "jewel": "arn:aws:s3:::acme-customer-pii",
       "path": [
-        "RUNS_AS k8s:prod/analytics/ServiceAccount/etl",
+        "RUNS_AS k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/etl",
         "ASSUMES arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
         "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
       ],
@@ -37,10 +37,10 @@
     },
     {
       "rule": "CLAPA-PATH-001",
-      "entry": "k8s:prod/analytics/CronJob/bi",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/CronJob/bi",
       "jewel": "arn:aws:s3:::acme-customer-pii",
       "path": [
-        "RUNS_AS k8s:prod/analytics/ServiceAccount/bi",
+        "RUNS_AS k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/bi",
         "ASSUMES arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
         "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
       ],
@@ -69,10 +69,10 @@
     },
     {
       "rule": "CLAPA-PATH-001",
-      "entry": "k8s:prod/analytics/CronJob/ml",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/CronJob/ml",
       "jewel": "arn:aws:s3:::acme-customer-pii",
       "path": [
-        "RUNS_AS k8s:prod/analytics/ServiceAccount/ml",
+        "RUNS_AS k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/ml",
         "ASSUMES arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
         "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
       ],
@@ -101,7 +101,7 @@
     },
     {
       "rule": "CLAPA-POST-007",
-      "resource": "k8s:prod//Namespace/analytics",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/analytics",
       "score": 245,
       "severity": "low",
       "defaults_used": []

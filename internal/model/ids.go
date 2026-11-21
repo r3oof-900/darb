@@ -55,7 +55,8 @@ func NewID(kind NodeKind, canonical string) ID {
 	return ID(hex.EncodeToString(h.Sum(nil)))
 }
 
-// K8sIdentity builds the canonical identity of a Kubernetes object.
+// K8sIdentity builds the canonical identity of a Kubernetes object;
+// cluster is the cluster's key (ClusterKey: its ARN when known).
 // Cluster-scoped objects use an empty namespace.
 func K8sIdentity(cluster, namespace, kind, name string) string {
 	return "k8s:" + cluster + "/" + namespace + "/" + kind + "/" + name

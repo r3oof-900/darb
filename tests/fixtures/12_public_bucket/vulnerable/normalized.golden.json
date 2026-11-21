@@ -4,7 +4,7 @@
   "clusters": [
     {
       "account": "111122223333",
-      "arn": "",
+      "arn": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
       "name": "prod",
       "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
       "region": "us-east-1",

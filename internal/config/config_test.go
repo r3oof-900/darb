@@ -46,6 +46,21 @@ func TestParseDefaults(t *testing.T) {
 	}
 }
 
+// Two clusters of one name are distinct when their accounts or regions
+// differ: their keys are their ARNs.
+func TestClustersOfOneName(t *testing.T) {
+	c, err := Parse([]byte("version: 1\nclusters: [{name: prod, account: '111122223333', region: eu-west-1}, {name: prod, account: '111122223333', region: us-east-1}]\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Clusters[0].Key("") != "arn:aws:eks:eu-west-1:111122223333:cluster/prod" || c.Clusters[1].Key("aws") != "arn:aws:eks:us-east-1:111122223333:cluster/prod" {
+		t.Fatalf("keys %q %q", c.Clusters[0].Key(""), c.Clusters[1].Key(""))
+	}
+	if (&Cluster{Name: "x"}).Key("") != "x" {
+		t.Fatal("without account and region the key is the name")
+	}
+}
+
 func TestParseRejects(t *testing.T) {
 	cases := map[string]string{
 		"unknown field":        "version: 1\nthreatmodel: {}\n",
@@ -53,6 +68,7 @@ func TestParseRejects(t *testing.T) {
 		"bad account":          "version: 1\nterraform: {account: '123'}\n",
 		"cluster no name":      "version: 1\nclusters: [{account: '111122223333'}]\n",
 		"cluster dup":          "version: 1\nclusters: [{name: a}, {name: a}]\n",
+		"cluster dup key":      "version: 1\nclusters: [{name: a, account: '111122223333', region: eu-west-1}, {name: a, account: '111122223333', region: eu-west-1}]\n",
 		"cluster account":      "version: 1\nclusters: [{name: a, account: x}]\n",
 		"cluster issuer":       "version: 1\nclusters: [{name: a, oidc_issuer: 'http://x'}]\n",
 		"intended incomplete":  "version: 1\nintended_access: [{principal: a}]\n",

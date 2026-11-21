@@ -65,6 +65,11 @@ func Analyze(l *Loaded, cfg *config.Config, failOn string) (*Analysis, error) {
 	if err != nil {
 		return nil, err
 	}
+	if l.Intended != nil {
+		resolved := *cfg
+		resolved.IntendedAccess = l.Intended
+		cfg = &resolved
+	}
 	inv := l.Inventory
 	var jewels, targets []*model.Resource
 	for _, r := range inv.Resources {

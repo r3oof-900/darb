@@ -1,7 +1,7 @@
 {
   "addons": [
     {
-      "cluster": "prod",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
       "name": "eks-pod-identity-agent",
       "source": "terraform/trust_pinned.tf:32-35 (aws_eks_addon.pod_identity_agent)"
     }
@@ -10,7 +10,7 @@
   "clusters": [
     {
       "account": "111122223333",
-      "arn": "",
+      "arn": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
       "name": "prod",
       "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
       "region": "us-east-1",
@@ -22,14 +22,14 @@
     {
       "public": "true",
       "reason": "exposed:Service/LoadBalancer",
-      "workload": "k8s:prod/payments/Deployment/api"
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api"
     }
   ],
   "exposures": [
     {
       "public": "true",
       "via": "Service/LoadBalancer",
-      "workload": "k8s:prod/payments/Deployment/api"
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api"
     }
   ],
   "gaps": [
@@ -51,7 +51,7 @@
   "node_groups": [],
   "pod_identity": [
     {
-      "cluster": "prod",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
       "defaulted": [
         "eks.pod-identity.disableSessionTags"
       ],
@@ -168,7 +168,7 @@
     {
       "audience": "sts.amazonaws.com",
       "automount_token": "true",
-      "cluster": "prod",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
       "defaulted": [
         "eks.irsa.audience",
         "k8s.automountServiceAccountToken"
@@ -197,7 +197,7 @@
         "k8s.automountServiceAccountToken"
       ],
       "host_network": false,
-      "identity": "k8s:prod/payments/Deployment/api",
+      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
       "privileged": false,
       "service_account": "api",
       "source": "k8s/payments.yaml:12 (Deployment/payments/api)"

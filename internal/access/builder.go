@@ -111,7 +111,7 @@ func (b *builder) index() {
 		b.resources[r.ARN()] = r
 	}
 	for _, c := range b.inv.Clusters {
-		b.clusters[c.Name] = c
+		b.clusters[c.Key()] = c
 	}
 	for _, sa := range b.inv.ServiceAccounts {
 		b.g.Node(sa.ID, model.KindK8sServiceAcct, saIdentity(sa.Cluster, sa.Namespace, sa.Name))
