@@ -85,7 +85,45 @@ type Fix struct {
 	// Grants: the statements that grant the edge on this side, the ones a
 	// remediation narrows or revokes (empty for fact sides).
 	Grants []Grant
+	// Detach: AWS managed policies (in the snapshot) whose grants on this
+	// side are fixed by detaching them; Resolve: unknown grants on this side,
+	// fixed by deciding them (SCORING.md §4.1). Every part of a side must
+	// change for the side to break; Kind is "" when the side has no
+	// statement of its own to narrow or revoke.
+	Detach  []Detach
+	Resolve []Resolution
 }
+
+// Detach is one AWS managed policy attachment to remove: one change for
+// every edge it grants (Group), priced at the dearest identity revoke among
+// them (Cost).
+type Detach struct {
+	Policy string // the managed policy's ARN
+	Group  string // the attachment: principal and policy
+	Cost   int64
+}
+
+// Resolution is one unknown grant and the command that decides it.
+type Resolution struct {
+	Policy  string
+	Command string
+}
+
+// Total is what breaking the edge on this side costs alone: its own
+// statements, each detach and each resolve (0).
+func (f *Fix) Total() int64 {
+	c := int64(0)
+	if f.Kind != "" {
+		c = f.Cost
+	}
+	for _, d := range f.Detach {
+		c += d.Cost
+	}
+	return c
+}
+
+// Pending reports whether the side rests on an unknown to resolve first.
+func (f *Fix) Pending() bool { return len(f.Resolve) > 0 }
 
 // Grant names one granting statement: its policy document's ID and index.
 type Grant struct {
@@ -93,10 +131,12 @@ type Grant struct {
 	Statement int
 }
 
-// Fix kinds.
+// Fix kinds. FixResolve is not a change: an unknown to decide (cost 0, no
+// patch).
 const (
-	FixNarrow = "narrow"
-	FixRevoke = "revoke"
+	FixNarrow  = "narrow"
+	FixRevoke  = "revoke"
+	FixResolve = "resolve"
 )
 
 // Fix sides.
@@ -206,6 +246,29 @@ func (b *Builder) EachFrom(n NodeID, f func(*Edge)) {
 	}
 }
 
+// priceDetaches: one detach is one change for every edge its attachment
+// grants, priced at the dearest identity revoke among them (SCORING.md
+// §4.1: 3, or 4 when one is a CAN_ESCALATE).
+func priceDetaches(edges []Edge) {
+	price := map[string]int64{}
+	for i := range edges {
+		for j := range edges[i].Fixes {
+			for _, d := range edges[i].Fixes[j].Detach {
+				price[d.Group] = max(price[d.Group], d.Cost)
+			}
+		}
+	}
+	for i := range edges {
+		for j := range edges[i].Fixes {
+			fx := &edges[i].Fixes[j]
+			fx.Detach = slices.Clone(fx.Detach)
+			for k := range fx.Detach {
+				fx.Detach[k].Cost = price[fx.Detach[k].Group]
+			}
+		}
+	}
+}
+
 // Build sorts nodes by canonical ID and edges by (from, kind, to, sub, for),
 // so iteration order depends only on the content.
 func (b *Builder) Build() *Graph {
@@ -221,6 +284,7 @@ func (b *Builder) Build() *Graph {
 		g.nodes = append(g.nodes, b.nodes[old])
 		g.index[b.nodes[old].ID] = NodeID(newID)
 	}
+	priceDetaches(b.edges)
 	edgeOrder := make([]int, len(b.edges))
 	edges := make([]Edge, len(b.edges))
 	for i := range b.edges {
@@ -289,13 +353,48 @@ func (g *Graph) Out(n NodeID) []EdgeID {
 	return out
 }
 
-// Describe renders an edge as "KIND[for J] from -> to" (the chokepoint and
-// expected.json notation).
+// Describe renders an edge as "KIND[sub][for J] from -> to" (the chokepoint
+// and expected.json notation): an escalation names its kind, so two
+// escalations between the same nodes stay distinct (SCORING.md §4.3).
 func (g *Graph) Describe(e EdgeID) string {
 	ed := &g.edges[e]
 	kind := Label(ed)
+	if ed.Kind == CanEscalate && ed.Sub != "" {
+		kind += "[" + ed.Sub + "]"
+	}
 	if ed.For != NoNode {
 		kind += "[for " + g.nodes[ed.For].Identity + "]"
 	}
 	return kind + " " + g.nodes[ed.From].Identity + " -> " + g.nodes[ed.To].Identity
+}
+
+// Without returns a copy of g without the given edges, nor any derived edge
+// that stands for one of them: what the graph is once a cut is made. Nodes
+// keep their IDs; edges are renumbered.
+func (g *Graph) Without(remove map[EdgeID]bool) *Graph {
+	b := NewBuilder()
+	for i := range g.nodes {
+		b.Node(g.nodes[i].ID, g.nodes[i].Kind, g.nodes[i].Identity)
+	}
+	ids := map[EdgeID]EdgeID{}
+	for _, derived := range []bool{false, true} {
+		for i := range g.edges {
+			e := g.edges[i]
+			if remove[EdgeID(i)] || (len(e.Under) > 0) != derived {
+				continue
+			}
+			under := make([]EdgeID, 0, len(e.Under))
+			for _, u := range e.Under {
+				if n, ok := ids[u]; ok {
+					under = append(under, n)
+				}
+			}
+			if len(under) != len(e.Under) {
+				continue // an edge it stands for is gone
+			}
+			e.Under = under
+			ids[EdgeID(i)] = b.Edge(&e)
+		}
+	}
+	return b.Build()
 }

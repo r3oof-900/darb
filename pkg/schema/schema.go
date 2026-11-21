@@ -100,11 +100,23 @@ type Finding struct {
 	// OtherSideFix: the other sides that also break it.
 	Fix          []FixStep `json:"fix,omitempty"`
 	OtherSideFix []FixStep `json:"other_side_fix,omitempty"`
-	// AlternativeFixDetail: the cheapest fix of each alternative_fix edge.
+	// AlternativeFix: the cheapest complete cut sharing no edge with the
+	// chosen one (SCORING.md §4.3); AlternativeFixDetail: its steps.
 	AlternativeFixDetail []FixStep `json:"alternative_fix_detail,omitempty"`
-	// SharedFixPossible: resources one change to whose policy breaks two or
-	// more chokepoint edges; cut_cost then overstates the fix.
-	SharedFixPossible []string  `json:"shared_fix_possible,omitempty"`
+	// SharedFixPossible: resources or policies one change to which breaks
+	// two or more chokepoint edges.
+	SharedFixPossible []string `json:"shared_fix_possible,omitempty"`
+	// WorstCasePath: a less certain path of the same rule that scores
+	// higher than Path (the severity is its score).
+	WorstCasePath []string `json:"worst_case_path,omitempty"`
+	// AlsoFixes: path findings of other rules the cut also fixes; Uncuttable:
+	// underlying edges of a cut derived read no change breaks (both stated
+	// for every path finding).
+	AlsoFixes  *[]FindingRef     `json:"also_fixes,omitempty"`
+	Uncuttable *[]UncuttableEdge `json:"uncuttable,omitempty"`
+	// RemediationStatus: "complete", or "partial_pending_resolution" when the
+	// cut has a resolve step (decide the unknowns, then rescan).
+	RemediationStatus string    `json:"remediation_status,omitempty"`
 	DefaultsUsed      []Default `json:"defaults_used"`
 	Evidence          []string  `json:"evidence,omitempty"`
 	Location          *Location `json:"location,omitempty"`
@@ -115,11 +127,28 @@ type Finding struct {
 type FixStep struct {
 	Edge string `json:"edge"`
 	Side string `json:"side"`
-	// Kind: "narrow" (make a broad grant specific) or "revoke" (remove an
-	// explicit grant; confirm it is not needed), SCORING.md §4.1.
+	// Kind: "narrow" (make a broad grant specific), "revoke" (remove an
+	// explicit grant, or detach an AWS managed policy; confirm it is not
+	// needed) or "resolve" (decide an unknown), SCORING.md §4.1.
 	Kind   string `json:"fix_kind"`
 	Policy string `json:"policy"`
 	Cost   int64  `json:"cost"`
+	// Resolve: for fix_kind "resolve" (an unknown to decide, cost 0, no
+	// patch), the command that decides it.
+	Resolve string `json:"resolve,omitempty"`
+}
+
+// FindingRef names a path finding.
+type FindingRef struct {
+	Rule  string `json:"rule"`
+	Entry string `json:"entry"`
+	Jewel string `json:"jewel"`
+}
+
+// UncuttableEdge is an underlying edge no single change breaks.
+type UncuttableEdge struct {
+	Edge   string `json:"edge"`
+	Reason string `json:"reason"`
 }
 
 // Default is a documented default a finding relies on (value_source: default).

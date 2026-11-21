@@ -60,7 +60,8 @@ type state struct {
 type Options struct {
 	MaxDepth int // default 10
 	MaxPaths int // per (entry, jewel); default 100
-	// Cost is an edge's cut cost (>= 0) or Uncuttable.
+	// Cost is an edge's cut cost (>= 0), Uncuttable, or Default: priced
+	// from its fixes (graph.Edge.Fixes).
 	Cost func(graph.EdgeID) int64
 }
 
@@ -72,12 +73,10 @@ type Pair struct {
 	Entry, Jewel graph.NodeID
 	Paths        []Path // deterministic order; at most MaxPaths
 	Truncated    bool   // more paths exist than MaxPaths, or deeper than MaxDepth
-	Cut          Cut    // edge IDs of the graph (derived edges mapped to an underlying edge)
-	Alternative  []graph.EdgeID
 }
 
-// Analyze finds, for every entry, the jewels it reaches, the paths (bounded)
-// and the weighted minimum cut between them.
+// Analyze finds, for every entry, the jewels it reaches and the paths
+// (bounded); the cut of each finding is CutFor's.
 func Analyze(g *graph.Graph, entries, jewels []graph.NodeID, opts Options) []Pair {
 	if opts.MaxDepth == 0 {
 		opts.MaxDepth = 10
@@ -102,13 +101,10 @@ func Analyze(g *graph.Graph, entries, jewels []graph.NodeID, opts Options) []Pai
 			continue
 		}
 		slices.Sort(found)
-		// One walk and one flow network per entry, shared by its jewels.
+		// One walk per entry, shared by its jewels.
 		paths, truncated := enumerate(g, entry, found, &opts)
-		net := newNetwork(g, entry, &opts)
 		for _, j := range found {
-			p := Pair{Entry: entry, Jewel: j, Paths: paths[j], Truncated: truncated[j]}
-			p.Cut, p.Alternative = net.cut(j)
-			out = append(out, p)
+			out = append(out, Pair{Entry: entry, Jewel: j, Paths: paths[j], Truncated: truncated[j]})
 		}
 	}
 	return out

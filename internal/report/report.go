@@ -98,6 +98,17 @@ func finding(f *rules.Finding) schema.Finding {
 		Entry: f.Entry, Jewel: f.Jewel, Resource: f.Resource, Path: f.Path, PathsFound: f.Paths, PathsTruncated: f.Truncated,
 		Chokepoints: f.Chokepoints, CutCost: f.CutCost, NoFix: f.NoFix, AlternativeFix: f.Alternative, Fix: steps(f.Fix), OtherSideFix: steps(f.OtherSideFix), AlternativeFixDetail: steps(f.AlternativeDetail), SharedFixPossible: f.SharedFix,
 		DefaultsUsed: []schema.Default{}, Evidence: f.Evidence, Fingerprint: f.Fingerprint, Location: location(&f.Location),
+		WorstCasePath: f.WorstCasePath, RemediationStatus: f.RemediationStatus,
+	}
+	if f.Kind == rules.KindPath {
+		also, unc := make([]schema.FindingRef, 0, len(f.AlsoFixes)), make([]schema.UncuttableEdge, 0, len(f.Uncuttable))
+		for _, r := range f.AlsoFixes {
+			also = append(also, schema.FindingRef(r))
+		}
+		for _, u := range f.Uncuttable {
+			unc = append(unc, schema.UncuttableEdge(u))
+		}
+		out.AlsoFixes, out.Uncuttable = &also, &unc
 	}
 	for _, key := range f.DefaultsUsed {
 		d, _ := model.LookupDefault(key)

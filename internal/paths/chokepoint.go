@@ -6,145 +6,252 @@ import (
 	"github.com/r3oof-900/clapa/internal/graph"
 )
 
-// network is the mode-expanded flow network of one entry (DESIGN.md §7.4).
-// Each graph edge is one capacity-carrying arc (in -> out, its cut cost)
-// shared by all of its mode copies, so cutting an edge cuts it everywhere: a
-// copy's target mode depends only on the edge, so sharing the arc cannot
-// join two copies into a path the modes forbid. It is built once per entry;
-// each jewel only adds arcs from its states to the sink.
+// The cut of one finding (DESIGN.md §7.4, §8; SCORING.md §4).
 //
-// A derived CAN_READ_PLAINTEXT costs its cheapest underlying edge; the cut
-// names that edge, CAN_DECRYPT only on a tie (DESIGN.md §8.1, decision 3),
-// and the other cuttable underlying edge, at whatever cost, is the
-// alternative.
-type network struct {
-	g        *graph.Graph
-	opts     *Options
-	n        int
-	source   int
-	states   map[state]int
-	edges    map[graph.EdgeID]int // graph edge -> its "in" node; "out" is in+1
-	capacity map[int]graph.EdgeID // arc index of each capacity arc
-	arcs     []FlowEdge
+// The flow network is expanded by (node, mode, escalated): the mode decides
+// which edges may follow (paths.go), and "escalated" whether the walk has
+// taken a CAN_ESCALATE yet, so a selection of paths can be cut exactly:
+// the paths of CLAPA-PATH-001 with the dominated escalations merged into
+// them, or the escalations that are not dominated. Each graph edge is one
+// unit per phase: a series chain of its sides (any side breaks it), each
+// side the parallel set of its parts (every part must change): its own
+// statements, each resolve step, each detach. A detach is a shared group
+// arc, one change for every edge its attachment grants. Costs are scaled so
+// that a resolve step (0) still counts: the cheapest cut has the fewest
+// resolve steps among equals, then is the one closest to the entry.
+
+// Default (Options.Cost): price the edge from its fixes (graph.Edge.Fixes).
+const Default int64 = -2
+
+const scale = 1000
+
+// Select chooses the paths of one finding. Escalation: the paths must take
+// a CAN_ESCALATE whose source is not Dominated (CLAPA-PATH-002); otherwise
+// the paths take none, or only from a Dominated source (CLAPA-PATH-001 and
+// the escalations it dominates, DESIGN.md §8).
+type Select struct {
+	Escalation bool
+	Dominated  func(graph.NodeID) bool
 }
 
-func newNetwork(g *graph.Graph, entry graph.NodeID, opts *Options) *network {
-	w := &network{g: g, opts: opts, states: map[state]int{}, edges: map[graph.EdgeID]int{}, capacity: map[int]graph.EdgeID{}}
-	w.source = w.state(state{entry, full})
-	w.expand(state{entry, full})
-	return w
+func (s *Select) dominated(n graph.NodeID) bool { return s.Dominated != nil && s.Dominated(n) }
+
+type pstate struct {
+	node graph.NodeID
+	mode mode
+	esc  bool
 }
 
-// cut solves the minimum cut between the entry and one jewel.
-func (w *network) cut(jewel graph.NodeID) (cut Cut, alternative []graph.EdgeID) {
-	sink := w.n
-	arcs := slices.Clone(w.arcs)
-	for s, i := range w.states {
-		if s.node == jewel {
-			arcs = append(arcs, FlowEdge{From: i, To: sink, Cost: Uncuttable})
+// next: whether e may follow s under the selection, and where it leads.
+func (s *Select) next(st pstate, e *graph.Edge) (pstate, bool) {
+	if !traversed(e) || !allowed(st.mode, e) {
+		return pstate{}, false
+	}
+	esc := st.esc
+	if e.Kind == graph.CanEscalate && !esc {
+		if s.dominated(e.From) == s.Escalation {
+			return pstate{}, false
 		}
+		esc = true
 	}
-	flow := MinCut(w.n+1, arcs, w.source, sink)
-	cut = Cut{Finite: flow.Finite, Cost: flow.Cost}
-	for _, i := range flow.Edges {
-		id, ok := w.capacity[i]
-		if !ok {
-			continue // only capacity arcs are finite
-		}
-		chosen, alt := underlying(w.g, id, w.opts)
-		cut.Edges = append(cut.Edges, int(chosen))
-		alternative = append(alternative, alt...)
-	}
-	return cut, alternative
+	return pstate{e.To, target(e), esc}, true
 }
 
-func (w *network) state(s state) int {
-	if i, ok := w.states[s]; ok {
-		return i
-	}
-	w.states[s] = w.n
-	w.n++
-	return w.n - 1
+func (s *Select) sink(st pstate, jewel graph.NodeID) bool {
+	return st.node == jewel && (!s.Escalation || st.esc)
 }
 
-// expand adds, breadth-first from the entry, every usable edge: an
-// uncuttable arc from the state into the edge, its capacity arc, and an
-// uncuttable arc out to the target state.
-func (w *network) expand(start state) {
-	seen := map[state]bool{start: true}
-	queue := []state{start}
-	for len(queue) > 0 {
-		s := queue[0]
-		queue = queue[1:]
-		for _, id := range w.g.Out(s.node) {
-			e := w.g.Edge(id)
-			if !traversed(e) || !allowed(s.mode, e) {
-				continue
-			}
-			in, ok := w.edges[id]
-			if !ok {
-				in = w.addEdge(id, e)
-				if next := (state{e.To, target(e)}); !seen[next] {
-					seen[next] = true
-					queue = append(queue, next)
-				}
-			}
-			w.arcs = append(w.arcs, FlowEdge{From: w.state(s), To: in, Cost: Uncuttable})
-		}
-	}
+// Way is one side of an edge: every part must change for it to break.
+type Way struct {
+	Edge     graph.EdgeID // the edge it breaks (a derived edge's underlying edge)
+	Fix      int          // its index in the edge's Fixes; -1: priced by Options.Cost
+	Known    int64        // the side's own statements (HasKnown)
+	HasKnown bool
+	Detach   []graph.Detach
+	Resolve  []graph.Resolution
 }
 
-func (w *network) addEdge(id graph.EdgeID, e *graph.Edge) int {
-	in := w.n
-	w.n += 2
-	w.edges[id] = in
-	w.capacity[len(w.arcs)] = id
-	to := w.state(state{e.To, target(e)})
-	w.arcs = append(w.arcs,
-		FlowEdge{From: in, To: in + 1, Cost: costOf(w.g, id, w.opts)},
-		FlowEdge{From: in + 1, To: to, Cost: Uncuttable})
-	return in
-}
+func (w *Way) pending() bool { return len(w.Resolve) > 0 }
 
-// costOf: a derived edge costs its cheapest underlying edge.
-func costOf(g *graph.Graph, id graph.EdgeID, opts *Options) int64 {
+// ways: an edge's sides, cheapest first (a derived edge: its underlying
+// edges'). Uncuttable: none.
+func ways(g *graph.Graph, id graph.EdgeID, opts *Options) []Way {
 	e := g.Edge(id)
-	if e.Kind != graph.CanReadPlaintext || len(e.Under) == 0 {
-		return opts.Cost(id)
-	}
-	best := Uncuttable
-	for _, u := range e.Under {
-		if c := opts.Cost(u); c != Uncuttable && (best == Uncuttable || c < best) {
-			best = c
+	if e.Kind == graph.CanReadPlaintext && len(e.Under) > 0 {
+		var out []Way
+		for _, u := range e.Under {
+			out = append(out, ways(g, u, opts)...)
 		}
+		return out
 	}
-	return best
+	c := opts.Cost(id)
+	switch {
+	case c == Uncuttable:
+		return nil
+	case c != Default || len(e.Fixes) == 0:
+		if c == Default {
+			return nil
+		}
+		return []Way{{Edge: id, Fix: -1, Known: c, HasKnown: true}}
+	}
+	out := make([]Way, 0, len(e.Fixes))
+	for i := range e.Fixes {
+		fx := &e.Fixes[i]
+		known := fx.Kind == graph.FixNarrow || fx.Kind == graph.FixRevoke
+		out = append(out, Way{Edge: id, Fix: i, Known: fx.Cost, HasKnown: known, Detach: fx.Detach, Resolve: fx.Resolve})
+	}
+	return out
 }
 
-// underlying maps a cut derived edge to the underlying edge that is cut
-// (cheapest; CAN_DECRYPT on a tie) and the other cuttable underlying edges.
-func underlying(g *graph.Graph, id graph.EdgeID, opts *Options) (chosen graph.EdgeID, alternatives []graph.EdgeID) {
-	e := g.Edge(id)
-	if e.Kind != graph.CanReadPlaintext || len(e.Under) == 0 {
-		return id, nil
+// exclude: what the alternative may not use (SCORING.md §4.3).
+type exclude struct {
+	edges   map[graph.EdgeID]bool
+	groups  map[string]bool
+	pending bool // the chosen cut has a resolve step: known steps only
+}
+
+func (x *exclude) skips(g *graph.Graph, w *Way) bool {
+	if x == nil {
+		return false
 	}
-	best := costOf(g, id, opts)
-	var cands []graph.EdgeID
-	for _, u := range e.Under {
-		if opts.Cost(u) == best {
-			cands = append(cands, u)
+	e := g.Edge(w.Edge)
+	if x.edges[w.Edge] || x.pending && w.pending() || e.Kind == graph.RunsAs && e.Sub == "" || w.HasKnown && w.Known >= 100 {
+		return true
+	}
+	return slices.ContainsFunc(w.Detach, func(d graph.Detach) bool { return x.groups[d.Group] })
+}
+
+// Step is one part of one way: what to change, or (resolve) what to decide.
+type Step struct {
+	Edge    graph.EdgeID
+	Fix     int
+	Side    string
+	Kind    string
+	Policy  string
+	Resolve string
+	Cost    int64
+}
+
+// Result is the cut of one finding and its alternative.
+type Result struct {
+	Finite bool
+	Cost   int64
+	// Ways: the chosen side of each chokepoint edge; Steps: their parts;
+	// Other: the other sides of those edges.
+	Ways        []Way
+	Steps       []Step
+	Other       []Step
+	Alternative []Way
+	AltSteps    []Step
+	// Uncuttable: underlying edges of a cut derived read that no change breaks.
+	Uncuttable []graph.EdgeID
+	Pending    bool
+}
+
+// CutFor solves the cut of one selection of paths between entry and jewel,
+// and the cheapest complete cut sharing no edge with it (SCORING.md §4.3).
+func CutFor(g *graph.Graph, entry, jewel graph.NodeID, sel *Select, opts *Options) Result {
+	w := newCutNetwork(g, entry, jewel, sel, opts, nil)
+	cut, ok := w.solve()
+	if !ok {
+		return Result{}
+	}
+	r := Result{Finite: true, Ways: w.chosen(cut)}
+	r.Cost, r.Steps, r.Pending = price(g, r.Ways)
+	ex := &exclude{edges: map[graph.EdgeID]bool{}, groups: map[string]bool{}, pending: r.Pending}
+	for _, way := range r.Ways {
+		ex.edges[way.Edge] = true
+		for _, d := range way.Detach {
+			ex.groups[d.Group] = true
+		}
+		r.Other = append(r.Other, others(g, &way, opts)...)
+	}
+	r.Uncuttable = uncuttable(g, w, r.Ways, opts)
+	alt := newCutNetwork(g, entry, jewel, sel, opts, ex)
+	if acut, ok := alt.solve(); ok {
+		r.Alternative = alt.chosen(acut)
+		_, r.AltSteps, _ = price(g, r.Alternative)
+		if subsetOfResolves(r.AltSteps, r.Steps) {
+			r.Alternative, r.AltSteps = nil, nil
 		}
 	}
-	chosen = cands[0]
-	for _, c := range cands {
-		if g.Edge(c).Kind == graph.CanDecrypt {
-			chosen = c
+	return r
+}
+
+// price: the steps of the chosen ways and what they cost together (a
+// detach shared by several edges counts once; a resolve step costs 0).
+func price(g *graph.Graph, ws []Way) (cost int64, steps []Step, pending bool) {
+	groups := map[string]bool{}
+	for i := range ws {
+		way := &ws[i]
+		side := ""
+		if way.Fix >= 0 {
+			side = g.Edge(way.Edge).Fixes[way.Fix].Side
+		}
+		if way.HasKnown {
+			s := Step{Edge: way.Edge, Fix: way.Fix, Side: side, Cost: way.Known}
+			if way.Fix >= 0 {
+				fx := &g.Edge(way.Edge).Fixes[way.Fix]
+				s.Kind, s.Policy = fx.Kind, fx.Policy
+			}
+			steps = append(steps, s)
+			cost += way.Known
+		}
+		for _, d := range way.Detach {
+			steps = append(steps, Step{Edge: way.Edge, Fix: way.Fix, Side: side, Kind: graph.FixRevoke, Policy: d.Policy, Cost: d.Cost})
+			if !groups[d.Group] {
+				groups[d.Group] = true
+				cost += d.Cost
+			}
+		}
+		for _, r := range way.Resolve {
+			steps = append(steps, Step{Edge: way.Edge, Fix: way.Fix, Side: side, Kind: graph.FixResolve, Policy: r.Policy, Resolve: r.Command})
+			pending = true
 		}
 	}
-	for _, u := range e.Under {
-		if u != chosen && opts.Cost(u) != Uncuttable {
-			alternatives = append(alternatives, u)
+	return cost, steps, pending
+}
+
+// others: the other sides of a chosen way's edge.
+func others(g *graph.Graph, way *Way, opts *Options) []Step {
+	var out []Step
+	for _, o := range ways(g, way.Edge, opts) {
+		if o.Fix != way.Fix {
+			_, s, _ := price(g, []Way{o})
+			out = append(out, s...)
 		}
 	}
-	return chosen, alternatives
+	return out
+}
+
+// uncuttable: the underlying edges with no side of every cut derived edge.
+func uncuttable(g *graph.Graph, w *network, chosen []Way, opts *Options) []graph.EdgeID {
+	var out []graph.EdgeID
+	for _, u := range w.order {
+		e := g.Edge(u.edge)
+		if len(e.Under) == 0 || !slices.ContainsFunc(chosen, func(c Way) bool { return slices.Contains(e.Under, c.Edge) }) {
+			continue
+		}
+		for _, x := range e.Under {
+			if len(ways(g, x, opts)) == 0 && !slices.Contains(out, x) {
+				out = append(out, x)
+			}
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
+// subsetOfResolves: an alternative of resolve steps only, whose commands
+// the chosen cut already names, is never offered (SCORING.md §4.3).
+func subsetOfResolves(alt, chosen []Step) bool {
+	if len(alt) == 0 {
+		return false
+	}
+	for _, a := range alt {
+		if a.Kind != graph.FixResolve || !slices.ContainsFunc(chosen, func(c Step) bool { return c.Kind == graph.FixResolve && c.Resolve == a.Resolve }) {
+			return false
+		}
+	}
+	return true
 }

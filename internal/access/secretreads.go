@@ -100,7 +100,7 @@ func (b *builder) readSecret(role *model.Principal, j *model.Resource, how *secr
 	if !grants(read.Verdict) {
 		return
 	}
-	rewrite := b.canDo(role, how.rewrite, j.ARN(), j.Account(), b.policies[j.ID()], false)
+	rewrite := b.rewriter(role, j.ARN(), j.Account(), b.policies[j.ID()], false, how.rewrite)
 	readEdge := b.edge(role.ID(), j.ID(), graph.CanRead, "", &read, func(e *graph.Edge) {
 		e.Fixes = nonNil(b.policyFixes(graph.CanRead, best, set, role, j.ARN(), how.label,
 			&grantTarget{action: best.Action, resource: best.Resource, principal: identityOf(role)}, rewrite))
@@ -150,8 +150,7 @@ func (b *builder) decryptSecret(role *model.Principal, j *model.Resource, how *s
 		return d.Verdict, 0, false
 	}
 	b.g.Node(key.ID(), key.Kind(), key.ARN())
-	rewrite := b.canDo(role, "kms:PutKeyPolicy", key.ARN(), key.Account(), b.policies[key.ID()], true) ||
-		b.canDo(role, "kms:CreateGrant", key.ARN(), key.Account(), b.policies[key.ID()], true)
+	rewrite := b.rewriter(role, key.ARN(), key.Account(), b.policies[key.ID()], true, "kms:PutKeyPolicy", "kms:CreateGrant")
 	e := b.edge(role.ID(), key.ID(), graph.CanDecrypt, "", &d, func(e *graph.Edge) {
 		e.For = b.node(j.ID())
 		e.Fixes = nonNil(b.policyFixes(graph.CanDecrypt, req, set, role, key.ARN(), "key policy",

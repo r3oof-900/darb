@@ -97,8 +97,10 @@ func Remediate(ctx context.Context, in *Inputs, l *Loaded, a *Analysis, fp strin
 	for _, p := range plans {
 		r := &Remediation{Finding: f, Plan: p}
 		switch {
-		case len(p.Missing) > 0:
+		case len(p.Changes) == 0 && len(p.Missing) > 0:
 			r.Memory = verify.Outcome{Reasons: []string{"the finding is not confirmed: no patch until it is decided"}}
+		case len(p.Changes) == 0 && len(p.Pending) > 0:
+			r.Memory = verify.Outcome{Reasons: []string{"resolve the unknowns listed, then rescan: no known step to apply before"}}
 		case p.NoFix:
 			r.Memory = verify.Outcome{Reasons: []string{"no fix within the constraints (intended access, uncuttable edges)"}}
 		case p.Suggestion != "":

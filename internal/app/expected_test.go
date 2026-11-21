@@ -59,6 +59,14 @@ type expectedFinding struct {
 	// cheapest fix of each alternative_fix edge.
 	OtherSide         []expectedFix `json:"other_side_fix"`
 	AlternativeDetail []expectedFix `json:"alternative_fix_detail"`
+	// Phase 6 review: the findings of other rules the cut also fixes, the
+	// underlying edges no change breaks, the remediation status and the
+	// shared fixes, compared where stated.
+	AlsoFixes         *[]rules.FindingRef `json:"also_fixes"`
+	Uncuttable        *[]expectedEdge     `json:"uncuttable"`
+	RemediationStatus string              `json:"remediation_status"`
+	SharedFix         []string            `json:"shared_fix_possible"`
+	WorstCasePath     []string            `json:"worst_case_path"`
 	// Remediation: the strategies in output order, which are verified on
 	// both levels, and the advice (DESIGN.md §9.2); or missing: an UNKNOWN
 	// path gets what would decide it, no fix.
@@ -77,12 +85,25 @@ type expectedFix struct {
 	Side string `json:"side"`
 	Kind string `json:"fix_kind"`
 	Cost int64  `json:"cost"`
+	// Policy: compared where stated (a detach names the managed policy, a
+	// resolve step the unknown policy); Resolve: the deciding command.
+	Policy  string `json:"policy,omitempty"`
+	Resolve string `json:"resolve,omitempty"`
 }
 
-func fixSteps(steps []rules.FixStep) []expectedFix {
+type expectedEdge struct {
+	Edge string `json:"edge"`
+}
+
+// fixSteps keeps a step's policy only where the expected step states one.
+func fixSteps(want []expectedFix, steps []rules.FixStep) []expectedFix {
 	out := []expectedFix{}
-	for _, s := range steps {
-		out = append(out, expectedFix{Edge: s.Edge, Side: s.Side, Kind: s.Kind, Cost: s.Cost})
+	for i, s := range steps {
+		x := expectedFix{Edge: s.Edge, Side: s.Side, Kind: s.Kind, Cost: s.Cost, Resolve: s.Resolve}
+		if i < len(want) && want[i].Policy != "" {
+			x.Policy = s.Policy
+		}
+		out = append(out, x)
 	}
 	return out
 }
@@ -189,14 +210,15 @@ func compareFinding(e *expectedFinding, a *rules.Finding) []string {
 		diffs = append(diffs, "the expected file states a cut without fix, other_side_fix and alternative_fix_detail")
 	}
 	if e.Fix != nil {
-		diff("fix", e.Fix, fixSteps(a.Fix))
+		diff("fix", e.Fix, fixSteps(e.Fix, a.Fix))
 	}
 	if e.OtherSide != nil {
-		diff("other_side_fix", e.OtherSide, fixSteps(a.OtherSideFix))
+		diff("other_side_fix", e.OtherSide, fixSteps(e.OtherSide, a.OtherSideFix))
 	}
 	if e.AlternativeDetail != nil {
-		diff("alternative_fix_detail", e.AlternativeDetail, fixSteps(a.AlternativeDetail))
+		diff("alternative_fix_detail", e.AlternativeDetail, fixSteps(e.AlternativeDetail, a.AlternativeDetail))
 	}
+	diffs = append(diffs, comparePhase6(e, a)...)
 	if e.Entry != nil || e.Resource != "" {
 		diff("fingerprint (independent §8 formula)", fingerprint(e.Rule, e), a.Fingerprint)
 	}
@@ -346,35 +368,6 @@ func TestExpectedFindings(t *testing.T) {
 		}
 	}
 	compareWithOpen(t, report)
-}
-
-// compareWithOpen checks the differences against
-// testdata/open_mismatches.txt, the list waiting for review: any difference
-// not on it, or any listed one that no longer occurs, fails.
-func compareWithOpen(t *testing.T, report []string) {
-	t.Helper()
-	data, err := os.ReadFile(filepath.Join("testdata", "open_mismatches.txt"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	open := map[string]bool{}
-	for _, line := range strings.Split(string(data), string(rune(10))) {
-		if line = strings.TrimSpace(line); line != "" && !strings.HasPrefix(line, "#") {
-			open[line] = true
-		}
-	}
-	got := map[string]bool{}
-	for _, line := range report {
-		got[line] = true
-		if !open[line] {
-			t.Error("new difference: " + line)
-		}
-	}
-	for line := range open {
-		if !got[line] {
-			t.Error("listed difference no longer occurs (remove it from testdata/open_mismatches.txt): " + line)
-		}
-	}
 }
 
 // The no_edges check finds an edge that exists (the account's own read).

@@ -119,9 +119,18 @@ func TestEveryVulnerableScenarioIsFixed(t *testing.T) {
 			case "22_direct_and_escalation":
 				// Phase 6 review: the direct path rests on an unresolved variable
 				// (a resolve step, SCORING.md 4.1): no patch until it is decided.
-				if !f.Confirmed && r.Patch != nil {
-					t.Errorf("%s: an unconfirmed path gets no patch before it is resolved: %+v", name, r.Plan)
+				// The escalation (confirmed) is fixed like any other.
+				if !f.Confirmed {
+					if r.Patch != nil || len(r.Plan.Pending) == 0 {
+						t.Errorf("%s: an unconfirmed path gets its resolve steps, no patch: %+v", name, r.Plan)
+					}
+					break
 				}
+				if !r.Accepted() {
+					t.Errorf("%s %s: not accepted: memory %v, files %v", name, f.Rule, r.Memory.Reasons, r.Files.Reasons)
+					break
+				}
+				fixed++
 			case "13_module_for_each":
 				if !r.Memory.OK || r.Patch == nil || r.Patch.Complete() ||
 					!strings.Contains(r.Patch.TODO[0], `input "bucket" of module "readers" at terraform/main.tf:4`) {
@@ -140,9 +149,9 @@ func TestEveryVulnerableScenarioIsFixed(t *testing.T) {
 			}
 		}
 	}
-	// 01, 01b, 04 (2), 04b, 05 (2), 06, 07, 08 (2), 09, 12, 14 (2), 16, 17, 18 (2), 19, 20, 21.
-	if fixed != 22 {
-		t.Fatalf("%d findings fixed, want 22", fixed)
+	// 01, 01b, 04 (2), 04b, 05 (2), 06, 07, 08 (2), 09, 12, 14 (2), 16, 17, 18 (2), 19, 20, 21, 22 (PATH-002).
+	if fixed != 23 {
+		t.Fatalf("%d findings fixed, want 23", fixed)
 	}
 }
 

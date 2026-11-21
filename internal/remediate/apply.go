@@ -21,7 +21,7 @@ func Apply(inv *model.Inventory, edits []Edit) (*model.Inventory, error) {
 				order = append(order, e.Policy)
 			}
 			byDoc[e.Policy] = append(byDoc[e.Policy], *e)
-		case OpNodeMetadata, OpRemoveHostNetwork, OpRemoveExposure, OpRestrictPublic, OpDisableTokenMount:
+		case OpNodeMetadata, OpRemoveHostNetwork, OpRemoveExposure, OpRestrictPublic, OpDisableTokenMount, OpDetachPolicy:
 			applyFact(&out, e)
 		}
 	}
@@ -64,6 +64,10 @@ func applyFact(out *model.Inventory, e *Edit) {
 			s := r.S3()
 			s.RestrictPublicBuckets = model.True
 			return r.WithS3(s)
+		})
+	case OpDetachPolicy:
+		out.Policies = slices.DeleteFunc(slices.Clone(out.Policies), func(a *model.AttachedPolicy) bool {
+			return a.Target == e.Principal.ID() && a.Doc.ID() == e.Policy
 		})
 	case OpAddStatement, OpRemoveValues, OpRemoveStatement, OpSetValues:
 	}

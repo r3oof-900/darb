@@ -10,6 +10,7 @@ import (
 
 	"github.com/r3oof-900/clapa/internal/patch"
 	"github.com/r3oof-900/clapa/internal/remediate"
+	"github.com/r3oof-900/clapa/internal/verify"
 )
 
 // WriteRemediation prints a remediation: the finding, what is missing (an
@@ -20,11 +21,20 @@ func WriteRemediation(w io.Writer, r *Remediation) {
 	p := func(a ...any) { _, _ = fmt.Fprintln(w, a...) }
 	f := r.Finding
 	p("finding", f.Fingerprint, f.Rule, f.Entry+f.Resource, "->", f.Jewel)
-	if len(r.Plan.Missing) > 0 {
+	for _, s := range r.Plan.Pending {
+		p("resolve first (no change):", s)
+	}
+	if len(r.Plan.Pending) > 0 {
+		p(verify.PendingNote)
+	}
+	if len(r.Plan.Missing) > 0 && len(r.Plan.Changes) == 0 {
 		p("UNKNOWN: no patch until the path is decided. What would decide it:")
 		for _, m := range r.Plan.Missing {
 			p("  -", m)
 		}
+		return
+	}
+	if len(r.Plan.Changes) == 0 && len(r.Plan.Pending) > 0 {
 		return
 	}
 	if r.Plan.NoFix {

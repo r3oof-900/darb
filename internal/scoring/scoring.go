@@ -190,13 +190,7 @@ func FixCost(kind graph.Kind, sub, side, fixKind string) int64 {
 	case graph.SideTrust:
 		return 5 + revoke // tighten the trust: sub, aud, principal, ExternalId
 	case graph.SideWorkload:
-		switch {
-		case kind == graph.RunsAs && sub == "k8s-token":
-			return 3 // automountServiceAccountToken: false
-		case kind == graph.NodeRole:
-			return 5 // remove hostNetwork
-		}
-		return 100 // change the workload's identity
+		return workloadCost(kind, sub, fixKind)
 	case graph.SideRBAC:
 		return 5
 	case graph.SideMapping:
@@ -210,6 +204,20 @@ func FixCost(kind graph.Kind, sub, side, fixKind string) int64 {
 		return 20 // remove the exposure: every client of the endpoint is affected
 	}
 	return -1
+}
+
+// workloadCost: the fixed costs of a workload side.
+func workloadCost(kind graph.Kind, sub, fixKind string) int64 {
+	switch {
+	case kind == graph.RunsAs && sub == "k8s-token":
+		if fixKind == graph.FixRevoke {
+			return 5 // automountServiceAccountToken: false, taking away the RBAC rights the path uses
+		}
+		return 3
+	case kind == graph.NodeRole:
+		return 5 // remove hostNetwork
+	}
+	return 100 // change the workload's identity
 }
 
 // RevokeExtra is what revoking an explicit grant costs over narrowing.

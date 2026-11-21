@@ -47,6 +47,9 @@ const (
 	// OpDisableTokenMount sets automountServiceAccountToken: false in
 	// Workload's pod spec.
 	OpDisableTokenMount Op = "disable-token-mount"
+	// OpDetachPolicy detaches the AWS managed policy Policy from Principal:
+	// AWS owns its document, which is never edited (SCORING.md §4.1).
+	OpDetachPolicy Op = "detach-policy"
 )
 
 // Edit is one change to the model.
@@ -64,6 +67,7 @@ type Edit struct {
 	Workload  *model.Workload
 	Exposure  *model.NetworkExposure
 	Bucket    *model.Resource
+	Principal *model.Principal
 }
 
 // Change breaks one edge.
@@ -93,6 +97,10 @@ type Plan struct {
 	// Suggestion: a root-cause fix the input cannot verify (no declared
 	// intended access uses the grant): what to narrow, by hand; no edits.
 	Suggestion string
+	// Pending: the resolve steps of the cut, each "<policy>: <command>":
+	// no edit; once they are resolved a rescan may need more steps
+	// (remediation_status partial_pending_resolution, SCORING.md §4.1).
+	Pending []string
 }
 
 // Input is what the generator reads.
@@ -127,7 +135,9 @@ func ForEdge(in *Input, id graph.EdgeID, fx *graph.Fix) Change {
 			break
 		}
 		c.TODO = fmt.Sprintf("no generator for %s fixes yet (%s side: %s); change it by hand", e.Kind, fx.Side, fx.Policy)
-	case graph.CanEscalate, graph.MapsTo, graph.CanReadPlaintext, graph.Protects:
+	case graph.CanEscalate:
+		x.escalate()
+	case graph.MapsTo, graph.CanReadPlaintext, graph.Protects:
 		c.TODO = fmt.Sprintf("no generator for %s fixes yet (%s side: %s); change it by hand", e.Kind, fx.Side, fx.Policy)
 	}
 	return c

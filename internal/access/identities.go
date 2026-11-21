@@ -52,7 +52,7 @@ func (b *builder) chain(src, dst *model.Principal, trust *model.PolicyDocument) 
 	set := b.identitySet(src, []*model.PolicyDocument{trust}, true)
 	d := eval.Evaluate(req, set)
 	if grants(d.Verdict) {
-		rewrite := b.canDo(src, "iam:UpdateAssumeRolePolicy", dst.Identity(), dst.Account(), nil, false)
+		rewrite := b.rewriter(src, dst.Identity(), dst.Account(), nil, false, "iam:UpdateAssumeRolePolicy")
 		b.edge(src.ID(), dst.ID(), graph.Assumes, "sts", &d, func(e *graph.Edge) {
 			t := &grantTarget{action: "sts:AssumeRole", resource: dst.Identity(), principal: src.Identity()}
 			e.Fixes = nonNil(b.policyFixes(graph.Assumes, req, set, src, dst.Identity(), "trust policy", t, rewrite))
@@ -73,27 +73,22 @@ func (b *builder) request(src *model.Principal, action, resource string, present
 	}
 }
 
-// identityKind: the fix kind of src's identity grant of action on resource
-// (SCORING.md §4.1): revoke when a granting statement names both exactly.
-func (b *builder) identityKind(src *model.Principal, action, resource string, present map[string][]string) string {
-	req := b.request(src, action, resource, present)
-	return fixKind(eval.Granting(req, b.identitySet(src, nil, false).Identity), graph.SideIdentity, &grantTarget{action: action, resource: resource})
-}
-
 // updateTrust: iam:UpdateAssumeRolePolicy on dst lets src name itself in
-// dst's trust and assume it (in another account src's identity policy must
-// also allow sts:AssumeRole on dst).
+// dst's trust and assume it. Same account only: IAM's only resource-based
+// policy is the role trust policy, which governs sts:AssumeRole, not IAM
+// writes, so another account's role is rewritten only after an ASSUMES into
+// that account (DESIGN.md 7.2, Phase 6 review).
 func (b *builder) updateTrust(src, dst *model.Principal) eval.Verdict {
+	if !sameAccount(src, dst) {
+		return eval.ImplicitDeny
+	}
 	update := b.ask(src, "iam:UpdateAssumeRolePolicy", dst.Identity(), nil)
 	verdict := update.Verdict
-	if !sameAccount(src, dst) {
-		verdict = both(verdict, b.ask(src, "sts:AssumeRole", dst.Identity(), nil).Verdict)
-	}
 	if grants(verdict) {
-		kind := b.identityKind(src, "iam:UpdateAssumeRolePolicy", dst.Identity(), nil)
-		b.edge(src.ID(), dst.ID(), graph.CanEscalate, "iam:update-trust", &eval.Decision{Verdict: verdict}, func(e *graph.Edge) {
+		reqs := []grantReq{b.grantReq(src, "iam:UpdateAssumeRolePolicy", dst.Identity(), nil)}
+		b.edge(src.ID(), dst.ID(), graph.CanEscalate, "iam:update-trust", &update, func(e *graph.Edge) {
 			e.Evidence = evidence(&update)
-			e.Fixes = nonNil(b.factFixes(e, kind))
+			e.Fixes = nonNil(b.escalationFixes(e, src, reqs))
 		})
 	}
 	return verdict
@@ -109,16 +104,16 @@ func (b *builder) modifyPolicy(src, dst *model.Principal, act eval.Verdict) (*mo
 	if !grants(act) || src.Kind() == model.KindIAMRoleAnyPermission && src.Identity() == dst.Identity() {
 		return nil, false
 	}
-	modify := eval.ImplicitDeny
+	modify := &eval.Decision{Verdict: eval.ImplicitDeny}
 	var why []string
-	kind := graph.FixNarrow
+	var reqs []grantReq
 	try := func(action, resource string) {
 		d := b.ask(src, action, resource, nil)
-		if v := either(modify, d.Verdict); v != modify {
-			modify, why = v, append(evidence(&d), action+" on "+resource)
+		if better(&d, modify) {
+			modify, why = &d, append(evidence(&d), action+" on "+resource)
 		}
-		if grants(d.Verdict) && b.identityKind(src, action, resource, nil) == graph.FixRevoke {
-			kind = graph.FixRevoke // every granting way must go: one explicit grant makes it a revoke
+		if grants(d.Verdict) {
+			reqs = append(reqs, b.grantReq(src, action, resource, nil)) // every granting way must go
 		}
 	}
 	try("iam:AttachRolePolicy", dst.Identity())
@@ -128,14 +123,16 @@ func (b *builder) modifyPolicy(src, dst *model.Principal, act eval.Verdict) (*mo
 			try("iam:CreatePolicyVersion", doc.ID())
 		}
 	}
-	verdict := both(modify, act)
-	if !grants(verdict) {
+	all := allowAllOf()
+	all.and(modify)
+	all.andVerdict(act)
+	if !grants(all.d.Verdict) {
 		return nil, false
 	}
 	target, isNew := b.anyPermission(dst)
-	b.edge(src.ID(), target.ID(), graph.CanEscalate, "iam:modify-policy", &eval.Decision{Verdict: verdict}, func(e *graph.Edge) {
+	b.edge(src.ID(), target.ID(), graph.CanEscalate, "iam:modify-policy", all.decision(), func(e *graph.Edge) {
 		e.Evidence = why
-		e.Fixes = nonNil(b.factFixes(e, kind))
+		e.Fixes = nonNil(b.escalationFixes(e, src, reqs))
 	})
 	return target, isNew
 }
@@ -166,7 +163,7 @@ func (b *builder) anyPermission(dst *model.Principal) (*model.Principal, bool) {
 	p := model.NewPrincipal(model.KindIAMRoleAnyPermission, dst.Identity(), dst.Account(), dst.Source())
 	b.rewritten[id] = p
 	b.order = append(b.order, p)
-	b.g.Node(p.ID(), p.Kind(), dst.Identity()+" (any permission)")
+	b.g.Node(p.ID(), p.Kind(), dst.Identity()) // its identity is the role's ARN (DESIGN.md 7.2); the ID and CAN_ESCALATE[iam:modify-policy] tell it apart
 	b.policies[p.ID()] = []*model.PolicyDocument{allowAll()}
 	if boundary, ok := b.boundaries[dst.ID()]; ok {
 		b.boundaries[p.ID()] = boundary
@@ -224,13 +221,16 @@ func (b *builder) passRole(src, dst *model.Principal, trust *model.PolicyDocumen
 		target := "arn:" + b.opts.Partition + ":" + serviceOf(name) + ":" + model.UnresolvedPlaceholder("region") + ":" + src.Account() +
 			":" + svc.resource + "/" + model.UnresolvedPlaceholder("name")
 		pass := b.ask(src, "iam:PassRole", dst.Identity(), map[string][]string{"iam:PassedToService": {svc.principal}})
-		verdict := both(pass.Verdict, trusted.Verdict)
+		all := allowAllOf()
+		all.and(&pass)
+		all.and(&trusted)
 		why := append(evidence(&pass), evidence(&trusted)...)
 		for _, action := range svc.create {
 			d := b.ask(src, action, target, nil)
-			verdict, why = both(verdict, d.Verdict), append(why, evidence(&d)...)
+			all.and(&d)
+			why = append(why, evidence(&d)...)
 		}
-		if !grants(verdict) {
+		if !grants(all.d.Verdict) {
 			continue
 		}
 		run := eval.Allow
@@ -240,12 +240,12 @@ func (b *builder) passRole(src, dst *model.Principal, trust *model.PolicyDocumen
 				run = either(run, b.ask(src, action, target, nil).Verdict)
 			}
 		}
-		kind := b.identityKind(src, "iam:PassRole", dst.Identity(), map[string][]string{"iam:PassedToService": {svc.principal}})
+		reqs := []grantReq{b.grantReq(src, "iam:PassRole", dst.Identity(), map[string][]string{"iam:PassedToService": {svc.principal}})}
 		trustFix := sideFix(graph.Assumes, "", graph.SideTrust, service, []*model.PolicyDocument{trust},
-			&grantTarget{action: "sts:AssumeRole", principal: svc.principal}, dst.Identity(), dst.Identity()+" trust policy")
-		b.edge(src.ID(), dst.ID(), graph.CanEscalate, "iam:passrole:"+name, &eval.Decision{Verdict: verdict}, func(e *graph.Edge) {
+			&grantTarget{action: "sts:AssumeRole", principal: svc.principal}, dst.Identity(), dst.Identity()+" trust policy", "")
+		b.edge(src.ID(), dst.ID(), graph.CanEscalate, "iam:passrole:"+name, all.decision(), func(e *graph.Edge) {
 			e.Evidence = why
-			e.Fixes = append(b.factFixes(e, kind), trustFix)
+			e.Fixes = append(b.escalationFixes(e, src, reqs), trustFix)
 			sortFixes(e.Fixes)
 			switch run {
 			case eval.Allow:

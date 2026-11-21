@@ -67,6 +67,12 @@ type GraphStats struct {
 
 // Analyze builds the access graph, searches paths and runs every rule.
 func Analyze(l *Loaded, cfg *config.Config, failOn string) (*Analysis, error) {
+	return analyze(l, cfg, failOn, nil)
+}
+
+// analyze is Analyze with an optional change to the access graph before the
+// paths are searched (a test applies a finding's cut in memory).
+func analyze(l *Loaded, cfg *config.Config, failOn string, edit func(*graph.Graph) *graph.Graph) (*Analysis, error) {
 	reg, err := catalog.New()
 	if err != nil {
 		return nil, err
@@ -92,6 +98,9 @@ func Analyze(l *Loaded, cfg *config.Config, failOn string) (*Analysis, error) {
 	}
 	built := access.Build(inv, &access.Options{Partition: partition(cfg), Jewels: targets, Assume: cfg.Assume})
 	g := built.Graph
+	if edit != nil {
+		g = edit(g)
+	}
 	entries, entryInfo := entryPoints(g, l, *cfg.ThreatModel.AssumeCompromised)
 	uncuttable := intendedEdges(g, cfg, intended)
 	opts := paths.Options{Cost: costs(g, cfg, uncuttable)}
@@ -105,7 +114,7 @@ func Analyze(l *Loaded, cfg *config.Config, failOn string) (*Analysis, error) {
 		}
 	}
 	pairs := paths.Analyze(g, entries, dataJewels, opts)
-	in := &rules.Input{Inventory: inv, Graph: g, Pairs: pairs, Entries: entryInfo, Jewels: jewelNodes, Partition: partition(cfg)}
+	in := &rules.Input{Inventory: inv, Graph: g, Pairs: pairs, Entries: entryInfo, Jewels: jewelNodes, Partition: partition(cfg), Cuts: &opts}
 	fs := findings.Finish(reg.Evaluate(in), reg)
 	a := &Analysis{
 		Findings: fs, Notes: slices.Concat(built.Notes, l.Notes, notModelled()), Gaps: l.Gaps, Collected: l.Collected,
@@ -193,7 +202,7 @@ func costs(g *graph.Graph, cfg *config.Config, uncuttable map[graph.EdgeID]bool)
 		if c, ok := cfg.Remediation.CutCosts[string(e.Kind)]; ok {
 			return int64(c)
 		}
-		return e.Fixes[0].Cost // the cheapest fix (SCORING.md §4)
+		return paths.Default // priced from its fixes: sides, detaches, resolve steps (SCORING.md §4)
 	}
 }
 

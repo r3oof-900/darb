@@ -177,6 +177,8 @@ func (p *patcher) placeAll(inv *model.Inventory, edits []remediate.Edit) ([]*pol
 			err = p.removeExposure(e)
 		case remediate.OpRestrictPublic:
 			err = p.restrictPublic(e)
+		case remediate.OpDetachPolicy:
+			err = p.detachPolicy(e)
 		}
 		if kept := p.keep(err); kept != nil {
 			return nil, kept

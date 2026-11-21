@@ -1,6 +1,7 @@
 package paths
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/r3oof-900/clapa/internal/eval"
@@ -101,8 +102,9 @@ func TestEnumerationCaps(t *testing.T) {
 }
 
 // The derived read costs its cheapest underlying edge; CAN_DECRYPT is cut
-// only on a tie; the other cuttable underlying edge, at any cost, is the
-// alternative.
+// only on a tie; the alternative is the cheapest complete cut sharing no
+// edge with it (SCORING.md 4.3): the other underlying edge when it is the
+// cheapest such cut, otherwise whatever is.
 func TestDerivedEdgeCut(t *testing.T) {
 	x := newTG()
 	x.e("w", "role", graph.Assumes, "irsa")
@@ -110,51 +112,42 @@ func TestDerivedEdgeCut(t *testing.T) {
 	dec := x.b.Edge(&graph.Edge{From: x.n("role"), To: x.n("key"), Kind: graph.CanDecrypt, For: x.n("jewel"), Verdict: eval.Allow})
 	x.b.Edge(&graph.Edge{From: x.n("role"), To: x.n("jewel"), Kind: graph.CanReadPlaintext, For: graph.NoNode, Verdict: eval.Allow, Under: []graph.EdgeID{read, dec}})
 	g := x.b.Build()
-	pairs := Analyze(g, []graph.NodeID{lookup(g, "w")}, []graph.NodeID{lookup(g, "jewel")}, Options{Cost: cost(g)})
-	p := pairs[0]
-	if !p.Cut.Finite || p.Cut.Cost != 1 || len(p.Cut.Edges) != 1 || g.Edge(cutEdge(&p)).Kind != graph.CanDecrypt ||
-		len(p.Alternative) != 1 || g.Edge(p.Alternative[0]).Kind != graph.CanRead {
-		t.Fatalf("cut %+v alternative %v", p.Cut, p.Alternative)
+	w, jewel := lookup(g, "w"), lookup(g, "jewel")
+	cut := func(c func(graph.EdgeID) int64) Result {
+		return CutFor(g, w, jewel, &Select{}, &Options{Cost: c})
 	}
-	expensiveRead := func(id graph.EdgeID) int64 {
-		if g.Edge(id).Kind == graph.CanRead {
-			return 9
+	kinds := func(ws []Way) []graph.Kind {
+		var out []graph.Kind
+		for _, x := range ws {
+			out = append(out, g.Edge(x.Edge).Kind)
 		}
-		return cost(g)(id)
+		return out
 	}
-	p = Analyze(g, []graph.NodeID{lookup(g, "w")}, []graph.NodeID{lookup(g, "jewel")}, Options{Cost: expensiveRead})[0]
-	if len(p.Alternative) != 1 || g.Edge(p.Alternative[0]).Kind != graph.CanRead || g.Edge(cutEdge(&p)).Kind != graph.CanDecrypt {
-		t.Fatalf("the dearer read is still the alternative: %+v %v", p.Cut, p.Alternative)
+	is := func(ws []Way, k ...graph.Kind) bool { return slices.Equal(kinds(ws), k) }
+	if r := cut(cost(g)); !r.Finite || r.Cost != 1 || !is(r.Ways, graph.CanDecrypt) || !is(r.Alternative, graph.CanRead) {
+		t.Fatalf("tie: the decrypt is cut, the read is the alternative: %+v", r)
 	}
-	expensiveDecrypt := func(id graph.EdgeID) int64 {
-		if g.Edge(id).Kind == graph.CanDecrypt {
-			return 9
+	with := func(k graph.Kind, c int64) func(graph.EdgeID) int64 {
+		return func(id graph.EdgeID) int64 {
+			if g.Edge(id).Kind == k {
+				return c
+			}
+			return cost(g)(id)
 		}
-		return cost(g)(id)
 	}
-	p = Analyze(g, []graph.NodeID{lookup(g, "w")}, []graph.NodeID{lookup(g, "jewel")}, Options{Cost: expensiveDecrypt})[0]
-	if p.Cut.Cost != 1 || g.Edge(cutEdge(&p)).Kind != graph.CanRead || len(p.Alternative) != 1 || g.Edge(p.Alternative[0]).Kind != graph.CanDecrypt {
-		t.Fatalf("a cheaper read is cut, no tie rule: %+v %v", p.Cut, p.Alternative)
+	if r := cut(with(graph.CanRead, 9)); !is(r.Ways, graph.CanDecrypt) || !is(r.Alternative, graph.Assumes) {
+		t.Fatalf("a dearer read: the trust (5) is the cheapest separate cut: %+v", r)
 	}
-	uncuttableRead := func(id graph.EdgeID) int64 {
-		if g.Edge(id).Kind == graph.CanRead {
-			return Uncuttable
-		}
-		return cost(g)(id)
+	if r := cut(with(graph.CanDecrypt, 9)); r.Cost != 1 || !is(r.Ways, graph.CanRead) || !is(r.Alternative, graph.Assumes) {
+		t.Fatalf("a cheaper read is cut, no tie rule: %+v", r)
 	}
-	p = Analyze(g, []graph.NodeID{lookup(g, "w")}, []graph.NodeID{lookup(g, "jewel")}, Options{Cost: uncuttableRead})[0]
-	if len(p.Alternative) != 0 || g.Edge(cutEdge(&p)).Kind != graph.CanDecrypt {
-		t.Fatalf("an uncuttable read is no alternative: %+v %v", p.Cut, p.Alternative)
+	if r := cut(with(graph.CanRead, Uncuttable)); !is(r.Ways, graph.CanDecrypt) || !is(r.Alternative, graph.Assumes) ||
+		!slices.Equal(r.Uncuttable, []graph.EdgeID{read}) {
+		t.Fatalf("an uncuttable read is listed, never the alternative: %+v", r)
 	}
-	uncuttable := func(graph.EdgeID) int64 { return Uncuttable }
-	p = Analyze(g, []graph.NodeID{lookup(g, "w")}, []graph.NodeID{lookup(g, "jewel")}, Options{Cost: uncuttable})[0]
-	if p.Cut.Finite {
-		t.Fatalf("no fix within constraints: %+v", p.Cut)
+	if r := cut(func(graph.EdgeID) int64 { return Uncuttable }); r.Finite {
+		t.Fatalf("no fix within constraints: %+v", r)
 	}
-}
-
-func cutEdge(p *Pair) graph.EdgeID {
-	return graph.EdgeID(p.Cut.Edges[0]) //nolint:gosec // G115: small test graphs
 }
 
 // A Kubernetes Secret read is RBAC: never with the cloud identity alone.

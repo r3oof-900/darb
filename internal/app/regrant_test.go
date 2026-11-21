@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -32,8 +33,8 @@ func edgeBetween(t *testing.T, g *graph.Graph, kind graph.Kind, from, to string)
 }
 
 func hasSide(e *graph.Edge, side string) bool {
-	for _, f := range e.Fixes {
-		if f.Side == side {
+	for i := range e.Fixes {
+		if e.Fixes[i].Side == side {
 			return true
 		}
 	}
@@ -89,8 +90,10 @@ func TestRegrantRemovesIdentitySide(t *testing.T) {
 
 // Scenario 6: analytics-admin can rewrite its own policies, the warehouse
 // key's policy and the bucket's. With the hop into it declared uncuttable,
-// no edge from it (or from its any-permission twin) may be in the cut.
-func TestNoCutAfterSelfModifyingRole(t *testing.T) {
+// a cut after it (Phase 6 review, SCORING.md 4.1-4.2) must break its
+// escalation too, never its read alone, and AdministratorAccess, which AWS
+// owns, is detached, never narrowed: one change for every edge it grants.
+func TestCutAfterSelfModifyingRoleDetaches(t *testing.T) {
 	const admin = "arn:aws:iam::444455556666:role/analytics-admin"
 	a := analyzeVariant(t, "06_role_chain_cross_account/vulnerable", func(dir string) {
 		appendConfig(t, dir, "remediation:", "  uncuttable_edges:",
@@ -98,17 +101,22 @@ func TestNoCutAfterSelfModifyingRole(t *testing.T) {
 	})
 	f := findingFor(a, "CLAPA-PATH-001", "arn:aws:s3:::acme-analytics-warehouse")
 	if f == nil || len(f.Chokepoints) == 0 {
-		t.Fatalf("a cut before the admin role must exist: %+v", f)
+		t.Fatalf("a cut must exist: %+v", f)
 	}
-	for _, c := range f.Chokepoints {
-		if strings.Contains(c, admin+" ->") || strings.Contains(c, admin+" (any permission) ->") {
-			t.Errorf("cut after the self-modifying role: %s", c)
-		}
+	after := slices.ContainsFunc(f.Chokepoints, func(c string) bool { return strings.Contains(c, admin+" ->") })
+	escalation := slices.ContainsFunc(f.Chokepoints, func(c string) bool {
+		return strings.HasPrefix(c, "CAN_ESCALATE[iam:modify-policy] "+admin+" ->")
+	})
+	if after && !escalation {
+		t.Errorf("a cut after the self-modifying role must break its escalation: %v", f.Chokepoints)
 	}
 	for _, s := range f.Fix {
-		if strings.Contains(s.Edge, admin+" ->") {
-			t.Errorf("identity-side fix after the self-modifying role: %+v", s)
+		if strings.Contains(s.Edge, admin+" ->") && (s.Kind != "revoke" || s.Policy != "arn:aws:iam::aws:policy/AdministratorAccess" || s.Cost != 4) {
+			t.Errorf("AdministratorAccess is detached (identity, revoke, 4), never narrowed: %+v", s)
 		}
+	}
+	if after && f.CutCost != 4 {
+		t.Errorf("one detach for every edge it grants: cut cost %d, want 4", f.CutCost)
 	}
 }
 

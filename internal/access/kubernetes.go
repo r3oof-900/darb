@@ -159,7 +159,7 @@ func (b *builder) webIdentity(from model.ID, sa *model.ServiceAccount, audiences
 			// The trust names the service account explicitly by an exact :sub
 			// (revoke) or matches it in general (narrow, SCORING.md §4.1).
 			t := &grantTarget{action: "sts:AssumeRoleWithWebIdentity", sub: "system:serviceaccount:" + sa.Namespace + ":" + sa.Name}
-			trustFix := sideFix(graph.Assumes, sub, graph.SideTrust, best, []*model.PolicyDocument{trust}, t, role.Identity(), role.Identity()+" trust policy")
+			trustFix := sideFix(graph.Assumes, sub, graph.SideTrust, best, []*model.PolicyDocument{trust}, t, role.Identity(), role.Identity()+" trust policy", "")
 			b.edge(from, role.ID(), graph.Assumes, sub, &eval.Decision{Verdict: verdict}, func(e *graph.Edge) {
 				e.Fixes = []graph.Fix{trustFix}
 				e.Evidence = why
@@ -282,7 +282,7 @@ func (b *builder) podIdentity(a *model.PodIdentityAssociation) {
 	if grants(r.Verdict) {
 		req := PodIdentityRequest(a, cluster, role.Account(), "sts:AssumeRole")
 		trustFix := sideFix(graph.Assumes, "pod-identity", graph.SideTrust, req, []*model.PolicyDocument{trust},
-			&grantTarget{action: "sts:AssumeRole", principal: "pods.eks.amazonaws.com"}, role.Identity(), role.Identity()+" trust policy")
+			&grantTarget{action: "sts:AssumeRole", principal: "pods.eks.amazonaws.com"}, role.Identity(), role.Identity()+" trust policy", "")
 		b.edge(sa, role.ID(), graph.Assumes, "pod-identity", &eval.Decision{Verdict: r.Verdict}, func(e *graph.Edge) {
 			e.Fixes = []graph.Fix{trustFix}
 			e.Evidence = []string{

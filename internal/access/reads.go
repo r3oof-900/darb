@@ -123,7 +123,7 @@ func (b *builder) read(role *model.Principal, j *model.Resource) {
 	if !grants(read.Verdict) {
 		return
 	}
-	rewrite := b.canDo(role, "s3:PutBucketPolicy", j.ARN(), j.Account(), b.policies[j.ID()], false)
+	rewrite := b.rewriter(role, j.ARN(), j.Account(), b.policies[j.ID()], false, "s3:PutBucketPolicy")
 	readEdge := b.edge(from, j.ID(), graph.CanRead, sub(role), &read, func(e *graph.Edge) {
 		e.Fixes = nonNil(b.policyFixes(graph.CanRead, req, set, role, j.ARN(), "bucket policy",
 			&grantTarget{action: "s3:GetObject", prefix: j.ARN() + "/", principal: identityOf(role)}, rewrite))
@@ -211,8 +211,7 @@ func (b *builder) decrypt(role *model.Principal, principal match.RequestPrincipa
 		return result.Verdict, 0, false
 	}
 	b.g.Node(key.ID(), key.Kind(), key.ARN())
-	rewrite := b.canDo(role, "kms:PutKeyPolicy", key.ARN(), key.Account(), b.policies[key.ID()], true) ||
-		b.canDo(role, "kms:CreateGrant", key.ARN(), key.Account(), b.policies[key.ID()], true)
+	rewrite := b.rewriter(role, key.ARN(), key.Account(), b.policies[key.ID()], true, "kms:PutKeyPolicy", "kms:CreateGrant")
 	e := b.edge(role.ID(), key.ID(), graph.CanDecrypt, "", result, func(e *graph.Edge) {
 		e.For = b.node(j.ID())
 		e.Fixes = nonNil(b.policyFixes(graph.CanDecrypt, req, set, role, key.ARN(), "key policy",

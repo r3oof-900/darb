@@ -263,10 +263,17 @@ side it can rewrite does not count either; the cut moves before it:
 - a principal that can **rewrite the target's resource policy** —
   `s3:PutBucketPolicy` on the bucket, `kms:PutKeyPolicy` or `kms:CreateGrant`
   on the key, `iam:UpdateAssumeRolePolicy` on the role — loses that resource
-  (or trust) side; and, when it is in the resource's own account (where that
-  resource policy alone grants), its identity side too: cut its identity grant
-  and it writes the grant back on the resource. Across accounts its identity
-  grant is still required, so that side still counts.
+  (or trust) side (an UNKNOWN rewrite counts: the side cannot be relied on);
+  and, when it is in the resource's own account (where that resource policy
+  alone grants), its identity side too, but only if it could still write the
+  grant back after the identity fix: a known ALLOW of the rewrite that the fix
+  leaves in place (the resource policy alone, or a statement outside every
+  policy the fix detaches; narrowing one grant does not remove its
+  statement's other actions). Detaching AdministratorAccess removes the
+  rewrite with the grant, so that identity side holds (scenario 6's
+  alternative); an UNKNOWN rewrite never takes a side away, since resolving
+  it is part of the cut (scenario 19 with ReadOnlyAccess). Across accounts
+  its identity grant is still required, so that side still counts.
 
 The ability to grant oneself access again is not a fixed property of a role:
 it is itself permissions, which the graph holds as `CAN_ESCALATE` edges to the

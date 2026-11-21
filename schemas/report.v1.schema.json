@@ -84,15 +84,35 @@
       }
     },
     "fixStep": {
-      "description": "One change that breaks one edge (SCORING.md 4).",
+      "description": "One change that breaks one edge, or (resolve) the unknown to decide first (SCORING.md 4).",
       "type": "object", "additionalProperties": false,
       "required": ["edge", "side", "fix_kind", "policy", "cost"],
       "properties": {
         "edge": {"type": "string"},
         "side": {"enum": ["identity", "resource", "trust", "workload", "rbac", "mapping", "node", "exposure"]},
-        "fix_kind": {"description": "narrow: make a broad grant specific; revoke: remove an explicit grant (confirm it is not needed).", "enum": ["narrow", "revoke"]},
+        "fix_kind": {"description": "narrow: make a broad grant specific; revoke: remove an explicit grant or detach an AWS managed policy (confirm it is not needed); resolve: decide an unknown grant first (cost 0, no patch).", "enum": ["narrow", "revoke", "resolve"]},
         "policy": {"type": "string"},
-        "cost": {"type": "integer", "minimum": 1}
+        "cost": {"description": "0 only for a resolve step.", "type": "integer", "minimum": 0},
+        "resolve": {"description": "For a resolve step: the command that decides it.", "type": "string"}
+      }
+    },
+    "findingRef": {
+      "description": "A path finding, by rule, entry and jewel.",
+      "type": "object", "additionalProperties": false,
+      "required": ["rule", "entry", "jewel"],
+      "properties": {
+        "rule": {"type": "string"},
+        "entry": {"type": "string"},
+        "jewel": {"type": "string"}
+      }
+    },
+    "uncuttableEdge": {
+      "description": "An underlying edge of a cut derived read that no single change breaks.",
+      "type": "object", "additionalProperties": false,
+      "required": ["edge", "reason"],
+      "properties": {
+        "edge": {"type": "string"},
+        "reason": {"type": "string"}
       }
     },
     "default": {
@@ -135,7 +155,11 @@
         "fix": {"description": "The side the cut chose for each chokepoint edge (its cheapest fix).", "type": "array", "items": {"$ref": "#/$defs/fixStep"}},
         "other_side_fix": {"description": "The other sides that also break a chokepoint edge, dearer.", "type": "array", "items": {"$ref": "#/$defs/fixStep"}},
         "alternative_fix_detail": {"description": "The cheapest fix of each alternative_fix edge.", "type": "array", "items": {"$ref": "#/$defs/fixStep"}},
-        "shared_fix_possible": {"description": "Resources one change to whose policy breaks two or more chokepoint edges; cut_cost then overstates the fix.", "type": "array", "items": {"type": "string"}},
+        "shared_fix_possible": {"description": "Resources or policies one change to which breaks two or more chokepoint edges.", "type": "array", "items": {"type": "string"}},
+        "worst_case_path": {"description": "A less certain path of the same rule that scores higher than path; the severity is its score.", "type": "array", "items": {"type": "string"}},
+        "also_fixes": {"description": "Path findings of other rules this cut also fixes (path findings only).", "type": "array", "items": {"$ref": "#/$defs/findingRef"}},
+        "uncuttable": {"description": "Underlying edges of a cut derived read that no single change breaks (path findings only).", "type": "array", "items": {"$ref": "#/$defs/uncuttableEdge"}},
+        "remediation_status": {"description": "complete, or partial_pending_resolution when the cut has a resolve step: decide the unknowns, then rescan.", "enum": ["complete", "partial_pending_resolution"]},
         "defaults_used": {"type": ["array", "null"], "items": {"$ref": "#/$defs/default"}},
         "evidence": {"type": "array", "items": {"type": "string"}},
         "location": {"$ref": "#/$defs/location"},

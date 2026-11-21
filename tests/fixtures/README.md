@@ -49,7 +49,8 @@ diff is a behaviour change.
 | 18 | `18_same_cluster_name_two_regions` | two clusters named `prod` (eu-west-1, us-east-1), `apps/app` in each bound to its own role; manifests in `k8s/<region>/` | two paths, nothing crossing, no gap | the us-east-1 role only lists |
 | 19 | `19_secrets_manager` | IRSA → role → `GetSecretValue` + `kms:Decrypt` on `*` → Secrets Manager secret | path | decrypt conditioned on another secret's `SecretARN` |
 | 20 | `20_ssm_securestring` | IRSA → role → `ssm:GetParameter` + `kms:Decrypt` on `*` → SecureString | path | decrypt conditioned on another parameter's `PARAMETER_ARN` |
-| 21 | `21_k8s_secret` | token mounted + RBAC `get secrets` → Kubernetes Secret | escalation path | `automountServiceAccountToken: false` |
+| 21 | `21_k8s_secret` | token mounted + RBAC `get secrets` → Kubernetes Secret | direct path (the pod's own token) | `automountServiceAccountToken: false` |
+| 22 | `22_direct_and_escalation` | `role/app` reads PII (decrypt on an unresolved variable) and may assume `role/ops`, which rewrites its own policy; `dominance`: `role/app` decrypts and rewrites its own policy | a direct and an escalation finding for one pair; `dominance`: one direct finding whose cut includes the escalation | `role/ops` only lists |
 
 For the "no path" scenarios (2, 3, 11) the vulnerable variant is the near-miss
 configuration that must *not* produce a path; the fixed variant is a hardened

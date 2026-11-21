@@ -53,7 +53,11 @@ func TestPolicyFixesSides(tt *testing.T) {
 	b := &builder{}
 	for _, c := range cases {
 		t := &grantTarget{action: "s3:GetObject", prefix: bucket + "/", principal: roleA}
-		got := b.policyFixes(graph.CanRead, request(c.account), c.set, c.who, bucket, "bucket policy", t, c.canRewrite)
+		// The rewrite comes from the identity policy, which no detach removes:
+		// in the bucket's own account the principal writes the grant back.
+		same := c.account == "111111111111"
+		rw := &rewriter{can: c.canRewrite, survives: func(*graph.Fix) bool { return same }}
+		got := b.policyFixes(graph.CanRead, request(c.account), c.set, c.who, bucket, "bucket policy", t, rw)
 		var sides []string
 		for _, f := range got {
 			sides = append(sides, f.Side)

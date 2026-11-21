@@ -1053,6 +1053,23 @@ finding appears for the same (entry, jewel): in scenario 22's dominance
 variant, cutting `role/app`'s decrypt alone is rejected
 (`TestDominatedPathsStayInTheCut`).
 
+How the engine does it (`internal/rules/pathrules`, `internal/paths`): the
+paths of a pair are split by rule; an escalation is dominated when the
+source X of its first `CAN_ESCALATE` reaches the jewel without one at a
+status at least as strong as the rest of the path from X. The cut of each
+finding is a minimum cut over its own selection of paths, on a network
+expanded by (node, mode, escalated): the direct finding's paths may take an
+escalation only from a dominated source; the escalation finding's must take
+one from a source that is not. X's escalations are merged into the direct
+cut when all of them are dominated; when only some are, all of X's
+escalations stay with the escalation finding's cut (the dominated ones are
+not reported, but they are cut there). When the direct paths of a pair were
+not enumerated (caps), the escalations are reported rather than hidden.
+Properties (`internal/app/phase6_properties_test.go`): an unknown policy
+never hides a confirmed finding or changes its fingerprint, an unknown Allow
+never lowers its status; no escalation finding has a dominated path;
+applying a finding's cut in memory leaves no new finding for its pair.
+
 **Suppressions** (`.clapa-ignore.yaml`, or `--ignore FILE`; Phase 6):
 
 - Keyed by fingerprint, each with a mandatory `reason`, `owner` and `expires`
@@ -1303,6 +1320,15 @@ the key policy fix is verified, `TestScenario10Decided`; since the Phase 6
 review its cut is a `resolve` step, below), and scenario 13's
 grant comes from the module input `bucket` (a TODO naming
 `terraform/main.tf:4`: the input does not say what the readers need).
+
+**Escalations and detaches (Phase 6 review).** An IAM escalation chosen in
+a cut is changed on its identity side like a grant: a revoke removes the
+explicit `iam:PutRolePolicy` / `AttachRolePolicy` / `UpdateAssumeRolePolicy`
+/ `PassRole` grant of the target, a narrow fix denies those actions on it.
+A detach removes the AWS managed policy from the role's
+`managed_policy_arns`, or deletes the `aws_iam_role_policy_attachment`,
+never editing the AWS document; what replaces it is an unverified TODO in
+the change's reason.
 
 **Resolve steps (Phase 6 review; SCORING.md §4.1).** A side that grants
 only through an UNKNOWN Allow is fixed by deciding it, not by deleting
@@ -1655,7 +1681,8 @@ Encryption type of every jewel bucket is stated explicitly in the fixture
 | 18 | (Phase 6) Two EKS clusters named `prod` in one account, eu-west-1 and us-east-1; each has `apps/app` bound by IRSA to its own role (`app-eu`, `app-us`), each reading its region's SSE-S3 PII bucket | each role: `s3:GetObject` on its own bucket | two paths with distinct fingerprints; no edge between the clusters (`no_edges`); no coverage gap (exit 0) |
 | 19 | (Phase 6) Scenario 1 with a **Secrets Manager** secret (`DataClass: secret`) under a customer managed key | `secretsmanager:GetSecretValue` on the secret's ARN + `kms:Decrypt` on `*` | path, 810 critical; cut: the broad decrypt |
 | 20 | (Phase 6) Scenario 1 with an **SSM SecureString** parameter under a customer managed key | `ssm:GetParameter` on the parameter's ARN + `kms:Decrypt` on `*` | path, 810 critical; cut: the broad decrypt |
-| 21 | (Phase 6) A **Kubernetes Secret** (`DataClass: secret`); `payments/ci` may `get secrets` in `payments`, its token mounted by default | RBAC `get secrets` | `CLAPA-PATH-002` (token, then the RBAC read), 360 medium; cut: the token mount |
+| 21 | (Phase 6) A **Kubernetes Secret** (`DataClass: secret`); `payments/ci` may `get secrets` in `payments`, its token mounted by default | RBAC `get secrets` | `CLAPA-PATH-001` (its own token, then the RBAC read: direct access, §7.2), 360 medium; cut: the token mount (revoke, 5), alternative the RBAC read (5) |
+| 22 | (Phase 6 review) One pair, two findings: `apps/app` → `role/app` reads the PII bucket, its decrypt conditioned on an unresolved variable; `role/app` may assume `role/ops`, which may rewrite its own policy. Variants: `fixed` (role/ops lists only), `dominance` (role/app decrypts unconditionally and rewrites its own policy; no role/ops) | `s3:GetObject`, `kms:Decrypt` (conditioned), `sts:AssumeRole` on role/ops; role/ops `iam:PutRolePolicy` on itself | vulnerable: `CLAPA-PATH-001` (unconfirmed, 291 medium, cut: resolve the variable) and `CLAPA-PATH-002` (confirmed, 235 low); fixed: the direct finding only; dominance: one `CLAPA-PATH-001` whose cut breaks the dominated escalation too (decrypt 1 + escalation 4) |
 
 Fixed variants remove exactly the cause the scenario tests (e.g. scenario 1 scopes
 `s3:GetObject` and `kms:Decrypt` to the workload's legitimate bucket and key, with an

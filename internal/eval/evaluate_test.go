@@ -44,6 +44,12 @@ func TestGranting(t *testing.T) {
 	if len(sids) != 2 || sids[0] != "Applies" || sids[1] != "Unknown" {
 		t.Fatalf("granting statements: %v", sids)
 	}
+	// GrantingDetail says which grant applies TRUE and which UNKNOWN (an
+	// UNKNOWN grant is resolved, not changed: SCORING.md 4.1).
+	gs := GrantingDetail(req, []*model.PolicyDocument{d})
+	if len(gs) != 2 || gs[0].Applies != model.True || gs[1].Applies != model.Unknown || gs[0].Doc != d {
+		t.Fatalf("granting detail: %+v", gs)
+	}
 }
 
 func TestEnumStringsAndInvalidValues(t *testing.T) {

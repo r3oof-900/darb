@@ -50,20 +50,40 @@ func contextOf(req *Request) *condition.Context {
 	return req.Context
 }
 
-// Granting returns the Allow statements of docs that apply to req (TRUE or
-// UNKNOWN), in document and statement order: the grants a change to those
-// policies has to touch (SCORING.md §4.1).
-func Granting(req *Request, docs []*model.PolicyDocument) []*model.Statement {
+// GrantDetail is one Allow statement that applies to a request: TRUE, or
+// UNKNOWN with what is undecided (SCORING.md §4.1: an UNKNOWN grant is
+// resolved, not changed).
+type GrantDetail struct {
+	Doc        *model.PolicyDocument
+	Statement  *model.Statement
+	Applies    model.Tri
+	Unresolved []Unresolved
+}
+
+// GrantingDetail is Granting with each statement's applicability.
+func GrantingDetail(req *Request, docs []*model.PolicyDocument) []GrantDetail {
 	ctx := contextOf(req)
-	var out []*model.Statement
+	var out []GrantDetail
 	for _, d := range docs {
 		stmts := d.Statements()
 		rs := evalDocument(d, req, ctx)
 		for i := range rs {
 			if r := &rs[i].ref; r.Effect == model.EffectAllow && r.Applies != model.False {
-				out = append(out, stmts[i])
+				out = append(out, GrantDetail{Doc: d, Statement: stmts[i], Applies: r.Applies, Unresolved: rs[i].unresolved})
 			}
 		}
+	}
+	return out
+}
+
+// Granting returns the Allow statements of docs that apply to req (TRUE or
+// UNKNOWN), in document and statement order: the grants a change to those
+// policies has to touch (SCORING.md §4.1).
+func Granting(req *Request, docs []*model.PolicyDocument) []*model.Statement {
+	gs := GrantingDetail(req, docs)
+	out := make([]*model.Statement, 0, len(gs))
+	for i := range gs {
+		out = append(out, gs[i].Statement)
 	}
 	return out
 }

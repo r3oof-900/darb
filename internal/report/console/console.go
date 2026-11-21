@@ -128,14 +128,12 @@ func finding(p *printer, f *schema.Finding) {
 	if f.NoFix {
 		p.printf("    no fix within the configured constraints\n")
 	}
-	for _, s := range f.Fix {
-		p.step("      ", &s)
-	}
-	for _, s := range f.OtherSideFix {
-		p.step("      or the ", &s)
+	p.fixes(f)
+	if f.RemediationStatus == "partial_pending_resolution" {
+		p.printf("    resolve the unknowns listed, then rescan: the fix may need more steps once they are known\n")
 	}
 	for _, r := range f.SharedFixPossible {
-		p.printf("    shared fix possible: one change to the policy of %s breaks several cut edges; the cost counts edges\n", r)
+		p.printf("    shared fix possible: one change to the policy of %s breaks several cut edges\n", r)
 	}
 	if len(f.AlternativeFixDetail) == 0 {
 		for _, alt := range f.AlternativeFix {
@@ -155,9 +153,23 @@ func finding(p *printer, f *schema.Finding) {
 	p.printf("    fingerprint %s\n\n", f.Fingerprint)
 }
 
+// fixes prints the chosen side of each cut edge and the other sides.
+func (p *printer) fixes(f *schema.Finding) {
+	for _, s := range f.Fix {
+		p.step("      ", &s)
+	}
+	for _, s := range f.OtherSideFix {
+		p.step("      or the ", &s)
+	}
+}
+
 // step prints one fix: its side and kind, the policy to change and its cost;
 // a revoke removes an explicit grant, so it carries a warning (SCORING.md §4.1).
 func (p *printer) step(prefix string, s *schema.FixStep) {
+	if s.Kind == "resolve" {
+		p.printf("%s%s side, resolve: %s is unknown: %s (no change)\n", prefix, s.Side, s.Policy, s.Resolve)
+		return
+	}
 	p.printf("%s%s side, %s: change %s (cost %d)\n", prefix, s.Side, s.Kind, s.Policy, s.Cost)
 	if s.Kind == "revoke" {
 		p.printf("%s  this removes an explicit grant; confirm it is not needed\n", strings.Repeat(" ", len(prefix)))

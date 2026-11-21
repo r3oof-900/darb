@@ -345,15 +345,15 @@ resource "aws_iam_role_policy_attachment" "api" {
 		},
 		{
 			"PutRolePolicy on itself", `{ Effect = "Allow", Action = "iam:PutRolePolicy", Resource = aws_iam_role.payments_api.arn }`,
-			"CAN_ESCALATE arn:aws:iam::111122223333:role/payments-api (any permission)", nil,
+			"CAN_ESCALATE arn:aws:iam::111122223333:role/payments-api", nil,
 		},
 		{
 			"AttachRolePolicy on itself", `{ Effect = "Allow", Action = "iam:AttachRolePolicy", Resource = aws_iam_role.payments_api.arn }`,
-			"CAN_ESCALATE arn:aws:iam::111122223333:role/payments-api (any permission)", nil,
+			"CAN_ESCALATE arn:aws:iam::111122223333:role/payments-api", nil,
 		},
 		{
 			"CreatePolicyVersion on its managed policy", `{ Effect = "Allow", Action = "iam:CreatePolicyVersion", Resource = aws_iam_policy.api.arn }`,
-			"CAN_ESCALATE arn:aws:iam::111122223333:role/payments-api (any permission)", managedPolicy,
+			"CAN_ESCALATE arn:aws:iam::111122223333:role/payments-api", managedPolicy,
 		},
 		{
 			"UpdateAssumeRolePolicy on the reader", `{ Effect = "Allow", Action = "iam:UpdateAssumeRolePolicy", Resource = aws_iam_role.data_processor.arn }`,

@@ -68,16 +68,16 @@ func defaultFixes(e *graph.Edge, policy, kind string) []graph.Fix {
 }
 
 // factKind: the fix kind of a fact side. Removing a workload's identity, an
-// RBAC binding or a mapping removes an explicit grant (revoke); turning off
-// the token mount or requiring IMDSv2 narrows (SCORING.md §4.1). The costs
-// of these sides are fixed.
+// RBAC binding or a mapping removes an explicit grant (revoke), and so does
+// turning off the token mount: on a path the token always carries the RBAC
+// rights the path uses, granted on purpose (Phase 6 review; without a
+// binding it is on no path, and turning it off is hardening). Requiring
+// IMDSv2 narrows (SCORING.md §4.1). The costs of these sides are fixed.
 func factKind(e *graph.Edge) string {
-	switch {
-	case e.Kind == graph.NodeRole, e.Kind == graph.RunsAs && e.Sub == "k8s-token":
+	if e.Kind == graph.NodeRole {
 		return graph.FixNarrow
-	default:
-		return graph.FixRevoke
 	}
+	return graph.FixRevoke
 }
 
 // policyFixes: the identity side when the decision no longer grants without
@@ -85,16 +85,17 @@ func factKind(e *graph.Edge) string {
 // again: any permission, or a resource policy it can rewrite in its own
 // account), the resource side when it no longer grants without the resource
 // policies (and the principal cannot rewrite them).
-func (b *builder) policyFixes(kind graph.Kind, req *eval.Request, set *eval.PolicySet, who *model.Principal, resource, policy string, t *grantTarget, canRewrite bool) []graph.Fix {
+func (b *builder) policyFixes(kind graph.Kind, req *eval.Request, set *eval.PolicySet, who *model.Principal, resource, policy string, t *grantTarget, rw *rewriter) []graph.Fix {
 	var out []graph.Fix
-	if who != nil && who.Kind() != model.KindIAMRoleAnyPermission && !regrants(who, req, canRewrite) && len(set.Identity) > 0 {
+	if who != nil && who.Kind() != model.KindIAMRoleAnyPermission && len(set.Identity) > 0 {
 		without := *set
 		without.Identity = nil
 		if d := eval.Evaluate(req, &without); !grants(d.Verdict) {
-			out = append(out, sideFix(kind, "", graph.SideIdentity, req, set.Identity, t, "", ""))
+			fx := sideFix(kind, "", graph.SideIdentity, req, set.Identity, t, "", "", who.Identity())
+			out = appendSide(out, &fx, rw.guardsIdentity(&fx))
 		}
 	}
-	if !canRewrite && len(set.Resource) > 0 {
+	if len(set.Resource) > 0 {
 		without := *set
 		without.Resource = nil
 		if d := eval.Evaluate(req, &without); !grants(d.Verdict) {
@@ -102,34 +103,120 @@ func (b *builder) policyFixes(kind graph.Kind, req *eval.Request, set *eval.Poli
 			if kind == graph.Assumes {
 				side = graph.SideTrust
 			}
-			out = append(out, sideFix(kind, "", side, req, set.Resource, t, resource, resource+" "+policy))
+			fx := sideFix(kind, "", side, req, set.Resource, t, resource, resource+" "+policy, "")
+			out = appendSide(out, &fx, rw.guardsResource())
 		}
 	}
 	sortFixes(out)
 	return out
 }
 
+// appendSide adds a side; a guarded side (the principal could write the
+// grant back, SCORING.md §4.2) keeps only its resolve steps: a guard is
+// about changes the principal could undo, and resolving is not a change but
+// knowledge (Phase 6 review).
+func appendSide(out []graph.Fix, fx *graph.Fix, guarded bool) []graph.Fix {
+	if !guarded {
+		return append(out, *fx)
+	}
+	if !fx.Pending() {
+		return out
+	}
+	return append(out, graph.Fix{Side: fx.Side, Kind: graph.FixResolve, Policy: fx.Policy, Resource: fx.Resource, Resolve: fx.Resolve})
+}
+
 // sideFix prices one policy side from the statements that grant on it. An
 // identity side names the granting policies; a resource side names the
-// resource whose policy changes (label).
-func sideFix(kind graph.Kind, sub, side string, req *eval.Request, docs []*model.PolicyDocument, t *grantTarget, resource, label string) graph.Fix {
+// resource whose policy changes (label). A grant that applies only UNKNOWN
+// is resolved (cost 0, no patch); on the identity side, a grant from an AWS
+// managed policy in the snapshot is detached (one change per attachment,
+// holder's); the other statements are narrowed or revoked (SCORING.md §4.1).
+func sideFix(kind graph.Kind, sub, side string, req *eval.Request, docs []*model.PolicyDocument, t *grantTarget, resource, label, holder string) graph.Fix {
 	var stmts []*model.Statement
 	var ids []string
 	var refs []graph.Grant
-	for _, d := range docs {
-		if s := eval.Granting(req, []*model.PolicyDocument{d}); len(s) > 0 {
-			stmts, ids = append(stmts, s...), append(ids, d.ID())
-			for _, st := range s {
-				refs = append(refs, graph.Grant{Policy: d.ID(), Statement: st.Index()})
+	fx := graph.Fix{Side: side, Resource: resource}
+	for _, gd := range eval.GrantingDetail(req, docs) {
+		id := gd.Doc.ID()
+		switch {
+		case gd.Applies == model.Unknown:
+			r := resolution(&gd)
+			if !slices.Contains(fx.Resolve, r) {
+				fx.Resolve = append(fx.Resolve, r)
 			}
+		case side == graph.SideIdentity && awsManaged(id):
+			if !slices.ContainsFunc(fx.Detach, func(d graph.Detach) bool { return d.Policy == id }) {
+				fx.Detach = append(fx.Detach, graph.Detach{
+					Policy: id, Group: holder + " " + id,
+					Cost: scoring.FixCost(kind, sub, side, graph.FixRevoke),
+				})
+			}
+		default:
+			stmts = append(stmts, gd.Statement)
+			if !slices.Contains(ids, id) {
+				ids = append(ids, id)
+			}
+			refs = append(refs, graph.Grant{Policy: id, Statement: gd.Statement.Index()})
 		}
 	}
 	if label == "" {
 		slices.Sort(ids)
 		label = strings.Join(ids, ", ")
 	}
-	k := fixKind(stmts, side, t)
-	return graph.Fix{Side: side, Kind: k, Policy: label, Resource: resource, Cost: scoring.FixCost(kind, sub, side, k), Grants: refs}
+	fx.Policy = label
+	switch {
+	case len(stmts) > 0, len(fx.Resolve) == 0 && len(fx.Detach) == 0:
+		// With no granting statement found the grant cannot be shown broad.
+		fx.Kind = fixKind(stmts, side, t)
+		fx.Cost = scoring.FixCost(kind, sub, side, fx.Kind)
+		fx.Grants = refs
+	case len(fx.Detach) == 0:
+		fx.Kind = graph.FixResolve
+	}
+	return fx
+}
+
+// awsManaged: an AWS managed policy (arn:<partition>:iam::aws:policy/...),
+// which no customer can edit.
+func awsManaged(id string) bool {
+	_, rest, ok := strings.Cut(id, ":iam::aws:policy/")
+	return ok && strings.HasPrefix(id, "arn:") && rest != ""
+}
+
+// resolution names what decides an UNKNOWN grant (SCORING.md §4.1).
+func resolution(gd *eval.GrantDetail) graph.Resolution {
+	id := gd.Doc.ID()
+	r := graph.Resolution{Policy: id, Command: "--plan"}
+	switch {
+	case awsManaged(id):
+		r.Command = "tools/refresh-managed-policies"
+	case strings.HasSuffix(id, "#key-policy-not-in-input"):
+		r.Policy = strings.TrimSuffix(id, "#key-policy-not-in-input")
+		r.Command = "scan the key's Terraform or plan, or a snapshot of its account"
+	default:
+		for _, u := range gd.Unresolved {
+			if c, ok := resolveCommand(&u); ok {
+				r.Command = c
+				break
+			}
+		}
+	}
+	return r
+}
+
+// resolveCommand: a Terraform variable is set with -var-file; another value
+// not known statically needs a plan; a context key is assumed in clapa.yaml.
+func resolveCommand(u *eval.Unresolved) (string, bool) {
+	if ids := model.UnresolvedIDs(u.Reason); len(ids) > 0 {
+		if name, ok := strings.CutPrefix(ids[0], "var."); ok {
+			return "-var-file (" + name + ")", true
+		}
+		return "--plan", true
+	}
+	if u.Element == "Condition" && strings.Contains(u.Key, ":") && !model.ContainsUnresolved(u.Key) {
+		return `assume: {"` + u.Key + `": [...]} in clapa.yaml`, true
+	}
+	return "", false
 }
 
 // fixKind: revoke when any granting statement is explicit (breaking the
@@ -221,16 +308,10 @@ func bindsContext(s *model.Statement, bucket string) bool {
 	})
 }
 
-// regrants: who can rewrite the resource policy in its own account, where
-// that policy alone grants, so it can give itself the access back.
-func regrants(who *model.Principal, req *eval.Request, canRewrite bool) bool {
-	return canRewrite && req.ResourceAccount != "" && req.ResourceAccount == who.Account()
-}
-
 func sortFixes(fs []graph.Fix) {
 	slices.SortFunc(fs, func(a, c graph.Fix) int {
-		if a.Cost != c.Cost {
-			return int(a.Cost - c.Cost)
+		if ta, tc := a.Total(), c.Total(); ta != tc {
+			return int(ta - tc)
 		}
 		return strings.Compare(a.Side, c.Side)
 	})

@@ -3,16 +3,13 @@
 package pathrules
 
 import (
-	"cmp"
 	"slices"
 
-	"github.com/r3oof-900/clapa/internal/access"
 	"github.com/r3oof-900/clapa/internal/eval"
 	"github.com/r3oof-900/clapa/internal/graph"
 	"github.com/r3oof-900/clapa/internal/model"
 	"github.com/r3oof-900/clapa/internal/paths"
 	"github.com/r3oof-900/clapa/internal/rules"
-	"github.com/r3oof-900/clapa/internal/scoring"
 )
 
 // Rule IDs.
@@ -62,63 +59,14 @@ func Rules() []rules.Rule {
 }
 
 func (r *pathRule) Evaluate(in *rules.Input) []rules.Finding {
-	perEntry := map[graph.NodeID]int{}
-	for i := range in.Pairs {
-		perEntry[in.Pairs[i].Entry]++
-	}
 	var out []rules.Finding
-	for i := range in.Pairs {
-		p := &in.Pairs[i]
-		if len(p.Paths) == 0 {
-			continue
-		}
-		f := build(in, p, perEntry[p.Entry])
-		if classify(in.Graph, p.Entry, f.PathEdges) == r.meta.ID {
-			out = append(out, f)
+	all := analyze(in)
+	for i := range all {
+		if all[i].Rule == r.meta.ID {
+			out = append(out, all[i])
 		}
 	}
 	return out
-}
-
-func classify(g *graph.Graph, entry graph.NodeID, path []graph.EdgeID) string {
-	if g.Node(entry).ID == access.AnonymousID() {
-		return PublicJewel
-	}
-	for _, id := range path {
-		if g.Edge(id).Kind == graph.CanEscalate {
-			return EscalationToJewel
-		}
-	}
-	return WorkloadReadsJewel
-}
-
-// build turns a pair into a finding: its representative path is the one
-// with the highest score (ties: fewer edges, then the first in order).
-func build(in *rules.Input, p *paths.Pair, jewels int) rules.Finding {
-	g := in.Graph
-	jewel := in.Jewels[p.Jewel]
-	class, _ := jewel.Classification()
-	exposure := in.Entries[p.Entry].Exposure
-	best, bestFactors := p.Paths[0], scoring.Path(g, p.Paths[0], exposure, scoring.Classification(class), jewels)
-	for _, path := range p.Paths[1:] {
-		f := scoring.Path(g, path, exposure, scoring.Classification(class), jewels)
-		if f.Score > bestFactors.Score || (f.Score == bestFactors.Score && len(path) < len(best)) {
-			best, bestFactors = path, f
-		}
-	}
-	f := rules.Finding{
-		Entry: g.Node(p.Entry).Identity, Jewel: g.Node(p.Jewel).Identity,
-		EntryID: g.Node(p.Entry).ID, JewelID: g.Node(p.Jewel).ID,
-		PathEdges: best, Paths: len(p.Paths), Truncated: p.Truncated, Factors: bestFactors, Confirmed: true,
-		Location: rules.SourceOf(in.Inventory, g.Node(p.Entry).ID),
-	}
-	if f.Location.IsZero() {
-		f.Location = *jewel.Source()
-	}
-	describePath(g, best, &f)
-	chokepoints(g, p, &f)
-	slices.SortFunc(f.ChokepointEdge, cmp.Compare)
-	return f
 }
 
 // describePath fills the path text, confirmation, confidence, defaults and
@@ -180,58 +128,4 @@ func edgeStatus(g *graph.Graph, id graph.EdgeID) string {
 		s = rules.StatusUnconfirmed
 	}
 	return s
-}
-
-// chokepoints fills the cheapest fix and its equal-cost alternatives.
-func chokepoints(g *graph.Graph, p *paths.Pair, f *rules.Finding) {
-	if !p.Cut.Finite {
-		f.NoFix = true
-		return
-	}
-	f.CutCost = p.Cut.Cost
-	for _, e := range p.Cut.Edges {
-		id := graph.EdgeID(e) //nolint:gosec // G115: edge indices of a graph bounded far below 2^31
-		f.ChokepointEdge = append(f.ChokepointEdge, id)
-		f.Chokepoints = append(f.Chokepoints, g.Describe(id))
-	}
-	for _, e := range p.Alternative {
-		f.Alternative = append(f.Alternative, g.Describe(e))
-		if fx := g.Edge(e).Fixes; len(fx) > 0 {
-			f.AlternativeDetail = append(f.AlternativeDetail, rules.FixStep{Edge: g.Describe(e), Side: fx[0].Side, Kind: fx[0].Kind, Policy: fx[0].Policy, Cost: fx[0].Cost})
-		}
-	}
-	slices.Sort(f.Chokepoints)
-	slices.Sort(f.Alternative)
-	slices.SortFunc(f.AlternativeDetail, func(a, b rules.FixStep) int { return cmp.Compare(a.Edge, b.Edge) })
-	slices.SortFunc(f.ChokepointEdge, cmp.Compare)
-	fixSides(g, f)
-}
-
-// fixSides names the chosen side of each chokepoint edge, the other sides,
-// and every resource whose policy alone can break two or more of them.
-func fixSides(g *graph.Graph, f *rules.Finding) {
-	edges := map[string]map[graph.EdgeID]bool{}
-	for _, id := range f.ChokepointEdge {
-		e := g.Edge(id)
-		for i, fx := range e.Fixes {
-			step := rules.FixStep{Edge: g.Describe(id), Side: fx.Side, Kind: fx.Kind, Policy: fx.Policy, Cost: fx.Cost}
-			if i == 0 {
-				f.Fix = append(f.Fix, step)
-			} else {
-				f.OtherSideFix = append(f.OtherSideFix, step)
-			}
-			if fx.Resource != "" && (fx.Side == graph.SideResource || fx.Side == graph.SideTrust) {
-				if edges[fx.Resource] == nil {
-					edges[fx.Resource] = map[graph.EdgeID]bool{}
-				}
-				edges[fx.Resource][id] = true
-			}
-		}
-	}
-	for r, ids := range edges {
-		if len(ids) > 1 {
-			f.SharedFix = append(f.SharedFix, r)
-		}
-	}
-	slices.Sort(f.SharedFix)
 }

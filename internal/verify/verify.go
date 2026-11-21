@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/r3oof-900/clapa/internal/model"
 	"github.com/r3oof-900/clapa/internal/remediate"
@@ -36,7 +37,13 @@ type Outcome struct {
 	OK      bool
 	Reasons []string // why the fix is rejected; empty when OK
 	After   *Result
+	// Pending: the plan has resolve steps; only its known steps are
+	// verified (PendingNote).
+	Pending string
 }
+
+// PendingNote is what a partial fix says (SCORING.md §4.1).
+const PendingNote = "resolve the unknowns listed, then rescan: the fix may need more steps once they are known"
 
 // statusRank: verified > unconfirmed > not-satisfied; not-modelled and
 // unknown statuses only compare equal.
@@ -75,6 +82,12 @@ func InMemory(inv *model.Inventory, before *Result, plan *remediate.Plan, analyz
 		return Outcome{Reasons: []string{"analysis after the change: " + err.Error()}}
 	}
 	reasons := Compare(before, after, plan.Fingerprint)
+	if len(plan.Pending) > 0 {
+		// The known steps are verified; the paths through the unknowns need
+		// a rescan once they are resolved (SCORING.md §4.1).
+		reasons = slices.DeleteFunc(reasons, func(r string) bool { return strings.HasPrefix(r, "the targeted finding ") })
+		return Outcome{OK: len(reasons) == 0, Reasons: reasons, After: after, Pending: PendingNote}
+	}
 	return Outcome{OK: len(reasons) == 0, Reasons: reasons, After: after}
 }
 

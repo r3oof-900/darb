@@ -52,6 +52,15 @@ func (g *Graph) Undecided(path []EdgeID) []string {
 // missingOf says what decides one undecided element: a context key to
 // assume, or a value a plan would resolve.
 func missingOf(u *Unknown) string {
+	if ids := model.UnresolvedIDs(u.Reason); len(ids) > 0 {
+		// The value, not the context, is unknown: a Terraform value that is
+		// not known statically (SCORING.md 4.1, resolve steps).
+		how := "scan a Terraform plan (--plan)"
+		if name, ok := strings.CutPrefix(ids[0], "var."); ok {
+			how = "set " + name + " with -var-file, or scan a Terraform plan (--plan)"
+		}
+		return fmt.Sprintf("%s %s of %s comes from %s, which is not known statically: %s", u.Element, u.Key, u.Policy, ids[0], how)
+	}
 	if u.Element == "Condition" && strings.Contains(u.Key, ":") && !model.ContainsUnresolved(u.Key) {
 		return fmt.Sprintf("set `assume: {%q: [...]}` in clapa.yaml: %s conditions on %s, whose value is not in the input (%s)",
 			u.Key, u.Policy, u.Key, u.Reason)

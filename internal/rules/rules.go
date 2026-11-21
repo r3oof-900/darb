@@ -84,6 +84,8 @@ type Input struct {
 	Entries   map[graph.NodeID]Entry
 	Jewels    map[graph.NodeID]*model.Resource
 	Partition string
+	// Cuts prices the cut of each path finding (paths.CutFor).
+	Cuts *paths.Options
 }
 
 // Finding is one result of one rule.
@@ -93,16 +95,20 @@ type Finding struct {
 	Kind    string `json:"kind"`
 	Title   string `json:"title"`
 	// Path findings.
-	Entry     string          `json:"entry,omitempty"`
-	Jewel     string          `json:"jewel,omitempty"`
-	EntryID   model.ID        `json:"-"`
-	JewelID   model.ID        `json:"-"`
-	Path      []string        `json:"path,omitempty"`
-	PathEdges []graph.EdgeID  `json:"-"`
-	Paths     int             `json:"paths_found,omitempty"`
-	Truncated bool            `json:"paths_truncated,omitempty"`
-	Factors   scoring.Factors `json:"factors"`
-	Confirmed bool            `json:"confirmed"`
+	Entry     string         `json:"entry,omitempty"`
+	Jewel     string         `json:"jewel,omitempty"`
+	EntryID   model.ID       `json:"-"`
+	JewelID   model.ID       `json:"-"`
+	Path      []string       `json:"path,omitempty"`
+	PathEdges []graph.EdgeID `json:"-"`
+	// WorstCasePath: when a less certain path of the same rule scores
+	// higher than the primary path (the best of the strongest status), that
+	// path; the severity is its score (Phase 6 review).
+	WorstCasePath []string        `json:"worst_case_path,omitempty"`
+	Paths         int             `json:"paths_found,omitempty"`
+	Truncated     bool            `json:"paths_truncated,omitempty"`
+	Factors       scoring.Factors `json:"factors"`
+	Confirmed     bool            `json:"confirmed"`
 	// Status: StatusConfirmed, StatusConfirmedUnlessDenied or
 	// StatusUnconfirmed (DESIGN.md 6.2); the severity is the worst case
 	// whatever the status.
@@ -126,9 +132,18 @@ type Finding struct {
 	// AlternativeDetail: the cheapest fix of each alternative_fix edge.
 	AlternativeDetail []FixStep `json:"alternative_fix_detail,omitempty"`
 	// SharedFix: resources one change to whose policy breaks two or more
-	// chokepoint edges. Shared fixes are priced in Phase 5; until then the
-	// cut cost counts edges and is not the size of the fix.
+	// chokepoint edges.
 	SharedFix []string `json:"shared_fix_possible,omitempty"`
+	// ChokepointFix: for each ChokepointEdge, the index of the fix the cut
+	// chose in its Fixes (what remediation changes).
+	ChokepointFix []int `json:"-"`
+	// AlsoFixes: the path findings of other rules this cut also fixes;
+	// Uncuttable: underlying edges of a cut derived read no change breaks;
+	// RemediationStatus: "complete", or "partial_pending_resolution" when
+	// the cut has a resolve step (SCORING.md §4.1, §4.3).
+	AlsoFixes         []FindingRef     `json:"also_fixes"`
+	Uncuttable        []UncuttableEdge `json:"uncuttable"`
+	RemediationStatus string           `json:"remediation_status,omitempty"`
 	// Posture findings.
 	Resource   string   `json:"resource,omitempty"`
 	ResourceID model.ID `json:"-"`
@@ -141,16 +156,42 @@ type Finding struct {
 	Fingerprint  string               `json:"fingerprint"`
 }
 
-// FixStep is one change that breaks one edge.
+// CutFinite reports whether the finding has a cut.
+func (f *Finding) CutFinite() bool { return len(f.ChokepointEdge) > 0 && !f.NoFix }
+
+// FixStep is one change that breaks one edge, or (resolve) the unknown to
+// decide first.
 type FixStep struct {
 	Edge string `json:"edge"`
 	Side string `json:"side"`
-	// Kind: "narrow" (make a broad grant specific) or "revoke" (remove an
-	// explicit grant; confirm it is not needed), SCORING.md §4.1.
+	// Kind: "narrow" (make a broad grant specific), "revoke" (remove an
+	// explicit grant, or detach an AWS managed policy; confirm it is not
+	// needed) or "resolve" (decide an unknown: no change), SCORING.md §4.1.
 	Kind   string `json:"fix_kind"`
 	Policy string `json:"policy"`
 	Cost   int64  `json:"cost"`
+	// Resolve: the command that decides a resolve step.
+	Resolve string `json:"resolve,omitempty"`
 }
+
+// FindingRef names a path finding by rule, entry and jewel.
+type FindingRef struct {
+	Rule  string `json:"rule"`
+	Entry string `json:"entry"`
+	Jewel string `json:"jewel"`
+}
+
+// UncuttableEdge is an underlying edge no single change breaks.
+type UncuttableEdge struct {
+	Edge   string `json:"edge"`
+	Reason string `json:"reason"`
+}
+
+// Remediation statuses.
+const (
+	RemediationComplete = "complete"
+	RemediationPending  = "partial_pending_resolution"
+)
 
 // Rule is a rule: metadata plus a pure evaluation.
 type Rule interface {
