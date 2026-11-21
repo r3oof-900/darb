@@ -82,6 +82,15 @@ type Fix struct {
 	// policy changes (two cut edges on one resource policy can share a fix).
 	Resource string
 	Cost     int64
+	// Grants: the statements that grant the edge on this side, the ones a
+	// remediation narrows or revokes (empty for fact sides).
+	Grants []Grant
+}
+
+// Grant names one granting statement: its policy document's ID and index.
+type Grant struct {
+	Policy    string
+	Statement int
 }
 
 // Fix kinds.
@@ -99,6 +108,7 @@ const (
 	SideRBAC     = "rbac"
 	SideMapping  = "mapping"
 	SideNode     = "node"
+	SideExposure = "exposure"
 )
 
 // Edge is a typed, directed edge with its evaluator decision.
@@ -118,6 +128,14 @@ type Edge struct {
 	// change breaks it on its own (it is uncuttable).
 	Fixes    []Fix
 	Defaults []string // documented defaults the edge relies on (model.DocumentedDefaults keys)
+	// Unresolved: for an UNKNOWN edge, what the evaluator could not decide
+	// (a remediation says what is missing instead of patching).
+	Unresolved []Unknown
+}
+
+// Unknown is one undecided element of a policy decision.
+type Unknown struct {
+	Policy, Element, Key, Reason string
 }
 
 // Graph is an immutable access graph in compressed-sparse-row form: the

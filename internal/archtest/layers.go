@@ -111,7 +111,7 @@ func coreRules() []*Rule {
 		{Package: "internal/rules/catalog", Layer: LayerCore, Internal: []string{
 			"internal/rules", "internal/rules/pathrules", "internal/rules/posture", "internal/rules/escalation",
 		}},
-		{Package: "internal/scoring", Layer: LayerCore, Internal: []string{"internal/model", "internal/graph", "internal/paths"}, TestInternal: []string{"internal/eval"}},
+		{Package: "internal/scoring", Layer: LayerCore, Internal: []string{"internal/model", "internal/eval", "internal/graph", "internal/paths"}},
 		{Package: "internal/findings", Layer: LayerCore, Internal: []string{
 			"internal/model", "internal/graph", "internal/paths", "internal/rules", "internal/scoring",
 		}},
@@ -161,7 +161,7 @@ func pureRules() []*Rule {
 		{
 			Package: "internal/patch", Layer: LayerPure,
 			Internal: []string{"internal/model", "internal/iampolicy", "internal/remediate", "internal/findings"},
-			External: []string{extHCL, extUnifiedDF},
+			External: []string{extHCL, extCty, extUnifiedDF, extYAMLv3},
 		},
 		{Package: "internal/report", Layer: LayerPure, Internal: []string{
 			"pkg/schema", "internal/model", "internal/graph", "internal/paths", "internal/rules",
@@ -241,6 +241,8 @@ func entryRules() []*Rule {
 				"internal/version", "internal/redact", "pkg/schema",
 			},
 			External: []string{extCobra},
+			// os/exec only for `git status` before `remediate --write`.
+			ExtraStd: []string{"os/exec"},
 		},
 		{Package: "cmd/clapa", Layer: LayerEntry, Internal: []string{"internal/cli"}},
 	}

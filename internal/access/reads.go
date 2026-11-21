@@ -32,6 +32,7 @@ func (b *builder) nodeRoles() {
 				e.Confidence = conf
 				e.Precondition = &graph.Precondition{Reason: "IMDS reachable from the pod (node group " + ng.Name + ")", State: state}
 				e.Evidence = []string{"node group " + ng.Source.String()}
+				e.Fixes = nodeRoleFixes(w, ng)
 			})
 		}
 	}

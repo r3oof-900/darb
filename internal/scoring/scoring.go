@@ -4,6 +4,7 @@ import (
 	"math/bits"
 	"strings"
 
+	"github.com/r3oof-900/clapa/internal/eval"
 	"github.com/r3oof-900/clapa/internal/graph"
 	"github.com/r3oof-900/clapa/internal/model"
 )
@@ -114,7 +115,16 @@ func Severity(score int) string {
 
 // Path scores a path finding.
 func Path(g *graph.Graph, path []graph.EdgeID, exposure, classification, jewelsFromEntry int) Factors {
-	f := Factors{Exposure: exposure, Hops: Hops(len(path)), Preconditions: 1000, Confidence: 1000}
+	hops := len(path)
+	for _, id := range path {
+		if e := g.Edge(id); e.Kind == graph.ExposedTo {
+			// The exposure is the factor, not a hop; its weight is the edge's
+			// (an internet-facing load balancer, a NodePort).
+			hops--
+			exposure = Exposure("exposed:"+e.Sub, publicOf(e))
+		}
+	}
+	f := Factors{Exposure: exposure, Hops: Hops(hops), Preconditions: 1000, Confidence: 1000}
 	conf := graph.High
 	for _, id := range path {
 		e := g.Edge(id)
@@ -131,6 +141,15 @@ func Path(g *graph.Graph, path []graph.EdgeID, exposure, classification, jewelsF
 	f.Score = Mul(f.Likelihood, f.Impact)
 	f.Severity = Severity(f.Score)
 	return f
+}
+
+// publicOf: an EXPOSED_TO edge is ALLOW for a public exposure, UNKNOWN for a
+// possibly public one.
+func publicOf(e *graph.Edge) model.Tri {
+	if e.Verdict == eval.Allow {
+		return model.True
+	}
+	return model.Unknown
 }
 
 // Base severities of posture rules.
@@ -170,8 +189,11 @@ func FixCost(kind graph.Kind, sub, side, fixKind string) int64 {
 	case graph.SideTrust:
 		return 5 + revoke // tighten the trust: sub, aud, principal, ExternalId
 	case graph.SideWorkload:
-		if kind == graph.CanEscalate && sub == "k8s-token" {
+		switch {
+		case kind == graph.CanEscalate && sub == "k8s-token":
 			return 3 // automountServiceAccountToken: false
+		case kind == graph.NodeRole:
+			return 5 // remove hostNetwork
 		}
 		return 100 // change the workload's identity
 	case graph.SideRBAC:
@@ -179,7 +201,12 @@ func FixCost(kind graph.Kind, sub, side, fixKind string) int64 {
 	case graph.SideMapping:
 		return 8
 	case graph.SideNode:
+		if fixKind == graph.FixRevoke {
+			return 5 // turn the metadata endpoint off (a hostNetwork pod ignores the hop limit)
+		}
 		return 3 // IMDSv2 required, hop limit 1
+	case graph.SideExposure:
+		return 20 // remove the exposure: every client of the endpoint is affected
 	}
 	return -1
 }

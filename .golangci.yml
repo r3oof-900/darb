@@ -322,9 +322,8 @@ linters:
             - "github.com/r3oof-900/clapa/pkg/schema$"
             - "github.com/spf13/cobra$"
             - "github.com/spf13/cobra/"
+            - "os/exec$"
           deny:
-            - pkg: "os/exec"
-              desc: "forbidden in the entry layer (docs/DESIGN.md section 3)"
             - pkg: "syscall"
               desc: "forbidden in the entry layer (docs/DESIGN.md section 3)"
             - pkg: "plugin"
@@ -1297,8 +1296,12 @@ linters:
             - "github.com/r3oof-900/clapa/internal/findings$"
             - "github.com/hashicorp/hcl/v2$"
             - "github.com/hashicorp/hcl/v2/"
+            - "github.com/zclconf/go-cty$"
+            - "github.com/zclconf/go-cty/"
             - "github.com/aymanbagabas/go-udiff$"
             - "github.com/aymanbagabas/go-udiff/"
+            - "go.yaml.in/yaml/v3$"
+            - "go.yaml.in/yaml/v3/"
           deny:
             - pkg: "os"
               desc: "forbidden in the pure layer (docs/DESIGN.md section 3)"
@@ -1929,6 +1932,7 @@ linters:
           allow:
             - "$gostd"
             - "github.com/r3oof-900/clapa/internal/model$"
+            - "github.com/r3oof-900/clapa/internal/eval$"
             - "github.com/r3oof-900/clapa/internal/graph$"
             - "github.com/r3oof-900/clapa/internal/paths$"
           deny:

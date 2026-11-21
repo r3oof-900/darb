@@ -78,7 +78,7 @@ func Analyze(l *Loaded, cfg *config.Config, failOn string) (*Analysis, error) {
 	}
 	built := access.Build(inv, &access.Options{Partition: partition(cfg), Jewels: targets, Assume: cfg.Assume})
 	g := built.Graph
-	entries, entryInfo := entryPoints(g, l)
+	entries, entryInfo := entryPoints(g, l, *cfg.ThreatModel.AssumeCompromised)
 	uncuttable := intendedEdges(g, cfg, intended)
 	opts := paths.Options{Cost: costs(g, cfg, uncuttable)}
 
@@ -112,7 +112,6 @@ func notModelled() []access.Note {
 		return access.Note{Kind: "not-modelled", Subject: subject, Detail: detail}
 	}
 	return []access.Note{
-		n("EXPOSED_TO", "internet exposure is a score factor, not a cuttable edge"),
 		n("crown jewels", "only S3 buckets are read targets; Secrets Manager and SSM SecureString are not analysed"),
 	}
 }
@@ -125,12 +124,21 @@ func partition(cfg *config.Config) string {
 }
 
 // entryPoints: every entry workload, plus the anonymous principal when the
-// graph has it (a public grant).
-func entryPoints(g *graph.Graph, l *Loaded) (nodes []graph.NodeID, info map[graph.NodeID]rules.Entry) {
+// graph has it (a public grant). Without assume-compromised, the attacker
+// comes from the internet: the internet node is the entry and reaches the
+// publicly exposed workloads through EXPOSED_TO, which the cut may then
+// choose; a privately exposed workload (an internal load balancer) stays an
+// entry of its own. With assume-compromised every pod is an entry already,
+// so EXPOSED_TO is never on a path.
+func entryPoints(g *graph.Graph, l *Loaded, assumeCompromised bool) (nodes []graph.NodeID, info map[graph.NodeID]rules.Entry) {
 	info = map[graph.NodeID]rules.Entry{}
+	internet, viaInternet := g.Lookup(access.InternetID())
+	if viaInternet && !assumeCompromised {
+		info[internet] = rules.Entry{Reason: "internet", Public: model.True, Exposure: scoring.Exposure("anonymous", model.True)}
+	}
 	for _, e := range l.EntryPoints {
 		n, ok := g.Lookup(e.Workload)
-		if !ok {
+		if !ok || viaInternet && !assumeCompromised && e.Public != model.False && strings.HasPrefix(e.Reason, "exposed:") {
 			continue
 		}
 		exp := scoring.Exposure(e.Reason, e.Public)

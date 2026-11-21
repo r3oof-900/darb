@@ -81,6 +81,7 @@ func Build(inv *model.Inventory, opts *Options) *Result {
 	}
 	b.index()
 	b.kubernetes()
+	b.exposures()
 	b.mappings()
 	b.minted()
 	b.identities()
@@ -143,6 +144,9 @@ func (b *builder) edge(from, to model.ID, kind graph.Kind, sub string, d *eval.D
 	}
 	if d.Verdict == eval.Unknown {
 		e.Confidence = graph.Low
+		for _, u := range d.Unresolved {
+			e.Unresolved = append(e.Unresolved, graph.Unknown{Policy: u.PolicyID, Element: u.Element, Key: u.Key, Reason: u.Reason})
+		}
 	}
 	if extra != nil {
 		extra(e)

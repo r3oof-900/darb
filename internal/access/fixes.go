@@ -117,9 +117,13 @@ func (b *builder) policyFixes(kind graph.Kind, req *eval.Request, set *eval.Poli
 func sideFix(kind graph.Kind, sub, side string, req *eval.Request, docs []*model.PolicyDocument, t *grantTarget, resource, label string) graph.Fix {
 	var stmts []*model.Statement
 	var ids []string
+	var refs []graph.Grant
 	for _, d := range docs {
 		if s := eval.Granting(req, []*model.PolicyDocument{d}); len(s) > 0 {
 			stmts, ids = append(stmts, s...), append(ids, d.ID())
+			for _, st := range s {
+				refs = append(refs, graph.Grant{Policy: d.ID(), Statement: st.Index()})
+			}
 		}
 	}
 	if label == "" {
@@ -127,7 +131,7 @@ func sideFix(kind graph.Kind, sub, side string, req *eval.Request, docs []*model
 		label = strings.Join(ids, ", ")
 	}
 	k := fixKind(stmts, side, t)
-	return graph.Fix{Side: side, Kind: k, Policy: label, Resource: resource, Cost: scoring.FixCost(kind, sub, side, k)}
+	return graph.Fix{Side: side, Kind: k, Policy: label, Resource: resource, Cost: scoring.FixCost(kind, sub, side, k), Grants: refs}
 }
 
 // fixKind: revoke when any granting statement is explicit (breaking the
