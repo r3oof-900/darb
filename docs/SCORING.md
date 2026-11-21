@@ -249,10 +249,25 @@ needs), with the trust side (cost 5) as the other fix.
   `other_side_fix`: the other sides that also break that edge, dearer. The
   console prints a revoke with a warning: *this removes an explicit grant;
   confirm it is not needed*.
-- `alternative_fix`: for a cut `CAN_READ_PLAINTEXT`, the other **cuttable**
-  underlying edge; `alternative_fix_detail`: its cheapest fix, with side, kind
-  and cost. An underlying edge that no single change breaks is not hidden:
-  it is listed in `uncuttable` with the reason (Phase 6 review).
+- `alternative_fix`: the cheapest **complete** cut that shares no edge with
+  the chosen one: it breaks every path of the finding, the dominated paths
+  included (DESIGN.md §8); `alternative_fix_detail`: the cheapest fix of each
+  of its edges, with side, kind and cost. It is the min-cut computed again
+  with the chosen cut's edges uncuttable, so its ties are the min-cut's
+  (closest to the entry). A cut that contains `RUNS_AS`, or any edge from
+  Kubernetes facts with a fixed cost of 100 or more, is never offered:
+  changing a workload's identity is not a useful alternative. When none is
+  left, `alternative_fix: []` (scenario 12: the path is one edge). Decided
+  at the Phase 6 review (it replaces "the other cuttable underlying edge").
+  Where a derived read is cut, this gives the result of the old definition,
+  the other underlying edge, whenever that edge is strictly the cheapest such
+  cut (scenarios 1, 4, 5, 8 api, 10, 16, 17, 19, 20, 22 PATH-001); it
+  differs where something cheaper, or as cheap and closer to the entry,
+  exists: scenario 7 (the PassRole grant, narrow, 2), 4b and 8 ci (the pod's
+  own token, 3, tied with the read and closer to the entry).
+- `uncuttable`: each underlying edge of a cut derived read that no single
+  change breaks, with the reason; it is not hidden, and is independent of the
+  alternative (Phase 6 review).
 - **Tie rule.** When the two underlying edges cost exactly the same, the cut
   names `CAN_DECRYPT[for jewel]` (an encryption-context condition removes
   exactly this path). It is kept only for that case, e.g. `s3:GetObject` and

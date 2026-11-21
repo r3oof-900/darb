@@ -77,7 +77,9 @@
       "chokepoints": [
         "ASSUMES arn:aws:iam::111122223333:role/app -> arn:aws:iam::111122223333:role/ops"
       ],
-      "alternative_fix": [],
+      "alternative_fix": [
+        "CAN_ESCALATE arn:aws:iam::111122223333:role/ops -> arn:aws:iam::111122223333:role/ops"
+      ],
       "defaults_used": [
         "eks.irsa.audience",
         "eks.irsa.oidc-provider-audience"
@@ -98,18 +100,17 @@
           "cost": 7
         }
       ],
-      "alternative_fix_detail": [],
-      "status": "confirmed",
-      "also_fixes": [],
-      "uncuttable": [],
-      "alternative_cut": [
+      "alternative_fix_detail": [
         {
           "edge": "CAN_ESCALATE arn:aws:iam::111122223333:role/ops -> arn:aws:iam::111122223333:role/ops",
           "side": "identity",
           "fix_kind": "revoke",
           "cost": 4
         }
-      ]
+      ],
+      "status": "confirmed",
+      "also_fixes": [],
+      "uncuttable": []
     },
     {
       "rule": "CLAPA-POST-006",

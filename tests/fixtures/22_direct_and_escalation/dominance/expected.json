@@ -21,7 +21,7 @@
         "CAN_ESCALATE arn:aws:iam::111122223333:role/app -> arn:aws:iam::111122223333:role/app"
       ],
       "alternative_fix": [
-        "CAN_READ arn:aws:iam::111122223333:role/app -> arn:aws:s3:::acme-customer-pii"
+        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app -> arn:aws:iam::111122223333:role/app"
       ],
       "defaults_used": [
         "eks.irsa.audience",
@@ -51,23 +51,15 @@
       ],
       "alternative_fix_detail": [
         {
-          "edge": "CAN_READ arn:aws:iam::111122223333:role/app -> arn:aws:s3:::acme-customer-pii",
-          "side": "identity",
-          "fix_kind": "revoke",
-          "cost": 3
-        }
-      ],
-      "status": "confirmed",
-      "also_fixes": [],
-      "uncuttable": [],
-      "alternative_cut": [
-        {
           "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app -> arn:aws:iam::111122223333:role/app",
           "side": "trust",
           "fix_kind": "revoke",
           "cost": 7
         }
       ],
+      "status": "confirmed",
+      "also_fixes": [],
+      "uncuttable": [],
       "shared_fix_possible": [
         "arn:aws:iam::111122223333:role/app"
       ]

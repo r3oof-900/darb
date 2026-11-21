@@ -17,7 +17,9 @@
       "chokepoints": [
         "CAN_READ arn:aws:iam::111122223333:role/eks-node -> arn:aws:s3:::acme-customer-exports"
       ],
-      "alternative_fix": [],
+      "alternative_fix": [
+        "NODE_ROLE k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/monitoring/DaemonSet/node-monitor -> arn:aws:iam::111122223333:role/eks-node"
+      ],
       "defaults_used": [
         "s3.default-encryption"
       ],
@@ -30,7 +32,14 @@
         }
       ],
       "other_side_fix": [],
-      "alternative_fix_detail": [],
+      "alternative_fix_detail": [
+        {
+          "edge": "NODE_ROLE k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/monitoring/DaemonSet/node-monitor -> arn:aws:iam::111122223333:role/eks-node",
+          "side": "node",
+          "fix_kind": "revoke",
+          "cost": 5
+        }
+      ],
       "status": "confirmed",
       "also_fixes": [],
       "uncuttable": []

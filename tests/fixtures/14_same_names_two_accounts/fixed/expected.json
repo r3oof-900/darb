@@ -18,7 +18,9 @@
       "chokepoints": [
         "CAN_READ arn:aws:iam::111122223333:role/app -> arn:aws:s3:::data-111122223333"
       ],
-      "alternative_fix": [],
+      "alternative_fix": [
+        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app-a -> arn:aws:iam::111122223333:role/app"
+      ],
       "defaults_used": [
         "eks.irsa.audience",
         "eks.irsa.oidc-provider-audience"
@@ -32,7 +34,14 @@
         }
       ],
       "other_side_fix": [],
-      "alternative_fix_detail": [],
+      "alternative_fix_detail": [
+        {
+          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app-a -> arn:aws:iam::111122223333:role/app",
+          "side": "trust",
+          "fix_kind": "revoke",
+          "cost": 7
+        }
+      ],
       "status": "confirmed",
       "also_fixes": [],
       "uncuttable": []

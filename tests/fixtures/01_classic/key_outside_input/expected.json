@@ -18,7 +18,9 @@
       "chokepoints": [
         "CAN_READ arn:aws:iam::111122223333:role/payments-api -> arn:aws:s3:::acme-customer-pii"
       ],
-      "alternative_fix": [],
+      "alternative_fix": [
+        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api -> arn:aws:iam::111122223333:role/payments-api"
+      ],
       "defaults_used": [
         "eks.irsa.audience",
         "eks.irsa.oidc-provider-audience"
@@ -32,7 +34,14 @@
         }
       ],
       "other_side_fix": [],
-      "alternative_fix_detail": [],
+      "alternative_fix_detail": [
+        {
+          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api -> arn:aws:iam::111122223333:role/payments-api",
+          "side": "trust",
+          "fix_kind": "revoke",
+          "cost": 7
+        }
+      ],
       "status": "unconfirmed",
       "undecided": [
         "arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001 is not in the input"

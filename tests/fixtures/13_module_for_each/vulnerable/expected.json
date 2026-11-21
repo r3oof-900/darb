@@ -18,7 +18,9 @@
       "chokepoints": [
         "CAN_READ arn:aws:iam::111122223333:role/reader-etl -> arn:aws:s3:::acme-customer-pii"
       ],
-      "alternative_fix": [],
+      "alternative_fix": [
+        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/etl -> arn:aws:iam::111122223333:role/reader-etl"
+      ],
       "defaults_used": [
         "eks.irsa.audience",
         "eks.irsa.oidc-provider-audience"
@@ -32,7 +34,14 @@
         }
       ],
       "other_side_fix": [],
-      "alternative_fix_detail": [],
+      "alternative_fix_detail": [
+        {
+          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/etl -> arn:aws:iam::111122223333:role/reader-etl",
+          "side": "trust",
+          "fix_kind": "revoke",
+          "cost": 7
+        }
+      ],
       "status": "confirmed",
       "also_fixes": [],
       "uncuttable": []
@@ -53,7 +62,9 @@
       "chokepoints": [
         "CAN_READ arn:aws:iam::111122223333:role/reader-bi -> arn:aws:s3:::acme-customer-pii"
       ],
-      "alternative_fix": [],
+      "alternative_fix": [
+        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/bi -> arn:aws:iam::111122223333:role/reader-bi"
+      ],
       "defaults_used": [
         "eks.irsa.audience",
         "eks.irsa.oidc-provider-audience"
@@ -67,7 +78,14 @@
         }
       ],
       "other_side_fix": [],
-      "alternative_fix_detail": [],
+      "alternative_fix_detail": [
+        {
+          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/bi -> arn:aws:iam::111122223333:role/reader-bi",
+          "side": "trust",
+          "fix_kind": "revoke",
+          "cost": 7
+        }
+      ],
       "status": "confirmed",
       "also_fixes": [],
       "uncuttable": []
@@ -88,7 +106,9 @@
       "chokepoints": [
         "CAN_READ arn:aws:iam::111122223333:role/reader-ml -> arn:aws:s3:::acme-customer-pii"
       ],
-      "alternative_fix": [],
+      "alternative_fix": [
+        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/ml -> arn:aws:iam::111122223333:role/reader-ml"
+      ],
       "defaults_used": [
         "eks.irsa.audience",
         "eks.irsa.oidc-provider-audience"
@@ -102,7 +122,14 @@
         }
       ],
       "other_side_fix": [],
-      "alternative_fix_detail": [],
+      "alternative_fix_detail": [
+        {
+          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/ml -> arn:aws:iam::111122223333:role/reader-ml",
+          "side": "trust",
+          "fix_kind": "revoke",
+          "cost": 7
+        }
+      ],
       "status": "confirmed",
       "also_fixes": [],
       "uncuttable": []

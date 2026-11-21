@@ -17,7 +17,9 @@
       "chokepoints": [
         "RUNS_AS[k8s-token] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci"
       ],
-      "alternative_fix": [],
+      "alternative_fix": [
+        "CAN_READ_PLAINTEXT k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials"
+      ],
       "defaults_used": [
         "k8s.automountServiceAccountToken"
       ],
@@ -30,7 +32,14 @@
         }
       ],
       "other_side_fix": [],
-      "alternative_fix_detail": [],
+      "alternative_fix_detail": [
+        {
+          "edge": "CAN_READ_PLAINTEXT k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials",
+          "side": "rbac",
+          "fix_kind": "revoke",
+          "cost": 5
+        }
+      ],
       "status": "confirmed",
       "also_fixes": [],
       "uncuttable": []

@@ -19,7 +19,10 @@
       "chokepoints": [
         "ASSUMES arn:aws:iam::111122223333:role/payments-api -> arn:aws:iam::444455556666:role/analytics-admin"
       ],
-      "alternative_fix": [],
+      "alternative_fix": [
+        "CAN_DECRYPT[for arn:aws:s3:::acme-analytics-warehouse] arn:aws:iam::444455556666:role/analytics-admin -> arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse",
+        "CAN_ESCALATE arn:aws:iam::444455556666:role/analytics-admin -> arn:aws:iam::444455556666:role/analytics-admin"
+      ],
       "defaults_used": [
         "eks.irsa.audience",
         "eks.irsa.oidc-provider-audience"
@@ -40,7 +43,20 @@
           "cost": 5
         }
       ],
-      "alternative_fix_detail": [],
+      "alternative_fix_detail": [
+        {
+          "edge": "CAN_DECRYPT[for arn:aws:s3:::acme-analytics-warehouse] arn:aws:iam::444455556666:role/analytics-admin -> arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse",
+          "side": "identity",
+          "fix_kind": "narrow",
+          "cost": 1
+        },
+        {
+          "edge": "CAN_ESCALATE arn:aws:iam::444455556666:role/analytics-admin -> arn:aws:iam::444455556666:role/analytics-admin",
+          "side": "identity",
+          "fix_kind": "narrow",
+          "cost": 2
+        }
+      ],
       "status": "confirmed",
       "also_fixes": [],
       "uncuttable": [],
