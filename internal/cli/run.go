@@ -8,6 +8,7 @@ import (
 	"io"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/r3oof-900/clapa/internal/app"
 	"github.com/r3oof-900/clapa/internal/config"
@@ -21,6 +22,7 @@ const usage = `usage:
              [--k8s DIR[=CLUSTER]]... [--aws-snapshot DIR]... [--live-aws [AWS flags]]
              [--live-k8s CONTEXT[=CLUSTER]]... [--k8s-eks NAME]... [--kubeconfig FILE] [--insecure]
              [--format console|json|sarif] [--output FILE] [--fail-on critical|high|medium|low|info]
+             [--ignore FILE] [--baseline PREVIOUS.json]
   clapa collect-snapshot --out DIR [AWS flags]
              AWS flags: [--aws-profile P] [--aws-region R]... [--aws-assume-role ARN]...
              [--aws-external-id ID] [--aws-concurrency N] [--aws-call-timeout D]
@@ -67,10 +69,10 @@ func (l *list) String() string     { return strings.Join(*l, ",") }
 func (l *list) Set(v string) error { *l = append(*l, v); return nil }
 
 type scanFlags struct {
-	root, cfg, format, output, failOn string
-	plans, tfDirs, k8sDirs, snapshots list
-	aws                               awsFlags
-	k8s                               k8sFlags
+	root, cfg, format, output, failOn, ignore, baseline string
+	plans, tfDirs, k8sDirs, snapshots                   list
+	aws                                                 awsFlags
+	k8s                                                 k8sFlags
 }
 
 func parseScan(args []string, stderr io.Writer) (*scanFlags, bool) {
@@ -95,6 +97,8 @@ func scanFlagsOn(fset *flag.FlagSet, f *scanFlags) {
 	fset.StringVar(&f.format, "format", "console", "output format: "+strings.Join(app.Formats(), ", "))
 	fset.StringVar(&f.output, "output", "", "write the report to this file instead of standard output")
 	fset.StringVar(&f.failOn, "fail-on", app.DefaultFailOn, "lowest severity that makes the exit code 1")
+	fset.StringVar(&f.ignore, "ignore", "", "suppression file (default: .clapa-ignore.yaml in the root, if present)")
+	fset.StringVar(&f.baseline, "baseline", "", "a previous JSON report: report only new findings, and the resolved ones")
 	fset.Var(&f.plans, "plan", "Terraform plan (JSON or binary), optionally =its configuration directory")
 	fset.Var(&f.tfDirs, "terraform", "Terraform directory scanned statically")
 	fset.Var(&f.k8sDirs, "k8s", "Kubernetes manifests directory, optionally =cluster name")
@@ -137,7 +141,29 @@ func scan(ctx context.Context, args []string, stdout, stderr io.Writer, env *Env
 		_, _ = fmt.Fprintln(stderr, "clapa:", err)
 		return ExitInternal
 	}
+	t, err := triage(f)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		return ExitUsage
+	}
+	app.ApplyTriage(a, t, f.failOn)
 	return write(app.Report(a, cfg, f.failOn), f.format, f.output, stdout, stderr)
+}
+
+// triage reads the suppression file and the baseline report.
+func triage(f *scanFlags) (*app.Triage, error) {
+	sups, err := app.LoadIgnore(f.root, f.ignore)
+	if err != nil {
+		return nil, err
+	}
+	t := &app.Triage{Suppressions: sups, Now: time.Now()}
+	if f.baseline != "" {
+		if t.Baseline, err = app.LoadBaseline(f.root, f.baseline); err != nil {
+			return nil, err
+		}
+		t.BaselineFile = f.baseline
+	}
+	return t, nil
 }
 
 func inputs(f *scanFlags, cfg *config.Config) *app.Inputs {

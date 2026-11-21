@@ -16,6 +16,7 @@ import (
 	"github.com/r3oof-900/clapa/internal/rules"
 	"github.com/r3oof-900/clapa/internal/rules/catalog"
 	"github.com/r3oof-900/clapa/internal/scoring"
+	"github.com/r3oof-900/clapa/pkg/schema"
 )
 
 // DefaultFailOn is the default --fail-on threshold (DESIGN.md §8.2).
@@ -45,8 +46,13 @@ type Analysis struct {
 	ExitCode       int              `json:"exit_code"`
 	Graph          GraphStats       `json:"graph"`
 	CatalogVersion string           `json:"rule_catalog_version"`
-	Registry       *rules.Registry  `json:"-"`
-	AccessGraph    *graph.Graph     `json:"-"`
+	// Triage results (ApplyTriage): suppressed findings, expired
+	// suppressions, the baseline comparison.
+	Suppressed  []schema.SuppressedFinding  `json:"-"`
+	Expired     []schema.ExpiredSuppression `json:"-"`
+	Baseline    *schema.Baseline            `json:"-"`
+	Registry    *rules.Registry             `json:"-"`
+	AccessGraph *graph.Graph                `json:"-"`
 	// intended: the edges on the paths of declared intended access (the
 	// root-cause fixes are narrowed to what they use).
 	intended map[graph.EdgeID]bool

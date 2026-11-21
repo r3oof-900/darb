@@ -15,7 +15,12 @@ type Report struct {
 	Coverage       Coverage         `json:"coverage"`
 	Graph          Graph            `json:"graph"`
 	Rules          []Rule           `json:"rules"`
-	ExitCode       int              `json:"exit_code"`
+	// Suppressed, ExpiredSuppressions: .clapa-ignore.yaml (--ignore);
+	// Baseline: the comparison with --baseline. Absent when not used.
+	Suppressed          []SuppressedFinding  `json:"suppressed,omitempty"`
+	ExpiredSuppressions []ExpiredSuppression `json:"expired_suppressions,omitempty"`
+	Baseline            *Baseline            `json:"baseline,omitempty"`
+	ExitCode            int                  `json:"exit_code"`
 }
 
 // Tool identifies the build and the rule catalog.

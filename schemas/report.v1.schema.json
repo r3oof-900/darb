@@ -16,6 +16,9 @@
     "coverage": {"$ref": "#/$defs/coverage"},
     "graph": {"$ref": "#/$defs/graph"},
     "rules": {"type": ["array", "null"], "items": {"$ref": "#/$defs/rule"}},
+    "suppressed": {"description": "Findings a .clapa-ignore.yaml suppression silences until it expires; not in findings, not counted for the exit code.", "type": "array", "items": {"$ref": "#/$defs/suppressedFinding"}},
+    "expired_suppressions": {"description": "Suppressions past their expiry date: their findings, when still present, are in findings again.", "type": "array", "items": {"$ref": "#/$defs/expiredSuppression"}},
+    "baseline": {"$ref": "#/$defs/baseline"},
     "exit_code": {"description": "0 clean, 1 findings at or above fail_on, 2 usage or configuration error, 3 incomplete scan, 4 internal error.", "enum": [0, 1, 2, 3, 4]}
   },
   "$defs": {
@@ -192,6 +195,54 @@
         "nodes": {"type": "integer", "minimum": 0},
         "edges": {"type": "integer", "minimum": 0},
         "entry_jewel_pairs": {"type": "integer", "minimum": 0}
+      }
+    },
+    "suppressedFinding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["fingerprint", "rule", "severity", "reason", "owner", "expires"],
+      "properties": {
+        "fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "rule": {"type": "string", "pattern": "^CLAPA-(PATH|POST)-[0-9]{3}$"},
+        "severity": {"$ref": "#/$defs/severity"},
+        "entry": {"type": "string"},
+        "jewel": {"type": "string"},
+        "resource": {"type": "string"},
+        "reason": {"type": "string", "minLength": 1},
+        "owner": {"type": "string", "minLength": 1},
+        "expires": {"type": "string", "format": "date"}
+      }
+    },
+    "expiredSuppression": {
+      "type": "object", "additionalProperties": false,
+      "required": ["fingerprint", "reason", "owner", "expires", "fires"],
+      "properties": {
+        "fingerprint": {"type": "string"},
+        "reason": {"type": "string"},
+        "owner": {"type": "string"},
+        "expires": {"type": "string", "format": "date"},
+        "fires": {"description": "The finding is still present and reported again.", "type": "boolean"}
+      }
+    },
+    "baseline": {
+      "description": "The comparison with --baseline: findings lists only the new findings.",
+      "type": "object", "additionalProperties": false,
+      "required": ["file", "unchanged", "new", "resolved"],
+      "properties": {
+        "file": {"type": "string"},
+        "unchanged": {"type": "integer", "minimum": 0},
+        "new": {"type": "integer", "minimum": 0},
+        "resolved": {"type": "array", "items": {"$ref": "#/$defs/resolvedItem"}}
+      }
+    },
+    "resolvedItem": {
+      "type": "object", "additionalProperties": false,
+      "required": ["fingerprint", "rule"],
+      "properties": {
+        "fingerprint": {"type": "string"},
+        "rule": {"type": "string"},
+        "entry": {"type": "string"},
+        "jewel": {"type": "string"},
+        "resource": {"type": "string"}
       }
     },
     "rule": {

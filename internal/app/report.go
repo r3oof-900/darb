@@ -35,7 +35,9 @@ func Report(a *Analysis, cfg *config.Config, failOn string) *schema.Report {
 	for _, n := range a.Notes {
 		in.Notes = append(in.Notes, schema.Note{Kind: n.Kind, Subject: n.Subject, Detail: n.Detail})
 	}
-	return report.Build(in)
+	r := report.Build(in)
+	r.Suppressed, r.ExpiredSuppressions, r.Baseline = a.Suppressed, a.Expired, a.Baseline
+	return r
 }
 
 // Write renders a report in a format.

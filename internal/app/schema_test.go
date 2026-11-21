@@ -10,9 +10,11 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
+	"github.com/r3oof-900/clapa/internal/config"
 	"github.com/r3oof-900/clapa/pkg/schema"
 )
 
@@ -99,6 +101,8 @@ func TestSchemaDescribesTheGoTypes(t *testing.T) {
 		reflect.TypeFor[schema.IntendedAccess](): "intendedAccess", reflect.TypeFor[schema.Coverage](): "coverage",
 		reflect.TypeFor[schema.Gap](): "gap", reflect.TypeFor[schema.Note](): "note",
 		reflect.TypeFor[schema.Graph](): "graph", reflect.TypeFor[schema.Rule](): "rule",
+		reflect.TypeFor[schema.SuppressedFinding](): "suppressedFinding", reflect.TypeFor[schema.ExpiredSuppression](): "expiredSuppression",
+		reflect.TypeFor[schema.Baseline](): "baseline", reflect.TypeFor[schema.ResolvedItem](): "resolvedItem",
 	} {
 		d, ok := defs[def].(map[string]any)
 		if !ok {
@@ -124,5 +128,44 @@ func TestSchemaDescribesTheGoTypes(t *testing.T) {
 				t.Errorf("the schema's %q is not a field of %s", name, typ.Name())
 			}
 		}
+	}
+}
+
+// A report with suppressions, an expired suppression and a baseline
+// validates too.
+func TestTriageReportMatchesTheSchema(t *testing.T) {
+	sch, _ := reportSchema(t)
+	dir := copyTree(t, filepath.Join(repoRoot(t), "tests", "fixtures", "01_classic", "vulnerable"))
+	in := scansFor(t, dir)["normalized.golden.json"]
+	l, err := Load(context.Background(), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := Analyze(l, in.Config, DefaultFailOn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := Report(a, in.Config, DefaultFailOn)
+	base.Findings = append(base.Findings[:1:1], schema.Finding{Rule: "CLAPA-POST-006", Fingerprint: strings.Repeat("a", 64), Resource: "arn:aws:kms:x"})
+	ApplyTriage(a, &Triage{
+		Suppressions: []config.Suppression{
+			{Fingerprint: a.Findings[0].Fingerprint, Reason: "r", Owner: "o", Expires: "2099-12-31"},
+			{Fingerprint: a.Findings[1].Fingerprint, Reason: "r", Owner: "o", Expires: "2000-01-01"},
+		},
+		Baseline: base, BaselineFile: "previous.json", Now: time.Now(),
+	}, DefaultFailOn)
+	if len(a.Suppressed) != 1 || len(a.Expired) != 1 || a.Baseline == nil || len(a.Baseline.Resolved) != 1 {
+		t.Fatalf("triage %+v %+v %+v", a.Suppressed, a.Expired, a.Baseline)
+	}
+	var out bytes.Buffer
+	if werr := Write(&out, "json", Report(a, in.Config, DefaultFailOn)); werr != nil {
+		t.Fatal(werr)
+	}
+	doc, err := jsonschema.UnmarshalJSON(&out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if verr := sch.Validate(doc); verr != nil {
+		t.Fatalf("schema: %v", verr)
 	}
 }

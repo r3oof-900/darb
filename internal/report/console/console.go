@@ -36,6 +36,7 @@ func (Reporter) Write(w io.Writer, r *schema.Report) error {
 		p.printf("NOTHING WAS SCANNED: no input produced data. This is not a clean result.\n")
 	}
 	p.warnings(r.Coverage.Notes)
+	p.triage(r)
 	for _, sev := range []string{"critical", "high", "medium", "low", "info"} {
 		if n := r.Summary.BySeverity[sev]; n > 0 {
 			p.printf("%-8s %d\n", sev, n)
@@ -74,6 +75,37 @@ func (p *printer) warnings(notes []schema.Note) {
 	if n > 0 {
 		p.printf("\n")
 	}
+}
+
+// triage prints the suppressions and the baseline comparison: an expired
+// suppression is a warning (its finding fires again).
+func (p *printer) triage(r *schema.Report) {
+	for _, e := range r.ExpiredSuppressions {
+		fires := "its finding is no longer present"
+		if e.Fires {
+			fires = "its finding fires again"
+		}
+		p.printf("WARNING: the suppression of %s (owner %s) expired on %s: %s\n", e.Fingerprint, e.Owner, e.Expires, fires)
+	}
+	if len(r.Suppressed) > 0 {
+		p.printf("suppressed %d finding(s) (.clapa-ignore.yaml; listed in the JSON report)\n", len(r.Suppressed))
+	}
+	if b := r.Baseline; b != nil {
+		p.printf("baseline %s: %d new, %d unchanged (not shown), %d resolved\n", b.File, b.New, b.Unchanged, len(b.Resolved))
+		for _, res := range b.Resolved {
+			p.printf("  resolved %s %s%s%s\n", res.Rule, res.Entry, arrow(res.Jewel), res.Resource)
+		}
+	}
+	if len(r.ExpiredSuppressions) > 0 || len(r.Suppressed) > 0 || r.Baseline != nil {
+		p.printf("\n")
+	}
+}
+
+func arrow(jewel string) string {
+	if jewel == "" {
+		return ""
+	}
+	return " -> " + jewel
 }
 
 func finding(p *printer, f *schema.Finding) {
