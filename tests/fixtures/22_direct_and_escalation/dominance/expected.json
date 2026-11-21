@@ -18,7 +18,7 @@
       "severity": "medium",
       "chokepoints": [
         "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/app -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
-        "CAN_ESCALATE arn:aws:iam::111122223333:role/app -> arn:aws:iam::111122223333:role/app"
+        "CAN_ESCALATE[iam:modify-policy] arn:aws:iam::111122223333:role/app -> arn:aws:iam::111122223333:role/app"
       ],
       "alternative_fix": [
         "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app -> arn:aws:iam::111122223333:role/app"
@@ -35,7 +35,7 @@
           "cost": 1
         },
         {
-          "edge": "CAN_ESCALATE arn:aws:iam::111122223333:role/app -> arn:aws:iam::111122223333:role/app",
+          "edge": "CAN_ESCALATE[iam:modify-policy] arn:aws:iam::111122223333:role/app -> arn:aws:iam::111122223333:role/app",
           "side": "identity",
           "fix_kind": "revoke",
           "cost": 4

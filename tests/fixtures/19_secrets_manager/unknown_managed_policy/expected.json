@@ -16,11 +16,11 @@
       "score": 810,
       "severity": "critical",
       "chokepoints": [
-        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api -> arn:aws:iam::111122223333:role/payments-api"
+        "CAN_DECRYPT[for arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555",
+        "CAN_ESCALATE[iam:modify-policy] arn:aws:iam::111122223333:role/payments-api -> arn:aws:iam::111122223333:role/payments-api"
       ],
       "alternative_fix": [
-        "CAN_DECRYPT[for arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555",
-        "CAN_ESCALATE arn:aws:iam::111122223333:role/payments-api -> arn:aws:iam::111122223333:role/payments-api"
+        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api -> arn:aws:iam::111122223333:role/payments-api"
       ],
       "defaults_used": [
         "eks.irsa.audience",
@@ -28,25 +28,33 @@
       ],
       "fix": [
         {
-          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api -> arn:aws:iam::111122223333:role/payments-api",
-          "side": "trust",
+          "edge": "CAN_DECRYPT[for arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555",
+          "side": "identity",
+          "fix_kind": "narrow",
+          "cost": 1
+        },
+        {
+          "edge": "CAN_DECRYPT[for arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555",
+          "side": "identity",
           "fix_kind": "revoke",
-          "cost": 7
+          "cost": 4,
+          "policy": "arn:aws:iam::aws:policy/ReadOnlyAccess"
+        },
+        {
+          "edge": "CAN_ESCALATE[iam:modify-policy] arn:aws:iam::111122223333:role/payments-api -> arn:aws:iam::111122223333:role/payments-api",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 4,
+          "policy": "arn:aws:iam::aws:policy/ReadOnlyAccess"
         }
       ],
       "other_side_fix": [],
       "alternative_fix_detail": [
         {
-          "edge": "CAN_DECRYPT[for arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555",
-          "side": "identity",
+          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api -> arn:aws:iam::111122223333:role/payments-api",
+          "side": "trust",
           "fix_kind": "revoke",
-          "cost": 3
-        },
-        {
-          "edge": "CAN_ESCALATE arn:aws:iam::111122223333:role/payments-api -> arn:aws:iam::111122223333:role/payments-api",
-          "side": "identity",
-          "fix_kind": "revoke",
-          "cost": 4
+          "cost": 7
         }
       ],
       "status": "confirmed_unless_denied",
@@ -55,7 +63,10 @@
         "tools/refresh-managed-policies"
       ],
       "also_fixes": [],
-      "uncuttable": []
+      "uncuttable": [],
+      "shared_fix_possible": [
+        "arn:aws:iam::aws:policy/ReadOnlyAccess"
+      ]
     },
     {
       "rule": "CLAPA-POST-008",

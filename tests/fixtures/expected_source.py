@@ -68,10 +68,16 @@ def path_finding(rule, entry, jewel, path, score, severity, chokepoints, alterna
     }
 
 
-def step(edge, side, kind, cost):
+def step(edge, side, kind, cost, policy=None):
     # One fix of one edge (SCORING.md 4): side, narrow (make a broad grant
     # specific) or revoke (remove an explicit grant, 2 more), and cost.
-    return {"edge": edge, "side": side, "fix_kind": kind, "cost": cost}
+    # Phase 6 review: a detach of an AWS managed policy names the policy;
+    # it is one change however many edges it breaks.
+    return {"edge": edge, "side": side, "fix_kind": kind, "cost": cost, **({"policy": policy} if policy else {})}
+
+
+ADMIN_ACCESS = "arn:aws:iam::aws:policy/AdministratorAccess"
+READ_ONLY = "arn:aws:iam::aws:policy/ReadOnlyAccess"
 
 
 def posture(rule, resource, score, severity, defaults=None):
@@ -192,17 +198,13 @@ for n, row in (("04_wildcard_sub", 4), ("05_aud_only", 5)):
 BUILDER = f"k8s:{PROD}/tools/Deployment/builder"
 NS_TOOLS_4B = f"k8s:{PROD}//Namespace/tools"
 cut, alt = decrypt_cut(ROLE, PII_KEY, PII)
-# Phase 6 review, round 5: the cheapest cut sharing no edge with the
-# decrypt: builder's own token (automountServiceAccountToken: false,
-# workload, narrow, 3) or the read (revoke, 3); equal, so the min-cut's tie
-# rule, closest to the entry: the token. Every path of builder starts with
-# its own token (minting, or creating a pod as tools/default, needs it).
-BUILDER_TOKEN = f"RUNS_AS[k8s-token] {BUILDER} -> k8s:{PROD}/tools/ServiceAccount/builder"
+# Phase 6 review, round 6: builder's own token is a revoke (its Role's
+# create-pods binding is used on the path): workload, 5; the read (revoke,
+# 3) is the cheapest cut sharing no edge with the decrypt.
 E["04b_create_pods_wildcard/vulnerable"] = {"derived_from": "13.2 row 4b (Phase 4 review)", "findings": [
     path_finding("CLAPA-PATH-001", BUILDER, PII,
                  [f"RUNS_AS[k8s-token] k8s:{PROD}/tools/ServiceAccount/builder", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
-                 291, "medium", cut, [BUILDER_TOKEN], defaults=[OIDC_DEFAULT, AUTOMOUNT_DEFAULT],
-                 **{**pii_decrypt_fixes(cut, alt), "alternative_detail": [step(BUILDER_TOKEN, "workload", "narrow", 3)]}),
+                 291, "medium", cut, alt, defaults=[OIDC_DEFAULT, AUTOMOUNT_DEFAULT], **pii_decrypt_fixes(cut, alt)),
     posture("CLAPA-POST-001", ROLE, 600, "high"),
     posture("CLAPA-POST-004", BUILDER, 350, "medium", [AUTOMOUNT_DEFAULT]),
     no_default_deny(NS_TOOLS_4B)]}
@@ -226,20 +228,21 @@ CHAIN = f"ASSUMES {ROLE} -> {ADMIN}"
 # own policies (AdministratorAccess), but it already reads the warehouse
 # directly, confirmed: that escalation is dominated, no CLAPA-PATH-002, and
 # nothing else for also_fixes to name.
-# Phase 6 review, round 5: the cheapest cut sharing no edge with CHAIN.
-# After analytics-admin: its read of the warehouse (AdministratorAccess,
-# "*" on "*": s3:GetObject and kms:Decrypt both broad, narrow, identity, 1;
-# the bucket has no policy, and admin may rewrite the key policy, so no
-# resource side: the derived edge costs 1 and, tied, names the decrypt) and
-# its escalation to "role with any permission" (iam:PutRolePolicy and
-# AttachRolePolicy on itself from the same "*": narrow, identity, 2; the
-# dominated path, which this cut must break too, DESIGN.md 8). Nothing after
-# the synthetic node is cuttable. admin has no other escalation: no role it
-# may pass to a service; and IAM writes cannot target another account's
-# role (see the note on DESIGN.md 9.2's cross-account update-trust). So:
-# {decrypt 1, escalate 2} = 3, against the IRSA trust (revoke, 7).
+# Phase 6 review, rounds 5-6: the cheapest cut sharing no edge with CHAIN.
+# After analytics-admin: its read of the warehouse and its escalation to
+# "role with any permission" (iam:PutRolePolicy / AttachRolePolicy on
+# itself; the dominated path, which this cut must break too, DESIGN.md 8)
+# all come from AdministratorAccess alone. AWS owns it: it cannot be
+# narrowed, only detached: identity, revoke, one change breaking all three
+# edges, priced at the dearest revoke among them (CAN_ESCALATE, 4). The
+# bucket has no policy and admin may rewrite the key policy: no resource
+# side. The derived edge names the decrypt (the read and the decrypt cost
+# the same). Nothing after the synthetic node is cuttable; admin may pass no
+# role to a service, and IAM writes cannot reach another account's role
+# (DESIGN.md 9.2, update-trust: same account only). So: detach, 4, against
+# the IRSA trust (revoke, 7).
 ADMIN_DECRYPT = f"CAN_DECRYPT[for {WAREHOUSE}] {ADMIN} -> {WAREHOUSE_KEY}"
-ADMIN_ESCALATE = f"CAN_ESCALATE {ADMIN} -> {ADMIN}"
+ADMIN_ESCALATE = f"CAN_ESCALATE[iam:modify-policy] {ADMIN} -> {ADMIN}"
 E["06_role_chain_cross_account/vulnerable"] = {"derived_from": "13.2 row 6", "findings": [
     path_finding("CLAPA-PATH-001", API, WAREHOUSE,
                  [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"ASSUMES {ADMIN}", f"CAN_READ_PLAINTEXT {WAREHOUSE}"],
@@ -248,7 +251,8 @@ E["06_role_chain_cross_account/vulnerable"] = {"derived_from": "13.2 row 6", "fi
                  # analytics-admin's trust names Principal arn:aws:iam::111122223333:root,
                  # an account: broad, narrow, trust side, 5.
                  other_side=[step(CHAIN, "trust", "narrow", 5)],
-                 alternative_detail=[step(ADMIN_DECRYPT, "identity", "narrow", 1), step(ADMIN_ESCALATE, "identity", "narrow", 2)]),
+                 alternative_detail=[step(ADMIN_DECRYPT, "identity", "revoke", 4, ADMIN_ACCESS),
+                                     step(ADMIN_ESCALATE, "identity", "revoke", 4, ADMIN_ACCESS)]),
     rotation_off(WAREHOUSE_KEY), no_default_deny(NS_PAYMENTS)]}
 E["06_role_chain_cross_account/fixed"] = {"derived_from": "13.2 row 6 fixed: AssumeRole scoped to one role in account A",
                                           "findings": [rotation_off(WAREHOUSE_KEY), no_default_deny(NS_PAYMENTS)],
@@ -262,7 +266,7 @@ cut, alt = decrypt_cut(PROCESSOR, PII_KEY, PII)
 # decrypt is the escalation itself: payments-api's iam:PassRole on "*",
 # broad: narrow, identity, 2 (data-processor's trust names
 # lambda.amazonaws.com exactly: revoke, trust, 7); the read costs 3.
-PASS = f"CAN_ESCALATE {ROLE} -> {PROCESSOR}"
+PASS = f"CAN_ESCALATE[iam:passrole:lambda] {ROLE} -> {PROCESSOR}"
 E["07_passrole_lambda/vulnerable"] = {"derived_from": "13.2 row 7", "findings": [
     path_finding("CLAPA-PATH-002", API, PII,
                  [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_ESCALATE {PROCESSOR}", f"CAN_READ_PLAINTEXT {PII}"],
@@ -282,18 +286,16 @@ CI = f"k8s:{PROD}/payments/Deployment/ci-runner"
 SA_CI = f"k8s:{PROD}/payments/ServiceAccount/ci"
 cut, alt = decrypt_cut(ROLE, PII_KEY, PII)
 # Phase 6 review: the cut of both findings is the same edge (the role's
-# broad kms:Decrypt for PII): each also fixes the other. Round 5: for ci,
-# the cheapest cut sharing no edge with it is ci's own token (workload,
-# narrow, 3) or the read (revoke, 3); equal, closest to the entry: the token
-# (the RBAC create-pods binding, revoke, 5, is dearer).
-CI_TOKEN = f"RUNS_AS[k8s-token] {CI} -> {SA_CI}"
+# broad kms:Decrypt for PII): each also fixes the other. Round 6: for ci,
+# the cheapest cut sharing no edge with it is the read (revoke, 3); ci's
+# own token (revoke, its binding is used: 5) and the create-pods binding
+# (5) are dearer.
 E["08_rbac_create_pods/vulnerable"] = {"derived_from": "13.2 row 8", "findings": [
     classic(also_fixes=[{"rule": "CLAPA-PATH-002", "entry": CI, "jewel": PII}]),
     path_finding("CLAPA-PATH-002", CI, PII,
                  [f"RUNS_AS[k8s-token] {SA_CI}", f"CAN_ESCALATE {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
-                 261, "medium", cut, [CI_TOKEN], defaults=IRSA_DEFAULTS + [AUTOMOUNT_DEFAULT],
-                 also_fixes=[{"rule": "CLAPA-PATH-001", "entry": API, "jewel": PII}],
-                 **{**pii_decrypt_fixes(cut, alt), "alternative_detail": [step(CI_TOKEN, "workload", "narrow", 3)]}),
+                 261, "medium", cut, alt, defaults=IRSA_DEFAULTS + [AUTOMOUNT_DEFAULT],
+                 also_fixes=[{"rule": "CLAPA-PATH-001", "entry": API, "jewel": PII}], **pii_decrypt_fixes(cut, alt)),
     posture("CLAPA-POST-004", CI, 350, "medium", [AUTOMOUNT_DEFAULT]),
     no_default_deny(NS_PAYMENTS)]}
 E["08_rbac_create_pods/fixed"] = {"derived_from": "13.2 row 8 fixed: get/list/watch only", "findings": [
@@ -600,8 +602,10 @@ for n, jewel, key, other in (
 # path is its own Kubernetes token (RUNS_AS[k8s-token], DESIGN.md 7.2:
 # direct access, Phase 6 review), then the RBAC read of
 # payments/db-credentials (DataClass secret, 1000): CLAPA-PATH-001. 2 edges (900): 400 x 900 = 360; x 1000 = 360, medium.
-# The cut is turning the token mount off (workload, narrow, 3), cheaper
-# than revoking the RBAC read (5); neither edge is derived, so no
+# The cut is turning the token mount off: ci's Role binding is used on the
+# path, so it takes away a right granted on purpose: workload, revoke, 5
+# (Phase 6 review, round 6; it was narrow, 3). The RBAC read also costs 5
+# (rbac, revoke): equal, closest to the entry: the token; the read is the
 # alternative. CLAPA-POST-004 on ci-runner (token mounted by default, the
 # account has RBAC): 350, medium. Fixed: the pod sets
 # automountServiceAccountToken: false: no path, no CLAPA-POST-004.
@@ -611,7 +615,7 @@ K8S_READ = f"CAN_READ_PLAINTEXT {SA_CI} -> {K8S_SECRET}"
 E["21_k8s_secret/vulnerable"] = {"derived_from": "Phase 6 instruction: Kubernetes Secrets as targets", "findings": [
     path_finding("CLAPA-PATH-001", CI, K8S_SECRET, [f"RUNS_AS[k8s-token] {SA_CI}", f"CAN_READ_PLAINTEXT {K8S_SECRET}"],
                  360, "medium", [TOKEN_EDGE], [K8S_READ], defaults=[AUTOMOUNT_DEFAULT],
-                 fix=[step(TOKEN_EDGE, "workload", "narrow", 3)],
+                 fix=[step(TOKEN_EDGE, "workload", "revoke", 5)],
                  # The cut edge (a fact) has no other side. Round 5: the only
                  # other edge is the RBAC read itself: rbac, revoke, 5.
                  other_side=[], alternative_detail=[step(K8S_READ, "rbac", "revoke", 5)]),
@@ -656,25 +660,31 @@ E["01_classic/key_outside_input"] = {"derived_from": "Phase 6 review, item 2: a 
 # unknown policy may let the role rewrite its own grants (iam:PutRolePolicy),
 # the key policy (kms:PutKeyPolicy) and the secret's resource policy
 # (secretsmanager:PutResourcePolicy): the key policy side is lost
-# (SCORING.md 4.2). Round 5, under the withdrawn clarification: the role's
-# own edges keep their identity side, each revoke, because the unknown
-# document's statement (placeholder Action and Resource) counts as naming
-# them: the read 3, the decrypt 3 (the derived edge 3, tied: the decrypt),
-# and CAN_ESCALATE to "role with any permission" 4 (only the unknown policy
-# grants iam:PutRolePolicy). Cuts: {decrypt, escalate} = 7 and the IRSA
-# trust (:sub exact, revoke, 7): equal, so the min-cut's tie rule, closest
-# to the entry, keeps the trust. The alternative is the other one.
+# (SCORING.md 4.2). Rounds 5-6: the role's own edges keep their identity
+# side. ReadOnlyAccess is AWS managed: its share of any grant is fixed by
+# detaching it, one change (identity, revoke, 4: it may grant the
+# escalation). The decrypt's identity side is the inline kms:Decrypt on
+# "*" (broad, narrow, 1) plus ReadOnlyAccess: both changes, 1 + detach;
+# the read's is the inline GetSecretValue on the exact ARN (revoke, 3) plus
+# ReadOnlyAccess; CAN_ESCALATE[iam:modify-policy] to "role with any
+# permission" comes from ReadOnlyAccess alone. Cuts: {decrypt, escalate} =
+# 1 + 4 = 5 (the detach counted once); {read, escalate} = 3 + 4 = 7; the
+# IRSA trust (:sub exact, revoke) 7. The cut is the first (it was the
+# trust); the alternative sharing no edge with it is the trust ({read,
+# escalate} shares the escalation). The detach breaks both cut edges:
+# shared_fix_possible names ReadOnlyAccess.
 TRUST_EDGE = f"ASSUMES {SA_API} -> {ROLE}"
 UNKNOWN_DECRYPT = f"CAN_DECRYPT[for {SECRET}] {ROLE} -> {SECRET_KEY}"
-UNKNOWN_ESCALATE = f"CAN_ESCALATE {ROLE} -> {ROLE}"
+UNKNOWN_ESCALATE = f"CAN_ESCALATE[iam:modify-policy] {ROLE} -> {ROLE}"
 E["19_secrets_manager/unknown_managed_policy"] = {
     "derived_from": "Phase 6 review, item 1: an unknown AWS managed policy never lowers the severity", "findings": [
         path_finding("CLAPA-PATH-001", API, SECRET, [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {SECRET}"],
-                     810, "critical", [TRUST_EDGE], [UNKNOWN_DECRYPT, UNKNOWN_ESCALATE], confirmed=False,
-                     status="confirmed_unless_denied", confidence="medium",
+                     810, "critical", [UNKNOWN_DECRYPT, UNKNOWN_ESCALATE], [TRUST_EDGE], confirmed=False,
+                     status="confirmed_unless_denied", confidence="medium", shared_fix=[READ_ONLY],
                      defaults=IRSA_DEFAULTS, undecided=["ReadOnlyAccess", "tools/refresh-managed-policies"],
-                     fix=[step(TRUST_EDGE, "trust", "revoke", 7)], other_side=[],
-                     alternative_detail=[step(UNKNOWN_DECRYPT, "identity", "revoke", 3), step(UNKNOWN_ESCALATE, "identity", "revoke", 4)]),
+                     fix=[step(UNKNOWN_DECRYPT, "identity", "narrow", 1), step(UNKNOWN_DECRYPT, "identity", "revoke", 4, READ_ONLY),
+                          step(UNKNOWN_ESCALATE, "identity", "revoke", 4, READ_ONLY)],
+                     other_side=[], alternative_detail=[step(TRUST_EDGE, "trust", "revoke", 7)]),
         # Phase 6 review, dominance (DESIGN.md 8): the unknown policy may let
         # payments-api rewrite its own policies (an unconfirmed escalation),
         # but payments-api reads the secret directly at a stronger status
@@ -757,7 +767,7 @@ def app_direct(confirmed):
     # identity fixes are statements of role/app's one inline policy
     # (data-access): shared_fix_possible names role/app.
     decrypt = f"CAN_DECRYPT[for {PII}] {APP_ROLE} -> {PII_KEY}"
-    escalate = f"CAN_ESCALATE {APP_ROLE} -> {APP_ROLE}"
+    escalate = f"CAN_ESCALATE[iam:modify-policy] {APP_ROLE} -> {APP_ROLE}"
     trust = f"ASSUMES {SA_APP} -> {APP_ROLE}"
     return path_finding("CLAPA-PATH-001", APP, PII, path, 291, "medium", [decrypt, escalate], [trust], defaults=IRSA_DEFAULTS,
                         fix=[step(decrypt, "identity", "narrow", 1), step(escalate, "identity", "revoke", 4)],
@@ -766,7 +776,7 @@ def app_direct(confirmed):
 
 
 OPS_EDGE = f"ASSUMES {APP_ROLE} -> {OPS_ROLE}"
-OPS_ESCALATE = f"CAN_ESCALATE {OPS_ROLE} -> {OPS_ROLE}"
+OPS_ESCALATE = f"CAN_ESCALATE[iam:modify-policy] {OPS_ROLE} -> {OPS_ROLE}"
 E["22_direct_and_escalation/vulnerable"] = {
     "derived_from": "Phase 6 review: a pair with a direct finding and an escalation finding", "exit_code": 3,
     "distinct_fingerprints": True, "findings": [

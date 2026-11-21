@@ -135,7 +135,7 @@ or turning off something specific):
 | `NODE_ROLE`, pod without hostNetwork (require IMDSv2, hop limit 1) | node | narrow | **3** |
 | `NODE_ROLE`, hostNetwork pod (turn the node group's metadata endpoint off) | node | revoke | **5** |
 | `NODE_ROLE`, hostNetwork pod on a node that already keeps pods out (remove hostNetwork) | workload | revoke | **5** |
-| `RUNS_AS[k8s-token]`: the pod's own Kubernetes token (`automountServiceAccountToken: false`) | workload | narrow | **3** |
+| `RUNS_AS[k8s-token]`: the pod's own Kubernetes token, when an RBAC binding of its service account is used on the path (`automountServiceAccountToken: false` takes away rights granted on purpose). With no binding used, the token is on no path: turning it off is hardening (`CLAPA-POST-004`), not a cut | workload | revoke | **5** |
 | `CAN_ESCALATE` via K8s RBAC (remove/limit the binding) | rbac | revoke | **5** |
 | `CAN_READ_PLAINTEXT[k8s]` (RBAC `get`/`list`/`watch` on a Kubernetes Secret; remove/limit the rule) | rbac | revoke | **5** |
 | `MAPS_TO` (`aws-auth` / access entry) | mapping | revoke | **8** |
@@ -146,6 +146,21 @@ or turning off something specific):
 
 The edge's capacity is its cheapest side. An edge with no side left is
 **uncuttable**: no single change breaks it.
+
+**AWS managed policies (Phase 6 review).** A grant from a policy AWS owns
+(`arn:aws:iam::aws:policy/...`) cannot be narrowed in place: the document
+cannot be edited. Its only fix is to **detach** it from the principal
+(suggesting a narrower customer managed policy instead): identity side,
+`revoke`. One detach breaks every edge that policy grants at once, so it is
+**one change**, priced once in a cut, at the dearest identity revoke price
+among the edges it breaks (3; 4 when one is a `CAN_ESCALATE`). A fix step
+names it by `policy` (the managed policy's ARN); `cut_cost` counts each
+change once. When several policies grant an edge's identity side, each must
+change, and the fix lists every change (scenario 19 with ReadOnlyAccess:
+narrow the inline `kms:Decrypt`, 1, and detach ReadOnlyAccess, 4: cut 5).
+The patch generator (§5) removes the attachment and adds the replacement
+policy as an unverified `TODO` when the permissions needed are not known; it
+never edits an AWS managed document.
 
 **IMDS and `NODE_ROLE` (Phase 5).** Sources, and what is our reasoning:
 
@@ -243,7 +258,11 @@ needs), with the trust side (cost 5) as the other fix.
 
 ### 4.3 What a finding reports
 
-- `chokepoints`: the cut edges; `cut_cost`: the sum of their capacities.
+- `chokepoints`: the cut edges, in the notation `KIND[sub][for J] from -> to`
+  (`RUNS_AS[k8s-token]`, `CAN_ESCALATE[iam:modify-policy]`, `CAN_ESCALATE[rbac]`,
+  ...: two escalations between the same nodes stay distinct); `cut_cost`:
+  the sum of the costs of the distinct changes (a detach shared by several
+  edges counts once).
 - `fix`: for each cut edge, the side the cut chose (its cheapest), its
   `fix_kind` (`narrow` | `revoke`), the policy to change and its cost;
   `other_side_fix`: the other sides that also break that edge, dearer. The
@@ -254,17 +273,17 @@ needs), with the trust side (cost 5) as the other fix.
   included (DESIGN.md §8); `alternative_fix_detail`: the cheapest fix of each
   of its edges, with side, kind and cost. It is the min-cut computed again
   with the chosen cut's edges uncuttable, so its ties are the min-cut's
-  (closest to the entry). A cut that contains `RUNS_AS`, or any edge from
-  Kubernetes facts with a fixed cost of 100 or more, is never offered:
-  changing a workload's identity is not a useful alternative. When none is
+  (closest to the entry). A cut that contains `RUNS_AS`, the workload's
+  identity edge (100), or any other edge from Kubernetes facts with a fixed
+  cost of 100 or more, is never offered: changing a workload's identity is
+  not a useful alternative. `RUNS_AS[k8s-token]` (5) is not excluded. When none is
   left, `alternative_fix: []` (scenario 12: the path is one edge). Decided
   at the Phase 6 review (it replaces "the other cuttable underlying edge").
   Where a derived read is cut, this gives the result of the old definition,
   the other underlying edge, whenever that edge is strictly the cheapest such
   cut (scenarios 1, 4, 5, 8 api, 10, 16, 17, 19, 20, 22 PATH-001); it
   differs where something cheaper, or as cheap and closer to the entry,
-  exists: scenario 7 (the PassRole grant, narrow, 2), 4b and 8 ci (the pod's
-  own token, 3, tied with the read and closer to the entry).
+  exists: scenario 7 (the PassRole grant, narrow, 2).
 - `uncuttable`: each underlying edge of a cut derived read that no single
   change breaks, with the reason; it is not hidden, and is independent of the
   alternative (Phase 6 review).

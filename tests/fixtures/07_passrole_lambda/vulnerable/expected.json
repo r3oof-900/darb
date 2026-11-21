@@ -20,7 +20,7 @@
         "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/data-processor -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii"
       ],
       "alternative_fix": [
-        "CAN_ESCALATE arn:aws:iam::111122223333:role/payments-api -> arn:aws:iam::111122223333:role/data-processor"
+        "CAN_ESCALATE[iam:passrole:lambda] arn:aws:iam::111122223333:role/payments-api -> arn:aws:iam::111122223333:role/data-processor"
       ],
       "defaults_used": [
         "eks.irsa.audience",
@@ -44,7 +44,7 @@
       ],
       "alternative_fix_detail": [
         {
-          "edge": "CAN_ESCALATE arn:aws:iam::111122223333:role/payments-api -> arn:aws:iam::111122223333:role/data-processor",
+          "edge": "CAN_ESCALATE[iam:passrole:lambda] arn:aws:iam::111122223333:role/payments-api -> arn:aws:iam::111122223333:role/data-processor",
           "side": "identity",
           "fix_kind": "narrow",
           "cost": 2

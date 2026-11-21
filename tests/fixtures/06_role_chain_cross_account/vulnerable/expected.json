@@ -21,7 +21,7 @@
       ],
       "alternative_fix": [
         "CAN_DECRYPT[for arn:aws:s3:::acme-analytics-warehouse] arn:aws:iam::444455556666:role/analytics-admin -> arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse",
-        "CAN_ESCALATE arn:aws:iam::444455556666:role/analytics-admin -> arn:aws:iam::444455556666:role/analytics-admin"
+        "CAN_ESCALATE[iam:modify-policy] arn:aws:iam::444455556666:role/analytics-admin -> arn:aws:iam::444455556666:role/analytics-admin"
       ],
       "defaults_used": [
         "eks.irsa.audience",
@@ -47,14 +47,16 @@
         {
           "edge": "CAN_DECRYPT[for arn:aws:s3:::acme-analytics-warehouse] arn:aws:iam::444455556666:role/analytics-admin -> arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse",
           "side": "identity",
-          "fix_kind": "narrow",
-          "cost": 1
+          "fix_kind": "revoke",
+          "cost": 4,
+          "policy": "arn:aws:iam::aws:policy/AdministratorAccess"
         },
         {
-          "edge": "CAN_ESCALATE arn:aws:iam::444455556666:role/analytics-admin -> arn:aws:iam::444455556666:role/analytics-admin",
+          "edge": "CAN_ESCALATE[iam:modify-policy] arn:aws:iam::444455556666:role/analytics-admin -> arn:aws:iam::444455556666:role/analytics-admin",
           "side": "identity",
-          "fix_kind": "narrow",
-          "cost": 2
+          "fix_kind": "revoke",
+          "cost": 4,
+          "policy": "arn:aws:iam::aws:policy/AdministratorAccess"
         }
       ],
       "status": "confirmed",

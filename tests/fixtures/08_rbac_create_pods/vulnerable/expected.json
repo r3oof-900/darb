@@ -77,7 +77,7 @@
         "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii"
       ],
       "alternative_fix": [
-        "RUNS_AS[k8s-token] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci"
+        "CAN_READ arn:aws:iam::111122223333:role/payments-api -> arn:aws:s3:::acme-customer-pii"
       ],
       "defaults_used": [
         "eks.irsa.audience",
@@ -102,9 +102,9 @@
       ],
       "alternative_fix_detail": [
         {
-          "edge": "RUNS_AS[k8s-token] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci",
-          "side": "workload",
-          "fix_kind": "narrow",
+          "edge": "CAN_READ arn:aws:iam::111122223333:role/payments-api -> arn:aws:s3:::acme-customer-pii",
+          "side": "identity",
+          "fix_kind": "revoke",
           "cost": 3
         }
       ],

@@ -27,8 +27,8 @@
         {
           "edge": "RUNS_AS[k8s-token] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci",
           "side": "workload",
-          "fix_kind": "narrow",
-          "cost": 3
+          "fix_kind": "revoke",
+          "cost": 5
         }
       ],
       "other_side_fix": [],
