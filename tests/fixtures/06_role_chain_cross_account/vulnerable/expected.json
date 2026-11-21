@@ -62,6 +62,7 @@
       "status": "confirmed",
       "also_fixes": [],
       "uncuttable": [],
+      "remediation_status": "complete",
       "remediation": {
         "order": [
           "mitigation",

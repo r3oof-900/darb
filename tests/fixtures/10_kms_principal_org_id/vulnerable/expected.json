@@ -29,8 +29,9 @@
         {
           "edge": "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.shared",
           "side": "resource",
-          "fix_kind": "narrow",
-          "cost": 2
+          "fix_kind": "resolve",
+          "cost": 0,
+          "resolve": "assume: {\"aws:PrincipalOrgID\": [...]} in clapa.yaml"
         }
       ],
       "other_side_fix": [],
@@ -48,6 +49,7 @@
       ],
       "also_fixes": [],
       "uncuttable": [],
+      "remediation_status": "partial_pending_resolution",
       "remediation": {
         "missing": true
       }

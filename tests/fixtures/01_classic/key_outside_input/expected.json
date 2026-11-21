@@ -16,10 +16,10 @@
       "score": 729,
       "severity": "critical",
       "chokepoints": [
-        "CAN_READ arn:aws:iam::111122223333:role/payments-api -> arn:aws:s3:::acme-customer-pii"
+        "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001"
       ],
       "alternative_fix": [
-        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api -> arn:aws:iam::111122223333:role/payments-api"
+        "CAN_READ arn:aws:iam::111122223333:role/payments-api -> arn:aws:s3:::acme-customer-pii"
       ],
       "defaults_used": [
         "eks.irsa.audience",
@@ -27,19 +27,20 @@
       ],
       "fix": [
         {
-          "edge": "CAN_READ arn:aws:iam::111122223333:role/payments-api -> arn:aws:s3:::acme-customer-pii",
-          "side": "identity",
-          "fix_kind": "revoke",
-          "cost": 3
+          "edge": "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001",
+          "side": "resource",
+          "fix_kind": "resolve",
+          "cost": 0,
+          "resolve": "scan the key's Terraform or plan, or a snapshot of its account"
         }
       ],
       "other_side_fix": [],
       "alternative_fix_detail": [
         {
-          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api -> arn:aws:iam::111122223333:role/payments-api",
-          "side": "trust",
+          "edge": "CAN_READ arn:aws:iam::111122223333:role/payments-api -> arn:aws:s3:::acme-customer-pii",
+          "side": "identity",
           "fix_kind": "revoke",
-          "cost": 7
+          "cost": 3
         }
       ],
       "status": "unconfirmed",
@@ -47,11 +48,8 @@
         "arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001 is not in the input"
       ],
       "also_fixes": [],
-      "uncuttable": [
-        {
-          "edge": "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001"
-        }
-      ]
+      "uncuttable": [],
+      "remediation_status": "partial_pending_resolution"
     },
     {
       "rule": "CLAPA-POST-008",

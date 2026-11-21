@@ -57,7 +57,8 @@
           "jewel": "arn:aws:s3:::acme-customer-pii"
         }
       ],
-      "uncuttable": []
+      "uncuttable": [],
+      "remediation_status": "complete"
     },
     {
       "rule": "CLAPA-PATH-002",
@@ -116,7 +117,8 @@
           "jewel": "arn:aws:s3:::acme-customer-pii"
         }
       ],
-      "uncuttable": []
+      "uncuttable": [],
+      "remediation_status": "complete"
     },
     {
       "rule": "CLAPA-POST-004",

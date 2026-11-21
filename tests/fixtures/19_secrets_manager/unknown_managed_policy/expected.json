@@ -36,16 +36,18 @@
         {
           "edge": "CAN_DECRYPT[for arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555",
           "side": "identity",
-          "fix_kind": "revoke",
-          "cost": 4,
-          "policy": "arn:aws:iam::aws:policy/ReadOnlyAccess"
+          "fix_kind": "resolve",
+          "cost": 0,
+          "policy": "arn:aws:iam::aws:policy/ReadOnlyAccess",
+          "resolve": "tools/refresh-managed-policies"
         },
         {
           "edge": "CAN_ESCALATE[iam:modify-policy] arn:aws:iam::111122223333:role/payments-api -> arn:aws:iam::111122223333:role/payments-api",
           "side": "identity",
-          "fix_kind": "revoke",
-          "cost": 4,
-          "policy": "arn:aws:iam::aws:policy/ReadOnlyAccess"
+          "fix_kind": "resolve",
+          "cost": 0,
+          "policy": "arn:aws:iam::aws:policy/ReadOnlyAccess",
+          "resolve": "tools/refresh-managed-policies"
         }
       ],
       "other_side_fix": [],
@@ -64,9 +66,7 @@
       ],
       "also_fixes": [],
       "uncuttable": [],
-      "shared_fix_possible": [
-        "arn:aws:iam::aws:policy/ReadOnlyAccess"
-      ]
+      "remediation_status": "partial_pending_resolution"
     },
     {
       "rule": "CLAPA-POST-008",

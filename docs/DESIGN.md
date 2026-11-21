@@ -1299,9 +1299,21 @@ to a copy and rescanned no longer reports the finding
 (`TestEveryVulnerableScenarioIsFixed`: 16 findings). Two are not patched, by
 design: scenario 10 is UNKNOWN until the organization ID is known (the
 remediation says to set `assume: {"aws:PrincipalOrgID": [...]}`; with it set
-the key policy fix is verified, `TestScenario10Decided`), and scenario 13's
+the key policy fix is verified, `TestScenario10Decided`; since the Phase 6
+review its cut is a `resolve` step, below), and scenario 13's
 grant comes from the module input `bucket` (a TODO naming
 `terraform/main.tf:4`: the input does not say what the readers need).
+
+**Resolve steps (Phase 6 review; SCORING.md §4.1).** A side that grants
+only through an UNKNOWN Allow is fixed by deciding it, not by deleting
+anything: `fix_kind: resolve`, cost 0, no patch, the resolving command
+named. A cut with one is `remediation_status: partial_pending_resolution`:
+`clapa remediate --write` applies only the known steps; verification checks
+them and reports that the paths through the unknown need a rescan once it
+is resolved; the console says *resolve the unknowns listed, then rescan: the
+fix may need more steps once they are known*. AWS managed policies whose
+document is known are detached instead (identity, revoke; one change for
+every edge they grant).
 
 ### 9.4 Output — the patch
 

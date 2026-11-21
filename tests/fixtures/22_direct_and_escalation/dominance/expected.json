@@ -62,7 +62,8 @@
       "uncuttable": [],
       "shared_fix_possible": [
         "arn:aws:iam::111122223333:role/app"
-      ]
+      ],
+      "remediation_status": "complete"
     },
     {
       "rule": "CLAPA-POST-006",

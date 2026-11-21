@@ -153,7 +153,10 @@ cannot be edited. Its only fix is to **detach** it from the principal
 (suggesting a narrower customer managed policy instead): identity side,
 `revoke`. One detach breaks every edge that policy grants at once, so it is
 **one change**, priced once in a cut, at the dearest identity revoke price
-among the edges it breaks (3; 4 when one is a `CAN_ESCALATE`). A fix step
+among the edges it breaks (3; 4 when one is a `CAN_ESCALATE`; approved at the
+Phase 6 review). A detach applies only to a managed policy whose document is
+known (in the vendored snapshot, e.g. AdministratorAccess in scenario 6); an
+unknown one is resolved, not detached (below). A fix step
 names it by `policy` (the managed policy's ARN); `cut_cost` counts each
 change once. When several policies grant an edge's identity side, each must
 change, and the fix lists every change (scenario 19 with ReadOnlyAccess:
@@ -161,6 +164,28 @@ narrow the inline `kms:Decrypt`, 1, and detach ReadOnlyAccess, 4: cut 5).
 The patch generator (§5) removes the attachment and adds the replacement
 policy as an unverified `TODO` when the permissions needed are not known; it
 never edits an AWS managed document.
+
+**Resolve: a side that rests only on an unknown (Phase 6 review).** The worst
+case is right for severity and wrong as advice: it would tell the user to
+delete a grant they may need because *we* lack a document. So when a side of
+an edge grants only through an UNKNOWN Allow (a managed policy not in the
+snapshot, a key or role not in the input, a condition on an unresolved key or
+value), that side's fix is `fix_kind: resolve`, **cost 0**, with no patch:
+it names the command that decides it (`tools/refresh-managed-policies`;
+`assume: {...}` in `clapa.yaml`; `-var-file` or `--plan`; scanning the
+missing key or role). Where a side mixes known and unknown grants, the known
+ones get their usual fix and the unknown one a resolve step (scenario 19 with
+ReadOnlyAccess: narrow the inline `kms:Decrypt`, 1, and resolve
+ReadOnlyAccess, 0: cut 1). The §4.2 guards (a principal that may rewrite the
+target's policy) stay worst case and do not remove a resolve step: resolving
+the document decides them too. A cut with a resolve step has
+`remediation_status: partial_pending_resolution` (otherwise `complete`);
+`--write` applies only its known steps; the verifier checks those and states
+that the paths depending on the unknown must be rescanned after resolution.
+The console prints: *resolve the unknowns listed, then rescan: the fix may
+need more steps once they are known*. Scenario 10 keeps its Phase 5
+behaviour (no patch before `aws:PrincipalOrgID` is known): its cut is now the
+resolve step itself.
 
 **IMDS and `NODE_ROLE` (Phase 5).** Sources, and what is our reasoning:
 

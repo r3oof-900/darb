@@ -17,10 +17,10 @@
       "score": 291,
       "severity": "medium",
       "chokepoints": [
-        "CAN_READ arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value} -> arn:aws:s3:::acme-customer-pii"
+        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/etl -> arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}"
       ],
       "alternative_fix": [
-        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/etl -> arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}"
+        "CAN_READ arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value} -> arn:aws:s3:::acme-customer-pii"
       ],
       "defaults_used": [
         "eks.irsa.audience",
@@ -28,24 +28,27 @@
       ],
       "fix": [
         {
-          "edge": "CAN_READ arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value} -> arn:aws:s3:::acme-customer-pii",
-          "side": "identity",
-          "fix_kind": "revoke",
-          "cost": 3
+          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/etl -> arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
+          "side": "trust",
+          "fix_kind": "resolve",
+          "cost": 0,
+          "resolve": "--plan"
         }
       ],
       "other_side_fix": [],
       "alternative_fix_detail": [
         {
-          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/etl -> arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
-          "side": "trust",
-          "fix_kind": "revoke",
-          "cost": 7
+          "edge": "CAN_READ arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value} -> arn:aws:s3:::acme-customer-pii",
+          "side": "identity",
+          "fix_kind": "resolve",
+          "cost": 0,
+          "resolve": "--plan"
         }
       ],
       "status": "unconfirmed",
       "also_fixes": [],
-      "uncuttable": []
+      "uncuttable": [],
+      "remediation_status": "partial_pending_resolution"
     },
     {
       "rule": "CLAPA-PATH-001",
@@ -61,10 +64,10 @@
       "score": 291,
       "severity": "medium",
       "chokepoints": [
-        "CAN_READ arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value} -> arn:aws:s3:::acme-customer-pii"
+        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/bi -> arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}"
       ],
       "alternative_fix": [
-        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/bi -> arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}"
+        "CAN_READ arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value} -> arn:aws:s3:::acme-customer-pii"
       ],
       "defaults_used": [
         "eks.irsa.audience",
@@ -72,24 +75,27 @@
       ],
       "fix": [
         {
-          "edge": "CAN_READ arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value} -> arn:aws:s3:::acme-customer-pii",
-          "side": "identity",
-          "fix_kind": "revoke",
-          "cost": 3
+          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/bi -> arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
+          "side": "trust",
+          "fix_kind": "resolve",
+          "cost": 0,
+          "resolve": "--plan"
         }
       ],
       "other_side_fix": [],
       "alternative_fix_detail": [
         {
-          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/bi -> arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
-          "side": "trust",
-          "fix_kind": "revoke",
-          "cost": 7
+          "edge": "CAN_READ arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value} -> arn:aws:s3:::acme-customer-pii",
+          "side": "identity",
+          "fix_kind": "resolve",
+          "cost": 0,
+          "resolve": "--plan"
         }
       ],
       "status": "unconfirmed",
       "also_fixes": [],
-      "uncuttable": []
+      "uncuttable": [],
+      "remediation_status": "partial_pending_resolution"
     },
     {
       "rule": "CLAPA-PATH-001",
@@ -105,10 +111,10 @@
       "score": 291,
       "severity": "medium",
       "chokepoints": [
-        "CAN_READ arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value} -> arn:aws:s3:::acme-customer-pii"
+        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/ml -> arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}"
       ],
       "alternative_fix": [
-        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/ml -> arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}"
+        "CAN_READ arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value} -> arn:aws:s3:::acme-customer-pii"
       ],
       "defaults_used": [
         "eks.irsa.audience",
@@ -116,24 +122,27 @@
       ],
       "fix": [
         {
-          "edge": "CAN_READ arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value} -> arn:aws:s3:::acme-customer-pii",
-          "side": "identity",
-          "fix_kind": "revoke",
-          "cost": 3
+          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/ml -> arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
+          "side": "trust",
+          "fix_kind": "resolve",
+          "cost": 0,
+          "resolve": "--plan"
         }
       ],
       "other_side_fix": [],
       "alternative_fix_detail": [
         {
-          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/ml -> arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
-          "side": "trust",
-          "fix_kind": "revoke",
-          "cost": 7
+          "edge": "CAN_READ arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value} -> arn:aws:s3:::acme-customer-pii",
+          "side": "identity",
+          "fix_kind": "resolve",
+          "cost": 0,
+          "resolve": "--plan"
         }
       ],
       "status": "unconfirmed",
       "also_fixes": [],
-      "uncuttable": []
+      "uncuttable": [],
+      "remediation_status": "partial_pending_resolution"
     },
     {
       "rule": "CLAPA-POST-007",

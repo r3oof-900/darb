@@ -51,7 +51,8 @@
       ],
       "status": "confirmed",
       "also_fixes": [],
-      "uncuttable": []
+      "uncuttable": [],
+      "remediation_status": "complete"
     },
     {
       "rule": "CLAPA-POST-008",

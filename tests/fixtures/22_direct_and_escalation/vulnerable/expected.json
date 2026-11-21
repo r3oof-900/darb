@@ -31,8 +31,9 @@
         {
           "edge": "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/app -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
           "side": "identity",
-          "fix_kind": "narrow",
-          "cost": 1
+          "fix_kind": "resolve",
+          "cost": 0,
+          "resolve": "-var-file (pii_bucket_arn)"
         }
       ],
       "other_side_fix": [
@@ -57,7 +58,8 @@
         "--plan"
       ],
       "also_fixes": [],
-      "uncuttable": []
+      "uncuttable": [],
+      "remediation_status": "partial_pending_resolution"
     },
     {
       "rule": "CLAPA-PATH-002",
@@ -110,7 +112,8 @@
       ],
       "status": "confirmed",
       "also_fixes": [],
-      "uncuttable": []
+      "uncuttable": [],
+      "remediation_status": "complete"
     },
     {
       "rule": "CLAPA-POST-006",

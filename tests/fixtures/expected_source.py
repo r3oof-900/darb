@@ -65,15 +65,22 @@ def path_finding(rule, entry, jewel, path, score, severity, chokepoints, alterna
         # Phase 6 review: the policies one change to which breaks two or more
         # cut edges (stated where derived).
         **({"shared_fix_possible": shared_fix} if shared_fix is not None else {}),
+        # Round 7: a cut with a resolve step is pending resolution.
+        **({"remediation_status": "partial_pending_resolution"
+            if any(x["fix_kind"] == "resolve" for x in fix or []) else "complete"} if chokepoints else {}),
     }
 
 
-def step(edge, side, kind, cost, policy=None):
+def step(edge, side, kind, cost, policy=None, resolve=None):
     # One fix of one edge (SCORING.md 4): side, narrow (make a broad grant
     # specific) or revoke (remove an explicit grant, 2 more), and cost.
     # Phase 6 review: a detach of an AWS managed policy names the policy;
     # it is one change however many edges it breaks.
-    return {"edge": edge, "side": side, "fix_kind": kind, "cost": cost, **({"policy": policy} if policy else {})}
+    # Round 7: a side resting only on an unknown Allow is resolved (cost 0,
+    # no patch), naming the command that decides it.
+    assert (kind == "resolve") == (resolve is not None) and (kind != "resolve" or cost == 0)
+    return {"edge": edge, "side": side, "fix_kind": kind, "cost": cost, **({"policy": policy} if policy else {}),
+            **({"resolve": resolve} if resolve else {})}
 
 
 ADMIN_ACCESS = "arn:aws:iam::aws:policy/AdministratorAccess"
@@ -239,7 +246,7 @@ CHAIN = f"ASSUMES {ROLE} -> {ADMIN}"
 # side. The derived edge names the decrypt (the read and the decrypt cost
 # the same). Nothing after the synthetic node is cuttable; admin may pass no
 # role to a service, and IAM writes cannot reach another account's role
-# (DESIGN.md 9.2, update-trust: same account only). So: detach, 4, against
+# (DESIGN.md 7.2, update-trust: same account only). So: detach, 4, against
 # the IRSA trust (revoke, 7).
 ADMIN_DECRYPT = f"CAN_DECRYPT[for {WAREHOUSE}] {ADMIN} -> {WAREHOUSE_KEY}"
 ADMIN_ESCALATE = f"CAN_ESCALATE[iam:modify-policy] {ADMIN} -> {ADMIN}"
@@ -335,17 +342,21 @@ E["09_hostnetwork_imds/fixed"] = {"derived_from": "13.2 row 9 fixed: IMDSv2 requ
 # unconfirmed, confidence low. Phase 6 review: the score is the worst case,
 # the org ID matching: 1000 x 810 = 810; 810 x 900 = 729, critical (it was
 # 291, medium, when confidence was a factor).
-# Cut (fourth Phase 4 review): the role has no kms:Decrypt of its own; the
-# key policy grants it to Principal "*" with aws:PrincipalOrgID, a broad
-# grant: narrow the key policy, cost 2. The alternative is the read, an
-# explicit s3:GetObject on the bucket's objects: revoke, identity side, 3.
+# Cut: the role has no kms:Decrypt of its own; the key policy grants it to
+# Principal "*" only under aws:PrincipalOrgID, which is unknown (no
+# organization configured): the side rests only on an unknown Allow, so its
+# fix is resolve, 0, assume: {"aws:PrincipalOrgID": [...]} in clapa.yaml
+# (Phase 6 review, round 7; it was narrow, key policy, 2): no patch, as in
+# Phase 5. The alternative is the read, an explicit s3:GetObject on the
+# bucket's objects: revoke, identity side, 3.
 SHARED_KEY = f"arn:aws:kms:us-east-1:{ACCT}:key/tf-aws_kms_key.shared"
+ORG_ASSUME = 'assume: {"aws:PrincipalOrgID": [...]} in clapa.yaml'
 cut, alt = decrypt_cut(ROLE, SHARED_KEY, PII)
 E["10_kms_principal_org_id/vulnerable"] = {"derived_from": "13.2 row 10 (no organization ID configured)", "findings": [
     path_finding("CLAPA-PATH-001", API, PII, [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
                  729, "critical", cut, alt, confirmed=False, confidence="low", defaults=IRSA_DEFAULTS,
                  undecided=["aws:PrincipalOrgID"],
-                 fix=[step(cut[0], "resource", "narrow", 2)], other_side=[],
+                 fix=[step(cut[0], "resource", "resolve", 0, resolve=ORG_ASSUME)], other_side=[],
                  alternative_detail=[step(alt[0], "identity", "revoke", 3)]),
     rotation_off(SHARED_KEY), no_default_deny(NS_PAYMENTS)]}
 E["10_kms_principal_org_id/fixed"] = {"derived_from": "13.2 row 10 fixed: key policy names the reporter role",
@@ -384,6 +395,18 @@ NS_ANALYTICS = f"k8s:{PROD}//Namespace/analytics"
 def reader(name, static=False):
     role = f"arn:aws:iam::{ACCT}:role/reader-" + ("${clapa:unresolved:each.value}" if static else name)
     trust = f"ASSUMES k8s:{PROD}/analytics/ServiceAccount/{name} -> {role}"
+    if static:
+        # Round 7: statically the trust's :sub (...:analytics:${each.value})
+        # and the read's Resource (${var.bucket}/*) are unresolved: each edge
+        # rests only on an unknown Allow, so each is resolved (0, --plan).
+        # Equal cuts: the min-cut's tie rule, closest to the entry, takes
+        # the trust; the read is the alternative.
+        return path_finding("CLAPA-PATH-001", f"k8s:{PROD}/analytics/CronJob/{name}", PII,
+                            [f"RUNS_AS k8s:{PROD}/analytics/ServiceAccount/{name}", f"ASSUMES {role}", f"CAN_READ_PLAINTEXT {PII}"],
+                            291, "medium", [trust], [f"CAN_READ {role} -> {PII}"],
+                            confirmed=False, confidence="low", defaults=IRSA_DEFAULTS,
+                            fix=[step(trust, "trust", "resolve", 0, resolve="--plan")], other_side=[],
+                            alternative_detail=[step(f"CAN_READ {role} -> {PII}", "identity", "resolve", 0, resolve="--plan")])
     return path_finding("CLAPA-PATH-001", f"k8s:{PROD}/analytics/CronJob/{name}", PII,
                         [f"RUNS_AS k8s:{PROD}/analytics/ServiceAccount/{name}", f"ASSUMES {role}", f"CAN_READ_PLAINTEXT {PII}"],
                         291, "medium", [f"CAN_READ {role} -> {PII}"], [trust],
@@ -634,19 +657,21 @@ E["21_k8s_secret/fixed"] = {"derived_from": "Phase 6 instruction, fixed: automou
 # side (DESIGN.md 9.1, SCORING.md 4.1-4.2): without the identity policies
 # the unknown key policy may still allow, and the unknown key policy may
 # let the role rewrite it (kms:PutKeyPolicy), so neither side counts. The
-# cut is the read, explicit: revoke, identity, 3. The decrypt, which no
-# change breaks, is listed in uncuttable (G). Round 5: the cheapest cut
-# sharing no edge with the read is the IRSA trust (:sub exact): revoke,
-# trust, 7.
+# Round 7: the key policy side rests only on the unknown key policy (the
+# guard that it may let the role rewrite it is decided by the same
+# resolution): resolve, 0, by scanning the key (its Terraform or plan, or a
+# snapshot of its account). The cut is that resolve step; nothing is
+# uncuttable any more; the alternative is the read, explicit: revoke,
+# identity, 3.
 # CLAPA-POST-008 on the role (kms:Decrypt on "*").
 OUTSIDE_KEY = f"arn:aws:kms:us-east-1:{ACCT}:key/0b1c2d3e-0000-4000-8000-000000000001"
+KEY_SCAN = "scan the key's Terraform or plan, or a snapshot of its account"
 E["01_classic/key_outside_input"] = {"derived_from": "Phase 6 review, item 2: a KMS key outside the input", "findings": [
     path_finding("CLAPA-PATH-001", API, PII, [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
-                 729, "critical", [f"CAN_READ {ROLE} -> {PII}"], [f"ASSUMES {SA_API} -> {ROLE}"],
+                 729, "critical", [f"CAN_DECRYPT[for {PII}] {ROLE} -> {OUTSIDE_KEY}"], [f"CAN_READ {ROLE} -> {PII}"],
                  confirmed=False, confidence="low", defaults=IRSA_DEFAULTS, undecided=[OUTSIDE_KEY + " is not in the input"],
-                 uncuttable=[f"CAN_DECRYPT[for {PII}] {ROLE} -> {OUTSIDE_KEY}"],
-                 fix=[step(f"CAN_READ {ROLE} -> {PII}", "identity", "revoke", 3)], other_side=[],
-                 alternative_detail=[step(f"ASSUMES {SA_API} -> {ROLE}", "trust", "revoke", 7)]),
+                 fix=[step(f"CAN_DECRYPT[for {PII}] {ROLE} -> {OUTSIDE_KEY}", "resource", "resolve", 0, resolve=KEY_SCAN)],
+                 other_side=[], alternative_detail=[step(f"CAN_READ {ROLE} -> {PII}", "identity", "revoke", 3)]),
     broad_grant(ROLE), no_default_deny(NS_PAYMENTS)]}
 
 # Phase 6 review, item 1 - 19_secrets_manager/unknown_managed_policy:
@@ -661,18 +686,17 @@ E["01_classic/key_outside_input"] = {"derived_from": "Phase 6 review, item 2: a 
 # the key policy (kms:PutKeyPolicy) and the secret's resource policy
 # (secretsmanager:PutResourcePolicy): the key policy side is lost
 # (SCORING.md 4.2). Rounds 5-6: the role's own edges keep their identity
-# side. ReadOnlyAccess is AWS managed: its share of any grant is fixed by
-# detaching it, one change (identity, revoke, 4: it may grant the
-# escalation). The decrypt's identity side is the inline kms:Decrypt on
-# "*" (broad, narrow, 1) plus ReadOnlyAccess: both changes, 1 + detach;
+# side. ReadOnlyAccess is not in the snapshot: its share of any grant is
+# an unknown Allow, so it is resolved (0, tools/refresh-managed-policies),
+# never detached (round 7). The decrypt's identity side is the inline
+# kms:Decrypt on "*" (broad, narrow, 1) plus ReadOnlyAccess (resolve, 0);
 # the read's is the inline GetSecretValue on the exact ARN (revoke, 3) plus
-# ReadOnlyAccess; CAN_ESCALATE[iam:modify-policy] to "role with any
-# permission" comes from ReadOnlyAccess alone. Cuts: {decrypt, escalate} =
-# 1 + 4 = 5 (the detach counted once); {read, escalate} = 3 + 4 = 7; the
-# IRSA trust (:sub exact, revoke) 7. The cut is the first (it was the
-# trust); the alternative sharing no edge with it is the trust ({read,
-# escalate} shares the escalation). The detach breaks both cut edges:
-# shared_fix_possible names ReadOnlyAccess.
+# the resolve; CAN_ESCALATE[iam:modify-policy] to "role with any
+# permission" rests on ReadOnlyAccess alone (resolve, 0). Cuts:
+# {decrypt, escalate} = 1 + 0 = 1; {read, escalate} = 3; the IRSA trust
+# (:sub exact, revoke) 7. The cut is the first, pending resolution; the
+# alternative sharing no edge with it is the trust ({read, escalate} shares
+# the escalation).
 TRUST_EDGE = f"ASSUMES {SA_API} -> {ROLE}"
 UNKNOWN_DECRYPT = f"CAN_DECRYPT[for {SECRET}] {ROLE} -> {SECRET_KEY}"
 UNKNOWN_ESCALATE = f"CAN_ESCALATE[iam:modify-policy] {ROLE} -> {ROLE}"
@@ -680,10 +704,11 @@ E["19_secrets_manager/unknown_managed_policy"] = {
     "derived_from": "Phase 6 review, item 1: an unknown AWS managed policy never lowers the severity", "findings": [
         path_finding("CLAPA-PATH-001", API, SECRET, [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {SECRET}"],
                      810, "critical", [UNKNOWN_DECRYPT, UNKNOWN_ESCALATE], [TRUST_EDGE], confirmed=False,
-                     status="confirmed_unless_denied", confidence="medium", shared_fix=[READ_ONLY],
+                     status="confirmed_unless_denied", confidence="medium",
                      defaults=IRSA_DEFAULTS, undecided=["ReadOnlyAccess", "tools/refresh-managed-policies"],
-                     fix=[step(UNKNOWN_DECRYPT, "identity", "narrow", 1), step(UNKNOWN_DECRYPT, "identity", "revoke", 4, READ_ONLY),
-                          step(UNKNOWN_ESCALATE, "identity", "revoke", 4, READ_ONLY)],
+                     fix=[step(UNKNOWN_DECRYPT, "identity", "narrow", 1),
+                          step(UNKNOWN_DECRYPT, "identity", "resolve", 0, READ_ONLY, "tools/refresh-managed-policies"),
+                          step(UNKNOWN_ESCALATE, "identity", "resolve", 0, READ_ONLY, "tools/refresh-managed-policies")],
                      other_side=[], alternative_detail=[step(TRUST_EDGE, "trust", "revoke", 7)]),
         # Phase 6 review, dominance (DESIGN.md 8): the unknown policy may let
         # payments-api rewrite its own policies (an unconfirmed escalation),
@@ -704,9 +729,10 @@ E["19_secrets_manager/unknown_managed_policy"] = {
 # CLAPA-PATH-001 (the paths without an escalation): RUNS_AS, ASSUMES app,
 # CAN_READ_PLAINTEXT: 3 edges (810): 400 x 810 = 324; x 900 = 291, medium;
 # unconfirmed, confidence low; undecided names the variable and --plan. Cut
-# (SCORING.md 4.1): the decrypt's identity grant is broad (its context
-# condition does not name the bucket: the value is unresolved): narrow, 1;
-# the key policy is the default (the account root): narrow, resource, 2;
+# (SCORING.md 4.1): the decrypt's identity grant rests only on its context
+# condition, whose value is unresolved: resolve, 0, -var-file setting
+# pii_bucket_arn (Phase 6 review, round 7; it was narrow, 1); the key policy
+# is the default (the account root): narrow, resource, 2;
 # the alternative is the explicit read: revoke, identity, 3. role/app can
 # regain the access only through role/ops, another identity, so the cut
 # holds (SCORING.md 4.2).
@@ -741,7 +767,8 @@ def app_direct(confirmed):
         cut, alt = decrypt_cut(APP_ROLE, PII_KEY, PII)
         return path_finding("CLAPA-PATH-001", APP, PII, path, 291, "medium", cut, alt,
                             confirmed=False, confidence="low", defaults=IRSA_DEFAULTS, undecided=["pii_bucket_arn", "--plan"],
-                            **pii_decrypt_fixes(cut, alt))
+                            **{**pii_decrypt_fixes(cut, alt),
+                               "fix": [step(cut[0], "identity", "resolve", 0, resolve="-var-file (pii_bucket_arn)")]})
     # Dominance variant (Phase 6 review, round 4). role/app reads the
     # bucket, decrypts with no condition (confirmed) and may iam:PutRolePolicy
     # on itself. Its escalation path (RUNS_AS, ASSUMES app, CAN_ESCALATE app,
