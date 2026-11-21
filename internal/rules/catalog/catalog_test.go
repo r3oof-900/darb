@@ -29,6 +29,14 @@ var pinned = map[string][]string{
 		"CLAPA-POST-001@1.0.0", "CLAPA-POST-002@1.0.0", "CLAPA-POST-003@1.0.0", "CLAPA-POST-004@1.0.0",
 		"CLAPA-POST-005@1.0.0", "CLAPA-POST-006@1.0.0", "CLAPA-POST-007@1.0.0", "CLAPA-POST-008@1.1.0",
 	},
+	// 1.2.1: CLAPA-POST-001 1.0.1 also probes every namespace of the
+	// cluster (a wildcard scoped to one namespace), found by the comparison
+	// with the previous tool's samples.
+	"1.2.1": {
+		"CLAPA-PATH-001@1.0.0", "CLAPA-PATH-002@1.0.0", "CLAPA-PATH-003@1.0.0",
+		"CLAPA-POST-001@1.0.1", "CLAPA-POST-002@1.0.0", "CLAPA-POST-003@1.0.0", "CLAPA-POST-004@1.0.0",
+		"CLAPA-POST-005@1.0.0", "CLAPA-POST-006@1.0.0", "CLAPA-POST-007@1.0.0", "CLAPA-POST-008@1.1.0",
+	},
 }
 
 func TestCatalogVersion(t *testing.T) {

@@ -37,7 +37,7 @@ func TestCommands(t *testing.T) {
 	if code, _, _ := run(t, "frobnicate"); code != ExitUsage {
 		t.Error("unknown command")
 	}
-	if code, out, _ := run(t, "version"); code != ExitOK || !strings.Contains(out, "rule catalog 1.2.0") {
+	if code, out, _ := run(t, "version"); code != ExitOK || !strings.Contains(out, "rule catalog 1.2.1") {
 		t.Errorf("version: %q", out)
 	}
 	if code, out, _ := run(t, "rules", "list"); code != ExitOK || strings.Count(out, "CLAPA-") != 11 {

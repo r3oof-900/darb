@@ -1,11 +1,13 @@
 package app
 
 import (
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/r3oof-900/clapa/internal/graph"
+	"github.com/r3oof-900/clapa/internal/rules"
 )
 
 // EXPOSED_TO (SCORING.md §4.1): without assume-compromised the attacker
@@ -72,5 +74,27 @@ func TestBroadGrantByReachability(t *testing.T) {
 	sev, ev = find(analyzeVariant(t, "06_role_chain_cross_account/fixed", nil))
 	if sev != "medium" || !slices.Contains(ev, "reachable_from: none") {
 		t.Errorf("not reached: %s %v", sev, ev)
+	}
+}
+
+// CLAPA-POST-001 1.0.1: a wildcard scoped to one namespace accepts every
+// new service account there. Found by the comparison with the previous
+// tool's samples (system:serviceaccount:fraud-analytics:*).
+func TestTrustWildcardInOneNamespace(t *testing.T) {
+	a := analyzeVariant(t, "01_classic/vulnerable", func(dir string) {
+		file := filepath.Join(dir, "terraform", "trust_pinned.tf")
+		replaceIn(t, file, `test     = "StringEquals"
+      variable = "${local.oidc_host}:sub"`, `test     = "StringLike"
+      variable = "${local.oidc_host}:sub"`)
+		replaceIn(t, file, `"system:serviceaccount:payments:api"`, `"system:serviceaccount:payments:*"`)
+	})
+	var f *rules.Finding
+	for i := range a.Findings {
+		if a.Findings[i].Rule == "CLAPA-POST-001" {
+			f = &a.Findings[i]
+		}
+	}
+	if f == nil || !slices.ContainsFunc(f.Evidence, func(e string) bool { return strings.HasSuffix(e, "allows system:serviceaccount:payments:clapa-probe") }) {
+		t.Fatalf("a namespace-scoped wildcard trust must be reported: %+v", f)
 	}
 }

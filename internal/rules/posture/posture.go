@@ -85,8 +85,8 @@ func metaV(id, version, title, rationale string, base int, techniques []string, 
 func Rules() []rules.Rule {
 	return []rules.Rule{
 		&rule{
-			meta(IRSATrustAnySA, "IRSA trust policy accepts any service account",
-				"The trust policy allows sts:AssumeRoleWithWebIdentity for a service account it was not written for (wildcard :sub, or :aud only): any pod of the cluster that gets an STS token can assume the role.",
+			metaV(IRSATrustAnySA, "1.0.1", "IRSA trust policy accepts any service account",
+				"The trust policy allows sts:AssumeRoleWithWebIdentity for a service account it was not written for (wildcard :sub, or :aud only): any pod of the cluster, or of a namespace (a wildcard scoped to it), that gets an STS token can assume the role. Probed with a service account not in the input, in a namespace of its own and in every namespace of the cluster.",
 				scoring.BaseHigh, []string{"T1078.004"},
 				[]rules.Reference{ref("EKS › Configure the role trust policy", "https://docs.aws.amazon.com/eks/latest/userguide/associate-service-account-role.html")},
 				[]string{"04_wildcard_sub/vulnerable", "05_aud_only/vulnerable"}, []string{"04_wildcard_sub/fixed", "05_aud_only/fixed"}),
@@ -154,20 +154,56 @@ func Rules() []rules.Rule {
 func irsaTrust(in *rules.Input) []hit {
 	var out []hit
 	for _, t := range in.Inventory.Trusts {
-		for _, c := range in.Inventory.Clusters {
-			if c.OIDCIssuer == "" {
-				continue
-			}
-			role := principal(in.Inventory, t.Role())
-			probe := &model.ServiceAccount{Cluster: c.Name, Namespace: ProbeSubject, Name: ProbeSubject, Audience: "sts.amazonaws.com"}
-			req := access.IRSARequest(probe, c, role.Identity(), role.Account(), in.Partition)
-			if d := eval.Evaluate(req, access.TrustPolicySet(t.Policy())); d.Verdict == eval.Allow {
-				out = append(out, hit{resource: role.Identity(), id: role.ID(), location: *role.Source(), evidence: []string{"trust " + t.Policy().ID() + " allows " + probe.SubjectString()}})
-				break
-			}
+		role := principal(in.Inventory, t.Role())
+		if allowed := probeAllowed(in, t, role); allowed != "" {
+			out = append(out, hit{resource: role.Identity(), id: role.ID(), location: *role.Source(), evidence: []string{"trust " + t.Policy().ID() + " allows " + allowed}})
 		}
 	}
 	return out
+}
+
+// probeAllowed: the subject of a service account that is not in the input
+// (named clapa-probe) that the trust allows, in a namespace of its own or
+// in any namespace the cluster has in the input — a wildcard scoped to one
+// namespace ("system:serviceaccount:ns:*") accepts every new service
+// account there; "" when none is allowed.
+func probeAllowed(in *rules.Input, t *model.TrustRelationship, role *model.Principal) string {
+	for _, c := range in.Inventory.Clusters {
+		if c.OIDCIssuer == "" {
+			continue
+		}
+		for _, ns := range probeNamespaces(in.Inventory, c.Name) {
+			probe := &model.ServiceAccount{Cluster: c.Name, Namespace: ns, Name: ProbeSubject, Audience: "sts.amazonaws.com"}
+			req := access.IRSARequest(probe, c, role.Identity(), role.Account(), in.Partition)
+			if d := eval.Evaluate(req, access.TrustPolicySet(t.Policy())); d.Verdict == eval.Allow {
+				return probe.SubjectString()
+			}
+		}
+	}
+	return ""
+}
+
+// probeNamespaces: a namespace of the probe's own, then every namespace
+// of the cluster in the input, sorted.
+func probeNamespaces(inv *model.Inventory, cluster string) []string {
+	seen := map[string]bool{}
+	for _, sa := range inv.ServiceAccounts {
+		if sa.Cluster == cluster {
+			seen[sa.Namespace] = true
+		}
+	}
+	for _, w := range inv.Workloads {
+		if w.Cluster() == cluster {
+			seen[w.Namespace()] = true
+		}
+	}
+	delete(seen, ProbeSubject)
+	nss := make([]string, 0, len(seen))
+	for ns := range seen {
+		nss = append(nss, ns)
+	}
+	slices.Sort(nss)
+	return append([]string{ProbeSubject}, nss...)
 }
 
 func principal(inv *model.Inventory, id model.ID) *model.Principal {
