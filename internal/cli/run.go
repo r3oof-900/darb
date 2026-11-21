@@ -19,6 +19,7 @@ import (
 const usage = `usage:
   clapa scan [--root DIR] [--config FILE] [--plan FILE[=TFDIR]]... [--terraform DIR]...
              [--k8s DIR[=CLUSTER]]... [--aws-snapshot DIR]... [--live-aws [AWS flags]]
+             [--live-k8s CONTEXT[=CLUSTER]]... [--k8s-eks NAME]... [--kubeconfig FILE] [--insecure]
              [--format console|json|sarif] [--output FILE] [--fail-on critical|high|medium|low|info]
   clapa collect-snapshot --out DIR [AWS flags]
              AWS flags: [--aws-profile P] [--aws-region R]... [--aws-assume-role ARN]...
@@ -69,6 +70,7 @@ type scanFlags struct {
 	root, cfg, format, output, failOn string
 	plans, tfDirs, k8sDirs, snapshots list
 	aws                               awsFlags
+	k8s                               k8sFlags
 }
 
 func parseScan(args []string, stderr io.Writer) (*scanFlags, bool) {
@@ -98,6 +100,7 @@ func scanFlagsOn(fset *flag.FlagSet, f *scanFlags) {
 	fset.Var(&f.k8sDirs, "k8s", "Kubernetes manifests directory, optionally =cluster name")
 	fset.Var(&f.snapshots, "aws-snapshot", "offline AWS snapshot directory (clapa-snapshot/v1, written by collect-snapshot)")
 	f.aws.on(fset, true)
+	f.k8s.on(fset)
 }
 
 func scan(ctx context.Context, args []string, stdout, stderr io.Writer, env *Env) ExitCode {
@@ -116,6 +119,10 @@ func scan(ctx context.Context, args []string, stdout, stderr io.Writer, env *Env
 			_, _ = fmt.Fprintln(stderr, "clapa:", err)
 			return ExitUsage
 		}
+	}
+	if in.K8sLive, err = f.k8s.clusters(ctx, env, &f.aws, stderr); err != nil {
+		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		return ExitUsage
 	}
 	l, err := app.Load(ctx, in)
 	if err != nil {

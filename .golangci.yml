@@ -509,6 +509,33 @@ linters:
               desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
             - pkg: "testing"
               desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
+        internal-collect-k8s-live-k8sfake:
+          list-mode: strict
+          files:
+            - "**/internal/collect/k8s/live/k8sfake/*.go"
+            - "!$test"
+          allow:
+            - "$gostd"
+            - "github.com/r3oof-900/clapa/internal/collect/k8s/live$"
+            - "k8s.io/api$"
+            - "k8s.io/api/"
+            - "k8s.io/apimachinery$"
+            - "k8s.io/apimachinery/"
+            - "k8s.io/client-go$"
+            - "k8s.io/client-go/"
+          deny:
+            - pkg: "os/exec"
+              desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
+            - pkg: "syscall"
+              desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
+            - pkg: "plugin"
+              desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
+            - pkg: "unsafe"
+              desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
+            - pkg: "text/template"
+              desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
+            - pkg: "testing"
+              desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
         internal-collect-k8s-manifests:
           list-mode: strict
           files:

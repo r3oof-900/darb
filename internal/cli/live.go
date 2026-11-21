@@ -17,10 +17,14 @@ import (
 // pass fakes, so no test reaches a cloud API.
 type Env struct {
 	AWS app.AWSConnector
+	K8s app.K8sConnector
 }
 
-// DefaultEnv connects to AWS with the SDK's default configuration chain.
-func DefaultEnv() *Env { return &Env{AWS: app.ConnectAWS} }
+// DefaultEnv connects to AWS with the SDK's default configuration chain,
+// and to clusters through kubeconfig contexts or EKS tokens.
+func DefaultEnv() *Env {
+	return &Env{AWS: app.ConnectAWS, K8s: app.K8sConnector{Kubeconfig: app.ConnectKubeconfig, EKS: app.ConnectEKS}}
+}
 
 // awsFlags are the live AWS flags of scan and collect-snapshot.
 type awsFlags struct {

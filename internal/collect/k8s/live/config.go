@@ -144,31 +144,33 @@ type DescribeClusterAPI interface {
 	DescribeCluster(ctx context.Context, in *eks.DescribeClusterInput, opts ...func(*eks.Options)) (*eks.DescribeClusterOutput, error)
 }
 
-// EKSConfig reads the cluster's endpoint and certificate authority
+// EKSConfig reads the cluster's endpoint, certificate authority and ARN
 // (eks:DescribeCluster) and returns its configuration with in-memory
 // tokens.
-func EKSConfig(ctx context.Context, api DescribeClusterAPI, p PresignAPI, cluster string) (*rest.Config, error) {
+func EKSConfig(ctx context.Context, api DescribeClusterAPI, p PresignAPI, cluster string) (cfg *rest.Config, arn string, err error) {
 	out, err := api.DescribeCluster(ctx, &eks.DescribeClusterInput{Name: &cluster})
 	if err != nil {
-		return nil, fmt.Errorf("%s: eks:DescribeCluster %s: %w", Name, cluster, err)
+		return nil, "", fmt.Errorf("%s: eks:DescribeCluster %s: %w", Name, cluster, err)
 	}
 	c := out.Cluster
-	if c == nil || c.Endpoint == nil || c.CertificateAuthority == nil || c.CertificateAuthority.Data == nil {
-		return nil, fmt.Errorf("%s: cluster %s has no endpoint or certificate authority (is it active?)", Name, cluster)
+	if c == nil || c.Endpoint == nil || c.Arn == nil || c.CertificateAuthority == nil || c.CertificateAuthority.Data == nil {
+		return nil, "", fmt.Errorf("%s: cluster %s has no endpoint, ARN or certificate authority (is it active?)", Name, cluster)
 	}
 	ca, err := base64.StdEncoding.DecodeString(*c.CertificateAuthority.Data)
 	if err != nil {
-		return nil, fmt.Errorf("%s: cluster %s certificate authority: %w", Name, cluster, err)
+		return nil, "", fmt.Errorf("%s: cluster %s certificate authority: %w", Name, cluster, err)
 	}
-	return EKSREST(*c.Endpoint, ca, cluster, p), nil
+	return EKSREST(*c.Endpoint, ca, cluster, p), *c.Arn, nil
 }
 
 // ConnectEKS makes the clients of an EKS cluster from an AWS
-// configuration (awslive.LoadConfig): the SDK reads the credentials.
-func ConnectEKS(ctx context.Context, cfg *aws.Config, cluster string) (*Clients, error) {
-	rc, err := EKSConfig(ctx, eks.NewFromConfig(*cfg), sts.NewPresignClient(sts.NewFromConfig(*cfg)), cluster)
+// configuration (awslive.LoadConfig; the SDK reads the credentials) and
+// returns the cluster's ARN, its key.
+func ConnectEKS(ctx context.Context, cfg *aws.Config, cluster string) (clients *Clients, arn string, err error) {
+	rc, arn, err := EKSConfig(ctx, eks.NewFromConfig(*cfg), sts.NewPresignClient(sts.NewFromConfig(*cfg)), cluster)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return NewClients(rc)
+	clients, err = NewClients(rc)
+	return clients, arn, err
 }

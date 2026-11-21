@@ -210,6 +210,12 @@ func ioRules() []*Rule {
 			},
 		},
 		{
+			// Test support only: imported by _test.go files, never linked into clapa.
+			Package: "internal/collect/k8s/live/k8sfake", Layer: LayerIO,
+			Internal: []string{"internal/collect/k8s/live"},
+			External: k8sExt,
+		},
+		{
 			Package: "internal/collect/awssnapshot", Layer: LayerIO,
 			Internal: plus(collectDeps, "internal/collect/awsraw"),
 			External: []string{extAWSSDK},
@@ -254,7 +260,7 @@ func entryRules() []*Rule {
 			External: []string{extCobra},
 			// os/exec only for `git status` before `remediate --write`.
 			ExtraStd:     []string{"os/exec"},
-			TestInternal: []string{"internal/collect/awslive", "internal/collect/awslive/awsfake"},
+			TestInternal: []string{"internal/collect/awslive", "internal/collect/awslive/awsfake", "internal/collect/k8s/live/k8sfake"},
 		},
 		{Package: "cmd/clapa", Layer: LayerEntry, Internal: []string{"internal/cli"}},
 	}

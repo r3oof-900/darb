@@ -160,17 +160,21 @@ func TestEKSConfig(t *testing.T) {
 	ca := base64.StdEncoding.EncodeToString([]byte("ca-bytes"))
 	ok := fakeEKS{&eks.DescribeClusterOutput{Cluster: &ekstypes.Cluster{
 		Endpoint: aws.String("https://ABC.gr7.eu-west-1.eks.amazonaws.com"), CertificateAuthority: &ekstypes.Certificate{Data: aws.String(ca)},
+		Arn: aws.String("arn:aws:eks:eu-west-1:111122223333:cluster/prod"),
 	}}}
-	cfg, err := EKSConfig(context.Background(), ok, &countingPresigner{}, "prod")
-	if err != nil || cfg.Host != "https://ABC.gr7.eu-west-1.eks.amazonaws.com" || string(cfg.CAData) != "ca-bytes" || cfg.Insecure {
-		t.Fatalf("%v %+v", err, cfg)
+	cfg, arn, err := EKSConfig(context.Background(), ok, &countingPresigner{}, "prod")
+	if err != nil || cfg.Host != "https://ABC.gr7.eu-west-1.eks.amazonaws.com" || string(cfg.CAData) != "ca-bytes" || cfg.Insecure ||
+		arn != "arn:aws:eks:eu-west-1:111122223333:cluster/prod" {
+		t.Fatalf("%v %q %+v", err, arn, cfg)
 	}
 	for name, f := range map[string]fakeEKS{
 		"denied":   {},
 		"inactive": {&eks.DescribeClusterOutput{Cluster: &ekstypes.Cluster{}}},
-		"bad CA":   {&eks.DescribeClusterOutput{Cluster: &ekstypes.Cluster{Endpoint: aws.String("https://x"), CertificateAuthority: &ekstypes.Certificate{Data: aws.String("%%%")}}}},
+		"bad CA": {&eks.DescribeClusterOutput{Cluster: &ekstypes.Cluster{
+			Endpoint: aws.String("https://x"), Arn: aws.String("arn:aws:eks:eu-west-1:111122223333:cluster/prod"), CertificateAuthority: &ekstypes.Certificate{Data: aws.String("%%%")},
+		}}},
 	} {
-		if _, err := EKSConfig(context.Background(), f, &countingPresigner{}, "prod"); err == nil {
+		if _, _, err := EKSConfig(context.Background(), f, &countingPresigner{}, "prod"); err == nil {
 			t.Errorf("%s: accepted", name)
 		}
 	}

@@ -22,7 +22,7 @@ type K8sLive struct {
 // ConnectKubeconfig and ConnectEKS, tests pass fakes.
 type K8sConnector struct {
 	Kubeconfig func(path, kubeContext string, insecure bool) (*K8sClients, error)
-	EKS        func(ctx context.Context, profile, region, cluster string) (*K8sClients, error)
+	EKS        func(ctx context.Context, profile, region, cluster string) (clients *K8sClients, arn string, err error)
 }
 
 // ConnectKubeconfig connects to a kubeconfig context (no exec plugins).
@@ -35,11 +35,12 @@ func ConnectKubeconfig(path, kubeContext string, insecure bool) (*K8sClients, er
 }
 
 // ConnectEKS connects to an EKS cluster with an in-memory token signed by
-// the AWS profile's credentials (the SDK reads them).
-func ConnectEKS(ctx context.Context, profile, region, cluster string) (*K8sClients, error) {
+// the AWS profile's credentials (the SDK reads them) and returns the
+// cluster's ARN.
+func ConnectEKS(ctx context.Context, profile, region, cluster string) (clients *K8sClients, arn string, err error) {
 	cfg, err := awslive.LoadConfig(ctx, profile, region)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	return live.ConnectEKS(ctx, &cfg, cluster)
 }
