@@ -13,15 +13,19 @@ var snapshotJSON []byte
 
 // Policy is one AWS managed policy at its default version.
 type Policy struct {
-	ARN      string          `json:"arn"`
-	Version  string          `json:"version"`
+	ARN string `json:"arn"`
+	// Version is the policy's DefaultVersionId when the snapshot was taken.
+	Version  string          `json:"default_version_id"`
 	Document json.RawMessage `json:"document"`
 }
 
-// Snapshot is the vendored, versioned set of AWS managed policies.
+// Snapshot is the vendored, versioned set of AWS managed policies
+// (tools/refresh-managed-policies writes it from IAM).
 type Snapshot struct {
 	Format       string   `json:"format"`
 	SnapshotDate string   `json:"snapshot_date"`
+	Partition    string   `json:"partition"`
+	PolicyCount  int      `json:"policy_count"`
 	Source       string   `json:"source"`
 	Policies     []Policy `json:"policies"`
 }
@@ -32,8 +36,11 @@ func Load() (*Snapshot, error) {
 	if err := json.Unmarshal(snapshotJSON, &s); err != nil {
 		return nil, fmt.Errorf("managedpolicies: embedded snapshot: %w", err)
 	}
-	if s.Format != "clapa-managed-policies/v1" {
+	if s.Format != "clapa-managed-policies/v2" {
 		return nil, fmt.Errorf("managedpolicies: unexpected format %q", s.Format)
+	}
+	if s.PolicyCount != len(s.Policies) {
+		return nil, fmt.Errorf("managedpolicies: policy_count %d, but %d policies", s.PolicyCount, len(s.Policies))
 	}
 	slices.SortFunc(s.Policies, func(a, b Policy) int { return strings.Compare(a.ARN, b.ARN) })
 	return &s, nil

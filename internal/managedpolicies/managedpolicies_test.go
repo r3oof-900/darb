@@ -10,11 +10,11 @@ func TestSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s.SnapshotDate == "" || !strings.Contains(s.Source, "docs.aws.amazon.com") {
-		t.Error("the snapshot must say when and where it came from")
+	if s.SnapshotDate == "" || s.Source == "" || s.Partition != "aws" || s.PolicyCount != len(s.Policies) {
+		t.Error("the snapshot must say when, where from, which partition and how many")
 	}
 	p, ok := s.Lookup("arn:aws:iam::aws:policy/AdministratorAccess")
-	if !ok || p.Version != "v1" || !strings.Contains(string(p.Document), `"Action": "*"`) {
+	if !ok || p.Version != "v1" || !strings.Contains(string(p.Document), `"Action":"*"`) {
 		t.Fatalf("AdministratorAccess: %+v", p)
 	}
 	if _, ok := s.Lookup("arn:aws:iam::aws:policy/NotInSnapshot"); ok {
