@@ -1,0 +1,126 @@
+{
+  "format": "clapa-expected/v1",
+  "derived_from": "Phase 6 review: a pair with a direct finding and an escalation finding",
+  "exit_code": 3,
+  "distinct_fingerprints": true,
+  "findings": [
+    {
+      "rule": "CLAPA-PATH-001",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app",
+      "jewel": "arn:aws:s3:::acme-customer-pii",
+      "path": [
+        "RUNS_AS k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app",
+        "ASSUMES arn:aws:iam::111122223333:role/app",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
+      ],
+      "confirmed": false,
+      "confidence": "low",
+      "score": 291,
+      "severity": "medium",
+      "chokepoints": [
+        "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/app -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii"
+      ],
+      "alternative_fix": [
+        "CAN_READ arn:aws:iam::111122223333:role/app -> arn:aws:s3:::acme-customer-pii"
+      ],
+      "defaults_used": [
+        "eks.irsa.audience",
+        "eks.irsa.oidc-provider-audience"
+      ],
+      "fix": [
+        {
+          "edge": "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/app -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+          "side": "identity",
+          "fix_kind": "narrow",
+          "cost": 1
+        }
+      ],
+      "other_side_fix": [
+        {
+          "edge": "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/app -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+          "side": "resource",
+          "fix_kind": "narrow",
+          "cost": 2
+        }
+      ],
+      "alternative_fix_detail": [
+        {
+          "edge": "CAN_READ arn:aws:iam::111122223333:role/app -> arn:aws:s3:::acme-customer-pii",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 3
+        }
+      ],
+      "status": "unconfirmed",
+      "undecided": [
+        "pii_bucket_arn",
+        "--plan"
+      ],
+      "also_fixes": [],
+      "uncuttable": []
+    },
+    {
+      "rule": "CLAPA-PATH-002",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app",
+      "jewel": "arn:aws:s3:::acme-customer-pii",
+      "path": [
+        "RUNS_AS k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app",
+        "ASSUMES arn:aws:iam::111122223333:role/app",
+        "ASSUMES arn:aws:iam::111122223333:role/ops",
+        "CAN_ESCALATE arn:aws:iam::111122223333:role/ops",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 235,
+      "severity": "low",
+      "chokepoints": [
+        "ASSUMES arn:aws:iam::111122223333:role/app -> arn:aws:iam::111122223333:role/ops"
+      ],
+      "alternative_fix": [],
+      "defaults_used": [
+        "eks.irsa.audience",
+        "eks.irsa.oidc-provider-audience"
+      ],
+      "fix": [
+        {
+          "edge": "ASSUMES arn:aws:iam::111122223333:role/app -> arn:aws:iam::111122223333:role/ops",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 3
+        }
+      ],
+      "other_side_fix": [
+        {
+          "edge": "ASSUMES arn:aws:iam::111122223333:role/app -> arn:aws:iam::111122223333:role/ops",
+          "side": "trust",
+          "fix_kind": "revoke",
+          "cost": 7
+        }
+      ],
+      "alternative_fix_detail": [],
+      "status": "confirmed",
+      "also_fixes": [],
+      "uncuttable": []
+    },
+    {
+      "rule": "CLAPA-POST-006",
+      "resource": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+      "score": 350,
+      "severity": "medium",
+      "defaults_used": [
+        "terraform.aws_kms_key.enable_key_rotation"
+      ]
+    },
+    {
+      "rule": "CLAPA-POST-007",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/apps",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": []
+    }
+  ],
+  "absent": [],
+  "intended_access": [],
+  "no_edges": []
+}

@@ -1,0 +1,67 @@
+{
+  "format": "clapa-expected/v1",
+  "derived_from": "Phase 6 review, dominance: role/app decrypts (confirmed) and rewrites its own policy; no role/ops",
+  "exit_code": 0,
+  "findings": [
+    {
+      "rule": "CLAPA-PATH-001",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app",
+      "jewel": "arn:aws:s3:::acme-customer-pii",
+      "path": [
+        "RUNS_AS k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app",
+        "ASSUMES arn:aws:iam::111122223333:role/app",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 291,
+      "severity": "medium",
+      "chokepoints": [
+        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app -> arn:aws:iam::111122223333:role/app"
+      ],
+      "alternative_fix": [],
+      "defaults_used": [
+        "eks.irsa.audience",
+        "eks.irsa.oidc-provider-audience"
+      ],
+      "fix": [
+        {
+          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/ServiceAccount/app -> arn:aws:iam::111122223333:role/app",
+          "side": "trust",
+          "fix_kind": "revoke",
+          "cost": 7
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": [],
+      "status": "confirmed",
+      "also_fixes": [],
+      "uncuttable": []
+    },
+    {
+      "rule": "CLAPA-POST-006",
+      "resource": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+      "score": 350,
+      "severity": "medium",
+      "defaults_used": [
+        "terraform.aws_kms_key.enable_key_rotation"
+      ]
+    },
+    {
+      "rule": "CLAPA-POST-007",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/apps",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": []
+    }
+  ],
+  "absent": [
+    {
+      "rule": "CLAPA-PATH-002",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app",
+      "jewel": "arn:aws:s3:::acme-customer-pii"
+    }
+  ],
+  "intended_access": [],
+  "no_edges": []
+}

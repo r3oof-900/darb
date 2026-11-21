@@ -208,16 +208,10 @@ WAREHOUSE_KEY = f"arn:aws:kms:us-east-1:{B}:key/tf-aws_kms_key.warehouse"
 # sts:AssumeRole from payments-api (sts:AssumeRole on "*" is broad: narrow it
 # to the roles it needs); the trust side, cost 5, is the other fix. No derived edge is cut, so no alternative_fix.
 CHAIN = f"ASSUMES {ROLE} -> {ADMIN}"
-# Phase 6 review, one finding per rule: analytics-admin holds
-# AdministratorAccess, so it can rewrite its own policies
-# (CAN_ESCALATE[iam:modify-policy] to "role with any permission"), which then
-# reads the warehouse: a second path, with an escalation: CLAPA-PATH-002.
-# 5 edges (656), exposure 1000: 656; 656 x 900 = 590, high; confirmed
-# (AdministratorAccess is in the vendored snapshot). The "any permission"
-# node's identity is the role's ARN. Its cut is the same as the direct
-# path's: nothing after analytics-admin is cuttable (SCORING.md 4.2), so
-# CHAIN, identity, narrow, 1 (trust, narrow, 5, the other side). The cut of
-# each finding breaks every path of the other: also_fixes, both ways.
+# Phase 6 review, dominance (DESIGN.md 8): analytics-admin can rewrite its
+# own policies (AdministratorAccess), but it already reads the warehouse
+# directly, confirmed: that escalation is dominated, no CLAPA-PATH-002, and
+# nothing else for also_fixes to name.
 E["06_role_chain_cross_account/vulnerable"] = {"derived_from": "13.2 row 6", "findings": [
     path_finding("CLAPA-PATH-001", API, WAREHOUSE,
                  [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"ASSUMES {ADMIN}", f"CAN_READ_PLAINTEXT {WAREHOUSE}"],
@@ -225,13 +219,7 @@ E["06_role_chain_cross_account/vulnerable"] = {"derived_from": "13.2 row 6", "fi
                  fix=[step(CHAIN, "identity", "narrow", 1)],
                  # analytics-admin's trust names Principal arn:aws:iam::111122223333:root,
                  # an account: broad, narrow, trust side, 5.
-                 other_side=[step(CHAIN, "trust", "narrow", 5)], alternative_detail=[],
-                 also_fixes=[{"rule": "CLAPA-PATH-002", "entry": API, "jewel": WAREHOUSE}]),
-    path_finding("CLAPA-PATH-002", API, WAREHOUSE,
-                 [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"ASSUMES {ADMIN}", f"CAN_ESCALATE {ADMIN}", f"CAN_READ_PLAINTEXT {WAREHOUSE}"],
-                 590, "high", [CHAIN], [], defaults=IRSA_DEFAULTS,
-                 fix=[step(CHAIN, "identity", "narrow", 1)], other_side=[step(CHAIN, "trust", "narrow", 5)], alternative_detail=[],
-                 also_fixes=[{"rule": "CLAPA-PATH-001", "entry": API, "jewel": WAREHOUSE}]),
+                 other_side=[step(CHAIN, "trust", "narrow", 5)], alternative_detail=[]),
     rotation_off(WAREHOUSE_KEY), no_default_deny(NS_PAYMENTS)]}
 E["06_role_chain_cross_account/fixed"] = {"derived_from": "13.2 row 6 fixed: AssumeRole scoped to one role in account A",
                                           "findings": [rotation_off(WAREHOUSE_KEY), no_default_deny(NS_PAYMENTS)],
@@ -613,25 +601,85 @@ E["19_secrets_manager/unknown_managed_policy"] = {
         path_finding("CLAPA-PATH-001", API, SECRET, [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {SECRET}"],
                      810, "critical", [TRUST_EDGE], [], confirmed=False, status="confirmed_unless_denied", confidence="medium",
                      defaults=IRSA_DEFAULTS, undecided=["ReadOnlyAccess", "tools/refresh-managed-policies"],
-                     fix=[step(TRUST_EDGE, "trust", "revoke", 7)], other_side=[], alternative_detail=[],
-                     also_fixes=[{"rule": "CLAPA-PATH-002", "entry": API, "jewel": SECRET}]),
-        # Phase 6 review, one finding per rule: under the worst case the
-        # unknown ReadOnlyAccess may let payments-api rewrite its own
-        # policies (CAN_ESCALATE[iam:modify-policy], UNKNOWN: it needs an
-        # unknown allow), then read as "role with any permission": a second
-        # path, CLAPA-PATH-002, unconfirmed, confidence low. 4 edges (729),
-        # exposure 1000: 729; x 1000 = 729, critical. Its cut is the direct
-        # path's: payments-api may rewrite its own policies, the key policy
-        # and the secret's policy, so nothing after it is cuttable
-        # (SCORING.md 4.2); the IRSA trust, revoke, 7. Each cut breaks every
-        # path of the other finding: also_fixes, both ways.
-        path_finding("CLAPA-PATH-002", API, SECRET,
-                     [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_ESCALATE {ROLE}", f"CAN_READ_PLAINTEXT {SECRET}"],
-                     729, "critical", [TRUST_EDGE], [], confirmed=False, status="unconfirmed", confidence="low",
-                     defaults=IRSA_DEFAULTS, undecided=["ReadOnlyAccess", "tools/refresh-managed-policies"],
-                     fix=[step(TRUST_EDGE, "trust", "revoke", 7)], other_side=[], alternative_detail=[],
-                     also_fixes=[{"rule": "CLAPA-PATH-001", "entry": API, "jewel": SECRET}]),
+                     fix=[step(TRUST_EDGE, "trust", "revoke", 7)], other_side=[], alternative_detail=[]),
+        # Phase 6 review, dominance (DESIGN.md 8): the unknown policy may let
+        # payments-api rewrite its own policies (an unconfirmed escalation),
+        # but payments-api reads the secret directly at a stronger status
+        # (confirmed_unless_denied): dominated, no CLAPA-PATH-002.
         broad_grant(ROLE), no_default_deny(NS_PAYMENTS)]}
+
+# 22 - one pair, two findings (Phase 6 review). apps/app (not exposed: 400)
+# assumes role/app by IRSA. role/app reads the PII bucket (s3:GetObject on
+# its objects, explicit) and decrypts its key under a condition on
+# kms:EncryptionContext:aws:s3:arn whose value is var.pii_bucket_arn, a
+# variable with no value: statically unresolved, so the decrypt needs an
+# unknown allow. role/app may also sts:AssumeRole role/ops (whose trust names
+# role/app); role/ops reads nothing but may iam:PutRolePolicy on itself, so
+# it grants itself the read and the decrypt (role with any permission):
+# confirmed.
+#
+# CLAPA-PATH-001 (the paths without an escalation): RUNS_AS, ASSUMES app,
+# CAN_READ_PLAINTEXT: 3 edges (810): 400 x 810 = 324; x 900 = 291, medium;
+# unconfirmed, confidence low; undecided names the variable and --plan. Cut
+# (SCORING.md 4.1): the decrypt's identity grant is broad (its context
+# condition does not name the bucket: the value is unresolved): narrow, 1;
+# the key policy is the default (the account root): narrow, resource, 2;
+# the alternative is the explicit read: revoke, identity, 3. role/app can
+# regain the access only through role/ops, another identity, so the cut
+# holds (SCORING.md 4.2).
+#
+# CLAPA-PATH-002: RUNS_AS, ASSUMES app, ASSUMES ops, CAN_ESCALATE ops,
+# CAN_READ_PLAINTEXT: 5 edges (656): 400 x 656 = 262; x 900 = 235, low;
+# confirmed. Not dominated: role/ops has no access of its own. Nothing after
+# role/ops is cuttable (it rewrites its own policies, SCORING.md 4.2); the
+# cut is ASSUMES app -> ops: role/app's sts:AssumeRole names role/ops,
+# explicit: revoke, identity, 3; role/ops's trust names role/app: revoke,
+# trust, 7. Neither cut breaks the other finding's path: also_fixes empty.
+#
+# CLAPA-POST-006 on the key (rotation by the Terraform default) and
+# CLAPA-POST-007 on apps. The unresolved variable is a coverage gap: exit 3
+# (no finding at or above high).
+APP_ROLE = f"arn:aws:iam::{ACCT}:role/app"
+OPS_ROLE = f"arn:aws:iam::{ACCT}:role/ops"
+APP = f"k8s:{PROD}/apps/Deployment/app"
+SA_APP = f"k8s:{PROD}/apps/ServiceAccount/app"
+NS_APPS_22 = f"k8s:{PROD}//Namespace/apps"
+
+
+def app_direct(confirmed):
+    path = [f"RUNS_AS {SA_APP}", f"ASSUMES {APP_ROLE}", f"CAN_READ_PLAINTEXT {PII}"]
+    if not confirmed:
+        cut, alt = decrypt_cut(APP_ROLE, PII_KEY, PII)
+        return path_finding("CLAPA-PATH-001", APP, PII, path, 291, "medium", cut, alt,
+                            confirmed=False, confidence="low", defaults=IRSA_DEFAULTS, undecided=["pii_bucket_arn", "--plan"],
+                            **pii_decrypt_fixes(cut, alt))
+    # Dominance variant: role/app can rewrite its own policy, so none of its
+    # own grants, nor the key policy (it delegates to the account root),
+    # survives as a cut (SCORING.md 4.2); the cut is the IRSA hop into it:
+    # its trust names apps:app exactly: revoke, trust, 7.
+    trust = f"ASSUMES {SA_APP} -> {APP_ROLE}"
+    return path_finding("CLAPA-PATH-001", APP, PII, path, 291, "medium", [trust], [], defaults=IRSA_DEFAULTS,
+                        fix=[step(trust, "trust", "revoke", 7)], other_side=[], alternative_detail=[])
+
+
+OPS_EDGE = f"ASSUMES {APP_ROLE} -> {OPS_ROLE}"
+E["22_direct_and_escalation/vulnerable"] = {
+    "derived_from": "Phase 6 review: a pair with a direct finding and an escalation finding", "exit_code": 3,
+    "distinct_fingerprints": True, "findings": [
+        app_direct(False),
+        path_finding("CLAPA-PATH-002", APP, PII,
+                     [f"RUNS_AS {SA_APP}", f"ASSUMES {APP_ROLE}", f"ASSUMES {OPS_ROLE}", f"CAN_ESCALATE {OPS_ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
+                     235, "low", [OPS_EDGE], [], defaults=IRSA_DEFAULTS,
+                     fix=[step(OPS_EDGE, "identity", "revoke", 3)], other_side=[step(OPS_EDGE, "trust", "revoke", 7)], alternative_detail=[]),
+        rotation_off(PII_KEY), no_default_deny(NS_APPS_22)]}
+E["22_direct_and_escalation/fixed"] = {
+    "derived_from": "Phase 6 review, fixed: role/ops can no longer rewrite its own policy", "exit_code": 3, "findings": [
+        app_direct(False), rotation_off(PII_KEY), no_default_deny(NS_APPS_22)],
+    "absent": [{"rule": "CLAPA-PATH-002", "entry": APP, "jewel": PII}]}
+E["22_direct_and_escalation/dominance"] = {
+    "derived_from": "Phase 6 review, dominance: role/app decrypts (confirmed) and rewrites its own policy; no role/ops",
+    "exit_code": 0, "findings": [app_direct(True), rotation_off(PII_KEY), no_default_deny(NS_APPS_22)],
+    "absent": [{"rule": "CLAPA-PATH-002", "entry": APP, "jewel": PII}]}
 
 # Remediation strategies (Phase 5 review). A root-cause fix narrows the
 # broad Allow to what declared intended access uses through it; without

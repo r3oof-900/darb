@@ -38,59 +38,7 @@
         "ReadOnlyAccess",
         "tools/refresh-managed-policies"
       ],
-      "also_fixes": [
-        {
-          "rule": "CLAPA-PATH-002",
-          "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
-          "jewel": "arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa"
-        }
-      ],
-      "uncuttable": []
-    },
-    {
-      "rule": "CLAPA-PATH-002",
-      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
-      "jewel": "arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa",
-      "path": [
-        "RUNS_AS k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api",
-        "ASSUMES arn:aws:iam::111122223333:role/payments-api",
-        "CAN_ESCALATE arn:aws:iam::111122223333:role/payments-api",
-        "CAN_READ_PLAINTEXT arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa"
-      ],
-      "confirmed": false,
-      "confidence": "low",
-      "score": 729,
-      "severity": "critical",
-      "chokepoints": [
-        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api -> arn:aws:iam::111122223333:role/payments-api"
-      ],
-      "alternative_fix": [],
-      "defaults_used": [
-        "eks.irsa.audience",
-        "eks.irsa.oidc-provider-audience"
-      ],
-      "fix": [
-        {
-          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api -> arn:aws:iam::111122223333:role/payments-api",
-          "side": "trust",
-          "fix_kind": "revoke",
-          "cost": 7
-        }
-      ],
-      "other_side_fix": [],
-      "alternative_fix_detail": [],
-      "status": "unconfirmed",
-      "undecided": [
-        "ReadOnlyAccess",
-        "tools/refresh-managed-policies"
-      ],
-      "also_fixes": [
-        {
-          "rule": "CLAPA-PATH-001",
-          "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
-          "jewel": "arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa"
-        }
-      ],
+      "also_fixes": [],
       "uncuttable": []
     },
     {

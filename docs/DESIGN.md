@@ -1021,6 +1021,28 @@ fingerprint. Within one finding:
   listed: a cut breaks paths, and whether a fix also removes a posture
   finding is what remediation verification tells (§9.3).
 
+**Dominated escalations (Phase 6 review).** A path through `CAN_ESCALATE`
+from a principal X to a target J is **dominated**, and ignored, when X itself
+reaches J without an escalation at an equal or stronger status (statuses
+ordered `confirmed` > `confirmed_unless_denied` > `unconfirmed`; severity is
+not compared: it is the same target). The escalation is kept when X has no
+direct access to J, or only a weaker one: then the escalation adds access, or
+certainty. "X reaches J without an escalation" means a path from X to J with
+no `CAN_ESCALATE` edge, under the same search rules (§7.4). Without this rule,
+before the managed-policy snapshot is refreshed, every role with an unknown
+policy would add a `CLAPA-PATH-002` for every target it already reads.
+
+- Scenario 6: `analytics-admin` reads the warehouse with AdministratorAccess
+  (confirmed); rewriting its own policies adds nothing: no `CLAPA-PATH-002`.
+- Scenario 19 with ReadOnlyAccess: `payments-api` reads the secret directly
+  (`confirmed_unless_denied`); the escalation through the unknown policy is
+  `unconfirmed`, weaker: dominated, no `CLAPA-PATH-002`.
+- Scenario 22: `role/ops` reads nothing itself; its escalation (it rewrites its
+  own policy) is the only way it reaches the data: kept, a `CLAPA-PATH-002`
+  beside `role/app`'s own `CLAPA-PATH-001`. In its dominance variant
+  `role/app` reads the data itself, confirmed, and could also rewrite its own
+  policy: that escalation is dominated.
+
 **Suppressions** (`.clapa-ignore.yaml`, or `--ignore FILE`; Phase 6):
 
 - Keyed by fingerprint, each with a mandatory `reason`, `owner` and `expires`
