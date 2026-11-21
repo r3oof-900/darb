@@ -31,7 +31,9 @@
       ],
       "other_side_fix": [],
       "alternative_fix_detail": [],
-      "status": "confirmed"
+      "status": "confirmed",
+      "also_fixes": [],
+      "uncuttable": []
     },
     {
       "rule": "CLAPA-POST-002",

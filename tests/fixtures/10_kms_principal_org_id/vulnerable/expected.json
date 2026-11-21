@@ -46,6 +46,8 @@
       "undecided": [
         "aws:PrincipalOrgID"
       ],
+      "also_fixes": [],
+      "uncuttable": [],
       "remediation": {
         "missing": true
       }

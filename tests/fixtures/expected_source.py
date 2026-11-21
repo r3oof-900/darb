@@ -41,7 +41,7 @@ POD_IDENTITY_DEFAULTS = ["eks.pod-identity.disableSessionTags"]
 
 def path_finding(rule, entry, jewel, path, score, severity, chokepoints, alternative=None,
                  confirmed=True, confidence="high", defaults=None, fix=None, other_side=None,
-                 alternative_detail=None, status=None, undecided=None):
+                 alternative_detail=None, status=None, undecided=None, also_fixes=None, uncuttable=None):
     # Phase 6 review (DESIGN.md 6.2, SCORING.md 1): the score is the worst
     # case of every unknown; the status says what kind of unknown there is.
     status = status or ("confirmed" if confirmed else "unconfirmed")
@@ -58,6 +58,9 @@ def path_finding(rule, entry, jewel, path, score, severity, chokepoints, alterna
         "chokepoints": chokepoints, "alternative_fix": alternative or [], "defaults_used": defaults or [],
         "fix": fix or [], "other_side_fix": other_side or [], "alternative_fix_detail": alternative_detail or [],
         "status": status, **({"undecided": undecided} if undecided else {}),
+        # Phase 6 review: the findings of other rules the cut also fixes, and
+        # the underlying edges of a cut derived read that no change breaks.
+        "also_fixes": also_fixes or [], "uncuttable": [{"edge": e} for e in (uncuttable or [])],
     }
 
 
@@ -94,12 +97,12 @@ def pii_decrypt_fixes(cut, alt):
 # Scenario 1 path (SCORING.md 1.4): public LoadBalancer (exposure 1000), 3 edges
 # (hops 810), no preconditions, all high: likelihood 810; impact pii 900 x
 # blast radius 1000 (one jewel) = 900; score 810 x 900 / 1000 = 729, critical.
-def classic(entry=API, sa=SA_API, role=ROLE, defaults=None):
+def classic(entry=API, sa=SA_API, role=ROLE, defaults=None, also_fixes=None):
     cut, alt = decrypt_cut(role, PII_KEY, PII)
     return path_finding("CLAPA-PATH-001", entry, PII,
                         [f"RUNS_AS {sa}", f"ASSUMES {role}", f"CAN_READ_PLAINTEXT {PII}"],
                         729, "critical", cut, alt, defaults=IRSA_DEFAULTS if defaults is None else defaults,
-                        **pii_decrypt_fixes(cut, alt))
+                        also_fixes=also_fixes, **pii_decrypt_fixes(cut, alt))
 
 
 # CLAPA-POST-007: base medium 350, confidence medium 700: 350 x 700 / 1000 = 245, low.
@@ -205,6 +208,16 @@ WAREHOUSE_KEY = f"arn:aws:kms:us-east-1:{B}:key/tf-aws_kms_key.warehouse"
 # sts:AssumeRole from payments-api (sts:AssumeRole on "*" is broad: narrow it
 # to the roles it needs); the trust side, cost 5, is the other fix. No derived edge is cut, so no alternative_fix.
 CHAIN = f"ASSUMES {ROLE} -> {ADMIN}"
+# Phase 6 review, one finding per rule: analytics-admin holds
+# AdministratorAccess, so it can rewrite its own policies
+# (CAN_ESCALATE[iam:modify-policy] to "role with any permission"), which then
+# reads the warehouse: a second path, with an escalation: CLAPA-PATH-002.
+# 5 edges (656), exposure 1000: 656; 656 x 900 = 590, high; confirmed
+# (AdministratorAccess is in the vendored snapshot). The "any permission"
+# node's identity is the role's ARN. Its cut is the same as the direct
+# path's: nothing after analytics-admin is cuttable (SCORING.md 4.2), so
+# CHAIN, identity, narrow, 1 (trust, narrow, 5, the other side). The cut of
+# each finding breaks every path of the other: also_fixes, both ways.
 E["06_role_chain_cross_account/vulnerable"] = {"derived_from": "13.2 row 6", "findings": [
     path_finding("CLAPA-PATH-001", API, WAREHOUSE,
                  [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"ASSUMES {ADMIN}", f"CAN_READ_PLAINTEXT {WAREHOUSE}"],
@@ -212,7 +225,13 @@ E["06_role_chain_cross_account/vulnerable"] = {"derived_from": "13.2 row 6", "fi
                  fix=[step(CHAIN, "identity", "narrow", 1)],
                  # analytics-admin's trust names Principal arn:aws:iam::111122223333:root,
                  # an account: broad, narrow, trust side, 5.
-                 other_side=[step(CHAIN, "trust", "narrow", 5)], alternative_detail=[]),
+                 other_side=[step(CHAIN, "trust", "narrow", 5)], alternative_detail=[],
+                 also_fixes=[{"rule": "CLAPA-PATH-002", "entry": API, "jewel": WAREHOUSE}]),
+    path_finding("CLAPA-PATH-002", API, WAREHOUSE,
+                 [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"ASSUMES {ADMIN}", f"CAN_ESCALATE {ADMIN}", f"CAN_READ_PLAINTEXT {WAREHOUSE}"],
+                 590, "high", [CHAIN], [], defaults=IRSA_DEFAULTS,
+                 fix=[step(CHAIN, "identity", "narrow", 1)], other_side=[step(CHAIN, "trust", "narrow", 5)], alternative_detail=[],
+                 also_fixes=[{"rule": "CLAPA-PATH-001", "entry": API, "jewel": WAREHOUSE}]),
     rotation_off(WAREHOUSE_KEY), no_default_deny(NS_PAYMENTS)]}
 E["06_role_chain_cross_account/fixed"] = {"derived_from": "13.2 row 6 fixed: AssumeRole scoped to one role in account A",
                                           "findings": [rotation_off(WAREHOUSE_KEY), no_default_deny(NS_PAYMENTS)],
@@ -239,11 +258,14 @@ E["07_passrole_lambda/fixed"] = {"derived_from": "13.2 row 7 fixed: PassRole sco
 CI = f"k8s:{PROD}/payments/Deployment/ci-runner"
 SA_CI = f"k8s:{PROD}/payments/ServiceAccount/ci"
 cut, alt = decrypt_cut(ROLE, PII_KEY, PII)
+# Phase 6 review: the cut of both findings is the same edge (the role's
+# broad kms:Decrypt for PII): each also fixes the other.
 E["08_rbac_create_pods/vulnerable"] = {"derived_from": "13.2 row 8", "findings": [
-    classic(),
+    classic(also_fixes=[{"rule": "CLAPA-PATH-002", "entry": CI, "jewel": PII}]),
     path_finding("CLAPA-PATH-002", CI, PII,
                  [f"RUNS_AS[k8s-token] {SA_CI}", f"CAN_ESCALATE {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
-                 261, "medium", cut, alt, defaults=IRSA_DEFAULTS + [AUTOMOUNT_DEFAULT], **pii_decrypt_fixes(cut, alt)),
+                 261, "medium", cut, alt, defaults=IRSA_DEFAULTS + [AUTOMOUNT_DEFAULT],
+                 also_fixes=[{"rule": "CLAPA-PATH-001", "entry": API, "jewel": PII}], **pii_decrypt_fixes(cut, alt)),
     posture("CLAPA-POST-004", CI, 350, "medium", [AUTOMOUNT_DEFAULT]),
     no_default_deny(NS_PAYMENTS)]}
 E["08_rbac_create_pods/fixed"] = {"derived_from": "13.2 row 8 fixed: get/list/watch only", "findings": [
@@ -559,13 +581,16 @@ E["21_k8s_secret/fixed"] = {"derived_from": "Phase 6 instruction, fixed: automou
 # side (DESIGN.md 9.1, SCORING.md 4.1-4.2): without the identity policies
 # the unknown key policy may still allow, and the unknown key policy may
 # let the role rewrite it (kms:PutKeyPolicy), so neither side counts. The
-# cut is the read, explicit: revoke, identity, 3; the decrypt is the
-# alternative, with no fix. CLAPA-POST-008 on the role (kms:Decrypt on "*").
+# cut is the read, explicit: revoke, identity, 3. Phase 6 review (G):
+# alternative_fix is the other *cuttable* underlying edge: none; the
+# decrypt, which no change breaks, is listed in uncuttable.
+# CLAPA-POST-008 on the role (kms:Decrypt on "*").
 OUTSIDE_KEY = f"arn:aws:kms:us-east-1:{ACCT}:key/0b1c2d3e-0000-4000-8000-000000000001"
 E["01_classic/key_outside_input"] = {"derived_from": "Phase 6 review, item 2: a KMS key outside the input", "findings": [
     path_finding("CLAPA-PATH-001", API, PII, [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
-                 729, "critical", [f"CAN_READ {ROLE} -> {PII}"], [f"CAN_DECRYPT[for {PII}] {ROLE} -> {OUTSIDE_KEY}"],
+                 729, "critical", [f"CAN_READ {ROLE} -> {PII}"], [],
                  confirmed=False, confidence="low", defaults=IRSA_DEFAULTS, undecided=[OUTSIDE_KEY + " is not in the input"],
+                 uncuttable=[f"CAN_DECRYPT[for {PII}] {ROLE} -> {OUTSIDE_KEY}"],
                  fix=[step(f"CAN_READ {ROLE} -> {PII}", "identity", "revoke", 3)], other_side=[], alternative_detail=[]),
     broad_grant(ROLE), no_default_deny(NS_PAYMENTS)]}
 
@@ -588,7 +613,24 @@ E["19_secrets_manager/unknown_managed_policy"] = {
         path_finding("CLAPA-PATH-001", API, SECRET, [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {SECRET}"],
                      810, "critical", [TRUST_EDGE], [], confirmed=False, status="confirmed_unless_denied", confidence="medium",
                      defaults=IRSA_DEFAULTS, undecided=["ReadOnlyAccess", "tools/refresh-managed-policies"],
-                     fix=[step(TRUST_EDGE, "trust", "revoke", 7)], other_side=[], alternative_detail=[]),
+                     fix=[step(TRUST_EDGE, "trust", "revoke", 7)], other_side=[], alternative_detail=[],
+                     also_fixes=[{"rule": "CLAPA-PATH-002", "entry": API, "jewel": SECRET}]),
+        # Phase 6 review, one finding per rule: under the worst case the
+        # unknown ReadOnlyAccess may let payments-api rewrite its own
+        # policies (CAN_ESCALATE[iam:modify-policy], UNKNOWN: it needs an
+        # unknown allow), then read as "role with any permission": a second
+        # path, CLAPA-PATH-002, unconfirmed, confidence low. 4 edges (729),
+        # exposure 1000: 729; x 1000 = 729, critical. Its cut is the direct
+        # path's: payments-api may rewrite its own policies, the key policy
+        # and the secret's policy, so nothing after it is cuttable
+        # (SCORING.md 4.2); the IRSA trust, revoke, 7. Each cut breaks every
+        # path of the other finding: also_fixes, both ways.
+        path_finding("CLAPA-PATH-002", API, SECRET,
+                     [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_ESCALATE {ROLE}", f"CAN_READ_PLAINTEXT {SECRET}"],
+                     729, "critical", [TRUST_EDGE], [], confirmed=False, status="unconfirmed", confidence="low",
+                     defaults=IRSA_DEFAULTS, undecided=["ReadOnlyAccess", "tools/refresh-managed-policies"],
+                     fix=[step(TRUST_EDGE, "trust", "revoke", 7)], other_side=[], alternative_detail=[],
+                     also_fixes=[{"rule": "CLAPA-PATH-001", "entry": API, "jewel": SECRET}]),
         broad_grant(ROLE), no_default_deny(NS_PAYMENTS)]}
 
 # Remediation strategies (Phase 5 review). A root-cause fix narrows the

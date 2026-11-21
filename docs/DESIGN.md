@@ -999,6 +999,28 @@ to stay the same. File lines are left out too, so moving code does not reset
 suppressions. One finding exists per (rule, entry, jewel), so the fingerprint
 stays unique (scenario 14 checks distinct fingerprints).
 
+**One finding per rule (Phase 6 review).** Each path rule reports its own
+finding for an (entry, jewel) pair, from the paths of its own class:
+`CLAPA-PATH-001` from the paths without `CAN_ESCALATE`, `CLAPA-PATH-002` from
+those with one, `CLAPA-PATH-003` from the anonymous entry. A pair reached both
+directly and through an escalation is two findings, so adding an input (an
+unknown policy, a new path) never makes a finding disappear or changes its
+fingerprint. Within one finding:
+
+- **severity** is the highest among the rule's paths (the worst case);
+- **status** is the strongest among them: `confirmed` if one path is
+  confirmed, else `confirmed_unless_denied` if one is, else `unconfirmed`;
+- **the path shown** is the best path of the strongest status; when a less
+  certain path scores higher, it is `worst_case_path` (its path, status,
+  score, severity and what it leaves undecided), and the finding's score and
+  severity are that path's;
+- **the cut** breaks every path of the rule for the pair;
+- **`also_fixes`** lists the fingerprints of the path findings of *other*
+  rules whose every path the cut also breaks (scenario 6: one change fixes
+  both the direct read and the escalation). Posture findings are not
+  listed: a cut breaks paths, and whether a fix also removes a posture
+  finding is what remediation verification tells (§9.3).
+
 **Suppressions** (`.clapa-ignore.yaml`, or `--ignore FILE`; Phase 6):
 
 - Keyed by fingerprint, each with a mandatory `reason`, `owner` and `expires`

@@ -50,6 +50,8 @@
         }
       ],
       "status": "confirmed",
+      "also_fixes": [],
+      "uncuttable": [],
       "remediation": {
         "order": [
           "mitigation",

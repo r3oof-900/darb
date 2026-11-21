@@ -18,9 +18,7 @@
       "chokepoints": [
         "CAN_READ arn:aws:iam::111122223333:role/payments-api -> arn:aws:s3:::acme-customer-pii"
       ],
-      "alternative_fix": [
-        "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001"
-      ],
+      "alternative_fix": [],
       "defaults_used": [
         "eks.irsa.audience",
         "eks.irsa.oidc-provider-audience"
@@ -38,6 +36,12 @@
       "status": "unconfirmed",
       "undecided": [
         "arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001 is not in the input"
+      ],
+      "also_fixes": [],
+      "uncuttable": [
+        {
+          "edge": "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001"
+        }
       ]
     },
     {

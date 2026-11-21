@@ -24,6 +24,15 @@ impact     = min(1000, classification ⊗ blast_radius)
 | **hops** | `1000` for 1 edge, then × `900` per extra edge: 1→1000, 2→900, 3→810, 4→729, 5→656, … | number of edges on the path |
 | **preconditions** | product over the path's preconditions: `900` each (extra attacker effort, e.g. reaching IMDS), whether known satisfied or UNKNOWN: an UNKNOWN precondition is resolved as satisfied (the worst case) | edge preconditions (e.g. `NODE_ROLE`) |
 
+**Which factors may lower a score (Phase 6 review).** Any factor that input
+content can lower must take its worst case; fixed per-rule factors may weight
+the score. Input can be written to make CLAPA unsure (an unknown policy, an
+unresolved value, a key outside the input), so doubt that comes from the input
+never lowers a score. A rule's own confidence (for example `CLAPA-POST-007`,
+`confidence: medium`, DESIGN.md §8.1: "policies may live outside the input")
+is fixed in the rule's metadata, no input content changes it, and it weights
+the posture score (§2); decided at the Phase 6 review.
+
 **Worst case (Phase 6 review).** The score is that of the resolution of every
 UNKNOWN that gives the attacker the most access: an UNKNOWN edge counts as
 allowed, an UNKNOWN precondition as satisfied. Doubt lowers the **confidence**
@@ -231,9 +240,10 @@ needs), with the trust side (cost 5) as the other fix.
   `other_side_fix`: the other sides that also break that edge, dearer. The
   console prints a revoke with a warning: *this removes an explicit grant;
   confirm it is not needed*.
-- `alternative_fix`: for a cut `CAN_READ_PLAINTEXT`, the other underlying edge
-  (whatever its cost, if it can be cut at all); `alternative_fix_detail`: its
-  cheapest fix, with side, kind and cost.
+- `alternative_fix`: for a cut `CAN_READ_PLAINTEXT`, the other **cuttable**
+  underlying edge; `alternative_fix_detail`: its cheapest fix, with side, kind
+  and cost. An underlying edge that no single change breaks is not hidden:
+  it is listed in `uncuttable` with the reason (Phase 6 review).
 - **Tie rule.** When the two underlying edges cost exactly the same, the cut
   names `CAN_DECRYPT[for jewel]` (an encryption-context condition removes
   exactly this path). It is kept only for that case, e.g. `s3:GetObject` and

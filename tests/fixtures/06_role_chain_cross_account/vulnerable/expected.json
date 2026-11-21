@@ -42,6 +42,14 @@
       ],
       "alternative_fix_detail": [],
       "status": "confirmed",
+      "also_fixes": [
+        {
+          "rule": "CLAPA-PATH-002",
+          "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
+          "jewel": "arn:aws:s3:::acme-analytics-warehouse"
+        }
+      ],
+      "uncuttable": [],
       "remediation": {
         "order": [
           "mitigation",
@@ -53,6 +61,56 @@
         ],
         "note": "declare intended_access to get a verified root-cause fix"
       }
+    },
+    {
+      "rule": "CLAPA-PATH-002",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
+      "jewel": "arn:aws:s3:::acme-analytics-warehouse",
+      "path": [
+        "RUNS_AS k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api",
+        "ASSUMES arn:aws:iam::111122223333:role/payments-api",
+        "ASSUMES arn:aws:iam::444455556666:role/analytics-admin",
+        "CAN_ESCALATE arn:aws:iam::444455556666:role/analytics-admin",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-analytics-warehouse"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 590,
+      "severity": "high",
+      "chokepoints": [
+        "ASSUMES arn:aws:iam::111122223333:role/payments-api -> arn:aws:iam::444455556666:role/analytics-admin"
+      ],
+      "alternative_fix": [],
+      "defaults_used": [
+        "eks.irsa.audience",
+        "eks.irsa.oidc-provider-audience"
+      ],
+      "fix": [
+        {
+          "edge": "ASSUMES arn:aws:iam::111122223333:role/payments-api -> arn:aws:iam::444455556666:role/analytics-admin",
+          "side": "identity",
+          "fix_kind": "narrow",
+          "cost": 1
+        }
+      ],
+      "other_side_fix": [
+        {
+          "edge": "ASSUMES arn:aws:iam::111122223333:role/payments-api -> arn:aws:iam::444455556666:role/analytics-admin",
+          "side": "trust",
+          "fix_kind": "narrow",
+          "cost": 5
+        }
+      ],
+      "alternative_fix_detail": [],
+      "status": "confirmed",
+      "also_fixes": [
+        {
+          "rule": "CLAPA-PATH-001",
+          "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
+          "jewel": "arn:aws:s3:::acme-analytics-warehouse"
+        }
+      ],
+      "uncuttable": []
     },
     {
       "rule": "CLAPA-POST-006",

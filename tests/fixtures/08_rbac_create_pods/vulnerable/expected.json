@@ -49,7 +49,15 @@
           "cost": 3
         }
       ],
-      "status": "confirmed"
+      "status": "confirmed",
+      "also_fixes": [
+        {
+          "rule": "CLAPA-PATH-002",
+          "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner",
+          "jewel": "arn:aws:s3:::acme-customer-pii"
+        }
+      ],
+      "uncuttable": []
     },
     {
       "rule": "CLAPA-PATH-002",
@@ -100,7 +108,15 @@
           "cost": 3
         }
       ],
-      "status": "confirmed"
+      "status": "confirmed",
+      "also_fixes": [
+        {
+          "rule": "CLAPA-PATH-001",
+          "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
+          "jewel": "arn:aws:s3:::acme-customer-pii"
+        }
+      ],
+      "uncuttable": []
     },
     {
       "rule": "CLAPA-POST-004",

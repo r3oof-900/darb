@@ -50,7 +50,9 @@
           "cost": 3
         }
       ],
-      "status": "confirmed"
+      "status": "confirmed",
+      "also_fixes": [],
+      "uncuttable": []
     },
     {
       "rule": "CLAPA-POST-007",
