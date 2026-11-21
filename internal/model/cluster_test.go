@@ -33,3 +33,18 @@ func TestClusterKeys(t *testing.T) {
 		}
 	}
 }
+
+func TestEncryptionContextKey(t *testing.T) {
+	for arn, want := range map[string]string{ //nolint:gosec // G101: condition key names, not credentials.
+		"arn:aws:secretsmanager:us-east-1:1:secret:a-b": "kms:EncryptionContext:SecretARN",
+		"arn:aws:ssm:us-east-1:1:parameter/a/b":         "kms:EncryptionContext:PARAMETER_ARN",
+		"arn:aws:ssm:us-east-1:1:document/x":            "kms:EncryptionContext:aws:s3:arn",
+		"arn:aws:s3:::bucket":                           "kms:EncryptionContext:aws:s3:arn",
+		"k8s:prod/ns/Secret/x:secretsmanager:":          "kms:EncryptionContext:aws:s3:arn",
+		"k8s:prod/ns/Secret/x:ssm::parameter/":          "kms:EncryptionContext:aws:s3:arn",
+	} {
+		if got := EncryptionContextKey(arn); got != want {
+			t.Errorf("%s: %s", arn, got)
+		}
+	}
+}

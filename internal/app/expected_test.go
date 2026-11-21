@@ -102,6 +102,12 @@ func kindOf(identity string) model.NodeKind {
 		return model.KindEKSNodeGroup
 	case strings.Contains(identity, "//Namespace/"):
 		return model.KindK8sNamespace
+	case strings.HasPrefix(identity, "k8s:") && strings.Contains(identity, "/Secret/"):
+		return model.KindK8sSecret
+	case strings.HasPrefix(identity, "arn:aws:secretsmanager:"):
+		return model.KindSecret
+	case strings.HasPrefix(identity, "arn:aws:ssm:") && strings.Contains(identity, ":parameter/"):
+		return model.KindSSMParameter
 	case strings.HasPrefix(identity, "k8s:"):
 		return model.KindK8sWorkload
 	case strings.HasPrefix(identity, "arn:aws:s3:::"):

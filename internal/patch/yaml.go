@@ -127,6 +127,38 @@ func (p *patcher) removeHostNetwork(e *remediate.Edit) error {
 	return nil
 }
 
+// disableTokenMount sets automountServiceAccountToken: false in the
+// workload's pod spec: the value is replaced when the key is there (on a
+// line of its own), otherwise a line is added before the pod spec's first
+// key, at its indentation.
+func (p *patcher) disableTokenMount(e *remediate.Edit) error {
+	src := e.Workload.Source()
+	t, err := p.text(src.File())
+	if err != nil {
+		return err
+	}
+	root, err := yamlDoc(t.src, src.Address())
+	if err != nil {
+		return err
+	}
+	spec := podSpec(root)
+	if spec == nil || len(spec.Content) == 0 || spec.Style != 0 {
+		return todo("the pod spec of %s is not a block mapping: set automountServiceAccountToken: false by hand", src.Address())
+	}
+	if v := mapValue(spec, "automountServiceAccountToken"); v != nil {
+		off := lineOffset(t.src, v.Line) + v.Column - 1
+		if v.Style != 0 || v.Line != mapKey(spec, "automountServiceAccountToken").Line {
+			return todo("automountServiceAccountToken of %s is not a plain value on its key's line: set it by hand", src.Address())
+		}
+		t.replace(off, off+len(v.Value), "false")
+		return nil
+	}
+	first := spec.Content[0]
+	off := lineOffset(t.src, first.Line)
+	t.replace(off, off, t.indentAt(off)+"automountServiceAccountToken: false"+t.newline())
+	return nil
+}
+
 // removeExposure makes a LoadBalancer or NodePort Service a ClusterIP one:
 // the `type:` value is replaced. A Service that names node ports, or whose
 // type is not on a line of its own, is changed by hand.

@@ -56,6 +56,7 @@ func (n *norm) data(rs []*tfraw.Resource) {
 		}
 	}
 	n.addBuckets(buckets)
+	n.secretsData(rs)
 }
 
 func (n *norm) bucketPart(r *tfraw.Resource, buckets map[string]*bucketFacts) {

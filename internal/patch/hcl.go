@@ -214,7 +214,7 @@ func (p *patcher) byHand(pe *policyEdits) string {
 			parts = append(parts, fmt.Sprintf("remove statement %d", e.Index))
 		case remediate.OpSetValues:
 			parts = append(parts, fmt.Sprintf("set the %s of statement %d to %s", e.Element, e.Index, strings.Join(e.Values, ", ")))
-		case remediate.OpNodeMetadata, remediate.OpRemoveHostNetwork, remediate.OpRemoveExposure, remediate.OpRestrictPublic:
+		case remediate.OpNodeMetadata, remediate.OpRemoveHostNetwork, remediate.OpRemoveExposure, remediate.OpRestrictPublic, remediate.OpDisableTokenMount:
 		}
 	}
 	return "by hand: " + strings.Join(parts, "; ")

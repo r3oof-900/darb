@@ -39,3 +39,17 @@ func ClusterKey(arn, name string) string {
 
 // Key is the cluster's ClusterKey.
 func (c *Cluster) Key() string { return ClusterKey(c.ARN, c.Name) }
+
+// EncryptionContextKey is the KMS condition key that names the protected
+// resource arn in the encryption context its service sends: SecretARN for
+// Secrets Manager, PARAMETER_ARN for Parameter Store, aws:s3:arn for S3
+// (their user guides' "encryption context" sections; DESIGN.md 7.3).
+func EncryptionContextKey(arn string) string {
+	switch {
+	case strings.HasPrefix(arn, "arn:") && strings.Contains(arn, ":secretsmanager:"):
+		return "kms:EncryptionContext:SecretARN"
+	case strings.HasPrefix(arn, "arn:") && strings.Contains(arn, ":ssm:") && strings.Contains(arn, ":parameter/"):
+		return "kms:EncryptionContext:PARAMETER_ARN"
+	}
+	return "kms:EncryptionContext:aws:s3:arn"
+}

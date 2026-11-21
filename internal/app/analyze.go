@@ -126,7 +126,10 @@ func notModelled() []access.Note {
 		return access.Note{Kind: "not-modelled", Subject: subject, Detail: detail}
 	}
 	return []access.Note{
-		n("crown jewels", "only S3 buckets are read targets; Secrets Manager and SSM SecureString are not analysed"),
+		n("Kubernetes Secrets mounted into pods", "a pod that mounts a Secret (volume, env, envFrom) reads it through the kubelet, "+
+			"and whoever may create pods in its namespace can mount any of them; only RBAC get, list and watch reads are edges"),
+		n("Secrets Manager and SSM resource sharing", "cross-account access is evaluated from the resource policies collected; "+
+			"AWS RAM shares of advanced parameters are not collected"),
 	}
 }
 

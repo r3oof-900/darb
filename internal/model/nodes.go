@@ -238,6 +238,15 @@ func (w *Workload) WithoutHostNetwork() *Workload {
 	return &c
 }
 
+// WithoutTokenMount is w with automountServiceAccountToken: false.
+func (w *Workload) WithoutTokenMount() *Workload {
+	c := *w
+	c.projected = slices.Clone(w.projected)
+	c.defaulted = slices.DeleteFunc(slices.Clone(w.defaulted), func(d string) bool { return d == DefaultAutomountToken })
+	c.automountToken = False
+	return &c
+}
+
 // TrustRelationship binds a role to its trust policy (a resource-based
 // policy on the role).
 type TrustRelationship struct {

@@ -156,3 +156,14 @@ func TestDerivedEdgeCut(t *testing.T) {
 func cutEdge(p *Pair) graph.EdgeID {
 	return graph.EdgeID(p.Cut.Edges[0]) //nolint:gosec // G115: small test graphs
 }
+
+// A Kubernetes Secret read is RBAC: never with the cloud identity alone.
+func TestSecretReadNeedsKubernetesCredentials(t *testing.T) {
+	read := &graph.Edge{Kind: graph.CanReadPlaintext, Sub: "k8s"}
+	if allowed(identity, read) || !allowed(k8s, read) || !allowed(full, read) {
+		t.Fatal("CAN_READ_PLAINTEXT[k8s] follows the token or an RBAC escalation only")
+	}
+	if !allowed(identity, &graph.Edge{Kind: graph.CanReadPlaintext}) {
+		t.Fatal("an AWS read follows the cloud identity")
+	}
+}

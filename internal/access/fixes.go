@@ -211,12 +211,14 @@ func namesPrincipal(s *model.Statement, t *grantTarget) bool {
 	})
 }
 
-// bindsContext: a condition on kms:EncryptionContext:aws:s3:arn whose every
-// value names bucket J or a narrow prefix of its objects.
+// bindsContext: a condition on the encryption-context key of J's service
+// (model.EncryptionContextKey) whose every value names J (or, for a
+// bucket, a narrow prefix of its objects).
 func bindsContext(s *model.Statement, bucket string) bool {
+	key := model.EncryptionContextKey(bucket)
 	return slices.ContainsFunc(s.Conditions(), func(c model.Condition) bool {
 		vals := c.Values()
-		return strings.EqualFold(c.Key(), "kms:EncryptionContext:aws:s3:arn") && !strings.Contains(c.Operator(), "Not") && len(vals) > 0 &&
+		return strings.EqualFold(c.Key(), key) && !strings.Contains(c.Operator(), "Not") && len(vals) > 0 &&
 			!slices.ContainsFunc(vals, func(v string) bool { return v != bucket && !strings.HasPrefix(v, bucket+"/") })
 	})
 }

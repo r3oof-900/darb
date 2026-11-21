@@ -61,17 +61,29 @@ func imdsReachable(hostNetwork bool, ng *model.NodeGroup) model.Tri {
 func (b *builder) reads() {
 	protected := map[string]bool{}
 	for _, j := range b.opts.Jewels {
-		if j.Kind() != model.KindS3Bucket {
-			continue
-		}
 		if k := j.Encryption().KeyARN; k != "" {
 			protected[k] = true
 		}
+		if j.Kind() == model.KindK8sSecret {
+			b.g.Node(j.ID(), j.Kind(), j.ARN())
+			b.k8sSecretReads(j)
+			continue
+		}
+		how, ok := readers()[j.Kind()]
+		if !ok {
+			continue // a KMS key is a means to data, not a target (DESIGN.md 8.1)
+		}
 		b.g.Node(j.ID(), j.Kind(), j.ARN())
 		for _, role := range append(slices.Clone(b.roles), b.order...) {
-			b.read(role, j)
+			if how != nil {
+				b.readSecret(role, j, how)
+			} else {
+				b.read(role, j)
+			}
 		}
-		b.read(nil, j)
+		if how == nil {
+			b.read(nil, j)
+		}
 	}
 	for _, j := range b.opts.Jewels {
 		if j.Kind() == model.KindKMSKey && !protected[j.ARN()] {
@@ -80,6 +92,13 @@ func (b *builder) reads() {
 				Detail: "the key is a crown jewel but protects no resource in the input; the data it protects is outside the input and is not analysed",
 			})
 		}
+	}
+}
+
+// readers: how each AWS data kind is read; nil for S3 (read).
+func readers() map[model.NodeKind]*secretRead {
+	return map[model.NodeKind]*secretRead{
+		model.KindS3Bucket: nil, model.KindSecret: secretsManagerRead(), model.KindSSMParameter: parameterRead(),
 	}
 }
 

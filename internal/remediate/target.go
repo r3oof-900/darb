@@ -33,7 +33,7 @@ func (t *target) names(s *model.Statement, side string) bool {
 		return false
 	}
 	if t.context != "" && !slices.ContainsFunc(s.Conditions(), func(c model.Condition) bool {
-		return strings.EqualFold(c.Key(), "kms:EncryptionContext:aws:s3:arn") && !strings.Contains(c.Operator(), "Not") &&
+		return strings.EqualFold(c.Key(), model.EncryptionContextKey(t.context)) && !strings.Contains(c.Operator(), "Not") &&
 			!slices.ContainsFunc(c.Values(), func(v string) bool { return v != t.context && !strings.HasPrefix(v, t.context+"/") })
 	}) {
 		return false

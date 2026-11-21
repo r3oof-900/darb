@@ -27,6 +27,8 @@ const (
 	DefaultOIDCAudience      = "eks.irsa.oidc-provider-audience"
 	DefaultS3NewBucketBPA    = "s3.block-public-access.new-bucket"
 	DefaultAWSManagedKeyRot  = "kms.aws-managed-key.rotation"
+	DefaultSecretsManagedKey = "secretsmanager.aws-managed-key"
+	DefaultSSMManagedKey     = "ssm.aws-managed-key"
 )
 
 // DocumentedDefault is one deterministic default and where it is documented.
@@ -41,7 +43,14 @@ type DocumentedDefault struct {
 // DocumentedDefaults returns the table, sorted by key. Each row was read on
 // its page on 2026-11-20.
 func DocumentedDefaults() []DocumentedDefault {
-	t := []DocumentedDefault{
+	t := append(kubernetesDefaults(), awsDefaults()...)
+	slices.SortFunc(t, func(a, b DocumentedDefault) int { return strings.Compare(a.Key, b.Key) })
+	return t
+}
+
+// kubernetesDefaults: Kubernetes and EKS settings.
+func kubernetesDefaults() []DocumentedDefault {
+	return []DocumentedDefault{
 		{
 			DefaultAutomountToken, "Pod and ServiceAccount automountServiceAccountToken (the Pod's value wins)", "true",
 			"https://kubernetes.io/docs/concepts/security/service-accounts/",
@@ -62,6 +71,27 @@ func DocumentedDefaults() []DocumentedDefault {
 			"https://github.com/aws/amazon-eks-pod-identity-webhook",
 			`optional: Defaults to "sts.amazonaws.com" if not set`,
 		},
+		{
+			DefaultPodIdentitySTags, "Pod Identity association disableSessionTags", "false",
+			"https://docs.aws.amazon.com/eks/latest/APIReference/API_CreatePodIdentityAssociation.html",
+			"Disable the automatic sessions tags that are appended by EKS Pod Identity.",
+		},
+		{
+			DefaultOIDCAudience, "client IDs (audiences) of a cluster's IAM OIDC provider that is not in the input", "sts.amazonaws.com",
+			"https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html",
+			"For Audience, enter sts.amazonaws.com.",
+		},
+		{
+			DefaultNetPolTypes, "NetworkPolicy policyTypes", "includes Ingress",
+			"https://kubernetes.io/docs/reference/kubernetes-api/networking/network-policy-v1/",
+			"all policies (whether or not they contain an ingress section) are assumed to affect ingress",
+		},
+	}
+}
+
+// awsDefaults: AWS and Terraform settings.
+func awsDefaults() []DocumentedDefault {
+	return []DocumentedDefault{
 		{
 			DefaultKeyRotationTF, "Terraform aws_kms_key enable_key_rotation", "false",
 			"https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key",
@@ -93,19 +123,18 @@ func DocumentedDefaults() []DocumentedDefault {
 			"AWS KMS automatically rotates AWS managed keys every year",
 		},
 		{
-			DefaultPodIdentitySTags, "Pod Identity association disableSessionTags", "false",
-			"https://docs.aws.amazon.com/eks/latest/APIReference/API_CreatePodIdentityAssociation.html",
-			"Disable the automatic sessions tags that are appended by EKS Pod Identity.",
+			// Read on 2026-11-21.
+			DefaultSecretsManagedKey, "Secrets Manager secret encrypted with the AWS managed key aws/secretsmanager",
+			"principals of the secret's account may decrypt through Secrets Manager; no other account",
+			"https://docs.aws.amazon.com/secretsmanager/latest/userguide/security-encryption.html",
+			"only when Secrets Manager makes the request on the user's behalf",
 		},
 		{
-			DefaultOIDCAudience, "client IDs (audiences) of a cluster's IAM OIDC provider that is not in the input", "sts.amazonaws.com",
-			"https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html",
-			"For Audience, enter sts.amazonaws.com.",
-		},
-		{
-			DefaultNetPolTypes, "NetworkPolicy policyTypes", "includes Ingress",
-			"https://kubernetes.io/docs/reference/kubernetes-api/networking/network-policy-v1/",
-			"all policies (whether or not they contain an ingress section) are assumed to affect ingress",
+			// Read on 2026-11-21.
+			DefaultSSMManagedKey, "SSM SecureString parameter encrypted with the AWS managed key aws/ssm",
+			"every IAM principal of the parameter's account may decrypt; no other account",
+			"https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-access.html",
+			"has Decrypt permission for all IAM principals within the AWS account",
 		},
 		{
 			DefaultUnsetRoleBindings, "Terraform aws_iam_role managed_policy_arns and inline_policy, not configured", "no attachments added",
@@ -113,8 +142,6 @@ func DocumentedDefaults() []DocumentedDefault {
 			"If this attribute is not configured, Terraform will ignore policy attachments to this resource.",
 		},
 	}
-	slices.SortFunc(t, func(a, b DocumentedDefault) int { return strings.Compare(a.Key, b.Key) })
-	return t
 }
 
 // LookupDefault returns the documented default for key.

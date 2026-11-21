@@ -89,7 +89,7 @@ type defaultCase struct {
 }
 
 func defaultCases() []defaultCase {
-	return []defaultCase{
+	return append(managedKeyCases(), []defaultCase{
 		{model.DefaultAutomountToken, func(t *testing.T) {
 			inv := loadTree(t, map[string]string{"k8s/a.yaml": saManifest}, k8sOnly).Inventory
 			w := inv.Workloads[0]
@@ -299,32 +299,13 @@ spec:
 				t.Errorf("the provider in the input decides, no default: %+v", f)
 			}
 		}},
-		{model.DefaultAWSManagedKeyRot, func(t *testing.T) {
-			key := func(id, manager string) string {
-				return `{"KeyMetadata": {"KeyId": "` + id + `", "Arn": "arn:aws:kms:eu-west-1:111122223333:key/` + id + `", "KeyManager": "` + manager + `"}}`
-			}
-			l := loadTree(t, map[string]string{
-				"snap/manifest.json": `{"format": "clapa-snapshot/v1", "accounts": [{"id": "111122223333", "partition": "aws"}], "calls": []}`,
-				"snap/111122223333/iam/get-account-authorization-details.json": `{}`,
-				"snap/111122223333/eu-west-1/kms/aws1/describe-key.json":       key("aws1", "AWS"),
-				"snap/111122223333/eu-west-1/kms/aws1/get-key-policy.json":     `{"Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[]}"}`,
-				"snap/111122223333/eu-west-1/kms/k1/describe-key.json":         key("k1", "CUSTOMER"),
-				"snap/111122223333/eu-west-1/kms/k1/get-key-policy.json":       `{"Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[]}"}`,
-			}, func(in *Inputs) { in.AWSSnapshots = []string{"snap"} })
-			for _, r := range l.Inventory.Resources {
-				aws := strings.HasSuffix(r.ARN(), "/aws1")
-				if aws != (r.KeyRotation() == model.True) || aws != slices.Contains(r.Defaulted(), model.DefaultAWSManagedKeyRot) {
-					t.Errorf("%s: rotation %s, defaulted %v", r.ARN(), r.KeyRotation(), r.Defaulted())
-				}
-			}
-		}},
 		{model.DefaultUnsetRoleBindings, func(t *testing.T) {
 			inv := loadTree(t, map[string]string{"terraform/r.tf": roleHCL}, tfOnly).Inventory
 			if len(inv.Policies) != 0 {
 				t.Errorf("a role without managed_policy_arns or inline_policy gets no policy: %d", len(inv.Policies))
 			}
 		}},
-	}
+	}...)
 }
 
 func TestDocumentedDefaults(t *testing.T) {

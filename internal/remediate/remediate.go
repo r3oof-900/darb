@@ -44,6 +44,9 @@ const (
 	OpRemoveExposure Op = "remove-exposure"
 	// OpRestrictPublic turns on restrict_public_buckets for Bucket.
 	OpRestrictPublic Op = "restrict-public-buckets"
+	// OpDisableTokenMount sets automountServiceAccountToken: false in
+	// Workload's pod spec.
+	OpDisableTokenMount Op = "disable-token-mount"
 )
 
 // Edit is one change to the model.
@@ -118,7 +121,13 @@ func ForEdge(in *Input, id graph.EdgeID, fx *graph.Fix) Change {
 		x.nodeRole()
 	case graph.ExposedTo:
 		x.exposure()
-	case graph.RunsAs, graph.CanEscalate, graph.MapsTo, graph.CanReadPlaintext, graph.Protects:
+	case graph.CanEscalate:
+		if e.Sub == "k8s-token" && fx.Side == graph.SideWorkload {
+			x.tokenMount()
+			break
+		}
+		c.TODO = fmt.Sprintf("no generator for %s fixes yet (%s side: %s); change it by hand", e.Kind, fx.Side, fx.Policy)
+	case graph.RunsAs, graph.MapsTo, graph.CanReadPlaintext, graph.Protects:
 		c.TODO = fmt.Sprintf("no generator for %s fixes yet (%s side: %s); change it by hand", e.Kind, fx.Side, fx.Policy)
 	}
 	return c
@@ -198,6 +207,10 @@ func (x *context) context(bucket string) (model.Condition, bool) {
 	if b == nil {
 		return model.Condition{}, false
 	}
+	if b.Kind() != model.KindS3Bucket {
+		// A secret or a parameter: its service sends its ARN (DESIGN.md 7.3).
+		return model.NewCondition("StringEquals", model.EncryptionContextKey(bucket), []string{bucket}), true
+	}
 	const key = "kms:EncryptionContext:aws:s3:arn"
 	switch b.Encryption().BucketKey {
 	case model.True:
@@ -247,6 +260,19 @@ func (x *context) nodeRole() {
 		x.change.Edits = []Edit{{Op: OpNodeMetadata, NodeGroup: ng, Tokens: "required", HopLimit: 1}}
 		x.change.Why = "require IMDSv2 with a hop limit of 1 for node group " + ng.Name
 	}
+}
+
+// tokenMount: the pod stops mounting its service account's Kubernetes
+// token (automountServiceAccountToken: false); its cloud identity (IRSA,
+// Pod Identity) does not need it (DESIGN.md 7.2).
+func (x *context) tokenMount() {
+	w := x.workload(x.e.From)
+	if w == nil {
+		x.todo("the workload is not in the input")
+		return
+	}
+	x.change.Edits = []Edit{{Op: OpDisableTokenMount, Workload: w}}
+	x.change.Why = "set automountServiceAccountToken: false in " + w.Identity() + ": its pods no longer hold their service account's Kubernetes token"
 }
 
 // exposure: the Service stops exposing the workload outside the cluster.

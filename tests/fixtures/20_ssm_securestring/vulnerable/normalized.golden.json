@@ -1,0 +1,128 @@
+{
+  "addons": [],
+  "boundaries": [],
+  "clusters": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "name": "prod",
+      "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
+      "region": "us-east-1",
+      "source": "clapa.yaml (clusters.prod)"
+    }
+  ],
+  "collected": 5,
+  "entry_points": [
+    {
+      "public": "true",
+      "reason": "exposed:Service/LoadBalancer",
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api"
+    }
+  ],
+  "exposures": [
+    {
+      "public": "true",
+      "via": "Service/LoadBalancer",
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api"
+    }
+  ],
+  "gaps": [],
+  "mappings": [],
+  "network_policies": [],
+  "node_groups": [],
+  "pod_identity": [],
+  "policies": [
+    {
+      "kind": "identity",
+      "policy": "arn:aws:iam::111122223333:role/payments-api#inline/app",
+      "source": "arn:aws:iam::111122223333:role/payments-api via iam:GetAccountAuthorizationDetails",
+      "statements": [
+        "Allow ssm:GetParameter on arn:aws:ssm:us-east-1:111122223333:parameter/prod/db/password (0 conditions)",
+        "Allow kms:Decrypt on * (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/payments-api",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "resource",
+      "policy": "arn:aws:kms:us-east-1:111122223333:key/66666666-7777-8888-9999-000000000000#key-policy",
+      "source": "arn:aws:kms:us-east-1:111122223333:key/66666666-7777-8888-9999-000000000000 via kms:GetKeyPolicy",
+      "statements": [
+        "Allow kms:* on * (0 conditions)"
+      ],
+      "target": "arn:aws:kms:us-east-1:111122223333:key/66666666-7777-8888-9999-000000000000",
+      "unresolved_statements": 0
+    }
+  ],
+  "principals": [
+    {
+      "account": "111122223333",
+      "identity": "arn:aws:iam::111122223333:role/payments-api",
+      "kind": "aws:iam:role",
+      "source": "arn:aws:iam::111122223333:role/payments-api via iam:GetAccountAuthorizationDetails"
+    }
+  ],
+  "rbac": [],
+  "resources": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:kms:us-east-1:111122223333:key/66666666-7777-8888-9999-000000000000",
+      "classification": "",
+      "classified_by": "",
+      "defaulted": [],
+      "key_rotation": "true",
+      "kind": "aws:kms:key",
+      "region": "us-east-1",
+      "source": "arn:aws:kms:us-east-1:111122223333:key/66666666-7777-8888-9999-000000000000 via kms:GetKeyPolicy"
+    },
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:ssm:us-east-1:111122223333:parameter/prod/db/password",
+      "classification": "secret",
+      "classified_by": "tag:DataClass",
+      "defaulted": [],
+      "kind": "aws:ssm:parameter",
+      "region": "us-east-1",
+      "source": "arn:aws:ssm:us-east-1:111122223333:parameter/prod/db/password via ssm:DescribeParameters"
+    }
+  ],
+  "service_accounts": [
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
+      "role_arn": "arn:aws:iam::111122223333:role/payments-api",
+      "source": "k8s/payments.yaml:6 (ServiceAccount/payments/api)",
+      "subject": "system:serviceaccount:payments:api"
+    }
+  ],
+  "trusts": [
+    {
+      "kind": "resource",
+      "policy": "arn:aws:iam::111122223333:role/payments-api#trust",
+      "source": "arn:aws:iam::111122223333:role/payments-api via iam:GetAccountAuthorizationDetails",
+      "statements": [
+        "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (2 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/payments-api",
+      "unresolved_statements": 0
+    }
+  ],
+  "workloads": [
+    {
+      "automount_token": "true",
+      "defaulted": [
+        "k8s.automountServiceAccountToken"
+      ],
+      "host_network": false,
+      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
+      "privileged": false,
+      "service_account": "api",
+      "source": "k8s/payments.yaml:14 (Deployment/payments/api)"
+    }
+  ]
+}

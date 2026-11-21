@@ -85,7 +85,7 @@ func (x *context) denyTarget() (doc, reason string) {
 		switch {
 		case x.fix.Side == graph.SideTrust:
 			return g.Policy, ""
-		case len(aps) == 1 && aps[0].Default == "" && !strings.HasPrefix(g.Policy, "arn:"):
+		case len(aps) == 1 && aps[0].Default == "" && (!strings.HasPrefix(g.Policy, "arn:") || strings.Contains(g.Policy, "#inline/")):
 			return g.Policy, ""
 		case len(aps) == 1 && aps[0].Default != "":
 			reason = fmt.Sprintf("%s is a documented default (%s): write the policy out with the statement added", g.Policy, aps[0].Default)

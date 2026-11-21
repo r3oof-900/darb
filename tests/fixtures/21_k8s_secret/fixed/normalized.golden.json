@@ -1,0 +1,91 @@
+{
+  "addons": [],
+  "boundaries": [],
+  "clusters": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "name": "prod",
+      "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
+      "region": "us-east-1",
+      "source": "clapa.yaml (clusters.prod)"
+    }
+  ],
+  "collected": 6,
+  "entry_points": [
+    {
+      "public": "unknown",
+      "reason": "assume-compromised",
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner"
+    }
+  ],
+  "exposures": [],
+  "gaps": [],
+  "mappings": [],
+  "network_policies": [],
+  "node_groups": [],
+  "pod_identity": [],
+  "policies": [],
+  "principals": [],
+  "rbac": [
+    {
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "namespace": "payments",
+      "rules": [
+        {
+          "APIGroups": [
+            ""
+          ],
+          "Resources": [
+            "secrets"
+          ],
+          "Verbs": [
+            "get"
+          ],
+          "ResourceNames": null
+        }
+      ],
+      "source": "k8s/payments.yaml:42 (RoleBinding/payments/ci-secret-reader)",
+      "subject": "ServiceAccount:payments/ci",
+      "unresolved": ""
+    }
+  ],
+  "resources": [
+    {
+      "account": "",
+      "arn": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials",
+      "classification": "secret",
+      "classified_by": "tag:DataClass",
+      "defaulted": [],
+      "kind": "k8s:secret",
+      "region": "",
+      "source": "k8s/payments.yaml:56 (Secret/payments/db-credentials)"
+    }
+  ],
+  "service_accounts": [
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
+      "role_arn": "",
+      "source": "k8s/payments.yaml:6 (ServiceAccount/payments/ci)",
+      "subject": "system:serviceaccount:payments:ci"
+    }
+  ],
+  "trusts": [],
+  "workloads": [
+    {
+      "automount_token": "false",
+      "defaulted": [],
+      "host_network": false,
+      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner",
+      "privileged": false,
+      "service_account": "ci",
+      "source": "k8s/payments.yaml:12 (Deployment/payments/ci-runner)"
+    }
+  ]
+}

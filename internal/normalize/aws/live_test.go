@@ -85,3 +85,24 @@ func TestClustersWithTheSameName(t *testing.T) {
 		t.Fatalf("gaps %+v", rec.Gaps())
 	}
 }
+
+// A secret's or parameter's KMS key reference resolves to the key's ARN;
+// the service's AWS managed key is ""; an alias the snapshot does not
+// resolve is unresolved (UNKNOWN), never the managed key.
+func TestKeyReferences(t *testing.T) {
+	n := &norm{acct: &awsraw.Account{ID: "111122223333", Partition: "aws", Aliases: []awsraw.Alias{
+		{Region: "us-east-1", AliasName: "alias/app", TargetKeyID: "k-app"},
+	}}, b: normalize.NewBuilder()}
+	const p = "arn:aws:kms:us-east-1:111122223333:"
+	for ref, want := range map[string]string{
+		"": "", "alias/aws/ssm": "", p + "alias/aws/ssm": "",
+		p + "key/k1": p + "key/k1", "k1": p + "key/k1", "alias/app": p + "key/k-app", p + "alias/app": p + "key/k-app",
+	} {
+		if got := n.keyARN("us-east-1", ref, "alias/aws/ssm"); got != want {
+			t.Errorf("%q: %q", ref, got)
+		}
+	}
+	if got := n.keyARN("us-east-1", "alias/missing", "alias/aws/ssm"); !model.ContainsUnresolved(got) {
+		t.Errorf("an unknown alias: %q", got)
+	}
+}

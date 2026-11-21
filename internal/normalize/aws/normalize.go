@@ -25,6 +25,8 @@ func Normalize(s *awsraw.Snapshot, mp *managedpolicies.Snapshot, b *normalize.Bu
 		n.keys()
 		n.buckets()
 		n.clusters()
+		n.secrets()
+		n.parameters()
 	}
 }
 
