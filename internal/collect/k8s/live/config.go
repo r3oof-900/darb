@@ -18,10 +18,18 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// ErrExecPlugin is returned for a kubeconfig user that runs an exec
-// credential plugin: CLAPA runs no external commands (docs/THREAT_MODEL.md).
-var ErrExecPlugin = errors.New(Name + ": the kubeconfig user runs an exec credential plugin; " +
-	"CLAPA runs no external commands: for EKS use --k8s-eks CLUSTER (an in-memory token), otherwise a token or client certificate")
+// ErrExecPlugin is returned for a kubeconfig context whose user runs an
+// exec credential plugin (or a legacy auth-provider plugin).
+var ErrExecPlugin = errors.New(Name + ": exec credential plugin refused")
+
+// execPluginError says which context was refused, why, and what to use.
+func execPluginError(kubeContext, plugin string) error {
+	return fmt.Errorf("%w: the kubeconfig context %q authenticates with a credential plugin (%s). "+
+		"CLAPA refuses it for security reasons: a plugin is an external program that runs with your credentials, and CLAPA runs no external commands. "+
+		"For an EKS cluster use --k8s-eks NAME (an in-memory token from your AWS profile); "+
+		"for another cluster use a kubeconfig whose user has a static token or a client certificate",
+		ErrExecPlugin, kubeContext, plugin)
+}
 
 // KubeconfigREST loads a context of a kubeconfig (path "" for the default
 // loading rules: $KUBECONFIG, then ~/.kube/config). It never prompts. TLS
@@ -36,8 +44,15 @@ func KubeconfigREST(path, kubeContext string, insecure bool) (*rest.Config, erro
 	if err != nil {
 		return nil, fmt.Errorf("%s: kubeconfig: %w", Name, err)
 	}
-	if cfg.ExecProvider != nil || cfg.AuthProvider != nil {
-		return nil, ErrExecPlugin
+	name := kubeContext
+	if raw, rerr := cc.RawConfig(); rerr == nil && name == "" {
+		name = raw.CurrentContext
+	}
+	switch {
+	case cfg.ExecProvider != nil:
+		return nil, execPluginError(name, "exec: "+cfg.ExecProvider.Command)
+	case cfg.AuthProvider != nil:
+		return nil, execPluginError(name, "auth-provider: "+cfg.AuthProvider.Name)
 	}
 	if insecure {
 		cfg.Insecure, cfg.CAData, cfg.CAFile = true, nil, ""

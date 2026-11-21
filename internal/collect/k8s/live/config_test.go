@@ -56,8 +56,16 @@ func TestKubeconfigREST(t *testing.T) {
 		t.Fatalf("insecure: %v %+v", err, cfg)
 	}
 	exec := "    exec:\n      apiVersion: client.authentication.k8s.io/v1beta1\n      command: aws\n      args: [eks, get-token, --cluster-name, prod]\n"
-	if _, err := KubeconfigREST(kubeconfig(t, exec), "ctx", false); !errors.Is(err, ErrExecPlugin) {
-		t.Fatalf("exec plugin: %v", err)
+	for _, ctxName := range []string{"ctx", ""} { // "" : the current context, named in the message
+		_, err := KubeconfigREST(kubeconfig(t, exec), ctxName, false)
+		if !errors.Is(err, ErrExecPlugin) {
+			t.Fatalf("exec plugin: %v", err)
+		}
+		for _, want := range []string{`context "ctx"`, "exec: aws", "refuses it for security reasons", "--k8s-eks NAME", "static token"} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("the refusal does not say %q: %v", want, err)
+			}
+		}
 	}
 	if _, err := KubeconfigREST(kubeconfig(t, "    token: abc\n"), "no-such-context", false); err == nil {
 		t.Fatal("unknown context accepted")
