@@ -205,6 +205,9 @@ func ioRules() []*Rule {
 			Package: "internal/collect/k8s/live", Layer: LayerIO,
 			Internal: []string{"internal/collect", "internal/coverage", "internal/collect/k8sraw"},
 			External: plus(k8sExt, extAWSSDK, extSmithy, extXSync),
+			TestInternal: []string{
+				"internal/collect/k8s/manifests", "internal/normalize", "internal/normalize/k8s", "internal/safeio", "internal/model",
+			},
 		},
 		{
 			Package: "internal/collect/awssnapshot", Layer: LayerIO,

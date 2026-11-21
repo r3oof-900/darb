@@ -11,6 +11,7 @@ import (
 	"github.com/r3oof-900/clapa/internal/collect/awslive"
 	"github.com/r3oof-900/clapa/internal/collect/awsraw"
 	"github.com/r3oof-900/clapa/internal/collect/awssnapshot"
+	"github.com/r3oof-900/clapa/internal/collect/k8s/live"
 	"github.com/r3oof-900/clapa/internal/collect/k8s/manifests"
 	"github.com/r3oof-900/clapa/internal/collect/terraform/hclstatic"
 	"github.com/r3oof-900/clapa/internal/collect/terraform/plan"
@@ -33,7 +34,9 @@ type Inputs struct {
 	K8sDirs        []K8sDir
 	AWSSnapshots   []string
 	// AWSLive, when set, collects AWS live (read-only; --live-aws).
-	AWSLive      *AWSLive
+	AWSLive *AWSLive
+	// K8sLive are live clusters (--live-k8s, --k8s-eks).
+	K8sLive      []K8sLive
 	Config       *config.Config
 	Limits       safeio.Limits
 	TerraformBin string
@@ -67,71 +70,108 @@ type Loaded struct {
 
 // Load collects every input and normalizes it into one inventory.
 func Load(ctx context.Context, in *Inputs) (*Loaded, error) {
-	mp, mpErr := managedpolicies.Load()
-	if mpErr != nil {
-		return nil, mpErr
+	mp, err := managedpolicies.Load()
+	if err != nil {
+		return nil, err
 	}
-	rec := &coverage.Recorder{}
-	b := normalize.NewBuilder()
-	collected := 0
-	tfOpts := terraformOptions(in.Config)
-	for _, p := range in.TerraformPlans {
-		m, err := plan.Collect(ctx, input(in, p.Path), &plan.Options{TerraformBin: in.TerraformBin, ConfigDir: p.ConfigDir}, rec)
-		if err != nil {
-			return nil, err
+	l := &loader{in: in, mp: mp, rec: &coverage.Recorder{}, b: normalize.NewBuilder()}
+	for _, step := range []func(context.Context) error{l.terraform, l.kubernetes, l.aws} {
+		if serr := step(ctx); serr != nil {
+			return nil, serr
 		}
-		normtf.Normalize(m, tfOpts, mp, b, rec)
-		collected += len(m.Resources)
 	}
-	for _, d := range in.TerraformDirs {
-		m, err := hclstatic.Collect(ctx, input(in, d), rec)
-		if err != nil {
-			return nil, err
-		}
-		normtf.Normalize(m, tfOpts, mp, b, rec)
-		collected += len(m.Resources)
-	}
-	for _, d := range in.K8sDirs {
-		objs, err := manifests.Collect(ctx, input(in, d.Path), &manifests.Options{Cluster: d.Cluster}, rec)
-		if err != nil {
-			return nil, err
-		}
-		normk8s.Normalize(objs, b, rec)
-		collected += len(objs.Items)
-	}
-	var notes []access.Note
-	aws := &awsraw.Snapshot{}
-	for _, s := range in.AWSSnapshots {
-		snap, err := awssnapshot.Collect(ctx, input(in, s), rec)
-		if err != nil {
-			return nil, err
-		}
-		normaws.Normalize(snap, mp, b, rec)
-		collected += len(snap.Accounts)
-		aws.Accounts = append(aws.Accounts, snap.Accounts...)
-	}
-	if in.AWSLive != nil {
-		snap, err := awslive.Collect(ctx, in.AWSLive, rec)
-		if err != nil {
-			return nil, err
-		}
-		normaws.Normalize(snap, mp, b, rec)
-		collected += len(snap.Accounts)
-		aws.Accounts = append(aws.Accounts, snap.Accounts...)
-	}
-	if len(in.AWSSnapshots) > 0 || in.AWSLive != nil {
-		notes = awsNotes(aws, mp)
-	}
-	addConfiguredClusters(in.Config, b)
-	inv, err := b.Build()
+	addConfiguredClusters(in.Config, l.b)
+	inv, err := l.b.Build()
 	if err != nil {
 		return nil, fmt.Errorf("normalize: %w", err)
 	}
 	inv.Resources = classify.CrownJewels(inv.Resources, jewelRules(in.Config))
 	return &Loaded{
 		Inventory: inv, EntryPoints: classify.EntryPoints(inv, *in.Config.ThreatModel.AssumeCompromised),
-		Gaps: rec.Gaps(), Notes: notes, Collected: collected,
+		Gaps: l.rec.Gaps(), Notes: l.notes, Collected: l.collected,
 	}, nil
+}
+
+// loader collects the inputs into one builder.
+type loader struct {
+	in        *Inputs
+	mp        *managedpolicies.Snapshot
+	rec       *coverage.Recorder
+	b         *normalize.Builder
+	notes     []access.Note
+	collected int
+}
+
+func (l *loader) terraform(ctx context.Context) error {
+	in := l.in
+	opts := terraformOptions(in.Config)
+	for _, p := range in.TerraformPlans {
+		m, err := plan.Collect(ctx, input(in, p.Path), &plan.Options{TerraformBin: in.TerraformBin, ConfigDir: p.ConfigDir}, l.rec)
+		if err != nil {
+			return err
+		}
+		normtf.Normalize(m, opts, l.mp, l.b, l.rec)
+		l.collected += len(m.Resources)
+	}
+	for _, d := range in.TerraformDirs {
+		m, err := hclstatic.Collect(ctx, input(in, d), l.rec)
+		if err != nil {
+			return err
+		}
+		normtf.Normalize(m, opts, l.mp, l.b, l.rec)
+		l.collected += len(m.Resources)
+	}
+	return nil
+}
+
+func (l *loader) kubernetes(ctx context.Context) error {
+	for _, k := range l.in.K8sLive {
+		objs, err := live.Collect(ctx, &live.Options{Cluster: k.Cluster, Clients: k.Clients}, l.rec)
+		if err != nil {
+			return err
+		}
+		normk8s.Normalize(objs, l.b, l.rec)
+		l.collected += len(objs.Items)
+		if k.Clients.Insecure {
+			l.notes = append(l.notes, insecureNote(k.Cluster))
+		}
+	}
+	for _, d := range l.in.K8sDirs {
+		objs, err := manifests.Collect(ctx, input(l.in, d.Path), &manifests.Options{Cluster: d.Cluster}, l.rec)
+		if err != nil {
+			return err
+		}
+		normk8s.Normalize(objs, l.b, l.rec)
+		l.collected += len(objs.Items)
+	}
+	return nil
+}
+
+func (l *loader) aws(ctx context.Context) error {
+	all := &awsraw.Snapshot{}
+	add := func(snap *awsraw.Snapshot) {
+		normaws.Normalize(snap, l.mp, l.b, l.rec)
+		l.collected += len(snap.Accounts)
+		all.Accounts = append(all.Accounts, snap.Accounts...)
+	}
+	for _, s := range l.in.AWSSnapshots {
+		snap, err := awssnapshot.Collect(ctx, input(l.in, s), l.rec)
+		if err != nil {
+			return err
+		}
+		add(snap)
+	}
+	if l.in.AWSLive != nil {
+		snap, err := awslive.Collect(ctx, l.in.AWSLive, l.rec)
+		if err != nil {
+			return err
+		}
+		add(snap)
+	}
+	if len(l.in.AWSSnapshots) > 0 || l.in.AWSLive != nil {
+		l.notes = append(l.notes, awsNotes(all, l.mp)...)
+	}
+	return nil
 }
 
 func input(in *Inputs, p string) *collect.Input {

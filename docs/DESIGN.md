@@ -137,7 +137,7 @@ generates. Rules for reading the table:
 | `internal/collect/awslive/awsfake` | io | `internal/collect/awslive` | `github.com/aws/aws-sdk-go-v2`, `github.com/aws/smithy-go` | — |
 | `internal/collect/awsraw` | pure | `internal/coverage` | `github.com/aws/aws-sdk-go-v2` | — |
 | `internal/collect/awssnapshot` | io | `internal/collect`, `internal/coverage`, `internal/safeio`, `internal/collect/awsraw` | `github.com/aws/aws-sdk-go-v2` | — |
-| `internal/collect/k8s/live` | io | `internal/collect`, `internal/coverage`, `internal/collect/k8sraw` | `k8s.io/api`, `k8s.io/apimachinery`, `k8s.io/client-go`, `github.com/aws/aws-sdk-go-v2`, `github.com/aws/smithy-go`, `golang.org/x/sync` | — |
+| `internal/collect/k8s/live` | io | `internal/collect`, `internal/coverage`, `internal/collect/k8sraw` | `k8s.io/api`, `k8s.io/apimachinery`, `k8s.io/client-go`, `github.com/aws/aws-sdk-go-v2`, `github.com/aws/smithy-go`, `golang.org/x/sync` | tests: `internal/collect/k8s/manifests`, `internal/normalize`, `internal/normalize/k8s`, `internal/safeio`, `internal/model` |
 | `internal/collect/k8s/manifests` | io | `internal/collect`, `internal/coverage`, `internal/safeio`, `internal/collect/k8sraw` | `k8s.io/api`, `k8s.io/apimachinery`, `k8s.io/client-go`, `sigs.k8s.io/yaml`, `go.yaml.in/yaml/v3` | — |
 | `internal/collect/k8sraw` | pure | — (leaf) | `k8s.io/api`, `k8s.io/apimachinery` | — |
 | `internal/collect/terraform/hclstatic` | io | `internal/collect`, `internal/coverage`, `internal/safeio`, `internal/collect/tfraw` | `github.com/hashicorp/hcl/v2`, `github.com/zclconf/go-cty` | — |
