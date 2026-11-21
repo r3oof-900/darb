@@ -171,9 +171,9 @@ generates. Rules for reading the table:
 | `internal/report/sarif` | pure | `internal/report`, `pkg/schema` | — | — |
 | `internal/rules` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/scoring` | — | — |
 | `internal/rules/catalog` | core | `internal/rules`, `internal/rules/pathrules`, `internal/rules/posture`, `internal/rules/escalation` | — | — |
-| `internal/rules/escalation` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/scoring`, `internal/access` | — | — |
-| `internal/rules/pathrules` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/scoring`, `internal/access` | — | — |
-| `internal/rules/posture` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/scoring`, `internal/access` | — | tests: `internal/iampolicy` |
+| `internal/rules/escalation` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/eval/match`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/scoring`, `internal/access` | — | — |
+| `internal/rules/pathrules` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/eval/match`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/scoring`, `internal/access` | — | — |
+| `internal/rules/posture` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/eval/match`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/scoring`, `internal/access` | — | tests: `internal/iampolicy` |
 | `internal/safeio` | io | — (leaf) | — | — |
 | `internal/scoring` | core | `internal/model`, `internal/eval`, `internal/graph`, `internal/paths` | — | — |
 | `internal/verify` | core | `internal/model`, `internal/eval`, `internal/graph`, `internal/access`, `internal/paths`, `internal/rules`, `internal/remediate`, `internal/findings` | — | — |
@@ -411,6 +411,7 @@ on 2026-11-20 and has a test in `internal/app/defaults_test.go`
 | `terraform.aws_kms_key.enable_key_rotation` | Terraform `aws_kms_key` `enable_key_rotation` | `false` | AWS provider › aws_kms_key: "Whether key rotation is enabled. Defaults to `false`." — https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key |
 | `kms.default-key-policy` | KMS key created without a key policy | default key policy (account root, `kms:*`) | KMS Developer Guide: "AWS KMS applies a very simple default key policy." — https://docs.aws.amazon.com/kms/latest/developerguide/key-policy-default.html |
 | `s3.default-encryption` | S3 bucket without a default encryption configuration | SSE-S3 (`AES256`) | S3 User Guide: SSE-S3 is "the base level of encryption for every bucket"; "Starting January 5, 2023, all new object uploads to Amazon S3 are automatically encrypted" — https://docs.aws.amazon.com/AmazonS3/latest/userguide/default-bucket-encryption.html |
+| `s3.block-public-access.new-bucket` | S3 Block Public Access of a bucket a **Terraform plan creates** (`resource_changes` action `create`) with no `aws_s3_bucket_public_access_block` | all four settings on (`restrict_public_buckets = true`) | AWS News Blog › "Heads-Up: Amazon S3 Security Changes Are Coming in April of 2023" (13 Dec 2022; its update of 27 Apr 2023 says the change is in effect for all new buckets in all Regions): newly created buckets "[…] will by default have S3 Block Public Access enabled", including those created with the S3 API, the CLI, the SDKs or CloudFormation (Terraform creates buckets through the S3 API) — https://aws.amazon.com/blogs/aws/heads-up-amazon-s3-security-changes-are-coming-in-april-of-2023/ . The S3 User Guide states the default without a date: "By default, all four Block Public Access settings are enabled." (Creating a general purpose bucket › Using the S3 console) — https://docs.aws.amazon.com/AmazonS3/latest/userguide/create-bucket-overview.html . The User Guide pages read on 2026-11-21 do not state the April 2023 date; its FAQ page (create-bucket-faq.html) now redirects to the S3 welcome page. |
 | `eks.pod-identity.disableSessionTags` | Pod Identity association `disableSessionTags` | `false` | EKS API › CreatePodIdentityAssociation — https://docs.aws.amazon.com/eks/latest/APIReference/API_CreatePodIdentityAssociation.html |
 | `terraform.aws_iam_role.managed_policy_arns` | Terraform `aws_iam_role` `managed_policy_arns` / `inline_policy` not configured | no attachments added | AWS provider › aws_iam_role: "If this attribute is not configured, Terraform will ignore policy attachments to this resource." — https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role |
 
@@ -419,7 +420,7 @@ on 2026-11-20 and has a test in `internal/app/defaults_test.go`
 | Setting | Why |
 |---|---|
 | Node IMDS `http_tokens` without launch-template `metadata_options` | the effective value comes from the launch template, then the account default, then the AMI's `imds-support`; without any of them the baseline is "V1 or V2 (token optional)" (EC2 User Guide › Configure instance metadata options), so it depends on inputs CLAPA does not see |
-| S3 bucket Block Public Access without `aws_s3_bucket_public_access_block` | "By default, new buckets, access points, and objects don't allow public access" (S3 User Guide › Blocking public access), but a bucket's settings can change outside the input and the documentation does not state the four settings for every bucket |
+| S3 bucket Block Public Access without `aws_s3_bucket_public_access_block`, for a bucket a plan does **not** create (it already exists), or read statically or from a snapshot | an existing bucket's settings may have been changed after it was created, outside the input; only a bucket the plan creates has the new-bucket default (row above). A fixture that needs the setting states it (the Phase 5 review: declare it rather than raise the gap tolerance) |
 | KMS rotation of a key in a snapshot without `kms:GetKeyRotationStatus` | the API value was not collected; the KMS guide only says automatic rotation "is optional" |
 | `hostNetwork` / `privileged` stated `false` vs omitted | indistinguishable in the typed Kubernetes API and equal in value; neither marks the node as defaulted, since no rule fires on `false` |
 
@@ -806,6 +807,7 @@ per rule only after they are checked against the benchmark text.
 | `CLAPA-POST-004` | posture | a workload automounts its service account token and that service account has RBAC permissions | medium | T1528 |
 | `CLAPA-POST-005` | posture | a crown-jewel bucket's Block Public Access `restrict_public_buckets` is known off (stated in the input; no default exists, §4.7) | high | T1530 |
 | `CLAPA-POST-006` | posture | a symmetric customer managed KMS key has rotation off (Terraform `enable_key_rotation` false, or unset: documented default `false`, §4.7) | medium | — |
+| `CLAPA-POST-008` | posture | a sensitive action (`kms:Decrypt`, `sts:AssumeRole`, `iam:PassRole`, `s3:GetObject`, `secretsmanager:GetSecretValue`, `ssm:GetParameter`, or a wildcard covering one) is allowed on every resource (`"*"`, `NotResource`, or an ARN whose resource part is `*`, `*/*` or `<type>/*` for a non-S3 type) by an identity policy whose permissions boundary keeps it, or to every principal (`Principal "*"`) by a bucket, key or trust policy; in both cases with no condition or only organization/account conditions. One finding per principal or resource (added in the Phase 5 review: a mitigation leaves the grant, and this keeps it visible) | high (so a mitigated scan is not clean at the default `--fail-on high`) | T1078.004 |
 | `CLAPA-POST-007` | posture | a namespace has workloads in the input and no NetworkPolicy that selects every pod with an `Ingress` policy type and no ingress rules (default deny) | medium, `confidence: medium` (policies may live outside the input) | — |
 
 **Decisions (Phase 4 review):**
@@ -961,6 +963,35 @@ not in the input, so the grant is left as written and only this edge is
 removed. A revoke deletes the explicit grant, and denies what broad grants
 remain. Other edge kinds (escalations, RBAC, mappings, IRSA trusts) are a
 **TODO** with what to change by hand.
+
+**Two strategies (decided in the Phase 5 review).** A Deny that blocks one
+path leaves the broad grant: every new key, role or bucket is reachable, and a
+scan after it must not look clean. So a cut that narrows a broad grant has two
+fixes:
+
+- **`root-cause`** narrows the Allow itself (`OpSetValues`): its `Resource`
+  (identity side) or `Principal` (resource side) becomes exactly what the
+  declared `intended_access` uses through that statement — the targets (or
+  principals) of every edge on an intended path that the statement grants.
+  It is generated and verified on both levels only when an intended access
+  uses the statement. Without one it is a **suggestion**: it lists what the
+  wildcard matches in the input, says it is not verified, and `--write` never
+  applies it.
+- **`mitigation`** is the Deny above, labelled *"mitigation: blocks this path
+  only; the broad grant remains"*. It is verified and can be applied at once;
+  the grant stays a finding (`CLAPA-POST-008`, high), so the scan after it is
+  not clean.
+
+Order in the output: a verified root-cause fix first (then the mitigation);
+otherwise the mitigation first, the root cause after it as the unverified
+suggestion, and the sentence *"declare intended_access to get a verified
+root-cause fix"*. `--write` applies the first fix, and only when it is
+verified. A cut that only removes explicit grants or changes settings (revoke,
+IMDS, exposure) has one fix, a root cause. Scenario 1b
+(`01b_classic_intended`) is scenario 1 with the API's legitimate use declared
+(it reads the receipts bucket, its own key): the root cause narrows
+`kms:Decrypt` from `"*"` to the receipts key, verified, and the scan after it
+is clean.
 
 ### 9.3 Verification — two levels, both required
 
@@ -1170,6 +1201,18 @@ UNKNOWN "what is missing" output, the patch fuzz target. Every vulnerable
 scenario's fix verifies on both levels except 10 (UNKNOWN) and 13 (module
 input TODO), §9.3.
 
+**Phase 5 review (strategies).** Root-cause and mitigation fixes (§9.2),
+`CLAPA-POST-008` (catalog 1.1.0, pinned by `TestCatalogVersion`), the
+new-bucket Block Public Access default for plans (§4.7), and scenario 1b.
+Fixtures 01b, 06, 09 and 10 now state Block Public Access for every bucket, so
+no scan of them has a coverage gap. After the first fix, the scan of each
+vulnerable scenario exits 0 only when nothing else is reported at `high`: 01b
+(verified root cause) and 08 do; after a mitigation `CLAPA-POST-008` keeps the
+exit at 1 (01, 06, 07, 12, 16, 17), as do the findings the fix is not about
+(`CLAPA-POST-001` in 04, 04b, 05; `CLAPA-POST-002` in 09); 10 is UNKNOWN; 13 is
+a TODO; 14's fix is a policy document for the account; 16 keeps its parse
+gaps by design.
+
 ### 12.1 Known constraints carried between phases
 
 | Constraint | Effect today | Must be resolved by | Plan |
@@ -1253,6 +1296,7 @@ Encryption type of every jewel bucket is stated explicitly in the fixture
 | 14 | Same role name (and same bucket-name suffix) in two accounts (snapshot); one cluster runs `apps/app-a` (IRSA role `app` of 111122223333) and `apps/app-b` (cross-account IRSA role `app` of 444455556666) | each role reads its own account's SSE-S3 bucket | two distinct node IDs, two findings with distinct fingerprints; no edge and no path crosses between the accounts to the same-named resources (`no_edges`) |
 | 15 | Empty directory | — | exit 3, no "secure"/"0 findings" claim |
 | 16 | One malformed YAML file and one malformed HCL file next to a valid copy of scenario 1 | as scenario 1 in the valid files | both errors reported with `file:line`; the scenario-1 path is still found (proves the scan continued) |
+| 1b | Scenario 1 plus the API's legitimate use, declared in `intended_access`: it reads the receipts bucket (SSE-KMS, its own key) | role policy as scenario 1 plus `s3:GetObject` on the receipts bucket | the PII path as scenario 1; remediation: a **verified root-cause** fix first (`kms:Decrypt` narrowed to the receipts key), then the mitigation; fixed: that root cause applied |
 | 17 | Scenario 1 through **EKS Pod Identity** (added after the Phase 3 review): `aws_eks_pod_identity_association` payments/api → role trusting `pods.eks.amazonaws.com` for `sts:AssumeRole` + `sts:TagSession`, pinned by `aws:RequestTag/kubernetes-namespace` and `…/kubernetes-service-account`; `eks-pod-identity-agent` add-on | as scenario 1 | as scenario 1: the path, with the association and trust decision as evidence |
 
 Fixed variants remove exactly the cause the scenario tests (e.g. scenario 1 scopes
