@@ -131,7 +131,7 @@ generates. Rules for reading the table:
 | `internal/archtest` | tooling | — (leaf) | — | — |
 | `internal/arn` | core | — (leaf) | — | — |
 | `internal/classify` | core | `internal/model`, `internal/arn` | — | — |
-| `internal/cli` | entry | `internal/app`, `internal/config`, `internal/rules`, `internal/rules/catalog`, `internal/version`, `internal/redact`, `pkg/schema` | `github.com/spf13/cobra` | — |
+| `internal/cli` | entry | `internal/app`, `internal/config`, `internal/rules`, `internal/rules/catalog`, `internal/version`, `internal/redact`, `pkg/schema` | `github.com/spf13/cobra` | std: `os/exec` |
 | `internal/collect` | io | `internal/coverage`, `internal/safeio` | — | std: `net/url`; tests: `internal/model` |
 | `internal/collect/awslive` | io | `internal/collect`, `internal/coverage`, `internal/collect/awsraw` | `github.com/aws/aws-sdk-go-v2`, `github.com/aws/smithy-go`, `golang.org/x/sync` | — |
 | `internal/collect/awsraw` | pure | — (leaf) | `github.com/aws/aws-sdk-go-v2` | — |
@@ -158,7 +158,7 @@ generates. Rules for reading the table:
 | `internal/normalize/aws` | pure | `internal/model`, `internal/arn`, `internal/normalize`, `internal/coverage`, `internal/iampolicy`, `internal/managedpolicies`, `internal/collect/awsraw` | `github.com/aws/aws-sdk-go-v2` | std: `net/url`; tests: `internal/collect`, `internal/collect/awssnapshot`, `internal/safeio` |
 | `internal/normalize/k8s` | pure | `internal/model`, `internal/arn`, `internal/normalize`, `internal/coverage`, `internal/collect/k8sraw` | `k8s.io/api`, `k8s.io/apimachinery`, `sigs.k8s.io/yaml` | tests: `internal/collect`, `internal/collect/k8s/manifests`, `internal/safeio` |
 | `internal/normalize/terraform` | pure | `internal/model`, `internal/arn`, `internal/normalize`, `internal/coverage`, `internal/iampolicy`, `internal/managedpolicies`, `internal/collect/tfraw` | `github.com/hashicorp/hcl/v2`, `github.com/hashicorp/terraform-json`, `github.com/zclconf/go-cty` | tests: `internal/collect`, `internal/collect/terraform/hclstatic`, `internal/collect/terraform/plan`, `internal/safeio`, `internal/eval`, `internal/eval/match`, `internal/eval/condition` |
-| `internal/patch` | pure | `internal/model`, `internal/iampolicy`, `internal/remediate`, `internal/findings` | `github.com/hashicorp/hcl/v2`, `github.com/aymanbagabas/go-udiff` | — |
+| `internal/patch` | pure | `internal/model`, `internal/iampolicy`, `internal/remediate`, `internal/findings` | `github.com/hashicorp/hcl/v2`, `github.com/zclconf/go-cty`, `github.com/aymanbagabas/go-udiff`, `go.yaml.in/yaml/v3` | — |
 | `internal/paths` | core | `internal/model`, `internal/graph` | — | tests: `internal/eval` |
 | `internal/redact` | pure | — (leaf) | — | — |
 | `internal/remediate` | core | `internal/model`, `internal/arn`, `internal/iampolicy`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/findings` | — | — |
@@ -175,7 +175,7 @@ generates. Rules for reading the table:
 | `internal/rules/pathrules` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/scoring`, `internal/access` | — | — |
 | `internal/rules/posture` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/scoring`, `internal/access` | — | tests: `internal/iampolicy` |
 | `internal/safeio` | io | — (leaf) | — | — |
-| `internal/scoring` | core | `internal/model`, `internal/graph`, `internal/paths` | — | tests: `internal/eval` |
+| `internal/scoring` | core | `internal/model`, `internal/eval`, `internal/graph`, `internal/paths` | — | — |
 | `internal/verify` | core | `internal/model`, `internal/eval`, `internal/graph`, `internal/access`, `internal/paths`, `internal/rules`, `internal/remediate`, `internal/findings` | — | — |
 | `internal/version` | pure | — (leaf) | — | — |
 | `pkg/schema` | pure | — (leaf) | — | — |
@@ -941,25 +941,96 @@ with the Bucket Key setting unknown, both forms (`ForAnyValue` over the two
 values, or two statements), so the fix works either way. The generator reads
 the bucket's Bucket Key setting to choose.
 
-### 9.2 Verification
+### 9.2 Generation (Phase 5)
 
-**Intended access is a hard constraint.** The verifier rescans the patched
-input and rejects any fix after which a declared `intended_access` entry is
-not `verified` (not-satisfied or unconfirmed), whatever it removes.
+For each cut edge the chosen side (SCORING.md §4) gives one change, a list of
+**edits to the canonical model** (`internal/remediate`), never text:
 
-For each candidate: apply in memory to a copy of the canonical model → re-run
-evaluator, access builder and path engine → prove the targeted paths are gone →
-prove every declared intended access still evaluates to `ALLOW`. Without declared
-intended access, the fix is labelled **"unverified against intended access"**.
+| Edge, side | Narrow | Revoke |
+|---|---|---|
+| `CAN_READ`, identity | add `Deny s3:GetObject` on `<bucket>/*` to the principal's own (inline) policy | remove the explicit `Resource` values; the statement goes when none remain |
+| `CAN_READ`, bucket policy | add a `Deny` for the principal; for the anonymous principal, `restrict_public_buckets = true` | remove the principal from the explicit statements |
+| `CAN_DECRYPT[for J]`, identity / key policy | add `Deny kms:Decrypt` with the encryption context of J: `StringEquals <J>` with a Bucket Key, `StringLike <J>/*` without, both when unknown (§9.1) | remove the statement bound to J |
+| `ASSUMES` (role chain), identity / trust | add `Deny sts:AssumeRole` on the role / for the principal | remove the role / principal values |
+| `NODE_ROLE` | IMDSv2 required, hop limit 1 (launch template `metadata_options`) | endpoint off; or remove `hostNetwork` |
+| `EXPOSED_TO` | — | the Service becomes `ClusterIP` |
 
-### 9.3 Output
+A narrow fix adds an explicit `Deny` scoped to exactly the cut edge (the
+action, the target, the principal): the legitimate scope of a broad grant is
+not in the input, so the grant is left as written and only this edge is
+removed. A revoke deletes the explicit grant, and denies what broad grants
+remain. Other edge kinds (escalations, RBAC, mappings, IRSA trusts) are a
+**TODO** with what to change by hand.
 
-Unified diff against the original Terraform at the original file/line, made with
-`hclwrite` (never regex); policies in `jsonencode(...)` or heredocs get a
-policy-aware rewrite; every edited file is re-parsed to prove validity. JSON
-policy documents for live-scanned resources. **No invented names**: every ARN in a
-fix must exist in the input; otherwise the fix is templated and marked `TODO`. A
-test asserts this for every generated fix.
+### 9.3 Verification — two levels, both required
+
+1. **In memory** (`internal/verify`): the edits are applied to a copy of the
+   model (`remediate.Apply`) and the evaluator, access builder, path search
+   and rules run again. Required: the targeted finding is gone; every
+   declared intended access is as before (a verified one stays verified); no
+   finding appears and none rises in severity.
+2. **On files**: the patch is written into a copy of the inputs in a
+   temporary directory outside the scan root, and the scan runs from scratch
+   (parse, normalize, evaluate). Its result must equal the in-memory result
+   exactly (findings, severities, intended access, exit code). Level 1 shows
+   the model change is right, level 2 that the patch is that change; any
+   difference rejects the fix.
+
+**Intended access is a hard constraint**: its edges are uncuttable (§9.1), and
+the verifier rejects a fix after which a declared entry is worse.
+
+**Definition of done (spec):** for every vulnerable scenario, the patch applied
+to a copy and rescanned no longer reports the finding
+(`TestEveryVulnerableScenarioIsFixed`: 16 findings). Two are not patched, by
+design: scenario 10 is UNKNOWN until the organization ID is known (the
+remediation says to set `assume: {"aws:PrincipalOrgID": [...]}`; with it set
+the key policy fix is verified, `TestScenario10Decided`), and scenario 13's
+grant comes from the module input `bucket` (a TODO naming
+`terraform/main.tf:4`: the input does not say what the readers need).
+
+### 9.4 Output — the patch
+
+- **Terraform** (`internal/patch`): edits are placed at byte ranges that
+  `hclsyntax` locates and spliced in; everything else is kept byte for byte —
+  line endings (CRLF or LF), a UTF-8 BOM, comments, spacing — and new text
+  uses the file's line ending and indentation. Three ways of writing a policy:
+  `jsonencode({...})` (HCL object), a heredoc (JSON at offsets a small JSON
+  parser records; interpolations inside strings are resolved), and
+  `data "aws_iam_policy_document"` (statement blocks, `=` aligned as
+  `terraform fmt` does). Every edited file is parsed again; a patch that does
+  not parse is an error, never output. A fuzz target (`FuzzPatchTerraform`)
+  runs the patcher on arbitrary HCL: it patches (and the result parses) or
+  refuses.
+- **References, never invented names**: an ARN of a resource the same
+  module defines is written as its reference (`aws_kms_key.pii.arn`,
+  `"${aws_s3_bucket.b.arn}/*"`); a real ARN of the input is written as is; an
+  ARN Terraform knows only after apply, outside the module, is a TODO. A test
+  checks that every ARN a fix writes is one of the input.
+- **Variables, modules, `for_each`**: a value that comes from `var.X` in a
+  module names the module call's input (file:line) in a TODO; a statement
+  added to, or removed from, an instance of `count`/`for_each`, or added in a
+  module used by several calls, is a TODO (it would change every instance).
+- **Snapshots and live accounts**: the complete JSON policy document, ready
+  for `aws iam put-role-policy` (or `delete-role-policy` when no statement
+  remains), never a Terraform diff; level 2 writes it into a copy of the
+  snapshot.
+- **Kubernetes manifests**: line edits at the lines a YAML parser locates
+  (remove `hostNetwork`, `type: ClusterIP`).
+- **UNKNOWN paths are not patched**: the remediation lists what would decide
+  them (a context key to assume, a value a plan resolves, a precondition).
+
+### 9.5 `clapa remediate`
+
+`clapa remediate [input flags] FINGERPRINT` shows the plan, both
+verifications and the patch, and changes nothing. `--write` applies a fix
+verified on both levels, **narrow fixes only**; a revoke (it removes a grant
+written on purpose) needs `--allow-revoke`, and the console marks it "this
+removes an explicit grant; confirm it is not needed". It refuses to write into
+a git tree that is not clean, or whose state it cannot tell (`git status
+--porcelain`), unless `--force`; it refuses a file changed since the scan.
+Exit codes: 0 a verified fix (shown or written), 1 no verified fix (UNKNOWN,
+no fix within the constraints, TODO, rejected), 2 usage or `--write` refused,
+4 internal. `internal/cli` runs `git` for this check only (`os/exec`).
 
 ---
 
@@ -1085,9 +1156,19 @@ risk":
 
 | Missing | Effect | When |
 |---|---|---|
-| `EXPOSED_TO` as a graph edge | exposure is a scoring factor of the entry, not a cuttable edge, so "remove internet exposure" (cost 20) is never proposed as a fix | Phase 5 (built within it, decided at the Phase 4 approval) |
 | Secrets Manager, SSM SecureString and Kubernetes Secrets as targets | only S3 buckets are read targets | deferred until after Phase 5 (§12.2, item 5) |
 | Suppression file (`.clapa-ignore.yaml`) and `--baseline` flags | the logic exists in `internal/findings`; the CLI does not read the files yet | deferred until after Phase 5 (§12.2, item 4) |
+
+### 12.0b Phase 5 status
+
+Done: remediation (`internal/remediate`: edits per edge and side,
+`Apply`), two-level verification (`internal/verify`, `app.Remediate`), the
+patcher (`internal/patch`: three Terraform policy forms, attributes, YAML,
+snapshot JSON), `clapa remediate` with the `--write` safety rules, the
+`EXPOSED_TO` edge (cost 20, revoke), IMDS fixes by hostNetwork, the
+UNKNOWN "what is missing" output, the patch fuzz target. Every vulnerable
+scenario's fix verifies on both levels except 10 (UNKNOWN) and 13 (module
+input TODO), §9.3.
 
 ### 12.1 Known constraints carried between phases
 

@@ -114,17 +114,53 @@ or turning off something specific):
 
 | Edge | Side | Kind | Cost |
 |---|---|---|---|
-| `NODE_ROLE` (require IMDSv2, hop limit 1) | node | narrow | **3** |
+| `NODE_ROLE`, pod without hostNetwork (require IMDSv2, hop limit 1) | node | narrow | **3** |
+| `NODE_ROLE`, hostNetwork pod (turn the node group's metadata endpoint off) | node | revoke | **5** |
+| `NODE_ROLE`, hostNetwork pod on a node that already keeps pods out (remove hostNetwork) | workload | revoke | **5** |
 | `CAN_ESCALATE` via K8s token (`automountServiceAccountToken: false`) | workload | narrow | **3** |
 | `CAN_ESCALATE` via K8s RBAC (remove/limit the binding) | rbac | revoke | **5** |
 | `MAPS_TO` (`aws-auth` / access entry) | mapping | revoke | **8** |
 | `RUNS_AS` (change the workload's identity) | workload | revoke | **100** |
 | `PROTECTS` | none | structural fact, not a permission | **∞** |
-| `EXPOSED_TO` | none | not a graph edge yet: exposure is a scoring factor of the entry (DESIGN.md, deferred to Phase 5), so "remove internet exposure" is never proposed | none |
+| `EXPOSED_TO` (internet -> a publicly exposed workload; remove the exposure: the Service becomes ClusterIP) | exposure | revoke | **20** |
 | `CAN_READ_PLAINTEXT` (derived) | none | the cut names the cheaper of its `CAN_READ` / `CAN_DECRYPT` | min of the two |
 
 The edge's capacity is its cheapest side. An edge with no side left is
 **uncuttable**: no single change breaks it.
+
+**IMDS and `NODE_ROLE` (Phase 5).** Sources, and what is our reasoning:
+
+- A pod with `hostNetwork: true` uses the node's network namespace
+  (Kubernetes API › PodSpec › `hostNetwork`: "Use the host's network
+  namespace").
+- The PUT response hop limit counts network hops (EC2 User Guide › "Change
+  the PUT response hop limit"); EKS recommends IMDSv2 with a hop limit of 1 to
+  keep pods off IMDS (EKS Best Practices › "Restrict access to the instance
+  profile assigned to the worker node"). That guide does not discuss
+  hostNetwork. **Our reasoning:** a hostNetwork pod makes no extra hop, so the
+  hop limit does not stop it; the engine models it so (`imdsReachable`).
+- IMDSv2 alone does not stop a compromised pod: the session token is obtained
+  with a PUT that the pod can make itself; it protects against requests an
+  attacker can only relay (SSRF). Under the assume-compromised model a pod is
+  the attacker, so IMDSv2 without the hop limit leaves the edge.
+- Turning the endpoint off (EC2 User Guide › "Turn off access to instance
+  metadata", `http_endpoint = "disabled"`) stops every pod, hostNetwork or
+  not, and everything else on the node that uses IMDS: a revoke.
+
+So the fixes of a hostNetwork pod's `NODE_ROLE` are the endpoint off, and,
+only when the node already keeps other pods out, removing hostNetwork; the
+cheaper fix is usually elsewhere (narrowing the node role, `CAN_READ`
+identity, 1). The verifier rejects a hop limit of 1 for scenario 9 and
+accepts it for the same pod without hostNetwork (`TestScenario9HopLimit`).
+
+**`EXPOSED_TO` (Phase 5).** The internet reaches each workload behind a
+public (or possibly public: NodePort) exposure. Under assume-compromised (the
+default) every pod is an entry already, so the edge is never on a path. Without
+it, the internet node is the attacker's entry and the cut may take the
+exposure, e.g. when intended access makes every IAM edge uncuttable. Its fix
+removes the exposure (revoke, 20): an internal scheme alone would leave the
+workload an entry of its own (an internal load balancer, exposure 500), the
+same path starting there.
 
 **When a statement is explicit.** The granting statements of a side are the
 Allow statements of that side's policies that apply to the request (TRUE or
