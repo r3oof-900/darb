@@ -108,43 +108,23 @@ func (r *reader) gap(g *coverage.Gap) {
 }
 
 func (r *reader) callGap(account string, c *awsraw.Call) {
-	kind := map[string]coverage.Kind{
-		"AccessDenied": coverage.KindAccessDenied, "Throttling": coverage.KindThrottled, "Timeout": coverage.KindTimeout,
-	}[c.Status]
-	switch {
-	case c.Status == "ok":
-		return
-	case kind == "":
-		kind = coverage.KindAPIError
+	if g := c.Gap(Name, account); g != nil {
+		r.rec.Add(g)
 	}
-	r.gap(&coverage.Gap{Kind: kind, Account: account, Service: c.Service, Region: c.Region, API: c.API, Address: c.Target, Detail: c.Error})
 }
 
 // account reads every file under <account>/ by its place in the layout.
 func (r *reader) account(a *awsraw.Account, files []string) {
-	buckets := map[string]*awsraw.Bucket{}
-	keys := map[string]*awsraw.Key{}
-	clusters := map[string]*awsraw.Cluster{}
+	l := &layout{
+		buckets: map[string]*awsraw.Bucket{}, keys: map[string]*awsraw.Key{}, clusters: map[string]*awsraw.Cluster{},
+		secrets: map[string]*awsraw.Secret{}, params: map[string]*awsraw.Parameter{},
+	}
 	for _, f := range files {
 		parts := strings.Split(f, "/")
 		if parts[0] != a.ID {
 			continue
 		}
-		var err error
-		switch {
-		case f == path.Join(a.ID, "iam", "get-account-authorization-details.json"):
-			a.Auth = &awsraw.AuthorizationDetails{}
-			err = r.json(f, a.Auth)
-		case len(parts) == 4 && parts[1] == "s3":
-			err = r.bucketFile(bucket(buckets, parts[2]), f, parts[3])
-		case len(parts) == 5 && parts[2] == "kms":
-			err = r.keyFile(key(keys, parts[1], parts[3]), f, parts[4])
-		case len(parts) >= 5 && parts[2] == "eks":
-			err = r.clusterFile(cluster(clusters, parts[1], parts[3]), f, parts[4:])
-		default:
-			err = errUnknownFile
-		}
-		if err != nil {
+		if err := r.place(a, l, f, parts); err != nil {
 			line := 0
 			if re := (*collect.ReservedTextError)(nil); errors.As(err, &re) {
 				line = re.Line
@@ -152,13 +132,96 @@ func (r *reader) account(a *awsraw.Account, files []string) {
 			r.gap(&coverage.Gap{Kind: kindFor(err), Account: a.ID, File: path.Join(r.in.Path, f), Line: line, Detail: err.Error()})
 		}
 	}
-	a.Buckets, a.Keys, a.Clusters = sortedValues(buckets), sortedValues(keys), sortedValues(clusters)
+	a.Buckets, a.Keys, a.Clusters = sortedValues(l.buckets), sortedValues(l.keys), sortedValues(l.clusters)
+	a.Secrets, a.Params, a.Aliases = sortedValues(l.secrets), sortedValues(l.params), l.aliases
+	failedPolicies(a)
+}
+
+// layout collects one account's resources by their directory.
+type layout struct {
+	buckets  map[string]*awsraw.Bucket
+	keys     map[string]*awsraw.Key
+	clusters map[string]*awsraw.Cluster
+	secrets  map[string]*awsraw.Secret
+	params   map[string]*awsraw.Parameter
+	aliases  []awsraw.Alias
+}
+
+func (r *reader) place(a *awsraw.Account, l *layout, f string, parts []string) error {
+	if f == path.Join(a.ID, "iam", "get-account-authorization-details.json") {
+		a.Auth = &awsraw.AuthorizationDetails{}
+		return r.json(f, a.Auth)
+	}
+	if len(parts) < 4 {
+		return errUnknownFile
+	}
+	if parts[1] == "s3" && len(parts) == 4 {
+		name, err := unescapeName(parts[2])
+		if err != nil {
+			return err
+		}
+		return r.bucketFile(bucket(l.buckets, name), f, parts[3])
+	}
+	return r.placeRegional(l, f, parts)
+}
+
+// placeRegional places <account>/<region>/<service>/... files.
+func (r *reader) placeRegional(l *layout, f string, parts []string) error {
+	region, service := parts[1], parts[2]
+	if service == "kms" && len(parts) == 4 && parts[3] == "list-aliases.json" {
+		return r.aliasFile(l, region, f)
+	}
+	if len(parts) < 5 {
+		return errUnknownFile
+	}
+	name, err := unescapeName(parts[3])
+	if err != nil {
+		return err
+	}
+	switch {
+	case service == "kms" && len(parts) == 5:
+		return r.keyFile(key(l.keys, region, name), f, parts[4])
+	case service == "eks":
+		return r.clusterFile(cluster(l.clusters, region, name), f, parts[4:])
+	case service == "secretsmanager" && len(parts) == 5:
+		return r.secretFile(entry(l.secrets, region+"/"+name, func() *awsraw.Secret { return &awsraw.Secret{Region: region, Name: name} }), f, parts[4])
+	case service == "ssm" && len(parts) == 5:
+		return r.parameterFile(entry(l.params, region+"/"+name, func() *awsraw.Parameter { return &awsraw.Parameter{Region: region, Name: name} }), f, parts[4])
+	}
+	return errUnknownFile
+}
+
+func entry[V any](m map[string]*V, k string, mk func() *V) *V {
+	if m[k] == nil {
+		m[k] = mk()
+	}
+	return m[k]
+}
+
+// failedPolicies: a resource policy whose call the manifest records as
+// failed is unknown, not absent (no file is written for it).
+func failedPolicies(a *awsraw.Account) {
+	failed := map[string]bool{}
+	for _, c := range a.Calls {
+		if c.Status != awsraw.StatusOK {
+			failed[c.Service+" "+c.API+" "+c.Target] = true
+		}
+	}
+	for _, b := range a.Buckets {
+		b.PolicyFailed = failed["s3 GetBucketPolicy "+b.Name]
+	}
+	for _, s := range a.Secrets {
+		s.PolicyFailed = failed["secretsmanager GetResourcePolicy "+s.ARN]
+	}
+	for _, prm := range a.Params {
+		prm.PolicyFailed = failed["ssm GetResourcePolicies "+prm.ARN]
+	}
 }
 
 var errUnknownFile = errors.New("file is not part of the " + Format + " layout (ignored)")
 
 func kindFor(err error) coverage.Kind {
-	if errors.Is(err, errUnknownFile) {
+	if errors.Is(err, errUnknownFile) || errors.Is(err, errEscape) {
 		return coverage.KindUnsupported
 	}
 	return coverage.KindParseError

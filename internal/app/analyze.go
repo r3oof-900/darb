@@ -97,7 +97,7 @@ func Analyze(l *Loaded, cfg *config.Config, failOn string) (*Analysis, error) {
 	in := &rules.Input{Inventory: inv, Graph: g, Pairs: pairs, Entries: entryInfo, Jewels: jewelNodes, Partition: partition(cfg)}
 	fs := findings.Finish(reg.Evaluate(in), reg)
 	a := &Analysis{
-		Findings: fs, Notes: append(built.Notes, notModelled()...), Gaps: l.Gaps, Collected: l.Collected,
+		Findings: fs, Notes: slices.Concat(built.Notes, l.Notes, notModelled()), Gaps: l.Gaps, Collected: l.Collected,
 		IntendedAccess: verifyIntended(g, cfg, intended, entries, opts),
 		Graph:          GraphStats{Nodes: g.NumNodes(), Edges: g.NumEdges(), Pairs: len(pairs)},
 		CatalogVersion: catalog.Version, Registry: reg, AccessGraph: g, intended: uncuttable,

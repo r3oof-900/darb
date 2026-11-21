@@ -127,14 +127,15 @@ generates. Rules for reading the table:
 |---|---|---|---|---|
 | `cmd/clapa` | entry | `internal/cli` | — | — |
 | `internal/access` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/eval/match`, `internal/eval/condition`, `internal/graph`, `internal/scoring` | — | tests: `internal/iampolicy` |
-| `internal/app` | entry | `internal/config`, `internal/collect/...`, `internal/normalize/...`, `internal/model`, `internal/classify`, `internal/iampolicy`, `internal/eval`, `internal/access`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/rules/catalog`, `internal/scoring`, `internal/findings`, `internal/remediate`, `internal/verify`, `internal/patch`, `internal/report/...`, `internal/llm/...`, `internal/coverage`, `internal/redact`, `internal/safeio`, `internal/version`, `internal/managedpolicies`, `pkg/schema` | `golang.org/x/sync` | tests: `internal/eval/condition`, `internal/eval/match` |
+| `internal/app` | entry | `internal/config`, `internal/collect/...`, `internal/normalize/...`, `internal/model`, `internal/classify`, `internal/iampolicy`, `internal/eval`, `internal/access`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/rules/catalog`, `internal/scoring`, `internal/findings`, `internal/remediate`, `internal/verify`, `internal/patch`, `internal/report/...`, `internal/llm/...`, `internal/coverage`, `internal/redact`, `internal/safeio`, `internal/version`, `internal/managedpolicies`, `pkg/schema` | `golang.org/x/sync` | tests: `internal/eval/condition`, `internal/eval/match`, `internal/collect/awslive/awsfake` |
 | `internal/archtest` | tooling | — (leaf) | — | — |
 | `internal/arn` | core | — (leaf) | — | — |
 | `internal/classify` | core | `internal/model`, `internal/arn` | — | — |
-| `internal/cli` | entry | `internal/app`, `internal/config`, `internal/rules`, `internal/rules/catalog`, `internal/version`, `internal/redact`, `pkg/schema` | `github.com/spf13/cobra` | std: `os/exec` |
+| `internal/cli` | entry | `internal/app`, `internal/config`, `internal/rules`, `internal/rules/catalog`, `internal/version`, `internal/redact`, `pkg/schema` | `github.com/spf13/cobra` | std: `os/exec`; tests: `internal/collect/awslive`, `internal/collect/awslive/awsfake` |
 | `internal/collect` | io | `internal/coverage`, `internal/safeio` | — | std: `net/url`; tests: `internal/model` |
-| `internal/collect/awslive` | io | `internal/collect`, `internal/coverage`, `internal/collect/awsraw` | `github.com/aws/aws-sdk-go-v2`, `github.com/aws/smithy-go`, `golang.org/x/sync` | — |
-| `internal/collect/awsraw` | pure | — (leaf) | `github.com/aws/aws-sdk-go-v2` | — |
+| `internal/collect/awslive` | io | `internal/collect`, `internal/coverage`, `internal/collect/awsraw` | `github.com/aws/aws-sdk-go-v2`, `github.com/aws/smithy-go`, `golang.org/x/sync` | tests: `internal/collect/awslive/awsfake` |
+| `internal/collect/awslive/awsfake` | io | `internal/collect/awslive` | `github.com/aws/aws-sdk-go-v2`, `github.com/aws/smithy-go` | — |
+| `internal/collect/awsraw` | pure | `internal/coverage` | `github.com/aws/aws-sdk-go-v2` | — |
 | `internal/collect/awssnapshot` | io | `internal/collect`, `internal/coverage`, `internal/safeio`, `internal/collect/awsraw` | `github.com/aws/aws-sdk-go-v2` | — |
 | `internal/collect/k8s/live` | io | `internal/collect`, `internal/coverage`, `internal/collect/k8sraw` | `k8s.io/api`, `k8s.io/apimachinery`, `k8s.io/client-go`, `github.com/aws/aws-sdk-go-v2`, `github.com/aws/smithy-go`, `golang.org/x/sync` | — |
 | `internal/collect/k8s/manifests` | io | `internal/collect`, `internal/coverage`, `internal/safeio`, `internal/collect/k8sraw` | `k8s.io/api`, `k8s.io/apimachinery`, `k8s.io/client-go`, `sigs.k8s.io/yaml`, `go.yaml.in/yaml/v3` | — |
@@ -336,11 +337,37 @@ Workload identity:
 
 ### 4.3 AWS offline snapshots
 
-Bundle layout (written by `clapa collect-snapshot`, Phase 6; hand-made fixtures in
-Phase 3): one directory per account, files named after the CLI command, e.g.
-`<account>/global/iam-get-account-authorization-details.json`,
-`<account>/<region>/kms-get-key-policy/<key-id>.json`, plus `manifest.json`
-listing every API call attempted, its outcome and any error (the coverage source).
+`clapa collect-snapshot --out DIR` writes a bundle (format `clapa-snapshot/v1`)
+and `clapa scan --aws-snapshot DIR` reads it. Live collection and the snapshot of
+the same account produce the same raw data, gaps and notes
+(`TestWriteThenCollectRoundTrips`, `TestCollectSnapshotThenScanMatchesLive`).
+Files are named after the API call and hold its JSON, as the AWS CLI prints it:
+
+```
+manifest.json                       format, accounts, and every API call with its outcome
+<account>/iam/get-account-authorization-details.json
+<account>/s3/<bucket>/{get-bucket-location,get-bucket-policy,get-bucket-encryption,
+                       get-public-access-block,get-bucket-tagging}.json
+<account>/<region>/kms/list-aliases.json
+<account>/<region>/kms/<key-id>/{describe-key,get-key-policy,get-key-rotation-status,list-resource-tags}.json
+<account>/<region>/eks/<cluster>/describe-cluster.json
+<account>/<region>/eks/<cluster>/pod-identity/<association-id>.json
+<account>/<region>/secretsmanager/<secret-name>/{describe-secret,get-resource-policy}.json
+<account>/<region>/ssm/<parameter-name>/{describe-parameters,list-tags-for-resource,get-resource-policies}.json
+```
+
+A file is missing when the answer was "none", for example a bucket without a
+policy. A call that failed is recorded in the manifest. The reader takes a
+resource policy whose call failed as **unknown**, never as absent. Names
+are escaped into one path component:
+
+- an upper-case letter becomes `!x`;
+- every other byte outside `[a-z0-9_+=@.-]`, and a leading `.`, becomes `%XX`.
+
+AWS names are case-sensitive, but Windows and macOS file systems usually are
+not, so two names that differ only in case never share a file. The writer
+creates a new directory through `os.Root`, so no name can place a file outside
+it. The output is deterministic.
 
 ### 4.4 Live AWS
 

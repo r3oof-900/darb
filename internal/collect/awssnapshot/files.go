@@ -75,6 +75,19 @@ func (r *reader) keyFile(k *awsraw.Key, f, name string) error {
 		err := r.json(f, &v)
 		k.Policy = v.Policy
 		return err
+	case "list-resource-tags.json":
+		var v struct {
+			Tags []struct {
+				TagKey   string `json:"TagKey"`
+				TagValue string `json:"TagValue"`
+			} `json:"Tags"`
+		}
+		err := r.json(f, &v)
+		k.Tags = []awsraw.Tag{}
+		for _, t := range v.Tags {
+			k.Tags = append(k.Tags, awsraw.Tag{Key: t.TagKey, Value: t.TagValue})
+		}
+		return err
 	case "get-key-rotation-status.json":
 		var v struct {
 			KeyRotationEnabled bool `json:"KeyRotationEnabled"`
@@ -112,6 +125,83 @@ func (r *reader) clusterFile(c *awsraw.Cluster, f string, rest []string) error {
 		err := r.json(f, &v)
 		if err == nil {
 			c.PodIdentity = append(c.PodIdentity, v.Association)
+		}
+		return err
+	}
+	return errUnknownFile
+}
+
+func (r *reader) aliasFile(l *layout, region, f string) error {
+	var v struct {
+		Aliases []awsraw.Alias `json:"Aliases"`
+	}
+	err := r.json(f, &v)
+	for _, al := range v.Aliases {
+		al.Region = region
+		l.aliases = append(l.aliases, al)
+	}
+	return err
+}
+
+func (r *reader) secretFile(s *awsraw.Secret, f, name string) error {
+	switch name {
+	case "describe-secret.json":
+		var v struct {
+			ARN      string       `json:"ARN"`
+			KmsKeyID string       `json:"KmsKeyId"`
+			Tags     []awsraw.Tag `json:"Tags"`
+		}
+		err := r.json(f, &v)
+		s.ARN, s.KMSKeyID, s.Tags = v.ARN, v.KmsKeyID, v.Tags
+		if s.Tags == nil && err == nil {
+			s.Tags = []awsraw.Tag{}
+		}
+		return err
+	case "get-resource-policy.json":
+		var v struct {
+			ResourcePolicy string `json:"ResourcePolicy"`
+		}
+		err := r.json(f, &v)
+		s.Policy = v.ResourcePolicy
+		return err
+	}
+	return errUnknownFile
+}
+
+func (r *reader) parameterFile(prm *awsraw.Parameter, f, name string) error {
+	switch name {
+	case "describe-parameters.json":
+		var v struct {
+			Parameters []struct {
+				ARN   string `json:"ARN"`
+				Type  string `json:"Type"`
+				KeyID string `json:"KeyId"`
+				Tier  string `json:"Tier"`
+			} `json:"Parameters"`
+		}
+		err := r.json(f, &v)
+		if err == nil && len(v.Parameters) == 1 {
+			m := v.Parameters[0]
+			prm.ARN, prm.Type, prm.KeyID, prm.Tier = m.ARN, m.Type, m.KeyID, m.Tier
+		}
+		return err
+	case "list-tags-for-resource.json":
+		var v struct {
+			TagList []awsraw.Tag `json:"TagList"`
+		}
+		err := r.json(f, &v)
+		prm.Tags = append([]awsraw.Tag{}, v.TagList...)
+		return err
+	case "get-resource-policies.json":
+		var v struct {
+			Policies []struct {
+				Policy string `json:"Policy"`
+			} `json:"Policies"`
+		}
+		err := r.json(f, &v)
+		prm.Policies = []string{}
+		for _, p := range v.Policies {
+			prm.Policies = append(prm.Policies, p.Policy)
 		}
 		return err
 	}

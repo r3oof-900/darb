@@ -137,7 +137,7 @@ func pureRules() []*Rule {
 		{Package: "internal/config", Layer: LayerPure, Internal: coreModel("internal/classify"), External: []string{extSigsYAML, extYAMLv3}},
 		{Package: "internal/collect/tfraw", Layer: LayerPure, External: []string{extHCL, extTFJSON, extCty}},
 		{Package: "internal/collect/k8sraw", Layer: LayerPure, External: []string{extK8sAPI, extK8sMach}},
-		{Package: "internal/collect/awsraw", Layer: LayerPure, External: []string{extAWSSDK}},
+		{Package: "internal/collect/awsraw", Layer: LayerPure, Internal: []string{"internal/coverage"}, External: []string{extAWSSDK}},
 		{Package: "internal/normalize", Layer: LayerPure, Internal: coreModel("internal/coverage")},
 		{
 			Package: "internal/normalize/terraform", Layer: LayerPure,
@@ -213,8 +213,15 @@ func ioRules() []*Rule {
 		},
 		{
 			Package: "internal/collect/awslive", Layer: LayerIO,
-			Internal: []string{"internal/collect", "internal/coverage", "internal/collect/awsraw"},
-			External: []string{extAWSSDK, extSmithy, extXSync},
+			Internal:     []string{"internal/collect", "internal/coverage", "internal/collect/awsraw"},
+			External:     []string{extAWSSDK, extSmithy, extXSync},
+			TestInternal: []string{"internal/collect/awslive/awsfake"},
+		},
+		{
+			// Test support only: imported by _test.go files, never linked into clapa.
+			Package: "internal/collect/awslive/awsfake", Layer: LayerIO,
+			Internal: []string{"internal/collect/awslive"},
+			External: []string{extAWSSDK, extSmithy},
 		},
 	}
 }
@@ -233,7 +240,7 @@ func entryRules() []*Rule {
 				"pkg/schema",
 			},
 			External:     []string{extXSync},
-			TestInternal: []string{"internal/eval/condition", "internal/eval/match"},
+			TestInternal: []string{"internal/eval/condition", "internal/eval/match", "internal/collect/awslive/awsfake"},
 		},
 		{
 			Package: "internal/cli", Layer: LayerEntry,
@@ -243,7 +250,8 @@ func entryRules() []*Rule {
 			},
 			External: []string{extCobra},
 			// os/exec only for `git status` before `remediate --write`.
-			ExtraStd: []string{"os/exec"},
+			ExtraStd:     []string{"os/exec"},
+			TestInternal: []string{"internal/collect/awslive", "internal/collect/awslive/awsfake"},
 		},
 		{Package: "cmd/clapa", Layer: LayerEntry, Internal: []string{"internal/cli"}},
 	}

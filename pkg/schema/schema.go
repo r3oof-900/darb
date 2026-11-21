@@ -152,10 +152,25 @@ type Gap struct {
 // Note is a coverage note from the analysis (e.g. protected data outside
 // the input).
 type Note struct {
+	// Kind: NoteManagedPolicies, NoteServiceCoverage and NoteInsecureTLS are
+	// warnings the console prints; the others ("not-modelled", ...) are listed
+	// in the JSON report.
 	Kind    string `json:"kind"`
 	Subject string `json:"subject"`
 	Detail  string `json:"detail"`
 }
+
+// Note kinds the console prints as warnings.
+const (
+	// NoteManagedPolicies: AWS managed policies missing from the vendored
+	// snapshot (their grants are unknown).
+	NoteManagedPolicies = "managed-policy-snapshot"
+	// NoteServiceCoverage: a service and region whose collection is
+	// incomplete or whose size is unknown.
+	NoteServiceCoverage = "service-coverage"
+	// NoteInsecureTLS: a live cluster was read without TLS verification.
+	NoteInsecureTLS = "insecure-tls"
+)
 
 // Graph summarises the access graph.
 type Graph struct {

@@ -18,8 +18,11 @@ type Account struct {
 	Partition string
 	Auth      *AuthorizationDetails // iam get-account-authorization-details
 	Keys      []*Key
+	Aliases   []Alias // kms list-aliases, every region
 	Buckets   []*Bucket
 	Clusters  []*Cluster
+	Secrets   []*Secret
+	Params    []*Parameter
 	Calls     []Call // every collection call, with its outcome
 }
 
@@ -124,11 +127,22 @@ type KeyMetadata struct {
 	KeyState   string `json:"KeyState"`
 }
 
+// Alias is one KMS alias (kms list-aliases).
+type Alias struct {
+	Region      string `json:"-"`
+	AliasName   string `json:"AliasName"`
+	AliasArn    string `json:"AliasArn"`
+	TargetKeyID string `json:"TargetKeyId"`
+}
+
 // Bucket is an S3 bucket with its policy, encryption and public access block.
 type Bucket struct {
-	Name              string
-	Region            string
-	Policy            string // "" when the bucket has no policy
+	Name   string
+	Region string
+	Policy string // "" when the bucket has no policy
+	// PolicyFailed: get-bucket-policy failed, so whether the bucket has a
+	// policy is unknown (not "no policy").
+	PolicyFailed      bool
 	Encryption        *Encryption
 	PublicAccessBlock *PublicAccessBlock
 	Tags              []Tag
@@ -147,6 +161,36 @@ type PublicAccessBlock struct {
 	IgnorePublicAcls      bool `json:"IgnorePublicAcls"`
 	BlockPublicPolicy     bool `json:"BlockPublicPolicy"`
 	RestrictPublicBuckets bool `json:"RestrictPublicBuckets"`
+}
+
+// Secret is a Secrets Manager secret: list-secrets (metadata only, never
+// the value) and get-resource-policy.
+type Secret struct {
+	Region   string
+	ARN      string
+	Name     string
+	KMSKeyID string // key ID, ARN or alias; "" for the AWS managed key aws/secretsmanager
+	Policy   string // "" when the secret has no resource policy
+	// PolicyFailed: get-resource-policy failed; the policy is unknown.
+	PolicyFailed bool
+	Tags         []Tag
+}
+
+// Parameter is a Systems Manager parameter: describe-parameters (metadata
+// only, never the value), its tags and resource policies.
+type Parameter struct {
+	Region string
+	Name   string
+	ARN    string
+	Type   string // "String", "StringList", "SecureString"
+	KeyID  string // SecureString: key ID, ARN or alias ("alias/aws/ssm" for the AWS managed key)
+	Tier   string // "Standard", "Advanced", "Intelligent-Tiering"
+	// Policies are the resource-based policies (get-resource-policies); only
+	// advanced parameters can have one.
+	Policies []string
+	// PolicyFailed: get-resource-policies failed; the policies are unknown.
+	PolicyFailed bool
+	Tags         []Tag
 }
 
 // Cluster is an EKS cluster with its Pod Identity associations.

@@ -40,6 +40,10 @@ func remediateCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 		_, _ = fmt.Fprintln(stderr, "clapa:", err)
 		return ExitUsage
 	}
+	if f.aws.live {
+		_, _ = fmt.Fprintln(stderr, "clapa: remediate verifies a fix by rescanning patched files; with live data there are none: run collect-snapshot and remediate the snapshot (--aws-snapshot)")
+		return ExitUsage
+	}
 	in := inputs(f, cfg)
 	l, err := app.Load(ctx, in)
 	if err != nil {

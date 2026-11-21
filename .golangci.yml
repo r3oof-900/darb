@@ -386,6 +386,31 @@ linters:
               desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
             - pkg: "testing"
               desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
+        internal-collect-awslive-awsfake:
+          list-mode: strict
+          files:
+            - "**/internal/collect/awslive/awsfake/*.go"
+            - "!$test"
+          allow:
+            - "$gostd"
+            - "github.com/r3oof-900/clapa/internal/collect/awslive$"
+            - "github.com/aws/aws-sdk-go-v2$"
+            - "github.com/aws/aws-sdk-go-v2/"
+            - "github.com/aws/smithy-go$"
+            - "github.com/aws/smithy-go/"
+          deny:
+            - pkg: "os/exec"
+              desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
+            - pkg: "syscall"
+              desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
+            - pkg: "plugin"
+              desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
+            - pkg: "unsafe"
+              desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
+            - pkg: "text/template"
+              desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
+            - pkg: "testing"
+              desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
         internal-collect-awsraw:
           list-mode: strict
           files:
@@ -393,6 +418,7 @@ linters:
             - "!$test"
           allow:
             - "$gostd"
+            - "github.com/r3oof-900/clapa/internal/coverage$"
             - "github.com/aws/aws-sdk-go-v2$"
             - "github.com/aws/aws-sdk-go-v2/"
           deny:

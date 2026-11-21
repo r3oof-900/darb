@@ -35,6 +35,7 @@ func (Reporter) Write(w io.Writer, r *schema.Report) error {
 	if r.Coverage.Collected == 0 {
 		p.printf("NOTHING WAS SCANNED: no input produced data. This is not a clean result.\n")
 	}
+	p.warnings(r.Coverage.Notes)
 	for _, sev := range []string{"critical", "high", "medium", "low", "info"} {
 		if n := r.Summary.BySeverity[sev]; n > 0 {
 			p.printf("%-8s %d\n", sev, n)
@@ -52,6 +53,27 @@ func (Reporter) Write(w io.Writer, r *schema.Report) error {
 	}
 	p.printf("exit code %d\n", r.ExitCode)
 	return p.err
+}
+
+// warnings prints the notes a reader must see before trusting the result:
+// unknown grants (managed policies missing from the snapshot), incomplete
+// or unknown service coverage, TLS verification off.
+func (p *printer) warnings(notes []schema.Note) {
+	n := 0
+	for _, note := range notes {
+		switch note.Kind {
+		case schema.NoteManagedPolicies, schema.NoteInsecureTLS:
+			p.printf("WARNING: %s\n", note.Detail)
+		case schema.NoteServiceCoverage:
+			p.printf("WARNING: coverage of %s: %s\n", note.Subject, note.Detail)
+		default:
+			continue
+		}
+		n++
+	}
+	if n > 0 {
+		p.printf("\n")
+	}
 }
 
 func finding(p *printer, f *schema.Finding) {

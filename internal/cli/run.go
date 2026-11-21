@@ -18,8 +18,11 @@ import (
 
 const usage = `usage:
   clapa scan [--root DIR] [--config FILE] [--plan FILE[=TFDIR]]... [--terraform DIR]...
-             [--k8s DIR[=CLUSTER]]... [--snapshot DIR]... [--format console|json|sarif]
-             [--output FILE] [--fail-on critical|high|medium|low|info]
+             [--k8s DIR[=CLUSTER]]... [--aws-snapshot DIR]... [--live-aws [AWS flags]]
+             [--format console|json|sarif] [--output FILE] [--fail-on critical|high|medium|low|info]
+  clapa collect-snapshot --out DIR [AWS flags]
+             AWS flags: [--aws-profile P] [--aws-region R]... [--aws-assume-role ARN]...
+             [--aws-external-id ID] [--aws-concurrency N] [--aws-call-timeout D]
   clapa remediate [scan input flags] [--write [--allow-revoke] [--force]] FINGERPRINT
   clapa rules list
   clapa rules show RULE-ID
@@ -29,13 +32,20 @@ above --fail-on, 2 usage or configuration error, 3 incomplete scan, 4 internal e
 
 // Run executes the command line and returns the exit code.
 func Run(ctx context.Context, args []string, stdout, stderr io.Writer) ExitCode {
+	return RunWith(ctx, args, stdout, stderr, DefaultEnv())
+}
+
+// RunWith is Run with the connections of env.
+func RunWith(ctx context.Context, args []string, stdout, stderr io.Writer, env *Env) ExitCode {
 	if len(args) == 0 {
 		_, _ = fmt.Fprintln(stderr, usage)
 		return ExitUsage
 	}
 	switch args[0] {
 	case "scan":
-		return scan(ctx, args[1:], stdout, stderr)
+		return scan(ctx, args[1:], stdout, stderr, env)
+	case "collect-snapshot":
+		return collectSnapshot(ctx, args[1:], stdout, stderr, env)
 	case "remediate":
 		return remediateCmd(ctx, args[1:], stdout, stderr)
 	case "rules":
@@ -58,6 +68,7 @@ func (l *list) Set(v string) error { *l = append(*l, v); return nil }
 type scanFlags struct {
 	root, cfg, format, output, failOn string
 	plans, tfDirs, k8sDirs, snapshots list
+	aws                               awsFlags
 }
 
 func parseScan(args []string, stderr io.Writer) (*scanFlags, bool) {
@@ -85,10 +96,11 @@ func scanFlagsOn(fset *flag.FlagSet, f *scanFlags) {
 	fset.Var(&f.plans, "plan", "Terraform plan (JSON or binary), optionally =its configuration directory")
 	fset.Var(&f.tfDirs, "terraform", "Terraform directory scanned statically")
 	fset.Var(&f.k8sDirs, "k8s", "Kubernetes manifests directory, optionally =cluster name")
-	fset.Var(&f.snapshots, "snapshot", "offline AWS snapshot directory (clapa-snapshot/v1)")
+	fset.Var(&f.snapshots, "aws-snapshot", "offline AWS snapshot directory (clapa-snapshot/v1, written by collect-snapshot)")
+	f.aws.on(fset, true)
 }
 
-func scan(ctx context.Context, args []string, stdout, stderr io.Writer) ExitCode {
+func scan(ctx context.Context, args []string, stdout, stderr io.Writer, env *Env) ExitCode {
 	f, ok := parseScan(args, stderr)
 	if !ok {
 		return ExitUsage
@@ -98,7 +110,14 @@ func scan(ctx context.Context, args []string, stdout, stderr io.Writer) ExitCode
 		_, _ = fmt.Fprintln(stderr, "clapa:", err)
 		return ExitUsage
 	}
-	l, err := app.Load(ctx, inputs(f, cfg))
+	in := inputs(f, cfg)
+	if f.aws.live {
+		if in.AWSLive, err = f.aws.options(ctx, env); err != nil {
+			_, _ = fmt.Fprintln(stderr, "clapa:", err)
+			return ExitUsage
+		}
+	}
+	l, err := app.Load(ctx, in)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, "clapa:", err)
 		if errors.Is(err, config.ErrInvalid) {

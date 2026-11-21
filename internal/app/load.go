@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"path"
 
+	"github.com/r3oof-900/clapa/internal/access"
 	"github.com/r3oof-900/clapa/internal/classify"
 	"github.com/r3oof-900/clapa/internal/collect"
+	"github.com/r3oof-900/clapa/internal/collect/awslive"
+	"github.com/r3oof-900/clapa/internal/collect/awsraw"
 	"github.com/r3oof-900/clapa/internal/collect/awssnapshot"
 	"github.com/r3oof-900/clapa/internal/collect/k8s/manifests"
 	"github.com/r3oof-900/clapa/internal/collect/terraform/hclstatic"
@@ -29,9 +32,11 @@ type Inputs struct {
 	TerraformDirs  []string
 	K8sDirs        []K8sDir
 	AWSSnapshots   []string
-	Config         *config.Config
-	Limits         safeio.Limits
-	TerraformBin   string
+	// AWSLive, when set, collects AWS live (read-only; --live-aws).
+	AWSLive      *AWSLive
+	Config       *config.Config
+	Limits       safeio.Limits
+	TerraformBin string
 }
 
 // PlanInput is a Terraform plan and, when known, the root module directory it
@@ -52,6 +57,9 @@ type Loaded struct {
 	Inventory   *model.Inventory
 	EntryPoints []classify.EntryPoint
 	Gaps        []coverage.Gap
+	// Notes say what a scan of AWS could not decide (managed policies
+	// missing from the snapshot, services whose coverage is incomplete).
+	Notes []access.Note
 	// Collected counts the inputs that produced data. Zero means the scan
 	// saw nothing (exit code 3), never "0 findings".
 	Collected int
@@ -91,6 +99,8 @@ func Load(ctx context.Context, in *Inputs) (*Loaded, error) {
 		normk8s.Normalize(objs, b, rec)
 		collected += len(objs.Items)
 	}
+	var notes []access.Note
+	aws := &awsraw.Snapshot{}
 	for _, s := range in.AWSSnapshots {
 		snap, err := awssnapshot.Collect(ctx, input(in, s), rec)
 		if err != nil {
@@ -98,6 +108,19 @@ func Load(ctx context.Context, in *Inputs) (*Loaded, error) {
 		}
 		normaws.Normalize(snap, mp, b, rec)
 		collected += len(snap.Accounts)
+		aws.Accounts = append(aws.Accounts, snap.Accounts...)
+	}
+	if in.AWSLive != nil {
+		snap, err := awslive.Collect(ctx, in.AWSLive, rec)
+		if err != nil {
+			return nil, err
+		}
+		normaws.Normalize(snap, mp, b, rec)
+		collected += len(snap.Accounts)
+		aws.Accounts = append(aws.Accounts, snap.Accounts...)
+	}
+	if len(in.AWSSnapshots) > 0 || in.AWSLive != nil {
+		notes = awsNotes(aws, mp)
 	}
 	addConfiguredClusters(in.Config, b)
 	inv, err := b.Build()
@@ -107,7 +130,7 @@ func Load(ctx context.Context, in *Inputs) (*Loaded, error) {
 	inv.Resources = classify.CrownJewels(inv.Resources, jewelRules(in.Config))
 	return &Loaded{
 		Inventory: inv, EntryPoints: classify.EntryPoints(inv, *in.Config.ThreatModel.AssumeCompromised),
-		Gaps: rec.Gaps(), Collected: collected,
+		Gaps: rec.Gaps(), Notes: notes, Collected: collected,
 	}, nil
 }
 

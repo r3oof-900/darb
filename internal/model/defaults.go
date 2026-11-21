@@ -26,6 +26,7 @@ const (
 	DefaultNetPolTypes       = "k8s.networkPolicy.policyTypes"
 	DefaultOIDCAudience      = "eks.irsa.oidc-provider-audience"
 	DefaultS3NewBucketBPA    = "s3.block-public-access.new-bucket"
+	DefaultAWSManagedKeyRot  = "kms.aws-managed-key.rotation"
 )
 
 // DocumentedDefault is one deterministic default and where it is documented.
@@ -83,6 +84,13 @@ func DocumentedDefaults() []DocumentedDefault {
 			"all four settings on (restrict_public_buckets = true)",
 			"https://aws.amazon.com/blogs/aws/heads-up-amazon-s3-security-changes-are-coming-in-april-of-2023/",
 			"newly created buckets [...] will by default have S3 Block Public Access enabled",
+		},
+		{
+			// Read on 2026-11-21. The account cannot change it, so it is
+			// deterministic for every AWS managed key.
+			DefaultAWSManagedKeyRot, "rotation of an AWS managed KMS key (KeyManager AWS)", "true (every year)",
+			"https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html",
+			"AWS KMS automatically rotates AWS managed keys every year",
 		},
 		{
 			DefaultPodIdentitySTags, "Pod Identity association disableSessionTags", "false",

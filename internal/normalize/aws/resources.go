@@ -2,6 +2,7 @@ package aws
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/r3oof-900/clapa/internal/collect/awsraw"
 	"github.com/r3oof-900/clapa/internal/coverage"
@@ -69,12 +70,16 @@ func (n *norm) managedDoc(policyARN string, kind model.PolicyKind) *model.Policy
 func (n *norm) keys() {
 	for _, k := range n.acct.Keys {
 		loc := apiLoc(k.Metadata.Arn, "kms:GetKeyPolicy")
-		if k.RotationEnabled == nil {
+		rotation, defaulted := optionalTri(k.RotationEnabled), []string(nil)
+		switch {
+		case k.RotationEnabled == nil && k.Metadata.KeyManager == "AWS":
+			rotation, defaulted = model.True, []string{model.DefaultAWSManagedKeyRot}
+		case k.RotationEnabled == nil:
 			n.gap(coverage.KindUnresolved, k.Metadata.Arn, "key rotation status was not collected (kms:GetKeyRotationStatus); unknown")
 		}
 		key := model.NewResource(&model.ResourceInput{
 			Kind: model.KindKMSKey, ARN: k.Metadata.Arn, Account: n.acct.ID, Region: k.Region, Tags: tagMap(k.Tags),
-			KeyRotation: optionalTri(k.RotationEnabled), Source: loc,
+			KeyRotation: rotation, Defaulted: defaulted, Source: loc,
 		})
 		n.b.AddResource(key)
 		raw, _ := json.Marshal(k.Policy)
@@ -99,7 +104,11 @@ func (n *norm) buckets() {
 			Encryption: enc, S3: model.S3Settings{RestrictPublicBuckets: restrict}, Source: loc,
 		})
 		n.b.AddResource(res)
-		if b.Policy != "" {
+		switch {
+		case b.PolicyFailed:
+			// The policy could not be read: unknown, never "no policy".
+			n.b.AddPolicy(&model.AttachedPolicy{Target: res.ID(), Doc: n.unknownDoc(arn+"#bucket-policy", model.PolicyResource, &loc)})
+		case b.Policy != "":
 			raw, _ := json.Marshal(b.Policy)
 			n.b.AddPolicy(&model.AttachedPolicy{Target: res.ID(), Doc: n.parse(raw, arn+"#bucket-policy", model.PolicyResource, &loc)})
 		}
@@ -108,6 +117,15 @@ func (n *norm) buckets() {
 
 func (n *norm) clusters() {
 	for _, c := range n.acct.Clusters {
+		if n.b.Has(model.NewID("cluster", c.Name)) {
+			// Clusters are identified by name (clapa.yaml clusters[].name,
+			// --k8s DIR=CLUSTER); a second cluster of the same name in another
+			// region or account is not analysed (DESIGN.md 12.1).
+			n.gap(coverage.KindUnsupported, c.Arn, fmt.Sprintf(
+				"another cluster named %q is already in the scan; clusters are identified by name, so this one and its %d Pod Identity associations are not analysed",
+				c.Name, len(c.PodIdentity)))
+			continue
+		}
 		loc := apiLoc(c.Arn, "eks:DescribeCluster")
 		n.b.AddCluster(&model.Cluster{Name: c.Name, ARN: c.Arn, Account: n.acct.ID, Region: c.Region, OIDCIssuer: c.OIDCIssuer, Source: loc})
 		for _, a := range c.PodIdentity {

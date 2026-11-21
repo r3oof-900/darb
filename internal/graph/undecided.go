@@ -56,6 +56,20 @@ func missingOf(u *Unknown) string {
 		return fmt.Sprintf("set `assume: {%q: [...]}` in clapa.yaml: %s conditions on %s, whose value is not in the input (%s)",
 			u.Key, u.Policy, u.Key, u.Reason)
 	}
+	if name, ok := awsManagedPolicy(u.Policy); ok {
+		return fmt.Sprintf("the AWS managed policy %s is not in the managed policy snapshot, so what it grants is unknown: "+
+			"managed policy snapshot is incomplete: run tools/refresh-managed-policies", name)
+	}
 	return fmt.Sprintf("decide %s %s of %s: %s; a Terraform plan (--plan) resolves values that are not known statically",
 		u.Element, u.Key, u.Policy, u.Reason)
+}
+
+// awsManagedPolicy returns the name of an AWS managed policy ARN
+// (arn:<partition>:iam::aws:policy/<path><name>).
+func awsManagedPolicy(policyARN string) (string, bool) {
+	_, rest, ok := strings.Cut(policyARN, ":iam::aws:policy/")
+	if !ok || !strings.HasPrefix(policyARN, "arn:") || rest == "" {
+		return "", false
+	}
+	return rest[strings.LastIndex(rest, "/")+1:], true
 }
