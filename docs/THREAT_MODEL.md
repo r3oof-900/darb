@@ -80,5 +80,10 @@ it is enforced; "Phase N" means the control lands in that phase.
   `SecurityAudit` + `ViewOnlyAccess`.
 - Reports are sensitive by nature; darb cannot control where users store them.
   The README states this explicitly.
-- False negatives from unmodelled AWS features (KMS grants, S3 ACLs, VPC endpoint
-  policies) are reported as coverage gaps, never hidden.
+- False negatives from unmodelled AWS features: KMS grants and S3 ACLs can grant
+  access darb does not see, so a real path can be missed. *Correction (Phase
+  7):* this line said they were reported as coverage gaps; they were not. Each
+  report now names the keys and buckets concerned in `not-modelled` notes
+  (DESIGN.md §12.3); collecting grants and ACLs comes before `v0.1.0`. VPC
+  endpoint policies only restrict access, so their absence can only add
+  findings.

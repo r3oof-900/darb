@@ -35,10 +35,24 @@ take precedence (exit 1): they are actionable even when coverage is partial.
 
 ### Why is a path reported that an SCP would block?
 
-AWS Organizations SCPs and RCPs, KMS grants and account-level S3 Block Public
-Access are not collected yet ([PERMISSIONS.md](PERMISSIONS.md)). Each is
-listed in every report as `not-modelled`. They can only make darb report a
-path that is in fact blocked, never hide one.
+AWS Organizations SCPs and RCPs are not collected yet. They can only restrict
+access, so without them darb may report a path that one of them blocks; they
+never hide one. Every scan with AWS data says so in a `not-modelled` note.
+
+### Can darb miss a path?
+
+Yes, through what it does not collect yet:
+
+- **KMS grants.** A grant can give `kms:Decrypt` to a principal that the key
+  policy does not name, so a path through such a key can be missed.
+- **S3 ACLs.** An ACL can grant read access to another account or to
+  everyone, so a path to such a bucket can be missed.
+- **AWS RAM shares of SSM parameters.** A share can give another account read
+  access that the parameter's resource policies do not show.
+
+Each report names the keys, buckets and shareable parameters these concern in
+`not-modelled` notes; the notes do not change the exit code. The full list,
+with whether each can hide a path, is [DESIGN.md §12.3](DESIGN.md#123-limits-every-report-states-phase-7).
 
 ### Why is every role with an AWS managed policy UNKNOWN?
 

@@ -35,6 +35,9 @@ request.
 | 7 | `darb.yaml` keys | `crown_jewels` (`tag_keys`, `tag_values`, `explicit`), `threat_model.assume_compromised` and `clusters[].oidc_issuer` were documented nowhere; `--config` was in no document | **fixed**: [docs/CONFIG.md](CONFIG.md), every key with its checks; its example is parsed by darb |
 | 8 | DESIGN.md §11: `doctor` probes `iam:SimulatePrincipalPolicy` "when allowed" | not called: it is outside the read-only policy of docs/PERMISSIONS.md | **open** (recorded in §11) |
 | 9 | integration tests cover every live call | LocalStack ran without `s3control`, so the account Block Public Access call always failed (correctly recorded as unknown, never read back) | **fixed**: service enabled; the test sets the account setting and requires it read back |
+| 10 | README, FAQ, PERMISSIONS: KMS grants "can only make darb report a path that is blocked, never hide one"; DESIGN §6 and THREAT_MODEL: their absence "reported as a coverage gap" | a grant can give `kms:Decrypt` to a principal the key policy does not name, so missing grants **can hide a real path**; and nothing was recorded: no gap, no note, so a scan with keys could look complete | **fixed** (found after this audit, during the release review): every report with KMS keys carries a `not-modelled` note naming them; documents corrected; collecting grants is next |
+| 11 | DESIGN §6: "S3 ACLs are not modelled; reported as a gap"; THREAT_MODEL: reported as gaps | nothing was recorded; an ACL can grant read access, so this too **can hide a real path** | **fixed** (same review): a `not-modelled` note naming the buckets; documents corrected; collecting ACLs is next |
+| 12 | FAQ, PERMISSIONS: SCPs and RCPs "listed in every report as `not-modelled`"; FAQ's list also named account-level Block Public Access, collected since this phase | no report mentioned SCPs or RCPs | **fixed**: a `not-modelled` note on every scan with AWS data; FAQ's list corrected |
 
 Earlier in Phase 7, the same kind of check found and fixed: THREAT_MODEL's
 claim that a redacting log handler existed since Phase 2 (it was a stub); SARIF
@@ -42,6 +45,13 @@ without the code flows and `%SRCROOT%` locations §11 promised; the RAM note
 "listed in every report" (it now names the shareable parameters, and only when
 there are some); `internal/report/sarif` not validated against the official
 schema (now validated).
+
+Findings 10 to 12 were **missed by this audit**: it compared the documents
+with one another and with code paths, but did not check, for each stated limit,
+that a report actually carries it. That check is now a test: DESIGN.md §12.3
+lists every limit with the note or gap that states it and a scenario, and
+`TestStatedLimits` requires each one in that scenario's report, and every note
+the code writes in the table.
 
 ## Verified consistent
 
