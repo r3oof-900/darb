@@ -97,6 +97,41 @@ jobs:
       - name: Fuzz each target for 20s
         run: task fuzz FUZZTIME=20s
 
+  release-snapshot:
+    # .goreleaser.yaml builds, archives and SBOMs on every change (nothing is
+    # signed or published), twice: the archives must be byte-identical.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      - uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          syft-version: v1.57.0
+      - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
+        with:
+          distribution: goreleaser
+          version: v2.19.0
+          args: check
+      - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
+        with:
+          distribution: goreleaser
+          version: v2.19.0
+          args: release --snapshot --clean --skip=sign
+      - name: Keep the first build's archive checksums
+        run: grep -v 'spdx.json' dist/checksums.txt > /tmp/first.txt && cat /tmp/first.txt
+      - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
+        with:
+          distribution: goreleaser
+          version: v2.19.0
+          args: release --snapshot --clean --skip=sign
+      - name: The second build is identical
+        run: grep -v 'spdx.json' dist/checksums.txt | diff /tmp/first.txt -
+
   security:
     runs-on: ubuntu-latest
     steps:

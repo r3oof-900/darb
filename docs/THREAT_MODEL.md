@@ -38,7 +38,7 @@ it is enforced; "Phase N" means the control lands in that phase.
 | Output path traversal (`--output ../../etc/x`, archive-style names) | `internal/safeio` cleans and confines output paths; refuses to overwrite inputs (Phase 3) |
 | Symlink in an input tree pointing outside the scan root | symlinks not followed outside the root (Phase 3) |
 | Malicious dependency / action | `go.sum` committed, `GOFLAGS=-mod=readonly`, Dependabot, `govulncheck`, actions pinned by commit SHA (Phase 1) |
-| Release tampering | goreleaser reproducible builds, SBOM (syft), cosign signatures, SLSA provenance (Phase 7) |
+| Release tampering | `.goreleaser.yaml` + `release.yml` (Phase 7): reproducible builds (`-trimpath`, no build ID, commit time as file time; CI builds every change twice and requires identical archives), an SPDX SBOM per archive (syft), `checksums.txt` signed keylessly with cosign (a Sigstore bundle bound to the release workflow's identity), and SLSA build provenance (GitHub artifact attestations). Releases are drafts until a maintainer publishes them. Verification commands are in the README |
 
 ### Repudiation
 | Threat | Control |
