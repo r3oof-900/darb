@@ -32,7 +32,7 @@ jobs:
         ports:
           - 4566:4566
         env:
-          SERVICES: sts,iam,s3,kms,secretsmanager,ssm
+          SERVICES: sts,iam,s3,s3control,kms,secretsmanager,ssm
         options: >-
           --health-cmd "curl -fs http://localhost:4566/_localstack/health"
           --health-interval 5s --health-timeout 5s --health-retries 30
