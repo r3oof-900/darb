@@ -2,9 +2,11 @@
 
 ## Reporting a vulnerability
 
-Please **do not** open a public issue. Report privately through GitHub's
-*Private vulnerability reporting* on this repository
-(Security → Advisories → "Report a vulnerability").
+Please **do not** open a public issue, pull request or discussion. Report
+privately through GitHub's *Private vulnerability reporting*:
+<https://github.com/r3oof-900/clapa/security/advisories/new> (or the
+repository's **Security** tab → **Report a vulnerability**). Only the
+maintainers see the report and the conversation that follows.
 
 Include the affected version (`clapa version`), a description, and a minimal
 reproduction (sanitise any real account IDs, ARNs or secrets).
