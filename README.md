@@ -46,8 +46,12 @@ names the account, region and cluster; see
 [tests/fixtures/01_classic/vulnerable](tests/fixtures/01_classic/vulnerable)):
 
 ```sh
-darb scan --root tests/fixtures/01_classic/vulnerable --terraform terraform --k8s k8s
+darb scan tests/fixtures/01_classic/vulnerable
 ```
+
+A path is enough: darb finds the Terraform directories, Kubernetes manifests
+and snapshots under it, and reads its `darb.yaml`. The same scan with explicit
+flags is `darb scan --root tests/fixtures/01_classic/vulnerable --terraform terraform --k8s k8s`.
 
 Real output (abridged):
 

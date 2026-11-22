@@ -29,8 +29,14 @@ func doctorCmd(ctx context.Context, args []string, stdout, stderr io.Writer, env
 	fs.StringVar(&probeK8s, "probe-k8s", "", "ask this kubeconfig context's API server for its version")
 	fs.StringVar(&kubeconfig, "kubeconfig", "", "kubeconfig file (default: KUBECONFIG, then ~/.kube/config)")
 	aws.on(fs, false)
-	if err := fs.Parse(args); err != nil || fs.NArg() > 0 ||
-		unused(fs, "doctor", stderr, "aws-assume-role", "aws-external-id", "aws-concurrency", "aws-call-timeout") {
+	if err := fs.Parse(args); err != nil {
+		return ExitUsage
+	}
+	if fs.NArg() > 0 {
+		_, _ = fmt.Fprintf(stderr, "darb: doctor takes no arguments, got %q (darb doctor -h)\n", fs.Args())
+		return ExitUsage
+	}
+	if unused(fs, "doctor", stderr, "aws-assume-role", "aws-external-id", "aws-concurrency", "aws-call-timeout") {
 		return ExitUsage
 	}
 	home, _ := os.UserHomeDir()
@@ -58,7 +64,8 @@ func graphCmd(ctx context.Context, args []string, stdout, stderr io.Writer, env 
 	fs := flag.NewFlagSet("graph", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	scanFlagsOn(fs, f)
-	if err := fs.Parse(args); err != nil || fs.NArg() > 0 || unused(fs, "graph", stderr, "ignore", "baseline", "fail-on") {
+	paths, err := parseInterspersed(fs, args)
+	if err != nil || unused(fs, "graph", stderr, "ignore", "baseline", "fail-on") || !addPaths(f, paths, rootGiven(fs), stderr) {
 		return ExitUsage
 	}
 	if f.format == "console" { // scanFlagsOn's default

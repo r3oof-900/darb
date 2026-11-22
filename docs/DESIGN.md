@@ -1475,6 +1475,19 @@ explanation" and HTML-escaped like any other untrusted string.
 
 ## 11. CLI and output
 
+**Paths (Phase 7).** `darb scan [PATHS...]` and `darb graph [PATHS...]` take
+directories as well as flags: under each, every top-most directory holding
+`.tf` files is a `--terraform` input, every top-most directory holding a
+Kubernetes manifest (a YAML or JSON document with `apiVersion` and `kind`) a
+`--k8s` input, and every directory with a `darb-snapshot/v1` manifest an
+`--aws-snapshot` input; hidden directories are skipped, as the readers skip
+them. With one path and no `--root`, the path is the root, so its `darb.yaml` is
+read. A path that is a file, does not exist, or holds none of these is a usage
+error naming it. Flags may follow the paths. `TestScanPathsEqualExplicitFlags`:
+`darb scan DIR` gives the report of the explicit flags byte for byte. Every
+usage error prints a message (`TestEveryUsageErrorSaysSomething`); a command
+that exits 2 without one gets a hint.
+
 Commands: `scan`, `explain`, `graph`, `remediate`, `rules list|show`,
 `collect-snapshot`, `doctor`, `version` (spec §11.1).
 
