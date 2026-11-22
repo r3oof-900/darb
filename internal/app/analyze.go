@@ -1,7 +1,6 @@
 package app
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
@@ -128,53 +127,6 @@ func analyze(l *Loaded, cfg *config.Config, failOn string, edit func(*graph.Grap
 	a.GapsCounted = gapsOverTolerance(l.Gaps, cfg)
 	a.ExitCode = findings.ExitCode(fs, failOn, l.Collected, a.GapsCounted)
 	return a, nil
-}
-
-// notModelled lists what the engine does not analyse yet (DESIGN.md §12.0).
-// The engine is silent about these, rather than UNKNOWN, so every report
-// states them.
-func notModelled(inv *model.Inventory) []access.Note {
-	n := func(subject, detail string) access.Note {
-		return access.Note{Kind: "not-modelled", Subject: subject, Detail: detail}
-	}
-	notes := []access.Note{
-		n("Kubernetes Secrets through admission", "a pod that names a Secret, or a pod created to name one, is an edge "+
-			"(CAN_READ_PLAINTEXT[mount], [pod-create]); admission policies that would reject such a pod are not read"),
-	}
-	if note, ok := ramNote(inv); ok {
-		notes = append(notes, note)
-	}
-	return notes
-}
-
-// ramNote: AWS RAM shares are not collected (DESIGN.md 12.1). Only an
-// advanced-tier SSM parameter can be shared, so the note names the
-// parameters of the input that are, may become or may be advanced; with
-// none, nothing is missed and there is no note.
-func ramNote(inv *model.Inventory) (access.Note, bool) {
-	var names []string
-	for _, r := range inv.Resources {
-		if r.Shareable() {
-			tier := r.Tier()
-			if tier == "" {
-				tier = "tier unknown"
-			}
-			names = append(names, r.ARN()+" ("+tier+")")
-		}
-	}
-	if len(names) == 0 {
-		return access.Note{}, false
-	}
-	const show = 10
-	list := strings.Join(names[:min(show, len(names))], ", ")
-	if len(names) > show {
-		list += fmt.Sprintf(" and %d more", len(names)-show)
-	}
-	return access.Note{
-		Kind: "not-modelled", Subject: "AWS RAM shares of SSM parameters",
-		Detail: "cross-account access is evaluated from the resource policies collected; a share through AWS RAM is not collected, " +
-			"so another account it grants read access to is not seen. Only advanced-tier parameters can be shared: " + list,
-	}, true
 }
 
 func partition(cfg *config.Config) string {
