@@ -40,7 +40,9 @@ var formats = []Format{
 	f("gitlab-token", `\bglpat-[A-Za-z0-9_-]{20,}\b`),
 	f("gitlab-runner-token", `\bglrt-[A-Za-z0-9_-]{20,}\b`),
 	f("slack-token", `\bxox[abposr]-[A-Za-z0-9-]{10,}\b`),
+	// search pattern used to find secrets inside free text; anchoring would stop it from matching mid-line
 	f("slack-webhook", `https://hooks\.slack\.com/services/T[A-Z0-9]+/B[A-Z0-9]+/[A-Za-z0-9]{20,}`),
+	// search pattern used to find secrets inside free text; anchoring would stop it from matching mid-line
 	f("discord-webhook", `https://(?:ptb\.|canary\.)?discord(?:app)?\.com/api/webhooks/\d+/[A-Za-z0-9_-]{60,}`),
 	f("stripe-key", `\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{24,}\b`),
 	f("google-api-key", `\bAIza[0-9A-Za-z_-]{35}\b`),

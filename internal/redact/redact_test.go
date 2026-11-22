@@ -154,3 +154,29 @@ func TestHandler(t *testing.T) {
 		}
 	}
 }
+
+// The webhook patterns search free text: a webhook in the middle of a long
+// line is redacted; a look-alike on another domain is not (the dots of the
+// domain are literal, so "hooks-slack.com" or "hooks.slack.com.evil.example"
+// do not match).
+func TestWebhooksMidLine(t *testing.T) {
+	slack := "https://hooks.slack.com/services/" + "T0AAAA/B0BBBB/" + rep("c", 24)
+	discord := "https://discord.com/api/webhooks/" + "123/" + rep("d", 64)
+	line := rep("x ", 400) + "notify=" + slack + " and " + discord + " then " + rep("y ", 400)
+	out := Redact(line)
+	if strings.Contains(out, slack) || strings.Contains(out, discord) ||
+		!strings.Contains(out, "notify=[REDACTED:slack-webhook] and [REDACTED:discord-webhook] then") {
+		t.Fatalf("mid-line webhooks not redacted: %q", out[780:900])
+	}
+	for _, lookalike := range []string{
+		"https://hooks-slack.com.evil.example/services/" + "T0AAAA/B0BBBB/" + rep("c", 24),
+		"https://hooks.slack.com.evil.example/services/" + "T0AAAA/B0BBBB/" + rep("c", 24),
+		"https://hooksXslackXcom/services/" + "T0AAAA/B0BBBB/" + rep("c", 24),
+		"https://discordXcom/api/webhooks/" + "123/" + rep("d", 64),
+		"https://discord.com.evil.example/api/webhooks/" + "123/" + rep("d", 64),
+	} {
+		if got := Redact("see " + lookalike + " now"); got != "see "+lookalike+" now" {
+			t.Errorf("a look-alike was redacted: %q", got)
+		}
+	}
+}
