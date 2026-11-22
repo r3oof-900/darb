@@ -24,6 +24,7 @@ func Normalize(s *awsraw.Snapshot, mp *managedpolicies.Snapshot, b *normalize.Bu
 		n.iam()
 		n.keys()
 		n.buckets()
+		n.accountBlock()
 		n.clusters()
 		n.secrets()
 		n.parameters()

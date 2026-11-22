@@ -17,6 +17,8 @@ import (
 	kmstypes "github.com/aws/aws-sdk-go-v2/service/kms/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/aws-sdk-go-v2/service/s3control"
+	s3ctypes "github.com/aws/aws-sdk-go-v2/service/s3control/types"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	smtypes "github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
@@ -66,7 +68,7 @@ type Factory struct {
 // Clients implements awslive.Factory.
 func (ff *Factory) Clients(_ awslive.Target, region string) *awslive.Clients {
 	f := &fake{region: region, fail: ff.Fail, hang: ff.Hang, mu: &ff.mu, calls: &ff.calls}
-	return &awslive.Clients{STS: f, IAM: f, S3: f, KMS: f, EKS: f, Secrets: f, SSM: f}
+	return &awslive.Clients{STS: f, IAM: f, S3: f, Control: control{f}, KMS: f, EKS: f, Secrets: f, SSM: f}
 }
 
 // Calls returns every call made, sorted ("region API target").
@@ -297,4 +299,17 @@ func (f *fake) GetResourcePolicies(ctx context.Context, in *ssm.GetResourcePolic
 		return nil, err
 	}
 	return &ssm.GetResourcePoliciesOutput{Policies: []ssmtypes.GetResourcePoliciesResponseEntry{{Policy: aws.String(`{"Version":"2012-10-17","Statement":[]}`)}}}, nil
+}
+
+// control is the account's s3control endpoint: RestrictPublicBuckets off,
+// BlockPublicPolicy on (so the buckets' own settings decide).
+type control struct{ f *fake }
+
+func (c control) GetPublicAccessBlock(ctx context.Context, in *s3control.GetPublicAccessBlockInput, _ ...func(*s3control.Options)) (*s3control.GetPublicAccessBlockOutput, error) {
+	if err := c.f.do(ctx, "GetAccountPublicAccessBlock", aws.ToString(in.AccountId)); err != nil {
+		return nil, err
+	}
+	return &s3control.GetPublicAccessBlockOutput{PublicAccessBlockConfiguration: &s3ctypes.PublicAccessBlockConfiguration{
+		RestrictPublicBuckets: aws.Bool(false), BlockPublicPolicy: aws.Bool(true),
+	}}, nil
 }

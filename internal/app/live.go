@@ -104,10 +104,16 @@ func awsNotes(snap *awsraw.Snapshot, mp *managedpolicies.Snapshot) []access.Note
 			notes = append(notes, access.Note{Kind: NoteServiceCoverage, Subject: strings.TrimSpace(a.ID + " " + c.Service + " " + c.Region), Detail: c.String()})
 		}
 	}
-	notes = append(notes, access.Note{
-		Kind: "not-modelled", Subject: "S3 account-level Block Public Access",
-		Detail: "not collected (s3:GetAccountPublicAccessBlock): a bucket without its own setting is treated as not blocked, which can report a path the account setting blocks, never hide one",
-	})
+	for _, a := range snap.Accounts {
+		// Collected since Phase 7; a snapshot written before has no file
+		// for it and no failed call.
+		if a.PublicAccessBlock == nil && !a.PublicAccessBlockFailed {
+			notes = append(notes, access.Note{
+				Kind: "not-modelled", Subject: a.ID + " S3 account-level Block Public Access",
+				Detail: "not in the input (s3:GetAccountPublicAccessBlock; a snapshot from before Phase 7): a bucket without its own setting is treated as not blocked, which can report a path the account setting blocks, never hide one",
+			})
+		}
+	}
 	return notes
 }
 

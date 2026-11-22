@@ -380,6 +380,22 @@ E["12_public_bucket/vulnerable"] = {"derived_from": "13.2 row 12", "findings": [
                  # Round 5: the path is that one edge: no other cut, no alternative.
                  fix=[step(f"CAN_READ anonymous -> {LEADS}", "resource", "narrow", 2)], other_side=[], alternative_detail=[]),
     posture("CLAPA-POST-005", LEADS, 600, "high")]}
+# 12/account_block (DESIGN.md 12.1 priority 2; Phase 7): the vulnerable
+# variant plus aws_s3_account_public_access_block with
+# restrict_public_buckets = true. S3 applies the most restrictive of the
+# account and bucket settings (S3 User Guide, Blocking public access: "If
+# the block public access settings for the access point, bucket, or account
+# differ, then Amazon S3 applies the most restrictive combination of the
+# access point, bucket, and account settings."), and RestrictPublicBuckets
+# limits a bucket with a public policy to AWS service principals and the
+# owner account's authorized users: the anonymous read is denied, no
+# CAN_READ edge, no CLAPA-PATH-003; the bucket is effectively blocked, no
+# CLAPA-POST-005. The policy still grants s3:GetObject to "*" with no
+# condition, and the anonymous caller is an entry point, so CLAPA-POST-008
+# stays as in the vulnerable variant: 600, high (added with BROAD below).
+E["12_public_bucket/account_block"] = {"derived_from": "DESIGN.md 12.1 priority 2: account-level Block Public Access on",
+                                       "findings": [], "absent": [{"rule": "CLAPA-PATH-003", "jewel": LEADS},
+                                                                  {"rule": "CLAPA-POST-005", "resource": LEADS}]}
 E["12_public_bucket/fixed"] = {"derived_from": "13.2 row 12 fixed: Block Public Access on, policy names one role",
                                "findings": [], "absent": [{"rule": "CLAPA-PATH-003", "jewel": LEADS},
                                                           {"rule": "CLAPA-POST-005", "resource": LEADS}]}
@@ -574,6 +590,7 @@ BROAD = {
     "10_kms_principal_org_id/vulnerable": [SHARED_KEY],       # key policy: Principal "*", org condition only
     "11_boundary_deny/vulnerable": [ROLE],                    # boundary allows everything else
     "12_public_bucket/vulnerable": [LEADS],                   # bucket policy: Principal "*"
+    "12_public_bucket/account_block": [LEADS],                # the same policy; the account block does not change it
     "16_malformed_inputs/vulnerable": [ROLE],                 # kms:Decrypt on "*"
     "16_malformed_inputs/fixed": [ROLE],                      # same role file
     "17_pod_identity_classic/vulnerable": [ROLE],             # kms:Decrypt on "*"

@@ -152,6 +152,14 @@ func (r *reader) place(a *awsraw.Account, l *layout, f string, parts []string) e
 		a.Auth = &awsraw.AuthorizationDetails{}
 		return r.json(f, a.Auth)
 	}
+	if f == path.Join(a.ID, "s3control", "get-public-access-block.json") {
+		var v struct {
+			Config awsraw.PublicAccessBlock `json:"PublicAccessBlockConfiguration"`
+		}
+		err := r.json(f, &v)
+		a.PublicAccessBlock = &v.Config
+		return err
+	}
 	if len(parts) < 4 {
 		return errUnknownFile
 	}
@@ -210,6 +218,7 @@ func failedPolicies(a *awsraw.Account) {
 	for _, b := range a.Buckets {
 		b.PolicyFailed = failed["s3 GetBucketPolicy "+b.Name]
 	}
+	a.PublicAccessBlockFailed = failed["s3control GetPublicAccessBlock "+a.ID]
 	for _, s := range a.Secrets {
 		s.PolicyFailed = failed["secretsmanager GetResourcePolicy "+s.ARN]
 	}

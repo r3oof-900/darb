@@ -23,7 +23,12 @@ type Account struct {
 	Clusters  []*Cluster
 	Secrets   []*Secret
 	Params    []*Parameter
-	Calls     []Call // every collection call, with its outcome
+	// PublicAccessBlock: the account's S3 Block Public Access (s3control
+	// get-public-access-block; every setting off when none is configured);
+	// nil when not collected. PublicAccessBlockFailed: the call failed.
+	PublicAccessBlock       *PublicAccessBlock
+	PublicAccessBlockFailed bool
+	Calls                   []Call // every collection call, with its outcome
 }
 
 // AuthorizationDetails is iam:GetAccountAuthorizationDetails.

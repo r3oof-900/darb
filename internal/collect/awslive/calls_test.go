@@ -14,7 +14,7 @@ func TestCallsAreAllowed(t *testing.T) {
 	a, _ := run(t, ff, "eu-west-1")
 	iamName := map[string]string{
 		"s3:ListBuckets": "s3:ListAllMyBuckets", "s3:GetBucketEncryption": "s3:GetEncryptionConfiguration",
-		"s3:GetPublicAccessBlock": "s3:GetBucketPublicAccessBlock",
+		"s3:GetPublicAccessBlock": "s3:GetBucketPublicAccessBlock", "s3control:GetPublicAccessBlock": "s3:GetAccountPublicAccessBlock",
 	}
 	used := map[string]bool{}
 	for _, c := range a.Calls {

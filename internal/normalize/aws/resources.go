@@ -87,6 +87,19 @@ func (n *norm) keys() {
 	}
 }
 
+// accountBlock: the account's S3 Block Public Access, when collected; a
+// failed call is unknown, never "off".
+func (n *norm) accountBlock() {
+	a := n.acct
+	loc := apiLoc(a.ID, "s3:GetAccountPublicAccessBlock") // the account, not an ARN: S3 Block Public Access has none
+	switch {
+	case a.PublicAccessBlockFailed:
+		n.b.AddAccountBlock(&model.AccountPublicAccessBlock{Account: a.ID, RestrictPublicBuckets: model.Unknown, Source: loc})
+	case a.PublicAccessBlock != nil:
+		n.b.AddAccountBlock(&model.AccountPublicAccessBlock{Account: a.ID, RestrictPublicBuckets: model.TriOf(a.PublicAccessBlock.RestrictPublicBuckets), Source: loc})
+	}
+}
+
 func (n *norm) buckets() {
 	for _, b := range n.acct.Buckets {
 		arn := "arn:" + n.acct.Partition + ":s3:::" + b.Name

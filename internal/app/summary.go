@@ -37,6 +37,13 @@ func Summary(l *Loaded) ([]byte, error) {
 		}
 		return m
 	})
+	// Phase 7: only when an account's setting is in the input, so other
+	// goldens are unchanged.
+	if len(inv.AccountBlocks) > 0 {
+		s["account_public_access_blocks"] = mapSlice(inv.AccountBlocks, func(a *model.AccountPublicAccessBlock) any {
+			return map[string]any{"account": a.Account, "restrict_public_buckets": a.RestrictPublicBuckets.String(), "source": loc(&a.Source)}
+		})
+	}
 	kubernetesSummary(s, inv, names)
 	s["policies"] = mapSlice(inv.Policies, policySummary(names))
 	s["boundaries"] = mapSlice(inv.Boundaries, policySummary(names))

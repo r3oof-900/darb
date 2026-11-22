@@ -24,7 +24,7 @@ func allowedAPIs() []string {
 	return []string{
 		"sts:GetCallerIdentity", "iam:GetAccountAuthorizationDetails",
 		"s3:ListAllMyBuckets", "s3:GetBucketLocation", "s3:GetBucketPolicy", "s3:GetEncryptionConfiguration",
-		"s3:GetBucketPublicAccessBlock", "s3:GetBucketTagging",
+		"s3:GetBucketPublicAccessBlock", "s3:GetBucketTagging", "s3:GetAccountPublicAccessBlock",
 		"kms:ListKeys", "kms:ListAliases", "kms:DescribeKey", "kms:GetKeyPolicy", "kms:GetKeyRotationStatus", "kms:ListResourceTags",
 		"eks:ListClusters", "eks:DescribeCluster", "eks:ListPodIdentityAssociations", "eks:DescribePodIdentityAssociation",
 		"secretsmanager:ListSecrets", "secretsmanager:GetResourcePolicy",
@@ -37,7 +37,7 @@ func allowedAPIs() []string {
 func TestClientInterfacesAreReadOnly(t *testing.T) {
 	n := 0
 	for _, typ := range []reflect.Type{
-		reflect.TypeFor[STSAPI](), reflect.TypeFor[IAMAPI](), reflect.TypeFor[S3API](), reflect.TypeFor[KMSAPI](),
+		reflect.TypeFor[STSAPI](), reflect.TypeFor[IAMAPI](), reflect.TypeFor[S3API](), reflect.TypeFor[S3ControlAPI](), reflect.TypeFor[KMSAPI](),
 		reflect.TypeFor[EKSAPI](), reflect.TypeFor[SecretsAPI](), reflect.TypeFor[SSMAPI](),
 	} {
 		for i := range typ.NumMethod() {
@@ -48,7 +48,7 @@ func TestClientInterfacesAreReadOnly(t *testing.T) {
 			}
 		}
 	}
-	if n != 23 {
+	if n != 24 {
 		t.Fatalf("%d methods; update allowedAPIs and docs/PERMISSIONS.md with the interfaces", n)
 	}
 }

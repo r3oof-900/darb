@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3control"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
@@ -64,7 +65,7 @@ func (f *sdkFactory) Clients(t Target, region string) *Clients {
 		cfg.Credentials = f.assumed(t)
 	}
 	return &Clients{
-		STS: sts.NewFromConfig(cfg), IAM: iam.NewFromConfig(cfg), S3: s3.NewFromConfig(cfg, f.s3opts...),
+		STS: sts.NewFromConfig(cfg), IAM: iam.NewFromConfig(cfg), S3: s3.NewFromConfig(cfg, f.s3opts...), Control: s3control.NewFromConfig(cfg),
 		KMS: kms.NewFromConfig(cfg), EKS: eks.NewFromConfig(cfg),
 		Secrets: secretsmanager.NewFromConfig(cfg), SSM: ssm.NewFromConfig(cfg),
 	}

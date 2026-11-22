@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3control"
 
 	"github.com/r3oof-900/clapa/internal/collect/awsraw"
 )
@@ -77,6 +78,9 @@ func (a *account) s3(ctx context.Context, c *Clients) error {
 		return nil
 	})
 	if err != nil {
+		return err
+	}
+	if err := a.accountBlock(ctx, c); done(err) {
 		return err
 	}
 	if err := group(ctx, a, buckets, func(ctx context.Context, b *awsraw.Bucket) error { return a.bucket(ctx, c, b) }); err != nil {
@@ -151,9 +155,44 @@ func (a *account) bucketEncryption(ctx context.Context, c *Clients, b *awsraw.Bu
 	})
 }
 
+// accountBlock reads the account's S3 Block Public Access (s3control; IAM
+// action s3:GetAccountPublicAccessBlock). An account with no configuration
+// has every setting off; a failed call is unknown (Phase 7).
+func (a *account) accountBlock(ctx context.Context, c *Clients) error {
+	id := a.acct.ID
+	err := a.call(ctx, "s3control", "", "GetPublicAccessBlock", id, func(ctx context.Context) error {
+		out, err := c.Control.GetPublicAccessBlock(ctx, &s3control.GetPublicAccessBlockInput{AccountId: &id})
+		switch {
+		case isCode(err, "NoSuchPublicAccessBlockConfiguration"):
+			a.setAccountBlock(&awsraw.PublicAccessBlock{})
+			return nil
+		case err != nil || out.PublicAccessBlockConfiguration == nil:
+			return err
+		}
+		p := out.PublicAccessBlockConfiguration
+		a.setAccountBlock(&awsraw.PublicAccessBlock{
+			BlockPublicAcls: aws.ToBool(p.BlockPublicAcls), IgnorePublicAcls: aws.ToBool(p.IgnorePublicAcls),
+			BlockPublicPolicy: aws.ToBool(p.BlockPublicPolicy), RestrictPublicBuckets: aws.ToBool(p.RestrictPublicBuckets),
+		})
+		return nil
+	})
+	if err != nil {
+		a.mu.Lock()
+		a.acct.PublicAccessBlockFailed = true
+		a.mu.Unlock()
+	}
+	return err
+}
+
+func (a *account) setAccountBlock(p *awsraw.PublicAccessBlock) {
+	a.mu.Lock()
+	a.acct.PublicAccessBlock = p
+	a.mu.Unlock()
+}
+
 // bucketPublicAccessBlock: a bucket with no configuration of its own has
-// every setting off at the bucket level (account-level Block Public Access
-// is not collected; DESIGN.md 4.4).
+// every setting off at the bucket level; the account's setting is read by
+// accountBlock and combined in the model (Inventory.RestrictPublic).
 func (a *account) bucketPublicAccessBlock(ctx context.Context, c *Clients, b *awsraw.Bucket) error {
 	return a.call(ctx, "s3", b.Region, "GetPublicAccessBlock", b.Name, func(ctx context.Context) error {
 		out, err := c.S3.GetPublicAccessBlock(ctx, &s3.GetPublicAccessBlockInput{Bucket: &b.Name})

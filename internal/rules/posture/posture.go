@@ -259,8 +259,14 @@ func automount(in *rules.Input) []hit {
 func publicAccessOff(in *rules.Input) []hit {
 	var out []hit
 	for _, j := range in.Jewels {
-		if j.Kind() == model.KindS3Bucket && j.S3().RestrictPublicBuckets == model.False {
-			out = append(out, hit{resource: j.ARN(), id: j.ID(), location: *j.Source(), evidence: []string{"restrict_public_buckets = false at " + j.Source().String()}})
+		if j.Kind() == model.KindS3Bucket && in.Inventory.RestrictPublic(j) == model.False {
+			ev := []string{"restrict_public_buckets = false at " + j.Source().String()}
+			for _, a := range in.Inventory.AccountBlocks {
+				if a.Account == j.Account() {
+					ev = append(ev, "account "+a.Account+" restrict_public_buckets = false at "+a.Source.String())
+				}
+			}
+			out = append(out, hit{resource: j.ARN(), id: j.ID(), location: *j.Source(), evidence: ev})
 		}
 	}
 	return out

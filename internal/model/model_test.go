@@ -348,3 +348,33 @@ func TestWithoutSecretRef(t *testing.T) {
 		t.Errorf("without a: %v (original %v)", got, w.SecretRefs())
 	}
 }
+
+// The stricter of a bucket's and its account's setting applies; an unknown
+// one leaves an "off" unknown; another account's setting does nothing.
+func TestRestrictPublic(t *testing.T) {
+	bucket := func(v Tri) *Resource {
+		return NewResource(&ResourceInput{Kind: KindS3Bucket, ARN: "arn:aws:s3:::b", Account: "1", S3: S3Settings{RestrictPublicBuckets: v}})
+	}
+	account := func(acct string, v Tri) []*AccountPublicAccessBlock {
+		return []*AccountPublicAccessBlock{{Account: acct, RestrictPublicBuckets: v}}
+	}
+	for _, c := range []struct {
+		bucket  Tri
+		account []*AccountPublicAccessBlock
+		want    Tri
+	}{
+		{False, nil, False},
+		{Unknown, nil, Unknown},
+		{True, account("1", False), True},
+		{False, account("1", True), True},
+		{False, account("1", Unknown), Unknown},
+		{Unknown, account("1", False), Unknown},
+		{False, account("1", False), False},
+		{False, account("2", True), False},
+	} {
+		inv := &Inventory{AccountBlocks: c.account}
+		if got := inv.RestrictPublic(bucket(c.bucket)); got != c.want {
+			t.Errorf("bucket %v, account %+v: %v, want %v", c.bucket, c.account, got, c.want)
+		}
+	}
+}

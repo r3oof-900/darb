@@ -383,7 +383,10 @@ Collected:
 - STS: identifies the account.
 - IAM: `GetAccountAuthorizationDetails`, every page.
 - S3: every bucket's location, policy, default encryption, Block Public Access
-  and tags, read from a client in the bucket's region.
+  and tags, read from a client in the bucket's region; the account's Block
+  Public Access (`s3control GetPublicAccessBlock`, IAM action
+  `s3:GetAccountPublicAccessBlock`; Phase 7). No configuration is every setting
+  off; a failed call is unknown.
 - KMS, per region: keys and aliases; for each key its metadata and key policy,
   and for customer managed keys their rotation and tags.
 - EKS: clusters (OIDC issuer) and Pod Identity associations.
@@ -421,9 +424,9 @@ Mechanics:
 
 Not collected, and stated in every live or snapshot report:
 
-- account-level S3 Block Public Access. A bucket without its own setting is
-  treated as not blocked, which can report a path the account setting blocks,
-  but never hides one.
+- (since Phase 7, nothing here: the account-level S3 Block Public Access is
+  collected. A snapshot written before Phase 7 has none; each such account gets
+  a `not-modelled` note, and its buckets keep their own setting.)
 
 Tests run against fakes (`awsfake`), against the SDK's own clients over
 in-memory HTTP stubs (pagination, AccessDenied, throttling with retries), and
@@ -672,7 +675,13 @@ data. Such principals are unresolved → `UNKNOWN`.
 **S3 Block Public Access** (S3 User Guide › "Blocking public access to your Amazon
 S3 storage"): with `RestrictPublicBuckets`, a public bucket policy only grants access
 to AWS service principals and authorised users in the bucket owner's account. Applied
-at account and bucket level. **Flag**: S3 ACLs are not modelled; reported as a gap
+at account and bucket level; the most restrictive combination applies
+(`Inventory.RestrictPublic`: on when either is on; otherwise unknown when either
+is unknown; an account whose setting is not in the input leaves the bucket's).
+Sources: `s3control GetPublicAccessBlock` (live, snapshot file
+`<account>/s3control/get-public-access-block.json`) and Terraform
+`aws_s3_account_public_access_block` (`account_id`, else the provider's account;
+a `restrict_public_buckets` that is not a literal is unknown, a gap). **Flag**: S3 ACLs are not modelled; reported as a gap
 unless Object Ownership is `BucketOwnerEnforced` (ACLs disabled).
 
 **Session policies** are rarely visible in static inputs. When a chain does not show
@@ -1679,7 +1688,7 @@ Decided while implementing:
 |---|---|---|---|
 | **AWS managed policy snapshot has 3 policies** (`AdministratorAccess`, `AmazonS3FullAccess`, `AmazonS3ReadOnlyAccess`) — recorded after the Phase 3 review | every other AWS managed policy attached to a role is an unknown Allow + unknown Deny and a `not-modelled` gap: never "no permissions", but paths through such roles are UNKNOWN (confidence low) instead of decided | **before any scan of a real account** (live collectors meet real accounts, where most roles use managed policies). Phase 6 itself is tested on fakes, LocalStack and kind only | `tools/refresh-managed-policies` is **ready and tested** (546ec63): it lists every AWS-owned policy (`iam:ListPolicies`, `Scope=AWS`) and fetches each `DefaultVersionId` (`iam:GetPolicyVersion`), nothing else; `--profile` selects the profile, the SDK reads its credentials; the snapshot (format v2) records the date, partition, count and each default version, sorted, byte-for-byte deterministic. The refresh was **deferred on 2026-11-21**: only a valid profile is missing (the one tried was not found in `C:\Users\<user>\.aws\{config,credentials}`). Run: `go run ./tools/refresh-managed-policies --profile <profile>`, then review the diff and the scenarios whose results change, and commit the snapshot alone. Until then a live or snapshot scan reports every attached managed policy that is not in the snapshot (Phase 6) |
 | ~~**Kubernetes Secrets mounted into pods**~~ — **done in Phase 7**: `CAN_READ_PLAINTEXT[mount]` from each workload to each Secret its pod spec names, and `CAN_READ_PLAINTEXT[pod-create]` from each subject that may create pods in the namespace (§7.2); scenario 23 derived by hand before the engine ran, no difference; the mount fix is generated and verified on both levels | admission policies that could reject such a pod are not read (`not-modelled` note) | — | — |
-| **S3 account-level Block Public Access** (`s3:GetAccountPublicAccessBlock`) — Phase 6 review | a bucket without its own setting is treated as not blocked: a path the account setting blocks can be reported (a false positive), never hidden | **priority 2**: before live scans are used to decide public exposure | collect the account setting and combine it with the bucket's (the stricter applies) |
+| ~~**S3 account-level Block Public Access**~~ — **done in Phase 7**: collected (live, snapshot, Terraform) and combined with the bucket's, the most restrictive applies (§6, S3 Block Public Access); variant `12_public_bucket/account_block` derived by hand before the engine ran, no difference | a snapshot written before Phase 7 has no account setting (a `not-modelled` note per account) | — | — |
 | **AWS RAM shares of advanced SSM parameters** — Phase 6 review | cross-account access is evaluated from the resource policies collected; a RAM share not reflected in them is missed | **priority 3**: before multi-account parameter sharing is in scope | collect RAM resource shares (`ram:ListResources`, `ram:GetResourceShareAssociations`) for parameters |
 | Coverage tolerance counts gaps | plan gaps for provider-computed attributes (`arn`, `id`, …) are recorded; the exit-code tolerance does not exist yet | Phase 5 (exit codes) | count only gaps that a decision used (section 4.6, "Provider-computed attributes") |
 

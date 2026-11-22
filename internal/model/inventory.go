@@ -20,6 +20,19 @@ type S3Settings struct {
 	RestrictPublicBuckets Tri // bucket-level Block Public Access (Unknown when not stated)
 }
 
+// AccountPublicAccessBlock is an account's S3 Block Public Access
+// (s3control GetPublicAccessBlock, aws_s3_account_public_access_block).
+// The stricter of the account's and the bucket's setting applies (S3 User
+// Guide › Blocking public access to your Amazon S3 storage: "If the block
+// public access settings for the access point, bucket, or account differ,
+// then Amazon S3 applies the most restrictive combination of the access
+// point, bucket, and account settings.").
+type AccountPublicAccessBlock struct {
+	Account               string
+	RestrictPublicBuckets Tri // Unknown when the call failed or the value is not known
+	Source                SourceLocation
+}
+
 // AttachedPolicy binds a policy document to a principal or resource.
 type AttachedPolicy struct {
 	Target ID
@@ -184,4 +197,31 @@ type Inventory struct {
 	NodeGroups      []*NodeGroup
 	RBAC            []*RBACGrant
 	Mappings        []*IdentityMapping
+	// AccountBlocks: account-level S3 Block Public Access of the accounts
+	// whose setting is in the input (Phase 7).
+	AccountBlocks []*AccountPublicAccessBlock
+}
+
+// RestrictPublic is a bucket's effective RestrictPublicBuckets: true when
+// the bucket's or its account's setting is on; otherwise unknown when
+// either is unknown; otherwise off. An account whose setting is not in the
+// input does not change the bucket's (DESIGN.md 4.4: that can report a
+// path the account setting blocks, never hide one).
+func (inv *Inventory) RestrictPublic(r *Resource) Tri {
+	v := r.S3().RestrictPublicBuckets
+	if v == True {
+		return True
+	}
+	for _, a := range inv.AccountBlocks {
+		if a.Account != r.Account() {
+			continue
+		}
+		if a.RestrictPublicBuckets == True {
+			return True
+		}
+		if a.RestrictPublicBuckets == Unknown {
+			v = Unknown
+		}
+	}
+	return v
 }

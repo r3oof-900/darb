@@ -37,6 +37,7 @@ func (n *norm) data(rs []*tfraw.Resource) {
 		"aws_kms_key": n.kmsKey, "aws_eks_cluster": n.cluster, "aws_eks_pod_identity_association": n.podIdentity,
 		"aws_eks_addon": n.addon, "aws_iam_openid_connect_provider": n.oidcProvider,
 		"aws_eks_access_entry": n.accessEntry, "aws_eks_access_policy_association": n.accessPolicy,
+		"aws_s3_account_public_access_block": n.accountBlock,
 	}
 	for _, r := range rs {
 		switch r.Type {
@@ -160,6 +161,24 @@ func sortedFacts(m map[string]*bucketFacts) []*bucketFacts {
 // kmsKey: a key without a policy gets the documented default key policy,
 // which delegates to IAM through the account root (KMS Developer Guide ›
 // "Default key policy").
+// accountBlock: aws_s3_account_public_access_block, the account's S3 Block
+// Public Access (account_id, else the provider's account). A value that is
+// not a literal is unknown.
+func (n *norm) accountBlock(r *tfraw.Resource) {
+	account := n.account(r)
+	if v := attr(r, "account_id"); v != nil && v.Kind == tfraw.KString {
+		account = v.Str
+	}
+	restrict := model.Unknown
+	switch v := attr(r, "restrict_public_buckets"); {
+	case v != nil && v.Kind == tfraw.KBool:
+		restrict = model.TriOf(v.Bool)
+	default:
+		n.gap(coverage.KindUnresolved, r, "restrict_public_buckets of the account's Block Public Access is not known statically; unknown")
+	}
+	n.b.AddAccountBlock(&model.AccountPublicAccessBlock{Account: account, RestrictPublicBuckets: restrict, Source: src(r)})
+}
+
 func (n *norm) kmsKey(r *tfraw.Resource) {
 	s := src(r)
 	rotation, defaulted := model.Unknown, []string(nil)

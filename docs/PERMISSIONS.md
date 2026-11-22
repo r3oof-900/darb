@@ -42,6 +42,7 @@ on those roles.
         "kms:ListAliases",
         "kms:ListKeys",
         "kms:ListResourceTags",
+        "s3:GetAccountPublicAccessBlock",
         "s3:GetBucketLocation",
         "s3:GetBucketPolicy",
         "s3:GetBucketPublicAccessBlock",
@@ -70,9 +71,6 @@ and region is unknown, never 100%.
 
 Not collected yet, and stated in every report as `not-modelled`:
 
-- account-level S3 Block Public Access (`s3:GetAccountPublicAccessBlock`). A
-  bucket without its own setting is treated as not blocked, which can report a
-  path the account setting would block. It never hides one.
 - KMS grants (`kms:ListGrants`).
 - AWS Organizations SCPs and RCPs.
 

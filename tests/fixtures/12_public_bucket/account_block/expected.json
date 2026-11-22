@@ -1,0 +1,25 @@
+{
+  "format": "clapa-expected/v1",
+  "derived_from": "DESIGN.md 12.1 priority 2: account-level Block Public Access on",
+  "findings": [
+    {
+      "rule": "CLAPA-POST-008",
+      "resource": "arn:aws:s3:::acme-marketing-leads",
+      "score": 600,
+      "severity": "high",
+      "defaults_used": []
+    }
+  ],
+  "absent": [
+    {
+      "rule": "CLAPA-PATH-003",
+      "jewel": "arn:aws:s3:::acme-marketing-leads"
+    },
+    {
+      "rule": "CLAPA-POST-005",
+      "resource": "arn:aws:s3:::acme-marketing-leads"
+    }
+  ],
+  "intended_access": [],
+  "no_edges": []
+}

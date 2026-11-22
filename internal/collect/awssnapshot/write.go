@@ -118,6 +118,9 @@ func (w *writer) account(a *awsraw.Account) {
 	if a.Auth != nil {
 		w.file(path.Join(a.ID, "iam", "get-account-authorization-details.json"), a.Auth)
 	}
+	if a.PublicAccessBlock != nil {
+		w.file(path.Join(a.ID, "s3control", "get-public-access-block.json"), map[string]any{"PublicAccessBlockConfiguration": a.PublicAccessBlock})
+	}
 	for _, b := range a.Buckets {
 		w.bucket(a.ID, b)
 	}

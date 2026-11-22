@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3control"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
@@ -35,6 +36,11 @@ type S3API interface {
 	GetBucketEncryption(ctx context.Context, in *s3.GetBucketEncryptionInput, opts ...func(*s3.Options)) (*s3.GetBucketEncryptionOutput, error)
 	GetPublicAccessBlock(ctx context.Context, in *s3.GetPublicAccessBlockInput, opts ...func(*s3.Options)) (*s3.GetPublicAccessBlockOutput, error)
 	GetBucketTagging(ctx context.Context, in *s3.GetBucketTaggingInput, opts ...func(*s3.Options)) (*s3.GetBucketTaggingOutput, error)
+}
+
+// S3ControlAPI reads the account's S3 Block Public Access.
+type S3ControlAPI interface {
+	GetPublicAccessBlock(ctx context.Context, in *s3control.GetPublicAccessBlockInput, opts ...func(*s3control.Options)) (*s3control.GetPublicAccessBlockOutput, error)
 }
 
 // KMSAPI reads keys, their policies, rotation, tags and aliases.
@@ -74,6 +80,7 @@ type Clients struct {
 	STS     STSAPI
 	IAM     IAMAPI
 	S3      S3API
+	Control S3ControlAPI
 	KMS     KMSAPI
 	EKS     EKSAPI
 	Secrets SecretsAPI
