@@ -915,11 +915,15 @@ conditions use the same key.
   (`aws_secretsmanager_secret` and its policy, `aws_ssm_parameter`). A secret's
   ARN suffix is unresolved until apply, so a policy naming one exact secret ARN
   is UNKNOWN for it.
-- **Not modelled**, and listed in every report:
+- **Not modelled**, and listed in the report as `not-modelled` notes:
   - admission policies (Pod Security admission, policy engines) that could
     reject a pod naming a Secret: `CAN_READ_PLAINTEXT[mount]` and
-    `[pod-create]` (§7.2, Phase 7) assume the pod is admitted;
-  - AWS RAM shares of advanced parameters.
+    `[pod-create]` (§7.2, Phase 7) assume the pod is admitted (every report);
+  - AWS RAM shares of SSM parameters: only advanced-tier parameters can be
+    shared (Parameter Store › "Working with shared parameters"), so the note
+    appears when the input has a parameter whose tier is `Advanced`,
+    `Intelligent-Tiering` (which may make it advanced) or unknown (Terraform
+    without `tier` takes the region's default), and names each one (Phase 7).
 
 **Decision.** `CAN_DECRYPT` edges are **qualified by the protected resource**: the
 edge `role —CAN_DECRYPT[for bucket Z]→ key K` is evaluated with Z's encryption
@@ -1511,9 +1515,10 @@ Users can raise it per gap kind in `darb.yaml`; the report shows the tolerance u
 - **SARIF 2.1.0** — `physicalLocation` to TF/K8s lines (`uriBaseId`
   `%SRCROOT%`, the scan root), attack paths as `codeFlows` (the entry, then one
   location per hop; Phase 7), our fingerprint in `partialFingerprints`.
-  *Status:* the structure is tested (`internal/report/sarif`); validation
-  against the official OASIS schema needs the schema vendored into testdata and
-  is not done yet.
+  *Status (Phase 7):* every fixture variant's SARIF report validates against
+  the official OASIS SARIF 2.1.0 schema (errata 01, vendored unchanged in
+  `internal/report/sarif/testdata`, SHA-256 pinned;
+  `TestEverySARIFReportMatchesTheOfficialSchema`).
 - **HTML** — single file, `html/template`, assets via `embed`, strict CSP
   (`default-src 'none'`, hashed inline script/style), data embedded as escaped JSON;
   test with a resource named `<script>`. Implemented in Phase 7
@@ -1711,7 +1716,7 @@ Decided while implementing:
 | **AWS managed policy snapshot has 3 policies** (`AdministratorAccess`, `AmazonS3FullAccess`, `AmazonS3ReadOnlyAccess`) — recorded after the Phase 3 review | every other AWS managed policy attached to a role is an unknown Allow + unknown Deny and a `not-modelled` gap: never "no permissions", but paths through such roles are UNKNOWN (confidence low) instead of decided | **before any scan of a real account** (live collectors meet real accounts, where most roles use managed policies). Phase 6 itself is tested on fakes, LocalStack and kind only | `tools/refresh-managed-policies` is **ready and tested** (546ec63): it lists every AWS-owned policy (`iam:ListPolicies`, `Scope=AWS`) and fetches each `DefaultVersionId` (`iam:GetPolicyVersion`), nothing else; `--profile` selects the profile, the SDK reads its credentials; the snapshot (format v2) records the date, partition, count and each default version, sorted, byte-for-byte deterministic. The refresh was **deferred on 2026-11-21**: only a valid profile is missing (the one tried was not found in `C:\Users\<user>\.aws\{config,credentials}`). Run: `go run ./tools/refresh-managed-policies --profile <profile>`, then review the diff and the scenarios whose results change, and commit the snapshot alone. Until then a live or snapshot scan reports every attached managed policy that is not in the snapshot (Phase 6) |
 | ~~**Kubernetes Secrets mounted into pods**~~ — **done in Phase 7**: `CAN_READ_PLAINTEXT[mount]` from each workload to each Secret its pod spec names, and `CAN_READ_PLAINTEXT[pod-create]` from each subject that may create pods in the namespace (§7.2); scenario 23 derived by hand before the engine ran, no difference; the mount fix is generated and verified on both levels | admission policies that could reject such a pod are not read (`not-modelled` note) | — | — |
 | ~~**S3 account-level Block Public Access**~~ — **done in Phase 7**: collected (live, snapshot, Terraform) and combined with the bucket's, the most restrictive applies (§6, S3 Block Public Access); variant `12_public_bucket/account_block` derived by hand before the engine ran, no difference | a snapshot written before Phase 7 has no account setting (a `not-modelled` note per account) | — | — |
-| **AWS RAM shares of advanced SSM parameters** — Phase 6 review | cross-account access is evaluated from the resource policies collected; a RAM share not reflected in them is missed | **priority 3**: before multi-account parameter sharing is in scope | collect RAM resource shares (`ram:ListResources`, `ram:GetResourceShareAssociations`) for parameters <br>*Phase 7 research (not implemented):* Parameter Store › "Working with shared parameters" confirms only advanced-tier parameters can be shared; consumers are accounts, OUs or the organization; the RAM permissions are read-only (`AWSRAMDefaultPermissionSSMParameterReadOnly`: `DescribeParameters`, `GetParameter`, `GetParameters`; `...WithHistory` adds `GetParameterHistory`); a `PutResourcePolicy` share must be promoted to a RAM share. Neither that page nor the `GetResourcePolicies` reference says whether a RAM share appears as a resource policy, so modelling it would rest on a guess: left open for review, still listed as `not-modelled` |
+| **AWS RAM shares of advanced SSM parameters** — Phase 6 review | cross-account access is evaluated from the resource policies collected; a RAM share not reflected in them is missed | **priority 3**: before multi-account parameter sharing is in scope | collect RAM resource shares (`ram:ListResources`, `ram:GetResourceShareAssociations`) for parameters <br>*Phase 7 research (not implemented):* Parameter Store › "Working with shared parameters" confirms only advanced-tier parameters can be shared; consumers are accounts, OUs or the organization; the RAM permissions are read-only (`AWSRAMDefaultPermissionSSMParameterReadOnly`: `DescribeParameters`, `GetParameter`, `GetParameters`; `...WithHistory` adds `GetParameterHistory`); a `PutResourcePolicy` share must be promoted to a RAM share. Neither that page nor the `GetResourcePolicies` reference says whether a RAM share appears as a resource policy, so modelling it would rest on a guess: left open for review, still listed as `not-modelled` <br>*Phase 7:* the report now names the shareable parameters (advanced, Intelligent-Tiering or unknown tier) in a `not-modelled` note, and gives none when the input has no such parameter; collecting the shares themselves stays open |
 | ~~Coverage tolerance counts gaps~~ — **done** (Phase 5; test added in Phase 7, `TestGapsOverTolerance`): gaps count per kind beyond that kind's tolerance in `darb.yaml` (default 0); a plan attribute the provider computes (`tfraw.ReasonComputed`) is not counted, since an edge that rests on it carries its own UNKNOWN | — | — | — |
 
 Workflows that only make sense once their subject exists (`bench.yml` — Phase 4,

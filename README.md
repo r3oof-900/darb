@@ -130,7 +130,8 @@ The most important before a real scan:
   refreshed with `tools/refresh-managed-policies`; any other attached managed
   policy is UNKNOWN (reported, never treated as "no permissions").
 - AWS RAM shares of advanced SSM parameters are not collected: a parameter
-  shared only through RAM is not seen as shared (listed as `not-modelled`).
+  shared only through RAM is not seen as shared. The report names every
+  parameter of the input that can be shared (a `not-modelled` note).
 - AWS Organizations SCPs and RCPs, and KMS grants, are not collected: they can
   only make darb report a path that is blocked, never hide one.
 

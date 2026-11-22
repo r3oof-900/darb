@@ -99,8 +99,12 @@ func (n *norm) parameter(r *tfraw.Resource) {
 	case typ == "SecureString":
 		enc = model.Encryption{Type: "aws:kms", KeyARN: n.keyRef(r, "key_id", "alias/aws/ssm")}
 	}
+	tier := "" // without tier, the region's default tier applies (AWS provider › aws_ssm_parameter): unknown
+	if v := attr(r, "tier"); v != nil && v.Kind == tfraw.KString && !model.ContainsUnresolved(v.Str) {
+		tier = v.Str
+	}
 	n.b.AddResource(model.NewResource(&model.ResourceInput{
-		Kind: model.KindSSMParameter, ARN: n.arnOf(r), Account: n.account(r), Region: n.region(r), Tags: tags(r), Encryption: enc, Source: src(r),
+		Kind: model.KindSSMParameter, ARN: n.arnOf(r), Account: n.account(r), Region: n.region(r), Tags: tags(r), Encryption: enc, Tier: tier, Source: src(r),
 	}))
 }
 

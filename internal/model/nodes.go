@@ -54,6 +54,9 @@ type ResourceInput struct {
 	Encryption     Encryption
 	S3             S3Settings
 	KeyRotation    Tri // KMS keys: automatic rotation (Unknown when not stated and no deterministic default)
+	// Tier: SSM parameters: "Standard", "Advanced" or "Intelligent-Tiering";
+	// "" when not known (Terraform without tier takes the region's default).
+	Tier string
 	// Defaulted lists the settings that took a documented default
 	// (DocumentedDefaults keys).
 	Defaulted []string
@@ -72,6 +75,7 @@ type Resource struct {
 	classifiedBy   string
 	encryption     Encryption
 	s3             S3Settings
+	tier           string
 	keyRotation    Tri
 	defaulted      []string
 	source         SourceLocation
@@ -87,7 +91,7 @@ func NewResource(in *ResourceInput) *Resource {
 	return &Resource{
 		id: NewID(in.Kind, in.ARN), kind: in.Kind, arn: in.ARN, account: in.Account, region: in.Region,
 		tags: tags, classification: in.Classification, classifiedBy: in.ClassifiedBy,
-		encryption: in.Encryption, s3: in.S3, keyRotation: in.KeyRotation, defaulted: sortedSet(in.Defaulted), source: in.Source,
+		encryption: in.Encryption, s3: in.S3, keyRotation: in.KeyRotation, tier: in.Tier, defaulted: sortedSet(in.Defaulted), source: in.Source,
 	}
 }
 
@@ -100,6 +104,16 @@ func sortedSet(ss []string) []string {
 
 // KeyRotation reports a KMS key's automatic rotation.
 func (r *Resource) KeyRotation() Tri { return r.keyRotation }
+
+// Tier returns an SSM parameter's tier ("" when not known).
+func (r *Resource) Tier() string { return r.tier }
+
+// Shareable reports whether an SSM parameter may be shared through AWS
+// RAM: only advanced-tier parameters can be (Parameter Store › Working with
+// shared parameters: "To share a parameter, it must be in the advanced
+// parameter tier."). Intelligent-Tiering may make a parameter advanced, and
+// an unknown tier may be advanced.
+func (r *Resource) Shareable() bool { return r.kind == KindSSMParameter && r.tier != "Standard" }
 
 // Defaulted returns the settings that took a documented default.
 func (r *Resource) Defaulted() []string { return slices.Clone(r.defaulted) }
