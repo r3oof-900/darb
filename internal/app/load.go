@@ -276,7 +276,10 @@ func addConfiguredClusters(c *config.Config, b *normalize.Builder) {
 }
 
 func jewelRules(c *config.Config) *classify.Rules {
-	r := &classify.Rules{TagKeys: c.CrownJewels.TagKeys, TagValues: c.CrownJewels.TagValues, Explicit: map[string]string{}}
+	r := &classify.Rules{
+		TagKeys: c.CrownJewels.TagKeys, TagValues: c.CrownJewels.TagValues, Explicit: map[string]string{},
+		IgnoreUnclassified: c.CrownJewels.IgnoreUnclassified(),
+	}
 	for _, e := range c.CrownJewels.Explicit {
 		r.Explicit[e.ARN] = e.Classification
 	}

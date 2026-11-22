@@ -19,20 +19,43 @@ func TestCrownJewels(t *testing.T) {
 		res(model.KindKMSKey, "arn:aws:kms:r:1:key/k", map[string]string{"sensitive": "TRUE"}),
 		res(model.KindS3Bucket, "arn:aws:s3:::plain", map[string]string{"DataClass": "public"}),
 		res(model.KindEC2Instance, "arn:aws:ec2:r:1:instance/i", map[string]string{"DataClass": "pii"}),
+		res(model.KindK8sSecret, "k8s:c/n/Secret/s", nil),
+		res(model.KindKMSKey, "arn:aws:kms:r:1:key/plain", nil),
+		model.NewResource(&model.ResourceInput{
+			Kind: model.KindSSMParameter, ARN: "arn:aws:ssm:r:1:parameter/string",
+			Encryption: model.Encryption{Type: "none"},
+		}),
+		model.NewResource(&model.ResourceInput{
+			Kind: model.KindSSMParameter, ARN: "arn:aws:ssm:r:1:parameter/secure",
+			Encryption: model.Encryption{Type: "aws:kms"},
+		}),
+		model.NewResource(&model.ResourceInput{Kind: model.KindSSMParameter, ARN: "arn:aws:ssm:r:1:parameter/unknown-type"}),
 	}
 	want := []struct{ class, by string }{
 		{"pii", "tag:dataclass"},
 		{"phi", "config:crown_jewels.explicit"},
 		{"sensitive", "heuristic:tagged-sensitive"},
 		{"sensitive", "heuristic:tagged-sensitive"},
-		{"", ""},
-		{"", ""}, // not a data resource
+		{"unclassified", "default:unclassified"}, // a data store no rule classifies
+		{"", ""},                                 // not a data resource
+		{"unclassified", "default:unclassified"},
+		{"", ""}, // a key protects data and holds none
+		{"", ""}, // a String parameter is configuration, not a secret
+		{"unclassified", "default:unclassified"},
+		{"unclassified", "default:unclassified"}, // unknown type: the worst case
 	}
 	out := CrownJewels(in, rules)
 	for i, w := range want {
 		class, by := out[i].Classification()
 		if class != w.class || by != w.by {
 			t.Errorf("%s: %q by %q, want %q by %q", out[i].ARN(), class, by, w.class, w.by)
+		}
+	}
+	// crown_jewels.unclassified: ignore: what no rule classifies is no jewel.
+	rules.IgnoreUnclassified = true
+	for _, r := range CrownJewels(in, rules) {
+		if class, by := r.Classification(); class == Unclassified || by == ByDefault {
+			t.Errorf("%s: %q by %q with ignore", r.ARN(), class, by)
 		}
 	}
 	if c, _ := in[0].Classification(); c != "" {

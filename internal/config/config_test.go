@@ -40,6 +40,14 @@ func TestParseDefaults(t *testing.T) {
 	if err != nil || !*c.ThreatModel.AssumeCompromised || c.CrownJewels.TagKeys[0] != "DataClass" {
 		t.Fatalf("defaults: %+v %v", c, err)
 	}
+	if c.CrownJewels.IgnoreUnclassified() {
+		t.Fatal("unclassified data stores are jewels by default")
+	}
+	// Setting crown_jewels.unclassified keeps the default tag keys and values.
+	c, err = Parse([]byte("version: 1\ncrown_jewels: {unclassified: ignore}\n"))
+	if err != nil || !c.CrownJewels.IgnoreUnclassified() || c.CrownJewels.TagKeys[0] != "DataClass" || len(c.CrownJewels.TagValues) != 4 {
+		t.Fatalf("unclassified: ignore: %+v %v", c.CrownJewels, err)
+	}
 	c, err = Parse([]byte("version: 1\nthreat_model: {}\n"))
 	if err != nil || !*c.ThreatModel.AssumeCompromised {
 		t.Fatalf("assume_compromised must default to true: %v", err)
@@ -75,6 +83,7 @@ func TestParseRejects(t *testing.T) {
 		"cut cost zero":        "version: 1\nremediation: {cut_costs: {ASSUMES: 0}}\n",
 		"uncuttable no reason": "version: 1\nremediation: {uncuttable_edges: [{kind: a, from: b, to: c}]}\n",
 		"negative tolerance":   "version: 1\ncoverage: {tolerance: {unresolved: -1}}\n",
+		"unclassified value":   "version: 1\ncrown_jewels: {unclassified: skip}\n",
 	}
 	for name, y := range cases {
 		if _, err := Parse([]byte(y)); !errors.Is(err, ErrInvalid) {

@@ -95,12 +95,15 @@ type Finding struct {
 	Kind    string `json:"kind"`
 	Title   string `json:"title"`
 	// Path findings.
-	Entry     string         `json:"entry,omitempty"`
-	Jewel     string         `json:"jewel,omitempty"`
-	EntryID   model.ID       `json:"-"`
-	JewelID   model.ID       `json:"-"`
-	Path      []string       `json:"path,omitempty"`
-	PathEdges []graph.EdgeID `json:"-"`
+	Entry string `json:"entry,omitempty"`
+	Jewel string `json:"jewel,omitempty"`
+	// JewelClassification: the jewel's classification; "unclassified" for
+	// a data store no rule classifies (SCORING.md §1.2).
+	JewelClassification string         `json:"jewel_classification,omitempty"`
+	EntryID             model.ID       `json:"-"`
+	JewelID             model.ID       `json:"-"`
+	Path                []string       `json:"path,omitempty"`
+	PathEdges           []graph.EdgeID `json:"-"`
 	// WorstCasePath: when a less certain path of the same rule scores
 	// higher than the primary path (the best of the strongest status), that
 	// path; the severity is its score (Phase 6 review).

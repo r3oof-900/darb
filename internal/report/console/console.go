@@ -67,7 +67,7 @@ func (p *printer) warnings(notes []schema.Note) {
 	n := 0
 	for _, note := range notes {
 		switch note.Kind {
-		case schema.NoteManagedPolicies, schema.NoteInsecureTLS:
+		case schema.NoteManagedPolicies, schema.NoteInsecureTLS, schema.NoteUnclassified:
 			p.printf("WARNING: %s\n", note.Detail)
 		case schema.NoteServiceCoverage:
 			p.printf("WARNING: coverage of %s: %s\n", note.Subject, note.Detail)
@@ -196,6 +196,9 @@ func (p *printer) resource(f *schema.Finding) {
 // it is unconfirmed, and its steps.
 func (p *printer) path(f *schema.Finding) {
 	p.printf("    %s -> %s\n", f.Entry, f.Jewel)
+	if f.JewelClassification == "unclassified" {
+		p.printf("    the jewel has no classification (unclassified): tag it or list it in crown_jewels.explicit\n")
+	}
 	for _, u := range f.Undecided {
 		p.printf("    undecided: %s\n", u)
 	}

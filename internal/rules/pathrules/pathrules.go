@@ -29,16 +29,16 @@ func Rules() []rules.Rule {
 	s3enc := ref("Amazon S3 › Protecting data with server-side encryption", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingKMSEncryption.html")
 	return []rules.Rule{
 		&pathRule{rules.Meta{
-			ID: WorkloadReadsJewel, Version: "1.0.0", Kind: rules.KindPath,
+			ID: WorkloadReadsJewel, Version: "1.1.0", Kind: rules.KindPath,
 			Title:      "A workload can read crown-jewel data",
-			Rationale:  "An entry workload reaches the plaintext of classified data through its identity (IRSA, Pod Identity, role chaining, node role): a compromise of the workload is a compromise of the data.",
+			Rationale:  "An entry workload reaches the plaintext of classified data, or of a data store nobody classified, through its identity (IRSA, Pod Identity, role chaining, node role): a compromise of the workload is a compromise of the data.",
 			Techniques: []string{"T1078.004", "T1530"},
 			References: []rules.Reference{ref("EKS › IAM roles for service accounts", "https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html"), s3enc},
-			Failing:    []string{"01_classic/vulnerable", "06_role_chain_cross_account/vulnerable", "09_hostnetwork_imds/vulnerable"},
-			Passing:    []string{"01_classic/fixed", "02a_ec_bucket_key/vulnerable", "02c_ec_mismatch/vulnerable", "11_boundary_deny/vulnerable"},
+			Failing:    []string{"01_classic/vulnerable", "06_role_chain_cross_account/vulnerable", "09_hostnetwork_imds/vulnerable", "24_unclassified_bucket/vulnerable"},
+			Passing:    []string{"02a_ec_bucket_key/vulnerable", "02c_ec_mismatch/vulnerable", "11_boundary_deny/vulnerable", "24_unclassified_bucket/fixed"},
 		}},
 		&pathRule{rules.Meta{
-			ID: EscalationToJewel, Version: "1.0.0", Kind: rules.KindPath,
+			ID: EscalationToJewel, Version: "1.1.0", Kind: rules.KindPath,
 			Title:      "Privilege escalation leads to crown-jewel data",
 			Rationale:  "The path to the data uses an escalation primitive (iam:PassRole into compute, Kubernetes pod creation as another service account): permissions that look harmless on their own reach the data.",
 			Techniques: []string{"T1098", "T1548", "T1610", "T1530"},
@@ -47,7 +47,7 @@ func Rules() []rules.Rule {
 			Passing:    []string{"07_passrole_lambda/fixed", "08_rbac_create_pods/fixed"},
 		}},
 		&pathRule{rules.Meta{
-			ID: PublicJewel, Version: "1.0.0", Kind: rules.KindPath,
+			ID: PublicJewel, Version: "1.1.0", Kind: rules.KindPath,
 			Title:      "Crown-jewel data is publicly readable",
 			Rationale:  "A resource policy grants a public principal read access and Block Public Access does not stop it: anyone on the internet reads the data.",
 			Techniques: []string{"T1530"},

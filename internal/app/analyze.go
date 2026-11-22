@@ -115,11 +115,12 @@ func analyze(l *Loaded, cfg *config.Config, failOn string, edit func(*graph.Grap
 			dataJewels = append(dataJewels, n)
 		}
 	}
-	pairs := paths.Analyze(g, entries, dataJewels, opts)
+	pairs := withoutIntended(paths.Analyze(g, entries, dataJewels, opts), g, cfg, intended)
 	in := &rules.Input{Inventory: inv, Graph: g, Pairs: pairs, Entries: entryInfo, Jewels: jewelNodes, Partition: partition(cfg), Cuts: &opts}
 	fs := findings.Finish(reg.Evaluate(in), reg)
 	a := &Analysis{
-		Findings: fs, Notes: slices.Concat(built.Notes, l.Notes, notModelled(l.Inventory)), Gaps: l.Gaps, Collected: l.Collected,
+		Findings: fs, Notes: slices.Concat(built.Notes, l.Notes, unclassifiedNotes(l.Inventory, cfg), notModelled(l.Inventory)),
+		Gaps: l.Gaps, Collected: l.Collected,
 		IntendedAccess: verifyIntended(g, cfg, intended, entries, opts),
 		Graph:          GraphStats{Nodes: g.NumNodes(), Edges: g.NumEdges(), Pairs: len(pairs)},
 		CatalogVersion: catalog.Version, Registry: reg, AccessGraph: g, intended: uncuttable, Inputs: l.Inputs,
@@ -209,6 +210,26 @@ func intendedTargets(inv *model.Inventory, cfg *config.Config) []*model.Resource
 		}
 	}
 	return out
+}
+
+// withoutIntended drops the pairs a declared intended access names: the
+// workload reading the whole bucket (resource "<bucket ARN>/*") is what the
+// user said it does, whatever the bucket's classification. A declaration
+// of part of a bucket (a prefix) leaves the pair: the path reads more than
+// was declared. The edges stay uncuttable for the other findings.
+func withoutIntended(pairs []paths.Pair, g *graph.Graph, cfg *config.Config, targets []*model.Resource) []paths.Pair {
+	declared := map[[2]graph.NodeID]bool{}
+	for i, ia := range cfg.IntendedAccess {
+		if targets[i] == nil || ia.Resource != targets[i].ARN()+"/*" {
+			continue
+		}
+		from, ok1 := g.Lookup(model.NewID(model.KindK8sWorkload, ia.Principal))
+		to, ok2 := g.Lookup(targets[i].ID())
+		if ok1 && ok2 {
+			declared[[2]graph.NodeID{from, to}] = true
+		}
+	}
+	return slices.DeleteFunc(pairs, func(p paths.Pair) bool { return declared[[2]graph.NodeID{p.Entry, p.Jewel}] })
 }
 
 // intendedEdges: every edge on a path that realises an intended access is

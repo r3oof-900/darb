@@ -155,17 +155,20 @@ type Finding struct {
 	Status     string `json:"status"`
 	Confidence string `json:"confidence"`
 	// Undecided: for an unconfirmed path, what would decide it.
-	Undecided      []string `json:"undecided,omitempty"`
-	Entry          string   `json:"entry,omitempty"`
-	Jewel          string   `json:"jewel,omitempty"`
-	Resource       string   `json:"resource,omitempty"`
-	Path           []string `json:"path,omitempty"`
-	PathsFound     int      `json:"paths_found,omitempty"`
-	PathsTruncated bool     `json:"paths_truncated,omitempty"`
-	Chokepoints    []string `json:"chokepoints,omitempty"`
-	CutCost        int64    `json:"cut_cost,omitempty"`
-	NoFix          bool     `json:"no_fix_within_constraints,omitempty"`
-	AlternativeFix []string `json:"alternative_fix,omitempty"`
+	Undecided []string `json:"undecided,omitempty"`
+	Entry     string   `json:"entry,omitempty"`
+	Jewel     string   `json:"jewel,omitempty"`
+	// JewelClassification: path findings, the jewel's classification;
+	// "unclassified" for a data store no rule classifies.
+	JewelClassification string   `json:"jewel_classification,omitempty"`
+	Resource            string   `json:"resource,omitempty"`
+	Path                []string `json:"path,omitempty"`
+	PathsFound          int      `json:"paths_found,omitempty"`
+	PathsTruncated      bool     `json:"paths_truncated,omitempty"`
+	Chokepoints         []string `json:"chokepoints,omitempty"`
+	CutCost             int64    `json:"cut_cost,omitempty"`
+	NoFix               bool     `json:"no_fix_within_constraints,omitempty"`
+	AlternativeFix      []string `json:"alternative_fix,omitempty"`
 	// Fix: the side of each chokepoint edge the cut chose (its cheapest fix);
 	// OtherSideFix: the other sides that also break it.
 	Fix          []FixStep `json:"fix,omitempty"`
@@ -311,8 +314,8 @@ type Gap struct {
 // Note is a coverage note from the analysis (e.g. protected data outside
 // the input).
 type Note struct {
-	// Kind: NoteManagedPolicies, NoteServiceCoverage and NoteInsecureTLS are
-	// warnings the console prints; the others ("not-modelled", ...) are listed
+	// Kind: NoteManagedPolicies, NoteServiceCoverage, NoteInsecureTLS and
+	// NoteUnclassified are warnings the console prints; the others ("not-modelled", ...) are listed
 	// in the JSON report.
 	Kind    string `json:"kind"`
 	Subject string `json:"subject"`
@@ -329,6 +332,10 @@ const (
 	NoteServiceCoverage = "service-coverage"
 	// NoteInsecureTLS: a live cluster was read without TLS verification.
 	NoteInsecureTLS = "insecure-tls"
+	// NoteUnclassified: data stores no rule classifies, treated as
+	// unclassified jewels (or, with crown_jewels.unclassified: ignore, not
+	// scanned).
+	NoteUnclassified = "unclassified-data-stores"
 )
 
 // Graph summarises the access graph.

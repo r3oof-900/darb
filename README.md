@@ -12,18 +12,20 @@ ARN), every path its **cheapest fix** (a weighted minimum cut), and
 Principles: no number without evidence; anything that cannot be evaluated is
 **UNKNOWN**, never safe; scanning is read-only and never modifies your files.
 
-> **Status: under development, before 1.0. No release has been published
-> yet.** Tested on fixtures, fakes, LocalStack and kind only, never against a
-> real AWS account. **The bundled AWS managed-policy snapshot is incomplete**
+> **Status: under development, before 1.0.** One pre-release is published,
+> [v0.1.0-rc.1](https://github.com/r3oof-900/darb/releases/tag/v0.1.0-rc.1).
+> Not yet tested against a real AWS account or cluster: only fixtures, fakes,
+> LocalStack and kind. **The bundled AWS managed-policy snapshot is incomplete**
 > (3 policies): every other attached AWS managed policy is reported as UNKNOWN,
 > so paths through such roles are unconfirmed rather than decided. Read
 > [Known limits](#known-limits) before trusting a scan of a real account.
 
 ## Install
 
-From a release, once one is published (Linux, macOS, Windows; amd64 and
-arm64). Each release has a
-`checksums.txt` signed keylessly with cosign, and an SPDX SBOM per archive:
+From a [release](https://github.com/r3oof-900/darb/releases) (Linux, macOS,
+Windows; amd64 and arm64). Each release has a `checksums.txt` signed
+keylessly with cosign, an SPDX SBOM per archive, and build provenance for
+every file:
 
 ```sh
 cosign verify-blob checksums.txt \
@@ -31,6 +33,7 @@ cosign verify-blob checksums.txt \
   --certificate-identity-regexp '^https://github.com/r3oof-900/darb/.github/workflows/release.yml@refs/tags/v' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 sha256sum --ignore-missing -c checksums.txt
+gh attestation verify darb_0.1.0-rc.1_linux_amd64.tar.gz --repo r3oof-900/darb --signer-workflow r3oof-900/darb/.github/workflows/release.yml
 ```
 
 From source (Go 1.26 or newer):
@@ -56,7 +59,7 @@ flags is `darb scan --root tests/fixtures/01_classic/vulnerable --terraform terr
 Real output (abridged):
 
 ```text
-darb dev (rule catalog 2.0.0), threat model: assume compromised = true, fail on high
+darb dev (rule catalog 2.1.0), threat model: assume compromised = true, fail on high
 11 inputs collected; 0 gaps beyond tolerance; graph 7 nodes, 7 edges
 
 [CRITICAL 729] DARB-PATH-001  A workload can read crown-jewel data

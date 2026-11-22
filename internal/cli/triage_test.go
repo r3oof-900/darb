@@ -113,9 +113,10 @@ func TestBaselineThroughTheCLI(t *testing.T) {
 	}
 	// Only the new findings are listed: the path is new; the namespace
 	// finding of both scans is unchanged; the fixed scan's rotation finding
-	// on the receipts key is resolved.
-	if len(r.Findings) != r.Baseline.New || pathFinding(t, r) == nil || r.Baseline.Unchanged != 1 || len(r.Baseline.Resolved) != 1 ||
-		r.Baseline.Resolved[0].Rule != "DARB-POST-006" {
+	// on the receipts key and its path to the unclassified receipts bucket
+	// are resolved.
+	if len(r.Findings) != r.Baseline.New || pathFinding(t, r) == nil || r.Baseline.Unchanged != 1 || len(r.Baseline.Resolved) != 2 ||
+		r.Baseline.Resolved[0].Rule != "DARB-POST-006" || r.Baseline.Resolved[1].Jewel != "arn:aws:s3:::acme-payment-receipts" {
 		t.Fatalf("findings %d baseline %+v", len(r.Findings), r.Baseline)
 	}
 	// The same scan as its own baseline: nothing new, exit 0.

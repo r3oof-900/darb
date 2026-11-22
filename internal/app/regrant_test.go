@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/rules"
 )
 
 // The re-grant rule (SCORING.md §4): after a principal that can give itself
@@ -136,19 +137,38 @@ func appendConfig(t *testing.T, dir string, lines ...string) {
 
 // intended_access is the strongest constraint (SCORING.md §4): with the api
 // workload's read of the PII bucket declared intended, no edge on its path
-// is cut, not even the cheapest (the broad decrypt, narrow, cost 1); the
-// finding reports no fix within the constraints.
+// is cut, not even the cheapest (the broad decrypt, narrow, cost 1). The
+// declared pair itself is not reported (decided after v0.1.0-rc.1); in
+// scenario 8, ci-runner reaches the bucket through api's role (creating a
+// pod as api, DARB-PATH-002), and its cut must leave api's grants alone.
 func TestIntendedAccessIsNeverCut(t *testing.T) {
-	base := findingFor(analyzeVariant(t, "01_classic/vulnerable", nil), "DARB-PATH-001", piiBucket)
-	if base == nil || base.NoFix || base.CutCost != 1 {
-		t.Fatalf("baseline: the decrypt is cut at cost 1: %+v", base)
+	const ci = "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner"
+	byEntry := func(a *Analysis, entry string) *rules.Finding {
+		for i := range a.Findings {
+			if f := &a.Findings[i]; f.Rule == "DARB-PATH-002" && f.Jewel == piiBucket && f.Entry == entry {
+				return f
+			}
+		}
+		return nil
 	}
-	a := analyzeVariant(t, "01_classic/vulnerable", func(dir string) {
+	base := byEntry(analyzeVariant(t, "08_rbac_create_pods/vulnerable", nil), ci)
+	if base == nil || base.CutCost != 1 || !strings.HasPrefix(base.Chokepoints[0], "CAN_DECRYPT") {
+		t.Fatalf("baseline: the role's decrypt is cut at cost 1: %+v", base)
+	}
+	a := analyzeVariant(t, "08_rbac_create_pods/vulnerable", func(dir string) {
 		appendConfig(t, dir, "intended_access:", "  - principal: \"k8s:prod/payments/Deployment/api\"",
 			"    action: \"s3:GetObject\"", "    resource: \""+piiBucket+"/*\"")
 	})
-	f := findingFor(a, "DARB-PATH-001", piiBucket)
-	if f == nil || !f.NoFix || len(f.Chokepoints) != 0 || len(f.Fix) != 0 {
-		t.Fatalf("an intended path must have no cut: %+v", f)
+	if f := findingFor(a, "DARB-PATH-001", piiBucket); f != nil {
+		t.Fatalf("the declared pair is reported: %+v", f)
+	}
+	f := byEntry(a, ci)
+	if f == nil || f.NoFix || len(f.Chokepoints) == 0 {
+		t.Fatalf("ci-runner's path keeps a cut: %+v", f)
+	}
+	for _, c := range f.Chokepoints {
+		if strings.HasPrefix(c, "CAN_DECRYPT") || strings.HasPrefix(c, "CAN_READ") || strings.HasPrefix(c, "ASSUMES") {
+			t.Fatalf("ci-runner's cut takes an edge of the intended path: %v", f.Chokepoints)
+		}
 	}
 }

@@ -320,3 +320,7 @@ func (e *NetworkExposure) Public() Tri { return e.public }
 
 // Source returns where the exposure was defined.
 func (e *NetworkExposure) Source() *SourceLocation { s := e.source; return &s }
+
+// ClassUnclassified is the classification of a data store no rule
+// classifies (classify.Unclassified, SCORING.md §1.2).
+const ClassUnclassified = "unclassified"

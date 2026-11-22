@@ -142,8 +142,8 @@
     {
       "account": "111122223333",
       "arn": "arn:aws:s3:::acme-payment-receipts",
-      "classification": "",
-      "classified_by": "",
+      "classification": "unclassified",
+      "classified_by": "default:unclassified",
       "defaulted": [],
       "encryption": {
         "Type": "aws:kms",

@@ -7,6 +7,7 @@ import (
 
 	"github.com/r3oof-900/darb/internal/access"
 	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
 	"github.com/r3oof-900/darb/internal/paths"
 	"github.com/r3oof-900/darb/internal/rules"
 	"github.com/r3oof-900/darb/internal/scoring"
@@ -25,9 +26,11 @@ type built struct {
 
 // analyze builds every path finding of the input, with also_fixes.
 func analyze(in *rules.Input) []rules.Finding {
-	perEntry := map[graph.NodeID]int{}
+	perEntry := map[graph.NodeID]int{} // classified jewels only (SCORING.md §1.2)
 	for i := range in.Pairs {
-		perEntry[in.Pairs[i].Entry]++
+		if class, _ := in.Jewels[in.Pairs[i].Jewel].Classification(); class != model.ClassUnclassified {
+			perEntry[in.Pairs[i].Entry]++
+		}
 	}
 	var all []built
 	for i := range in.Pairs {
@@ -134,7 +137,7 @@ func build(in *rules.Input, p *paths.Pair, s selection, jewels int) rules.Findin
 	}
 	strongest, primary, pf, worst, wf := pick(g, s.paths, score)
 	f := rules.Finding{
-		Entry: g.Node(p.Entry).Identity, Jewel: g.Node(p.Jewel).Identity,
+		Entry: g.Node(p.Entry).Identity, Jewel: g.Node(p.Jewel).Identity, JewelClassification: class,
 		EntryID: g.Node(p.Entry).ID, JewelID: g.Node(p.Jewel).ID,
 		PathEdges: primary, Paths: len(s.paths), Truncated: p.Truncated, Factors: wf, Confirmed: true,
 		Location: rules.SourceOf(in.Inventory, g.Node(p.Entry).ID), Rule: s.rule,

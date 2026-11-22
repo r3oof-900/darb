@@ -13,6 +13,30 @@ type Rules struct {
 	TagKeys   []string          // e.g. DataClass (case-insensitive)
 	TagValues []string          // e.g. pii, pci, phi, secret (case-insensitive)
 	Explicit  map[string]string // ARN (or K8s identity) -> classification
+	// IgnoreUnclassified: a data store no rule classifies is no jewel
+	// (crown_jewels.unclassified: ignore); by default it is one, of
+	// classification Unclassified.
+	IgnoreUnclassified bool
+}
+
+// Unclassified is the classification of a data store that no rule
+// classifies (SCORING.md §1.2): a crown jewel all the same, since a store
+// nobody tagged may hold anything; the report names each one.
+const Unclassified = model.ClassUnclassified
+
+// ByDefault is the rule that marks a store Unclassified.
+const ByDefault = "default:unclassified"
+
+// DataStore says whether a resource holds data and becomes an Unclassified
+// jewel when nothing classifies it: an S3 bucket, a Secrets Manager secret,
+// an SSM parameter that is a SecureString (or whose type is unknown: the
+// worst case), a Kubernetes Secret. A KMS key protects data and holds none:
+// it is a jewel only when classified.
+func DataStore(r *model.Resource) bool {
+	if r.Kind() == model.KindSSMParameter {
+		return r.Encryption().Type != "none"
+	}
+	return r.Kind() == model.KindS3Bucket || r.Kind() == model.KindSecret || r.Kind() == model.KindK8sSecret
 }
 
 // jewelKinds are the kinds that hold data.
@@ -53,6 +77,9 @@ func classifyOne(r *model.Resource, rules *Rules) (class, by string) {
 		if strings.EqualFold(t.Value, "sensitive") || (strings.EqualFold(t.Key, "sensitive") && strings.EqualFold(t.Value, "true")) {
 			return "sensitive", "heuristic:tagged-sensitive"
 		}
+	}
+	if !rules.IgnoreUnclassified && DataStore(r) {
+		return Unclassified, ByDefault
 	}
 	return "", ""
 }
