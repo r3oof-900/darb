@@ -21,7 +21,7 @@ const usage = `usage:
   darb scan [--root DIR] [--config FILE] [--plan FILE[=TFDIR]]... [--terraform DIR]...
              [--k8s DIR[=CLUSTER]]... [--aws-snapshot DIR]... [--live-aws [AWS flags]]
              [--live-k8s CONTEXT[=CLUSTER]]... [--k8s-eks NAME]... [--kubeconfig FILE] [--insecure]
-             [--format console|json|sarif|html] [--output FILE] [--fail-on critical|high|medium|low|info]
+             [--format console|json|sarif|html|markdown|junit] [--output FILE] [--fail-on critical|high|medium|low|info]
              [--ignore FILE] [--baseline PREVIOUS.json] [--fixes] [--timestamps]
              [--llm anthropic [--llm-model M] [--llm-redact-identifiers]]
   darb collect-snapshot --out DIR [AWS flags]
@@ -35,6 +35,7 @@ const usage = `usage:
   darb rules list
   darb rules show RULE-ID
   darb version
+Global flags, anywhere: --log-format text|json (logs on standard error, redacted), --debug.
 Paths are relative to --root (default "."). Exit codes: 0 clean, 1 findings at or
 above --fail-on, 2 usage or configuration error, 3 incomplete scan, 4 internal error.`
 
@@ -46,6 +47,17 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) ExitCode 
 // RunWith is Run with the connections of env.
 func RunWith(ctx context.Context, args []string, stdout, stderr io.Writer, env *Env) ExitCode {
 	stderr = redacting{stderr}
+	args, g, err := splitGlobals(args)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
+		return ExitUsage
+	}
+	e := Env{}
+	if env != nil {
+		e = *env
+	}
+	e.log = newLogger(stderr, g)
+	env = &e
 	if len(args) == 0 {
 		_, _ = fmt.Fprintln(stderr, usage)
 		return ExitUsage
@@ -56,7 +68,7 @@ func RunWith(ctx context.Context, args []string, stdout, stderr io.Writer, env *
 	case "collect-snapshot":
 		return collectSnapshot(ctx, args[1:], stdout, stderr, env)
 	case "remediate":
-		return remediateCmd(ctx, args[1:], stdout, stderr)
+		return remediateCmd(ctx, args[1:], stdout, stderr, env)
 	case "explain":
 		return explainCmd(ctx, args[1:], stdout, stderr, env)
 	case "graph":
@@ -159,11 +171,14 @@ func scan(ctx context.Context, args []string, stdout, stderr io.Writer, env *Env
 		}
 		return ExitIncomplete
 	}
+	logLoaded(env.logger(), f, l)
+	start := time.Now()
 	a, err := app.Analyze(l, cfg, f.failOn)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		return ExitInternal
 	}
+	logAnalysis(env.logger(), a, time.Since(start))
 	t, err := triage(f)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, "darb:", err)
@@ -185,6 +200,7 @@ func scan(ctx context.Context, args []string, stdout, stderr io.Writer, env *Env
 		}
 		app.ExplainReport(ctx, rep, p, opts.RedactIdentifiers)
 	}
+	logReport(env.logger(), rep)
 	if f.timestamps {
 		rep.GeneratedAt = env.now().UTC().Format(time.RFC3339)
 	}

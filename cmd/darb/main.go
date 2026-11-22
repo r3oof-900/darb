@@ -3,7 +3,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 
@@ -14,11 +13,12 @@ func main() {
 	os.Exit(int(run()))
 }
 
-// run is the only place that recovers panics; they map to exit code 4.
+// run is the only place that recovers panics; they map to exit code 4
+// (with --debug, the stack trace is printed too).
 func run() (code cli.ExitCode) {
 	defer func() {
 		if r := recover(); r != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "darb: internal error: %v (a bug: please report it with the command line; see SECURITY.md for a security issue)\n", r)
+			cli.Crash(os.Stderr, os.Args[1:], r)
 			code = cli.ExitInternal
 		}
 	}()

@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -27,6 +28,16 @@ type Env struct {
 	Explainer func(app.LLMOptions) (app.Explainer, error)
 	// Exists says whether a file exists (darb doctor); nil: os.Stat.
 	Exists func(string) bool
+
+	log *slog.Logger // set by RunWith from --log-format and --debug
+}
+
+// logger is the command's logger (a discarding one outside RunWith).
+func (e *Env) logger() *slog.Logger {
+	if e == nil || e.log == nil {
+		return slog.New(slog.DiscardHandler)
+	}
+	return e.log
 }
 
 func (e *Env) exists(p string) bool {

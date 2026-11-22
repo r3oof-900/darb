@@ -25,7 +25,7 @@ import (
 // Exit codes: 0 a verified fix (shown, or written with --write); 1 no
 // verified fix (UNKNOWN, no fix within the constraints, a TODO, or
 // rejected by a verification); 2 usage, or --write refused; 4 internal.
-func remediateCmd(ctx context.Context, args []string, stdout, stderr io.Writer) ExitCode {
+func remediateCmd(ctx context.Context, args []string, stdout, stderr io.Writer, env *Env) ExitCode {
 	var write, allowRevoke, force bool
 	f, fp, ok := parseRemediate(args, stderr, func(fs *flag.FlagSet) {
 		fs.BoolVar(&write, "write", false, "apply the verified patch to the input files")
@@ -53,6 +53,7 @@ func remediateCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 		}
 		return ExitIncomplete
 	}
+	logLoaded(env.logger(), f, l)
 	a, err := app.Analyze(l, cfg, f.failOn)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, "darb:", err)

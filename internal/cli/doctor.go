@@ -119,6 +119,7 @@ func analyzeInputs(ctx context.Context, f *scanFlags, env *Env, stderr io.Writer
 		}
 		return fail(err, ExitIncomplete)
 	}
+	logLoaded(env.logger(), f, l)
 	a, err := app.Analyze(l, cfg, f.failOn)
 	if err != nil {
 		return fail(err, ExitInternal)
