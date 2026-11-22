@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/llm"
-	"github.com/r3oof-900/clapa/internal/llm/claude"
-	"github.com/r3oof-900/clapa/internal/llm/pseudonymize"
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/internal/llm"
+	"github.com/r3oof-900/darb/internal/llm/claude"
+	"github.com/r3oof-900/darb/internal/llm/pseudonymize"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 // LLMOptions select the explanation provider of scan --llm and explain
@@ -54,7 +54,7 @@ func isPath(f *schema.Finding) bool { return f.Resource == "" }
 // ExplainReport explains every attack-path finding of r and writes the
 // executive summary, with one pseudonym mapping for the whole report when
 // redactIDs. p nil: template text, with a note. A misconfiguration is
-// explained by its rule's rationale (clapa rules show), not by a provider.
+// explained by its rule's rationale (darb rules show), not by a provider.
 func ExplainReport(ctx context.Context, r *schema.Report, p Explainer, redactIDs bool) {
 	m := mapping(redactIDs)
 	all := make([]llm.Evidence, 0, len(r.Findings))

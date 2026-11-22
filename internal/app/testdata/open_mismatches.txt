@@ -31,7 +31,7 @@
 #     in the notation and same-account update-trust, and matches every hand
 #     derivation of the group but one (I).
 #
-# I (Phase 6 review, scenario 22 vulnerable, CLAPA-PATH-002) is resolved:
+# I (Phase 6 review, scenario 22 vulnerable, DARB-PATH-002) is resolved:
 #     the hand derivation was wrong (a same-account trust naming role/app's
 #     ARN grants alone, so ASSUMES role/app -> role/ops has no identity
 #     side); corrected in expected_source.py. The engine was right.

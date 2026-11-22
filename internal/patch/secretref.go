@@ -5,7 +5,7 @@ import (
 
 	yaml "go.yaml.in/yaml/v3"
 
-	"github.com/r3oof-900/clapa/internal/remediate"
+	"github.com/r3oof-900/darb/internal/remediate"
 )
 
 // removeSecretRef deletes every reference to a Secret from a workload's

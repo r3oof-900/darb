@@ -4,9 +4,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // kubernetes adds RUNS_AS, RUNS_AS[k8s-token], CAN_ESCALATE[rbac],

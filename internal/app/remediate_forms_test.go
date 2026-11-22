@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/graph"
+	"github.com/r3oof-900/darb/internal/graph"
 )
 
 // The three ways a Terraform policy is written, each patched for a narrow
@@ -72,12 +72,12 @@ func TestPolicyForms(t *testing.T) {
 	}{
 		{
 			"jsonencode", "",
-			[]string{`+      { Sid = "ClapaCut`, `Effect = "Deny", Action = ["kms:Decrypt"], Resource = [aws_kms_key.pii.arn]`},
+			[]string{`+      { Sid = "DarbCut`, `Effect = "Deny", Action = ["kms:Decrypt"], Resource = [aws_kms_key.pii.arn]`},
 			[]string{`-      { Sid = "ReadCustomerData"`},
 		},
 		{
 			"heredoc", heredocPolicy,
-			[]string{`+    {"Sid": "ClapaCut`, `"Resource": ["${aws_kms_key.pii.arn}"]`, `["${aws_s3_bucket.customer_pii.arn}", "${aws_s3_bucket.customer_pii.arn}/*"]`},
+			[]string{`+    {"Sid": "DarbCut`, `"Resource": ["${aws_kms_key.pii.arn}"]`, `["${aws_s3_bucket.customer_pii.arn}", "${aws_s3_bucket.customer_pii.arn}/*"]`},
 			[]string{`-    {"Sid": "ReadCustomerData"`},
 		},
 		{
@@ -97,7 +97,7 @@ func TestPolicyForms(t *testing.T) {
 				edit = func(dir string) { setPolicy(dir); sseS3(t, dir) }
 			}
 			in, l, a := scanFixture(t, "01_classic/vulnerable", edit)
-			f := findingFor(a, "CLAPA-PATH-001", piiBucket)
+			f := findingFor(a, "DARB-PATH-001", piiBucket)
 			if f == nil || len(f.Fix) != 1 || f.Fix[0].Kind != kind {
 				t.Fatalf("%s %s: the cut: %+v", c.form, kind, f)
 			}
@@ -142,7 +142,7 @@ func TestPatchKeepsFileForm(t *testing.T) {
 			original = c.form(readFile(t, file))
 			writeFile(t, file, original)
 		})
-		f := findingFor(a, "CLAPA-PATH-001", piiBucket)
+		f := findingFor(a, "DARB-PATH-001", piiBucket)
 		r, err := Remediate(t.Context(), in, l, a, f.Fingerprint)
 		if err != nil {
 			t.Fatal(err)

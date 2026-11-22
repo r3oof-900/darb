@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 func TestOnlyRegisteredPlaceholders(t *testing.T) {

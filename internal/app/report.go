@@ -5,19 +5,19 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/r3oof-900/clapa/internal/config"
-	"github.com/r3oof-900/clapa/internal/report"
-	"github.com/r3oof-900/clapa/internal/report/console"
-	"github.com/r3oof-900/clapa/internal/report/htmlreport"
-	"github.com/r3oof-900/clapa/internal/report/jsonreport"
-	"github.com/r3oof-900/clapa/internal/report/sarif"
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/internal/config"
+	"github.com/r3oof-900/darb/internal/report"
+	"github.com/r3oof-900/darb/internal/report/console"
+	"github.com/r3oof-900/darb/internal/report/htmlreport"
+	"github.com/r3oof-900/darb/internal/report/jsonreport"
+	"github.com/r3oof-900/darb/internal/report/sarif"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 // ErrFormat is returned for an output format that does not exist.
 var ErrFormat = errors.New("app: unknown output format")
 
-// Formats are the output formats of "clapa scan --format".
+// Formats are the output formats of "darb scan --format".
 func Formats() []string { return []string{"console", "json", "sarif", "html"} }
 
 // Report builds the versioned report document of an analysis.

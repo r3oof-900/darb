@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/remediate"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/remediate"
 )
 
 // stmtList is the statements of one policy in one of the forms a patch

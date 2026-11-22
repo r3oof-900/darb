@@ -11,31 +11,14 @@ import (
 // rule's ID set or a version without bumping Version, and adding the new
 // set here, fails the test (DESIGN.md §8).
 var pinned = map[string][]string{
-	"1.0.0": {
-		"CLAPA-PATH-001@1.0.0", "CLAPA-PATH-002@1.0.0", "CLAPA-PATH-003@1.0.0",
-		"CLAPA-POST-001@1.0.0", "CLAPA-POST-002@1.0.0", "CLAPA-POST-003@1.0.0", "CLAPA-POST-004@1.0.0",
-		"CLAPA-POST-005@1.0.0", "CLAPA-POST-006@1.0.0", "CLAPA-POST-007@1.0.0",
-	},
-	// 1.1.0 (Phase 5 review): CLAPA-POST-008, a broad grant of a sensitive action.
-	"1.1.0": {
-		"CLAPA-PATH-001@1.0.0", "CLAPA-PATH-002@1.0.0", "CLAPA-PATH-003@1.0.0",
-		"CLAPA-POST-001@1.0.0", "CLAPA-POST-002@1.0.0", "CLAPA-POST-003@1.0.0", "CLAPA-POST-004@1.0.0",
-		"CLAPA-POST-005@1.0.0", "CLAPA-POST-006@1.0.0", "CLAPA-POST-007@1.0.0", "CLAPA-POST-008@1.0.0",
-	},
-	// 1.2.0: CLAPA-POST-008 1.1.0, graded by reachability (high reached,
-	// medium not reached).
-	"1.2.0": {
-		"CLAPA-PATH-001@1.0.0", "CLAPA-PATH-002@1.0.0", "CLAPA-PATH-003@1.0.0",
-		"CLAPA-POST-001@1.0.0", "CLAPA-POST-002@1.0.0", "CLAPA-POST-003@1.0.0", "CLAPA-POST-004@1.0.0",
-		"CLAPA-POST-005@1.0.0", "CLAPA-POST-006@1.0.0", "CLAPA-POST-007@1.0.0", "CLAPA-POST-008@1.1.0",
-	},
-	// 1.2.1: CLAPA-POST-001 1.0.1 also probes every namespace of the
-	// cluster (a wildcard scoped to one namespace), found by the comparison
-	// with the previous tool's samples.
-	"1.2.1": {
-		"CLAPA-PATH-001@1.0.0", "CLAPA-PATH-002@1.0.0", "CLAPA-PATH-003@1.0.0",
-		"CLAPA-POST-001@1.0.1", "CLAPA-POST-002@1.0.0", "CLAPA-POST-003@1.0.0", "CLAPA-POST-004@1.0.0",
-		"CLAPA-POST-005@1.0.0", "CLAPA-POST-006@1.0.0", "CLAPA-POST-007@1.0.0", "CLAPA-POST-008@1.1.0",
+	// 2.0.0: the rename to darb changed every rule ID (and fingerprint); the
+	// rules and their versions are those of 1.2.1. Catalog versions 1.0.0 to
+	// 1.2.1 used the former IDs; their sets are in the git history of this
+	// file.
+	"2.0.0": {
+		"DARB-PATH-001@1.0.0", "DARB-PATH-002@1.0.0", "DARB-PATH-003@1.0.0",
+		"DARB-POST-001@1.0.1", "DARB-POST-002@1.0.0", "DARB-POST-003@1.0.0", "DARB-POST-004@1.0.0",
+		"DARB-POST-005@1.0.0", "DARB-POST-006@1.0.0", "DARB-POST-007@1.0.0", "DARB-POST-008@1.1.0",
 	},
 }
 

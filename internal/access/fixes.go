@@ -4,10 +4,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/scoring"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/scoring"
 )
 
 // An edge's cut cost is the cheapest change that breaks it (SCORING.md §4).
@@ -205,7 +205,7 @@ func resolution(gd *eval.GrantDetail) graph.Resolution {
 }
 
 // resolveCommand: a Terraform variable is set with -var-file; another value
-// not known statically needs a plan; a context key is assumed in clapa.yaml.
+// not known statically needs a plan; a context key is assumed in darb.yaml.
 func resolveCommand(u *eval.Unresolved) (string, bool) {
 	if ids := model.UnresolvedIDs(u.Reason); len(ids) > 0 {
 		if name, ok := strings.CutPrefix(ids[0], "var."); ok {
@@ -214,7 +214,7 @@ func resolveCommand(u *eval.Unresolved) (string, bool) {
 		return "--plan", true
 	}
 	if u.Element == "Condition" && strings.Contains(u.Key, ":") && !model.ContainsUnresolved(u.Key) {
-		return `assume: {"` + u.Key + `": [...]} in clapa.yaml`, true
+		return `assume: {"` + u.Key + `": [...]} in darb.yaml`, true
 	}
 	return "", false
 }

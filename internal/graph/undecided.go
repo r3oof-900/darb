@@ -5,12 +5,12 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // Undecided says what would decide an UNKNOWN path: the context keys a
-// condition needs (set them under assume: in clapa.yaml), the values that
+// condition needs (set them under assume: in darb.yaml), the values that
 // are not known statically (scan a plan), the preconditions to state.
 func (g *Graph) Undecided(path []EdgeID) []string {
 	var out []string
@@ -62,7 +62,7 @@ func missingOf(u *Unknown) string {
 		return fmt.Sprintf("%s %s of %s comes from %s, which is not known statically: %s", u.Element, u.Key, u.Policy, ids[0], how)
 	}
 	if u.Element == "Condition" && strings.Contains(u.Key, ":") && !model.ContainsUnresolved(u.Key) {
-		return fmt.Sprintf("set `assume: {%q: [...]}` in clapa.yaml: %s conditions on %s, whose value is not in the input (%s)",
+		return fmt.Sprintf("set `assume: {%q: [...]}` in darb.yaml: %s conditions on %s, whose value is not in the input (%s)",
 			u.Key, u.Policy, u.Key, u.Reason)
 	}
 	if key, ok := strings.CutSuffix(u.Policy, "#key-policy-not-in-input"); ok {

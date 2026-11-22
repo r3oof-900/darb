@@ -6,16 +6,16 @@ import "strings"
 //
 // A value a collector could not resolve (e.g. "var.x" without a value in
 // static HCL) is never turned into guessed text. Inside policy documents it
-// is replaced by the placeholder ${clapa:unresolved:<id>}, which the
+// is replaced by the placeholder ${darb:unresolved:<id>}, which the
 // evaluator always treats as UNKNOWN, wherever it appears (Action, Resource,
 // Principal, condition key or value) and whatever the policy Version. The
-// "clapa:" namespace cannot collide with AWS condition keys.
+// "darb:" namespace cannot collide with AWS condition keys.
 //
 // Only the normalizer creates placeholders (normalize.Builder.Placeholder
 // registers each one). Input text that contains the prefix is rejected as
 // invalid input with its file:line, so a file cannot turn a definite answer
 // into UNKNOWN by writing the reserved text (docs/DESIGN.md section 4.6).
-const unresolvedPrefix = "${clapa:unresolved:"
+const unresolvedPrefix = "${darb:unresolved:"
 
 // UnresolvedPrefix is the reserved text every placeholder starts with.
 const UnresolvedPrefix = unresolvedPrefix
@@ -53,7 +53,7 @@ func UnresolvedIDs(s string) []string {
 }
 
 // SplitUnresolved returns the known pieces of s around its placeholders:
-// "a${clapa:unresolved:x}b" gives ["a", "b"]. A string without placeholders
+// "a${darb:unresolved:x}b" gives ["a", "b"]. A string without placeholders
 // gives [s]. An unterminated placeholder runs to the end of s.
 func SplitUnresolved(s string) []string {
 	var out []string

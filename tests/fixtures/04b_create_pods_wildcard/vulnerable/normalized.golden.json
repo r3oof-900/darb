@@ -8,7 +8,7 @@
       "name": "prod",
       "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
       "region": "us-east-1",
-      "source": "clapa.yaml (clusters.prod)"
+      "source": "darb.yaml (clusters.prod)"
     }
   ],
   "collected": 12,
@@ -27,17 +27,6 @@
   "pod_identity": [],
   "policies": [
     {
-      "kind": "identity",
-      "policy": "aws_iam_role_policy.payments_api",
-      "source": "terraform/role.tf:6-16 (aws_iam_role_policy.payments_api)",
-      "statements": [
-        "Allow s3:GetObject on arn:aws:s3:::acme-customer-pii/* (0 conditions)",
-        "Allow kms:Decrypt on arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii (0 conditions)"
-      ],
-      "target": "arn:aws:iam::111122223333:role/payments-api",
-      "unresolved_statements": 0
-    },
-    {
       "default": "kms.default-key-policy",
       "kind": "resource",
       "policy": "aws_kms_key.pii.policy",
@@ -46,6 +35,17 @@
         "Allow kms:* on * (0 conditions)"
       ],
       "target": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "identity",
+      "policy": "aws_iam_role_policy.payments_api",
+      "source": "terraform/role.tf:6-16 (aws_iam_role_policy.payments_api)",
+      "statements": [
+        "Allow s3:GetObject on arn:aws:s3:::acme-customer-pii/* (0 conditions)",
+        "Allow kms:Decrypt on arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/payments-api",
       "unresolved_statements": 0
     }
   ],

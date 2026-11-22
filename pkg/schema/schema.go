@@ -2,7 +2,7 @@ package schema
 
 // Version of the report document. Consumers check it; fields are only
 // added within a major version.
-const Version = "clapa-report/v1"
+const Version = "darb-report/v1"
 
 // Report is the document every output format renders.
 type Report struct {
@@ -22,7 +22,7 @@ type Report struct {
 	Coverage         Coverage         `json:"coverage"`
 	Graph            Graph            `json:"graph"`
 	Rules            []Rule           `json:"rules"`
-	// Suppressed, ExpiredSuppressions: .clapa-ignore.yaml (--ignore);
+	// Suppressed, ExpiredSuppressions: .darb-ignore.yaml (--ignore);
 	// Baseline: the comparison with --baseline. Absent when not used.
 	Suppressed          []SuppressedFinding  `json:"suppressed,omitempty"`
 	ExpiredSuppressions []ExpiredSuppression `json:"expired_suppressions,omitempty"`

@@ -3,10 +3,10 @@ package app
 import (
 	"context"
 
-	"github.com/r3oof-900/clapa/internal/access"
-	"github.com/r3oof-900/clapa/internal/collect/awslive"
-	"github.com/r3oof-900/clapa/internal/collect/k8s/live"
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/internal/access"
+	"github.com/r3oof-900/darb/internal/collect/awslive"
+	"github.com/r3oof-900/darb/internal/collect/k8s/live"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 // K8sClients reads one live cluster (typed and metadata-only clients).
@@ -14,7 +14,7 @@ type K8sClients = live.Clients
 
 // K8sLive is one live cluster to scan.
 type K8sLive struct {
-	Cluster string // the name findings use (clapa.yaml clusters[].name)
+	Cluster string // the name findings use (darb.yaml clusters[].name)
 	Clients *K8sClients
 }
 

@@ -81,7 +81,7 @@ cases:
     policies: {resource: [{Effect: Allow, Principal: {Service: "cloudtrail.amazonaws.com"}, Action: "s3:PutObject", Resource: "arn:aws:s3:::data/*"}]}
     expect: IMPLICIT_DENY
 
-  - name: clapa.principal.unique-id-is-unknown
+  - name: darb.principal.unique-id-is-unknown
     doc: "IAM User Guide › Principal (role unique IDs after deletion): an AROA... ID cannot be resolved offline, so the grant is UNKNOWN"
     policies: {resource: [{Effect: Allow, Principal: {AWS: "AROAEXAMPLEROLEID01"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
     expect: UNKNOWN

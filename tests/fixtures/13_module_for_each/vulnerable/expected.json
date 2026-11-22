@@ -1,9 +1,9 @@
 {
-  "format": "clapa-expected/v1",
+  "format": "darb-expected/v1",
   "derived_from": "13.2 row 13 (plan mode)",
   "findings": [
     {
-      "rule": "CLAPA-PATH-001",
+      "rule": "DARB-PATH-001",
       "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/CronJob/etl",
       "jewel": "arn:aws:s3:::acme-customer-pii",
       "path": [
@@ -45,10 +45,11 @@
       "status": "confirmed",
       "also_fixes": [],
       "uncuttable": [],
-      "remediation_status": "complete"
+      "remediation_status": "complete",
+      "fingerprint": "12aff434e93794605533e5ccf4e71bd3a4effef0b9db35eb83b157a5d7d0a1f2"
     },
     {
-      "rule": "CLAPA-PATH-001",
+      "rule": "DARB-PATH-001",
       "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/CronJob/bi",
       "jewel": "arn:aws:s3:::acme-customer-pii",
       "path": [
@@ -90,10 +91,11 @@
       "status": "confirmed",
       "also_fixes": [],
       "uncuttable": [],
-      "remediation_status": "complete"
+      "remediation_status": "complete",
+      "fingerprint": "ecd9b8018f226ef71028e4b5336c4d462f772e681b261840cbd95087bd966421"
     },
     {
-      "rule": "CLAPA-PATH-001",
+      "rule": "DARB-PATH-001",
       "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/CronJob/ml",
       "jewel": "arn:aws:s3:::acme-customer-pii",
       "path": [
@@ -135,14 +137,16 @@
       "status": "confirmed",
       "also_fixes": [],
       "uncuttable": [],
-      "remediation_status": "complete"
+      "remediation_status": "complete",
+      "fingerprint": "8f9d80fb035c034b90bbaa3207bd77f8b76f29c3b40275f0351cce0b8d1ef59f"
     },
     {
-      "rule": "CLAPA-POST-007",
+      "rule": "DARB-POST-007",
       "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/analytics",
       "score": 245,
       "severity": "low",
-      "defaults_used": []
+      "defaults_used": [],
+      "fingerprint": "df7b113507c09e56eb19c0e1f186d2046d67f84c02ca64b736480db249578fec"
     }
   ],
   "absent": [],

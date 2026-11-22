@@ -1,8 +1,8 @@
 package eval
 
 import (
-	"github.com/r3oof-900/clapa/internal/eval/match"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/eval/match"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // decide combines the grants into the access decision (before unknown

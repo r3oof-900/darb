@@ -61,13 +61,13 @@ cases:
     policies: {identity: [*idAllow], resource: [{Effect: Allow, Principal: "*", Action: "s3:GetObject", Resource: "arn:aws:s3:::partner-data/*"}]}
     expect: ALLOW
 
-  - name: clapa.cross-account.unknown-resource-account-both-agree
+  - name: darb.cross-account.unknown-resource-account-both-agree
     doc: "docs/DESIGN.md section 6: with the resource account unknown, a decision is made only when same- and cross-account logic agree"
     resource_account: ""
     policies: {identity: [*idAllow], resource: [*grantRole]}
     expect: ALLOW
 
-  - name: clapa.cross-account.unknown-resource-account-disagree
+  - name: darb.cross-account.unknown-resource-account-disagree
     doc: "docs/DESIGN.md section 6: same-account would allow (role ARN grant), cross-account would not, so the result is UNKNOWN"
     resource_account: ""
     policies: {resource: [*grantRole]}

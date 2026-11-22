@@ -3,8 +3,8 @@ package access
 import (
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // NODE_ROLE (DESIGN.md §7.2): hostNetwork reaches IMDS whatever the token

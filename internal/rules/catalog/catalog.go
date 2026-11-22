@@ -3,13 +3,13 @@
 package catalog
 
 import (
-	"github.com/r3oof-900/clapa/internal/rules"
-	"github.com/r3oof-900/clapa/internal/rules/pathrules"
-	"github.com/r3oof-900/clapa/internal/rules/posture"
+	"github.com/r3oof-900/darb/internal/rules"
+	"github.com/r3oof-900/darb/internal/rules/pathrules"
+	"github.com/r3oof-900/darb/internal/rules/posture"
 )
 
 // Version is the rule catalog's semver.
-const Version = "1.2.1"
+const Version = "2.0.0"
 
 // New returns the registry of every rule.
 func New() (*rules.Registry, error) {

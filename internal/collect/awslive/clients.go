@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
-// The API subsets CLAPA calls. They are read-only by construction: no
+// The API subsets darb calls. They are read-only by construction: no
 // interface here has a method that changes anything, and none reads a
 // secret or parameter value (no GetSecretValue, no GetParameter*; see
 // read_only_test.go). docs/PERMISSIONS.md lists the same actions.

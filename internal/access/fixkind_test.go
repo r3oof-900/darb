@@ -3,9 +3,9 @@ package access
 import (
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/iampolicy"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/iampolicy"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // The boundaries of "explicit" (revoke) and "broad" (narrow), one case per

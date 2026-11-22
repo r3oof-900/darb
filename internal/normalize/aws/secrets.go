@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // secrets: each Secrets Manager secret is a data resource encrypted with

@@ -1,10 +1,10 @@
 {
-  "format": "clapa-expected/v1",
+  "format": "darb-expected/v1",
   "derived_from": "Phase 6 instruction, fixed: the us-east-1 role can only list its bucket",
   "exit_code": 0,
   "findings": [
     {
-      "rule": "CLAPA-PATH-001",
+      "rule": "DARB-PATH-001",
       "entry": "k8s:arn:aws:eks:eu-west-1:111122223333:cluster/prod/apps/Deployment/app",
       "jewel": "arn:aws:s3:::data-eu",
       "path": [
@@ -46,36 +46,39 @@
       "status": "confirmed",
       "also_fixes": [],
       "uncuttable": [],
-      "remediation_status": "complete"
+      "remediation_status": "complete",
+      "fingerprint": "28103f74274830aeae305be4e07346680335ff3c3423c6dde351deb939a27ebb"
     },
     {
-      "rule": "CLAPA-POST-007",
+      "rule": "DARB-POST-007",
       "resource": "k8s:arn:aws:eks:eu-west-1:111122223333:cluster/prod//Namespace/apps",
       "score": 245,
       "severity": "low",
-      "defaults_used": []
+      "defaults_used": [],
+      "fingerprint": "bbe26ff54ed5256bcdbbe6ca949e8b3bb7076fb37fd22e9b5c6da0c440d671ff"
     },
     {
-      "rule": "CLAPA-POST-007",
+      "rule": "DARB-POST-007",
       "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/apps",
       "score": 245,
       "severity": "low",
-      "defaults_used": []
+      "defaults_used": [],
+      "fingerprint": "86bf50d5ca80fbc6bc4af5637d94bf52b7da9dc9c55316b7221c58456545849d"
     }
   ],
   "absent": [
     {
-      "rule": "CLAPA-PATH-001",
+      "rule": "DARB-PATH-001",
       "entry": "k8s:arn:aws:eks:eu-west-1:111122223333:cluster/prod/apps/Deployment/app",
       "jewel": "arn:aws:s3:::data-us"
     },
     {
-      "rule": "CLAPA-PATH-001",
+      "rule": "DARB-PATH-001",
       "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app",
       "jewel": "arn:aws:s3:::data-eu"
     },
     {
-      "rule": "CLAPA-PATH-001",
+      "rule": "DARB-PATH-001",
       "jewel": "arn:aws:s3:::data-us"
     }
   ],

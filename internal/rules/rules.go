@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/paths"
-	"github.com/r3oof-900/clapa/internal/scoring"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/paths"
+	"github.com/r3oof-900/darb/internal/scoring"
 )
 
 // SourceOf returns where a node of the inventory is defined.

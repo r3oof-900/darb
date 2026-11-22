@@ -1,9 +1,9 @@
 package eval
 
 import (
-	"github.com/r3oof-900/clapa/internal/eval/condition"
-	"github.com/r3oof-900/clapa/internal/eval/match"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/eval/condition"
+	"github.com/r3oof-900/darb/internal/eval/match"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // stmtResult is whether one statement applies to the request.

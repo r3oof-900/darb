@@ -10,29 +10,29 @@ import (
 	"strings"
 	"time"
 
-	"github.com/r3oof-900/clapa/internal/app"
-	"github.com/r3oof-900/clapa/internal/config"
-	"github.com/r3oof-900/clapa/internal/rules/catalog"
-	"github.com/r3oof-900/clapa/internal/version"
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/internal/app"
+	"github.com/r3oof-900/darb/internal/config"
+	"github.com/r3oof-900/darb/internal/rules/catalog"
+	"github.com/r3oof-900/darb/internal/version"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 const usage = `usage:
-  clapa scan [--root DIR] [--config FILE] [--plan FILE[=TFDIR]]... [--terraform DIR]...
+  darb scan [--root DIR] [--config FILE] [--plan FILE[=TFDIR]]... [--terraform DIR]...
              [--k8s DIR[=CLUSTER]]... [--aws-snapshot DIR]... [--live-aws [AWS flags]]
              [--live-k8s CONTEXT[=CLUSTER]]... [--k8s-eks NAME]... [--kubeconfig FILE] [--insecure]
              [--format console|json|sarif|html] [--output FILE] [--fail-on critical|high|medium|low|info]
              [--ignore FILE] [--baseline PREVIOUS.json] [--fixes] [--timestamps]
              [--llm anthropic [--llm-model M] [--llm-redact-identifiers]]
-  clapa collect-snapshot --out DIR [AWS flags]
+  darb collect-snapshot --out DIR [AWS flags]
              AWS flags: [--aws-profile P] [--aws-region R]... [--aws-assume-role ARN]...
              [--aws-external-id ID] [--aws-concurrency N] [--aws-call-timeout D]
-  clapa remediate [scan input flags] [--write [--allow-revoke] [--force]] FINGERPRINT
-  clapa explain [scan input flags] [--llm anthropic [--llm-model M] [--llm-redact-identifiers]] FINGERPRINT
+  darb remediate [scan input flags] [--write [--allow-revoke] [--force]] FINGERPRINT
+  darb explain [scan input flags] [--llm anthropic [--llm-model M] [--llm-redact-identifiers]] FINGERPRINT
              (the API key of --llm is read from ANTHROPIC_API_KEY only)
-  clapa rules list
-  clapa rules show RULE-ID
-  clapa version
+  darb rules list
+  darb rules show RULE-ID
+  darb version
 Paths are relative to --root (default "."). Exit codes: 0 clean, 1 findings at or
 above --fail-on, 2 usage or configuration error, 3 incomplete scan, 4 internal error.`
 
@@ -61,10 +61,10 @@ func RunWith(ctx context.Context, args []string, stdout, stderr io.Writer, env *
 		return rulesCmd(args[1:], stdout, stderr)
 	case "version":
 		v := version.Get()
-		_, _ = fmt.Fprintf(stdout, "clapa %s (commit %s, rule catalog %s)\n", v.Version, v.Commit, catalog.Version)
+		_, _ = fmt.Fprintf(stdout, "darb %s (commit %s, rule catalog %s)\n", v.Version, v.Commit, catalog.Version)
 		return ExitOK
 	}
-	_, _ = fmt.Fprintf(stderr, "clapa: unknown command %q\n%s\n", args[0], usage)
+	_, _ = fmt.Fprintf(stderr, "darb: unknown command %q\n%s\n", args[0], usage)
 	return ExitUsage
 }
 
@@ -95,11 +95,11 @@ func parseScan(args []string, stderr io.Writer) (*scanFlags, bool) {
 		return nil, false
 	}
 	if !slices.Contains([]string{"critical", "high", "medium", "low", "info"}, f.failOn) || !slices.Contains(app.Formats(), f.format) {
-		_, _ = fmt.Fprintf(stderr, "clapa: invalid --fail-on %q or --format %q\n", f.failOn, f.format)
+		_, _ = fmt.Fprintf(stderr, "darb: invalid --fail-on %q or --format %q\n", f.failOn, f.format)
 		return nil, false
 	}
 	if err := f.llm.check(); err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		return nil, false
 	}
 	return f, true
@@ -108,16 +108,16 @@ func parseScan(args []string, stderr io.Writer) (*scanFlags, bool) {
 // scanFlagsOn defines the input flags shared by scan and remediate.
 func scanFlagsOn(fset *flag.FlagSet, f *scanFlags) {
 	fset.StringVar(&f.root, "root", ".", "scan root; every input path is relative to it")
-	fset.StringVar(&f.cfg, "config", "", "clapa.yaml (default: clapa.yaml in the root, if present)")
+	fset.StringVar(&f.cfg, "config", "", "darb.yaml (default: darb.yaml in the root, if present)")
 	fset.StringVar(&f.format, "format", "console", "output format: "+strings.Join(app.Formats(), ", "))
 	fset.StringVar(&f.output, "output", "", "write the report to this file instead of standard output")
 	fset.StringVar(&f.failOn, "fail-on", app.DefaultFailOn, "lowest severity that makes the exit code 1")
-	fset.StringVar(&f.ignore, "ignore", "", "suppression file (default: .clapa-ignore.yaml in the root, if present)")
+	fset.StringVar(&f.ignore, "ignore", "", "suppression file (default: .darb-ignore.yaml in the root, if present)")
 	fset.StringVar(&f.baseline, "baseline", "", "a previous JSON report: report only new findings, and the resolved ones")
 	fset.Var(&f.plans, "plan", "Terraform plan (JSON or binary), optionally =its configuration directory")
 	fset.Var(&f.tfDirs, "terraform", "Terraform directory scanned statically")
 	fset.Var(&f.k8sDirs, "k8s", "Kubernetes manifests directory, optionally =cluster name")
-	fset.Var(&f.snapshots, "aws-snapshot", "offline AWS snapshot directory (clapa-snapshot/v1, written by collect-snapshot)")
+	fset.Var(&f.snapshots, "aws-snapshot", "offline AWS snapshot directory (darb-snapshot/v1, written by collect-snapshot)")
 	f.aws.on(fset, true)
 	f.k8s.on(fset)
 }
@@ -129,23 +129,23 @@ func scan(ctx context.Context, args []string, stdout, stderr io.Writer, env *Env
 	}
 	cfg, err := app.LoadConfig(f.root, f.cfg, f.cfg != "")
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		return ExitUsage
 	}
 	in := inputs(f, cfg)
 	if f.aws.live {
 		if in.AWSLive, err = f.aws.options(ctx, env); err != nil {
-			_, _ = fmt.Fprintln(stderr, "clapa:", err)
+			_, _ = fmt.Fprintln(stderr, "darb:", err)
 			return ExitUsage
 		}
 	}
 	if in.K8sLive, err = f.k8s.clusters(ctx, env, &f.aws, stderr); err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		return ExitUsage
 	}
 	l, err := app.Load(ctx, in)
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		if errors.Is(err, config.ErrInvalid) {
 			return ExitUsage
 		}
@@ -153,26 +153,26 @@ func scan(ctx context.Context, args []string, stdout, stderr io.Writer, env *Env
 	}
 	a, err := app.Analyze(l, cfg, f.failOn)
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		return ExitInternal
 	}
 	t, err := triage(f)
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		return ExitUsage
 	}
 	app.ApplyTriage(a, t, f.failOn)
 	rep := app.Report(a, cfg, f.failOn)
 	if f.fixes {
 		if err := app.AttachFixes(ctx, in, l, a, rep); err != nil {
-			_, _ = fmt.Fprintln(stderr, "clapa:", err)
+			_, _ = fmt.Fprintln(stderr, "darb:", err)
 			return ExitInternal
 		}
 	}
 	if f.llm.provider != "" {
 		p, opts, err := f.llm.explainer(env)
 		if err != nil {
-			_, _ = fmt.Fprintln(stderr, "clapa:", err)
+			_, _ = fmt.Fprintln(stderr, "darb:", err)
 			return ExitUsage
 		}
 		app.ExplainReport(ctx, rep, p, opts.RedactIdentifiers)
@@ -217,14 +217,14 @@ func write(r *schema.Report, format, output string, stdout, stderr io.Writer) Ex
 	if output != "" {
 		f, err := app.CreateOutput(output)
 		if err != nil {
-			_, _ = fmt.Fprintln(stderr, "clapa:", err)
+			_, _ = fmt.Fprintln(stderr, "darb:", err)
 			return ExitUsage
 		}
 		defer func() { _ = f.Close() }()
 		w = f
 	}
 	if err := app.Write(w, format, r); err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		return ExitInternal
 	}
 	return ExitCode(r.ExitCode)
@@ -233,7 +233,7 @@ func write(r *schema.Report, format, output string, stdout, stderr io.Writer) Ex
 func rulesCmd(args []string, stdout, stderr io.Writer) ExitCode {
 	reg, err := catalog.New()
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		return ExitInternal
 	}
 	switch {
@@ -246,7 +246,7 @@ func rulesCmd(args []string, stdout, stderr io.Writer) ExitCode {
 	case len(args) == 2 && args[0] == "show":
 		r, ok := reg.Get(args[1])
 		if !ok {
-			_, _ = fmt.Fprintf(stderr, "clapa: no rule %q\n", args[1])
+			_, _ = fmt.Fprintf(stderr, "darb: no rule %q\n", args[1])
 			return ExitUsage
 		}
 		m := r.Meta()

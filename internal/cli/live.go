@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/r3oof-900/clapa/internal/app"
+	"github.com/r3oof-900/darb/internal/app"
 )
 
 // Env holds what the commands connect to. Run uses the real AWS SDK; tests
@@ -95,8 +95,8 @@ func (a *awsFlags) options(ctx context.Context, env *Env) (*app.AWSLive, error) 
 
 var errUsage = errors.New("usage")
 
-// collectSnapshot: `clapa collect-snapshot --out DIR [AWS flags]` collects
-// live, read-only, and writes a clapa-snapshot/v1 bundle to DIR (a new
+// collectSnapshot: `darb collect-snapshot --out DIR [AWS flags]` collects
+// live, read-only, and writes a darb-snapshot/v1 bundle to DIR (a new
 // directory), which `scan --aws-snapshot DIR` reads offline.
 //
 // Exit codes: 0 every call succeeded; 3 the bundle was written but some
@@ -110,21 +110,21 @@ func collectSnapshot(ctx context.Context, args []string, stdout, stderr io.Write
 	fs.StringVar(&out, "out", "", "directory to create for the bundle (must not exist)")
 	a.on(fs, false)
 	if err := fs.Parse(args); err != nil || fs.NArg() > 0 || out == "" {
-		_, _ = fmt.Fprintln(stderr, "usage: clapa collect-snapshot --out DIR [--aws-profile P] [--aws-region R]... [--aws-assume-role ARN]...")
+		_, _ = fmt.Fprintln(stderr, "usage: darb collect-snapshot --out DIR [--aws-profile P] [--aws-region R]... [--aws-assume-role ARN]...")
 		return ExitUsage
 	}
 	if _, err := os.Lstat(out); err == nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", out, "exists; collect-snapshot writes a new directory")
+		_, _ = fmt.Fprintln(stderr, "darb:", out, "exists; collect-snapshot writes a new directory")
 		return ExitUsage
 	}
 	opts, err := a.options(ctx, env)
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		return ExitUsage
 	}
 	res, err := app.CollectSnapshot(ctx, opts, out)
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		printFailed(stderr, res)
 		return ExitIncomplete
 	}

@@ -14,8 +14,8 @@ import (
 	"github.com/aws/smithy-go"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/r3oof-900/clapa/internal/collect/awsraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
+	"github.com/r3oof-900/darb/internal/collect/awsraw"
+	"github.com/r3oof-900/darb/internal/coverage"
 )
 
 // Name identifies this collector in coverage gaps.

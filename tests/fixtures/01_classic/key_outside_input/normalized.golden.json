@@ -8,7 +8,7 @@
       "name": "prod",
       "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
       "region": "us-east-1",
-      "source": "clapa.yaml (clusters.prod)"
+      "source": "darb.yaml (clusters.prod)"
     }
   ],
   "collected": 10,
@@ -46,17 +46,6 @@
   "pod_identity": [],
   "policies": [
     {
-      "kind": "resource",
-      "policy": "arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001#key-policy-not-in-input",
-      "source": "arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001 via not in the input",
-      "statements": [
-        "Allow ${clapa:unresolved:key_policy_of_arn_aws_kms_us-east-1_111122223333_key_0b1c2d3e-0000-4000-8000-000000000001} on ${clapa:unresolved:key_policy_of_arn_aws_kms_us-east-1_111122223333_key_0b1c2d3e-0000-4000-8000-000000000001} (0 conditions)",
-        "Deny ${clapa:unresolved:key_policy_of_arn_aws_kms_us-east-1_111122223333_key_0b1c2d3e-0000-4000-8000-000000000001} on * (0 conditions)"
-      ],
-      "target": "arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001",
-      "unresolved_statements": 2
-    },
-    {
       "kind": "identity",
       "policy": "aws_iam_role_policy.payments_api",
       "source": "terraform/role.tf:6-16 (aws_iam_role_policy.payments_api)",
@@ -66,6 +55,17 @@
       ],
       "target": "arn:aws:iam::111122223333:role/payments-api",
       "unresolved_statements": 0
+    },
+    {
+      "kind": "resource",
+      "policy": "arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001#key-policy-not-in-input",
+      "source": "arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001 via not in the input",
+      "statements": [
+        "Allow ${darb:unresolved:key_policy_of_arn_aws_kms_us-east-1_111122223333_key_0b1c2d3e-0000-4000-8000-000000000001} on ${darb:unresolved:key_policy_of_arn_aws_kms_us-east-1_111122223333_key_0b1c2d3e-0000-4000-8000-000000000001} (0 conditions)",
+        "Deny ${darb:unresolved:key_policy_of_arn_aws_kms_us-east-1_111122223333_key_0b1c2d3e-0000-4000-8000-000000000001} on * (0 conditions)"
+      ],
+      "target": "arn:aws:kms:us-east-1:111122223333:key/0b1c2d3e-0000-4000-8000-000000000001",
+      "unresolved_statements": 2
     }
   ],
   "principals": [

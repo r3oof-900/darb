@@ -3,8 +3,8 @@ package match
 import (
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/arn"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/arn"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // PrincipalKind is the kind of identity making a request.

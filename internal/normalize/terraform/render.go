@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/collect/tfraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/collect/tfraw"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // placeholder renders an unresolved value and registers it with the
@@ -54,7 +54,7 @@ func (n *norm) str(root string, v *tfraw.Value) (string, bool) {
 
 // template joins a template's parts. Each part was checked on its own, but
 // the reserved text can also be assembled from input pieces
-// ("$${cla" + var.x + "pa:unresolved:...}"): the parts are joined again with
+// ("$${da" + var.x + "rb:unresolved:...}"): the parts are joined again with
 // every placeholder this normalizer made blanked out, and if the input text
 // alone contains the reserved prefix, the template is rejected.
 func (n *norm) template(root string, v *tfraw.Value) (string, bool) {
@@ -171,7 +171,7 @@ func (n *norm) policyText(root string, v *tfraw.Value) (text string, ok bool) {
 		return string(js), err == nil
 	case tfraw.KString, tfraw.KTemplate, tfraw.KRef:
 		s, _ := n.str(root, v)
-		return s, !strings.HasPrefix(strings.TrimSpace(s), "${clapa:unresolved:")
+		return s, !strings.HasPrefix(strings.TrimSpace(s), "${darb:unresolved:")
 	case tfraw.KNull, tfraw.KNumber, tfraw.KBool, tfraw.KList, tfraw.KUnresolved, tfraw.KUnknownAfterApply:
 	}
 	return "", false

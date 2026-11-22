@@ -10,8 +10,8 @@ import (
 	"path"
 	"slices"
 
-	"github.com/r3oof-900/clapa/internal/collect/awsraw"
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/internal/collect/awsraw"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 // Scanned input kinds (the report's inputs, DESIGN.md §11).

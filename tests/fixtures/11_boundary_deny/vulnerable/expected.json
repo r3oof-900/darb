@@ -1,29 +1,31 @@
 {
-  "format": "clapa-expected/v1",
+  "format": "darb-expected/v1",
   "derived_from": "13.2 row 11 (vulnerable)",
   "findings": [
     {
-      "rule": "CLAPA-POST-007",
+      "rule": "DARB-POST-007",
       "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/payments",
       "score": 245,
       "severity": "low",
-      "defaults_used": []
+      "defaults_used": [],
+      "fingerprint": "fe1ae67f98c056f873685d2df3e72ae5def9ae84ccea894079e4f039a7565639"
     },
     {
-      "rule": "CLAPA-POST-008",
+      "rule": "DARB-POST-008",
       "resource": "arn:aws:iam::111122223333:role/payments-api",
       "score": 600,
       "severity": "high",
-      "defaults_used": []
+      "defaults_used": [],
+      "fingerprint": "e81515b217b99141d89ed1cf5b3528e18f5e8891a35b669a764993427a35bd67"
     }
   ],
   "absent": [
     {
-      "rule": "CLAPA-PATH-001",
+      "rule": "DARB-PATH-001",
       "jewel": "arn:aws:s3:::acme-customer-pii"
     },
     {
-      "rule": "CLAPA-PATH-002",
+      "rule": "DARB-PATH-002",
       "jewel": "arn:aws:s3:::acme-customer-pii"
     }
   ],

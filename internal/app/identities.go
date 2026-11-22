@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/config"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/config"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // splitK8sIdentity splits "k8s:{cluster}/{rest}" into the cluster part and
@@ -29,7 +29,7 @@ func splitK8sIdentity(id string) (cluster, rest string, ok bool) {
 	return s[:skip+i], s[skip+i+1:], true
 }
 
-// resolveIdentities writes the Kubernetes identities of clapa.yaml
+// resolveIdentities writes the Kubernetes identities of darb.yaml
 // (intended_access principals) with their cluster key: a user may name the
 // cluster ("k8s:prod/payments/Deployment/api"); the name must match one
 // cluster of the scan (two clusters of one name need the ARN).

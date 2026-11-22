@@ -4,7 +4,7 @@
 
 ### Why is a finding "unconfirmed" and still critical?
 
-Because something on its path is not known, and CLAPA scores the worst case
+Because something on its path is not known, and darb scores the worst case
 of every unknown ([DESIGN.md §6.2](DESIGN.md#62-three-valued-logic-unknown)).
 The status says how sure the path is, the severity how bad it is if the
 unknowns go the attacker's way:
@@ -16,20 +16,20 @@ unknowns go the attacker's way:
 | `unconfirmed` | a step needs an Allow (or a fact) that is not known |
 
 The finding's `undecided` list names each unknown and what resolves it: a
-managed-policy refresh, an `assume:` entry in `clapa.yaml` for a context
+managed-policy refresh, an `assume:` entry in `darb.yaml` for a context
 key, a `--plan` for a value only Terraform knows, or the missing input.
 Resolve them and rescan; a severity can then go down, never up.
 
 ### The scan found nothing. Am I secure?
 
-CLAPA never says so. An empty result means "no path in what was scanned";
+darb never says so. An empty result means "no path in what was scanned";
 the report lists the coverage it rests on (inputs, gaps, `not-modelled`
 notes). With nothing collected, the console says so and the exit code is 3.
 Exit 0 also requires coverage within tolerance (default: no gap).
 
 ### Why exit code 3 when there are no findings?
 
-The scan is incomplete: a coverage gap above the tolerance in `clapa.yaml`
+The scan is incomplete: a coverage gap above the tolerance in `darb.yaml`
 (for example an unresolved Terraform variable), or no input at all. Findings
 take precedence (exit 1): they are actionable even when coverage is partial.
 
@@ -37,7 +37,7 @@ take precedence (exit 1): they are actionable even when coverage is partial.
 
 AWS Organizations SCPs and RCPs, KMS grants and account-level S3 Block Public
 Access are not collected yet ([PERMISSIONS.md](PERMISSIONS.md)). Each is
-listed in every report as `not-modelled`. They can only make CLAPA report a
+listed in every report as `not-modelled`. They can only make darb report a
 path that is in fact blocked, never hide one.
 
 ### Why is every role with an AWS managed policy UNKNOWN?
@@ -67,14 +67,14 @@ that shares no change with the chosen one, when there is one.
 
 ### Root cause or mitigation?
 
-`clapa remediate` (or `scan --fixes`) labels each verified fix. A
+`darb remediate` (or `scan --fixes`) labels each verified fix. A
 **root-cause** fix removes the broad grant; a **mitigation** blocks this path
 only and leaves the broad grant in place, which other paths may use. Root
 causes are offered first.
 
 ### What is a "resolve" step?
 
-A change CLAPA cannot price because the grant it would change is not known
+A change darb cannot price because the grant it would change is not known
 (an unknown Allow). It costs nothing and changes nothing: it names the command
 that decides the unknown. A fix with such a step is
 `partial_pending_resolution`: resolve, rescan, and the fix may need more
@@ -92,12 +92,12 @@ never calls a cloud API. Live input has no files to patch: run
 
 ### How do I accept a finding?
 
-Add it to `.clapa-ignore.yaml` (or `--ignore FILE`) with a reason, an owner
+Add it to `.darb-ignore.yaml` (or `--ignore FILE`) with a reason, an owner
 and an expiry date:
 
 ```yaml
 suppressions:
-  - {fingerprint: e2ac4b3dabca122c..., reason: "break-glass role, reviewed", owner: platform-team, expires: "2027-03-31"}
+  - {fingerprint: b2113156f5b8e654..., reason: "break-glass role, reviewed", owner: platform-team, expires: "2027-03-31"}
 ```
 
 A missing field is a configuration error. A suppressed finding is listed in
@@ -106,19 +106,19 @@ again and the console warns.
 
 ### How do I fail CI only on new findings?
 
-`clapa scan ... --baseline previous.json --fail-on high`: only findings not in
+`darb scan ... --baseline previous.json --fail-on high`: only findings not in
 the previous JSON report are reported and decide the exit code; the ones that
 are gone are listed as resolved.
 
 ### How do I see results in GitHub code scanning?
 
-`--format sarif --output clapa.sarif`, then upload it with
-`github/codeql-action/upload-sarif`. Paths appear as code flows, and CLAPA's
+`--format sarif --output darb.sarif`, then upload it with
+`github/codeql-action/upload-sarif`. Paths appear as code flows, and darb's
 fingerprint is the SARIF `partialFingerprints`.
 
 ## Privacy
 
-### Does CLAPA send anything anywhere?
+### Does darb send anything anywhere?
 
 Only to the cloud APIs it reads (live scans, read-only) and, when you pass
 `--llm`, to that LLM provider. No telemetry, no update check.

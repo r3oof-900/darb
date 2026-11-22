@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/llm/pseudonymize"
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/internal/llm/pseudonymize"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 type stub struct {
@@ -24,7 +24,7 @@ func (s *stub) Model() string { return "stub-model" }
 
 func finding() *schema.Finding {
 	return &schema.Finding{
-		Rule: "CLAPA-PATH-001", Title: "A workload can read crown-jewel data", Severity: "medium", Score: 291, Status: "unconfirmed",
+		Rule: "DARB-PATH-001", Title: "A workload can read crown-jewel data", Severity: "medium", Score: 291, Status: "unconfirmed",
 		Entry: "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app", Jewel: "arn:aws:s3:::acme-customer-pii",
 		Path:         []string{"RUNS_AS x", "ASSUMES arn:aws:iam::111122223333:role/app"},
 		Fix:          []schema.FixStep{{Edge: "CAN_DECRYPT role -> key", Side: "identity", Kind: "resolve", Policy: "aws_iam_role_policy.app", Resolve: "-var-file (b)"}},
@@ -76,7 +76,7 @@ func TestExplain(t *testing.T) {
 
 // The summary template counts paths and misconfigurations.
 func TestSummaryTemplate(t *testing.T) {
-	fs := []Evidence{EvidenceOf(finding()), {Rule: "CLAPA-POST-007", Severity: "low", Resource: "ns"}}
+	fs := []Evidence{EvidenceOf(finding()), {Rule: "DARB-POST-007", Severity: "low", Resource: "ns"}}
 	got := Template(ExplainRequest{Kind: KindSummary, Findings: fs})
 	if !strings.Contains(got.Summary, "1 attack path(s)") || !strings.Contains(got.Summary, "1 misconfiguration(s)") || !strings.Contains(got.Summary, "medium") {
 		t.Errorf("summary: %+v", got)

@@ -17,12 +17,12 @@ const (
 	LayerIO Layer = "io"
 	// LayerEntry packages wire the pipeline (app, cli, main).
 	LayerEntry Layer = "entry"
-	// LayerTooling packages are repository tooling, never linked into clapa.
+	// LayerTooling packages are repository tooling, never linked into darb.
 	LayerTooling Layer = "tooling"
 )
 
 // ModulePath is the Go module path of this repository.
-const ModulePath = "github.com/r3oof-900/clapa"
+const ModulePath = "github.com/r3oof-900/darb"
 
 // Rule states exactly what one package may import.
 type Rule struct {
@@ -215,7 +215,7 @@ func ioRules() []*Rule {
 			},
 		},
 		{
-			// Test support only: imported by _test.go files, never linked into clapa.
+			// Test support only: imported by _test.go files, never linked into darb.
 			Package: "internal/collect/k8s/live/k8sfake", Layer: LayerIO,
 			Internal: []string{"internal/collect/k8s/live"},
 			External: k8sExt,
@@ -232,7 +232,7 @@ func ioRules() []*Rule {
 			TestInternal: []string{"internal/collect/awslive/awsfake"},
 		},
 		{
-			// Test support only: imported by _test.go files, never linked into clapa.
+			// Test support only: imported by _test.go files, never linked into darb.
 			Package: "internal/collect/awslive/awsfake", Layer: LayerIO,
 			Internal: []string{"internal/collect/awslive"},
 			External: []string{extAWSSDK, extSmithy},
@@ -267,7 +267,7 @@ func entryRules() []*Rule {
 			ExtraStd:     []string{"os/exec"},
 			TestInternal: []string{"internal/collect/awslive", "internal/collect/awslive/awsfake", "internal/collect/k8s/live/k8sfake", "internal/llm"},
 		},
-		{Package: "cmd/clapa", Layer: LayerEntry, Internal: []string{"internal/cli"}},
+		{Package: "cmd/darb", Layer: LayerEntry, Internal: []string{"internal/cli"}},
 	}
 }
 

@@ -3,12 +3,12 @@ package app
 import (
 	"context"
 
-	"github.com/r3oof-900/clapa/internal/rules"
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/internal/rules"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 // AttachFixes remediates every path finding of the report (scan --fixes):
-// the same plans, patches and two-level verification as clapa remediate
+// the same plans, patches and two-level verification as darb remediate
 // (DESIGN.md §9), attached to the finding in output order.
 func AttachFixes(ctx context.Context, in *Inputs, l *Loaded, a *Analysis, r *schema.Report) error {
 	for i := range r.Findings {

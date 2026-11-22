@@ -1,16 +1,16 @@
 # Release build (Phase 7). Run by .github/workflows/release.yml on a v* tag;
 # CI builds a snapshot of it on every change (no signing, nothing published).
 version: 2
-project_name: clapa
+project_name: darb
 
 before:
   hooks:
     - go mod verify
 
 builds:
-  - id: clapa
-    main: ./cmd/clapa
-    binary: clapa
+  - id: darb
+    main: ./cmd/darb
+    binary: darb
     env:
       - CGO_ENABLED=0
     goos: [linux, darwin, windows]
@@ -21,12 +21,12 @@ builds:
       - -trimpath
     ldflags:
       - -s -w -buildid=
-      - -X github.com/r3oof-900/clapa/internal/version.version={{ .Version }}
-      - -X github.com/r3oof-900/clapa/internal/version.commit={{ .FullCommit }}
+      - -X github.com/r3oof-900/darb/internal/version.version={{ .Version }}
+      - -X github.com/r3oof-900/darb/internal/version.commit={{ .FullCommit }}
     mod_timestamp: "{{ .CommitTimestamp }}"
 
 archives:
-  - id: clapa
+  - id: darb
     formats: [tar.gz]
     format_overrides:
       - goos: windows

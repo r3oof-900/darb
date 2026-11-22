@@ -8,7 +8,7 @@
       "name": "prod",
       "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
       "region": "us-east-1",
-      "source": "clapa.yaml (clusters.prod)"
+      "source": "darb.yaml (clusters.prod)"
     }
   ],
   "collected": 7,
@@ -16,12 +16,12 @@
     {
       "public": "unknown",
       "reason": "assume-compromised",
-      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app-b"
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app-a"
     },
     {
       "public": "unknown",
       "reason": "assume-compromised",
-      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app-a"
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app-b"
     }
   ],
   "exposures": [],
@@ -69,22 +69,6 @@
   "rbac": [],
   "resources": [
     {
-      "account": "111122223333",
-      "arn": "arn:aws:s3:::data-111122223333",
-      "classification": "pii",
-      "classified_by": "tag:DataClass",
-      "defaulted": [],
-      "encryption": {
-        "Type": "AES256",
-        "KeyARN": "",
-        "BucketKey": "unknown"
-      },
-      "kind": "aws:s3:bucket",
-      "region": "us-east-1",
-      "restrict_public_buckets": "true",
-      "source": "arn:aws:s3:::data-111122223333 via s3:GetBucketPolicy"
-    },
-    {
       "account": "444455556666",
       "arn": "arn:aws:s3:::data-444455556666",
       "classification": "pii",
@@ -99,6 +83,22 @@
       "region": "us-east-1",
       "restrict_public_buckets": "true",
       "source": "arn:aws:s3:::data-444455556666 via s3:GetBucketPolicy"
+    },
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:s3:::data-111122223333",
+      "classification": "pii",
+      "classified_by": "tag:DataClass",
+      "defaulted": [],
+      "encryption": {
+        "Type": "AES256",
+        "KeyARN": "",
+        "BucketKey": "unknown"
+      },
+      "kind": "aws:s3:bucket",
+      "region": "us-east-1",
+      "restrict_public_buckets": "true",
+      "source": "arn:aws:s3:::data-111122223333 via s3:GetBucketPolicy"
     }
   ],
   "service_accounts": [
@@ -156,10 +156,10 @@
         "k8s.automountServiceAccountToken"
       ],
       "host_network": false,
-      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app-b",
+      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app-a",
       "privileged": false,
-      "service_account": "app-b",
-      "source": "k8s/apps.yaml:41 (Deployment/apps/app-b)"
+      "service_account": "app-a",
+      "source": "k8s/apps.yaml:14 (Deployment/apps/app-a)"
     },
     {
       "automount_token": "true",
@@ -167,10 +167,10 @@
         "k8s.automountServiceAccountToken"
       ],
       "host_network": false,
-      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app-a",
+      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app-b",
       "privileged": false,
-      "service_account": "app-a",
-      "source": "k8s/apps.yaml:14 (Deployment/apps/app-a)"
+      "service_account": "app-b",
+      "source": "k8s/apps.yaml:41 (Deployment/apps/app-b)"
     }
   ]
 }

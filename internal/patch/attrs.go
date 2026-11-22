@@ -6,7 +6,7 @@ import (
 
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 
-	"github.com/r3oof-900/clapa/internal/remediate"
+	"github.com/r3oof-900/darb/internal/remediate"
 )
 
 // setAttrs sets attributes of a block: an existing attribute's value is

@@ -5,12 +5,12 @@
 <meta http-equiv="Content-Security-Policy" content="{{.CSP}}">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CLAPA report</title>
+<title>darb report</title>
 <style>{{.CSS}}</style>
 </head>
 <body>
 <header>
-<h1>CLAPA report</h1>
+<h1>darb report</h1>
 <p class="meta">{{.R.Tool.Name}} {{.R.Tool.Version}}{{with .R.Tool.Commit}} ({{.}}){{end}} · rule catalog {{.R.Tool.RuleCatalog}} · threat model: {{if .R.ThreatModel.AssumeCompromised}}every workload may be compromised{{else}}exposed entry points only{{end}} · fail on {{.R.ThreatModel.FailOn}} · exit code {{.R.ExitCode}}</p>
 </header>
 <main>
@@ -32,7 +32,7 @@
 <p>{{plural .R.Coverage.Collected "object" "objects"}} collected; {{plural (len .R.Coverage.Gaps) "coverage gap" "coverage gaps"}} ({{.R.Coverage.GapsOverTolerance}} over tolerance); graph: {{plural .R.Graph.Nodes "node" "nodes"}}, {{plural .R.Graph.Edges "edge" "edges"}}, {{plural .R.Graph.Pairs "entry–jewel pair" "entry–jewel pairs"}}.</p>
 {{with .R.ExecutiveSummary}}{{template "explain" .}}{{end}}
 {{if not .R.Coverage.Collected}}<p class="warn">Nothing was collected: this is not a clean result.</p>{{end}}
-{{if unfixed .R}}<p class="muted">The recommended fixes below are the cheapest cuts, not yet verified; run <code>clapa scan --fixes</code> (or <code>clapa remediate</code>) for the verified fixes, their strategy and their patches.</p>{{end}}
+{{if unfixed .R}}<p class="muted">The recommended fixes below are the cheapest cuts, not yet verified; run <code>darb scan --fixes</code> (or <code>darb remediate</code>) for the verified fixes, their strategy and their patches.</p>{{end}}
 <form id="filters" hidden>
 <fieldset><legend>Severity</legend>{{range .Severities}}<label><input type="checkbox" value="{{.Name}}" checked> {{.Name}}</label> {{end}}</fieldset>
 <label>Status <select><option value="">any</option><option value="confirmed">confirmed</option><option value="confirmed_unless_denied">confirmed unless denied</option><option value="unconfirmed">unconfirmed</option></select></label>
@@ -83,15 +83,15 @@
 <tbody>{{range .R.Rules}}<tr><td><code>{{.ID}}</code> {{.Version}}</td><td>{{.Title}}</td><td>{{range $i, $t := .Techniques}}{{if $i}}, {{end}}{{$t}}{{end}}</td></tr>{{end}}</tbody></table>
 </section>
 </main>
-<script type="application/json" id="clapa-report">{{.Data}}</script>
+<script type="application/json" id="darb-report">{{.Data}}</script>
 <script>{{.JS}}</script>
 </body>
 </html>
 {{define "steps"}}<table class="steps"><thead><tr><th scope="col">Edge</th><th scope="col">Side</th><th scope="col">Kind</th><th scope="col">What</th><th scope="col">Cost</th></tr></thead>
 <tbody>{{range .}}<tr class="kind-{{.Kind}}"><td><code>{{.Edge}}</code></td><td>{{.Side}}</td><td>{{.Kind}}</td><td>{{if eq .Kind "resolve"}}decide <code>{{.Policy}}</code>: <code>{{.Resolve}}</code> (no change){{else}}change <code>{{.Policy}}</code>{{if eq .Kind "revoke"}}<br><span class="warn">removes an explicit grant: confirm it is not needed</span>{{end}}{{end}}</td><td>{{.Cost}}</td></tr>{{end}}</tbody></table>{{end}}
 {{define "path"}}<figure class="pathview"><svg viewBox="0 0 {{.W}} {{.H}}" role="img" aria-label="{{.Label}}" xmlns="http://www.w3.org/2000/svg">
-<defs><marker id="clapa-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead" d="M0 0L10 5L0 10z"/></marker><marker id="clapa-arrow-cut" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead cut" d="M0 0L10 5L0 10z"/></marker><marker id="clapa-arrow-resolve" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead resolve" d="M0 0L10 5L0 10z"/></marker></defs>
-{{range $e := .Edges}}<g class="edge{{with .Class}} {{.}}{{end}}" data-kind="{{.Kind}}" data-from="{{.From}}" data-to="{{.To}}">{{if eq .Class "cut"}}<path d="{{.D}}" marker-end="url(#clapa-arrow-cut)"/>{{else if eq .Class "resolve"}}<path d="{{.D}}" marker-end="url(#clapa-arrow-resolve)"/>{{else}}<path d="{{.D}}" marker-end="url(#clapa-arrow)"/>{{end}}<text x="{{.LX}}" y="{{.LY}}">{{range $i, $l := $e.Lines}}<tspan x="{{$e.LX}}" dy="{{if $i}}12{{else}}0{{end}}">{{$l}}</tspan>{{end}}{{with .Mark}} <tspan class="mark">{{.}}</tspan>{{end}}</text></g>
+<defs><marker id="darb-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead" d="M0 0L10 5L0 10z"/></marker><marker id="darb-arrow-cut" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead cut" d="M0 0L10 5L0 10z"/></marker><marker id="darb-arrow-resolve" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead resolve" d="M0 0L10 5L0 10z"/></marker></defs>
+{{range $e := .Edges}}<g class="edge{{with .Class}} {{.}}{{end}}" data-kind="{{.Kind}}" data-from="{{.From}}" data-to="{{.To}}">{{if eq .Class "cut"}}<path d="{{.D}}" marker-end="url(#darb-arrow-cut)"/>{{else if eq .Class "resolve"}}<path d="{{.D}}" marker-end="url(#darb-arrow-resolve)"/>{{else}}<path d="{{.D}}" marker-end="url(#darb-arrow)"/>{{end}}<text x="{{.LX}}" y="{{.LY}}">{{range $i, $l := $e.Lines}}<tspan x="{{$e.LX}}" dy="{{if $i}}12{{else}}0{{end}}">{{$l}}</tspan>{{end}}{{with .Mark}} <tspan class="mark">{{.}}</tspan>{{end}}</text></g>
 {{end}}{{range .Nodes}}<g class="node {{.Class}}"><title>{{.Full}}</title><rect x="{{.X}}" y="{{.Y}}" width="180" height="54" rx="6"/><text class="ntype" x="{{.TX}}" y="{{.TY}}">{{.Type}}</text><text class="nname" x="{{.TX}}" y="{{.NY}}">{{.Name}}</text></g>
 {{end}}</svg></figure>{{end}}
 {{define "explain"}}<aside class="explain{{if .AIGenerated}} ai{{end}}"><p class="label"><span class="badge grey">{{if .AIGenerated}}AI-generated{{else}}template{{end}}</span> {{.Label}}</p>
@@ -123,7 +123,7 @@
 {{with .AlternativeFixDetail}}<h4>Known alternative, to apply now</h4>{{template "plainsteps" .}}{{end}}
 {{else}}{{with .Remediation}}{{with .Pending}}<p class="pending">Resolve first (no change): {{range $i, $s := .}}{{if $i}}; {{end}}<code>{{$s}}</code>{{end}}; the fix may need more steps once they are known.</p>{{end}}{{end}}
 <h4>Recommended fix</h4>
-{{if .Remediation}}{{with first .Remediation.Fixes}}{{template "fixcard" .}}{{else}}<p class="muted">No change could be generated: {{template "plainsteps" .Fix}}</p>{{end}}{{with rest .Remediation.Fixes}}<h4>Other options</h4>{{range .}}{{template "fixcard" .}}{{end}}{{end}}{{with .Remediation.Note}}<p class="note">{{.}}</p>{{end}}{{else}}{{template "plainsteps" .Fix}}<p class="muted">The cheapest cut, not yet verified (<code>clapa scan --fixes</code>).</p>{{end}}
+{{if .Remediation}}{{with first .Remediation.Fixes}}{{template "fixcard" .}}{{else}}<p class="muted">No change could be generated: {{template "plainsteps" .Fix}}</p>{{end}}{{with rest .Remediation.Fixes}}<h4>Other options</h4>{{range .}}{{template "fixcard" .}}{{end}}{{end}}{{with .Remediation.Note}}<p class="note">{{.}}</p>{{end}}{{else}}{{template "plainsteps" .Fix}}<p class="muted">The cheapest cut, not yet verified (<code>darb scan --fixes</code>).</p>{{end}}
 {{end}}
 <details class="chosen"><summary>How this fix was chosen</summary>
 <p>The cheapest set of changes that breaks every path of this finding (cost {{.CutCost}}); remediation status: {{if pending .}}partial, pending resolution{{else}}complete{{end}}.</p>

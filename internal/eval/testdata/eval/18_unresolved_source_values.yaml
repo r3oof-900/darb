@@ -1,5 +1,5 @@
 # Values a collector could not resolve (e.g. var.x without a value in static
-# HCL) reach the evaluator as ${clapa:unresolved:<id>} and are UNKNOWN in
+# HCL) reach the evaluator as ${darb:unresolved:<id>} and are UNKNOWN in
 # every element, never literal text. docs/DESIGN.md section 4.1 and model/unresolved.go.
 anchors:
   allowS3: &allowS3 {Effect: Allow, Action: "s3:GetObject", Resource: "*"}
@@ -12,72 +12,72 @@ defaults:
   context: {default: absent}
 
 cases:
-  - name: clapa.unresolved.resource
+  - name: darb.unresolved.resource
     doc: "docs/DESIGN.md section 4.1: Resource = var.bucket_arn (unresolved) is UNKNOWN, not a literal pattern"
-    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "${clapa:unresolved:var.bucket_arn}/*"}]}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "${darb:unresolved:var.bucket_arn}/*"}]}
     expect: UNKNOWN
     expect_unresolved: ["Resource"]
 
-  - name: clapa.unresolved.resource-in-2008-policy
+  - name: darb.unresolved.resource-in-2008-policy
     doc: "docs/DESIGN.md section 4.1: the placeholder is UNKNOWN even where policy variables are disabled"
-    policies: {identity: [{Statement: [{Effect: Allow, Action: "s3:GetObject", Resource: "${clapa:unresolved:var.bucket_arn}"}]}]}
+    policies: {identity: [{Statement: [{Effect: Allow, Action: "s3:GetObject", Resource: "${darb:unresolved:var.bucket_arn}"}]}]}
     expect: UNKNOWN
 
-  - name: clapa.unresolved.resource-other-literal-matches
+  - name: darb.unresolved.resource-other-literal-matches
     doc: "docs/DESIGN.md section 6.2: one resolved pattern that matches decides the Resource element"
-    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: ["${clapa:unresolved:var.extra}", "arn:aws:s3:::data/*"]}]}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: ["${darb:unresolved:var.extra}", "arn:aws:s3:::data/*"]}]}
     expect: ALLOW
 
-  - name: clapa.unresolved.action
+  - name: darb.unresolved.action
     doc: "docs/DESIGN.md section 4.1: Action = var.action (unresolved) is UNKNOWN"
-    policies: {identity: [{Effect: Allow, Action: "${clapa:unresolved:var.action}", Resource: "*"}]}
+    policies: {identity: [{Effect: Allow, Action: "${darb:unresolved:var.action}", Resource: "*"}]}
     expect: UNKNOWN
     expect_unresolved: ["Action"]
 
-  - name: clapa.unresolved.notaction
+  - name: darb.unresolved.notaction
     doc: "docs/DESIGN.md section 4.1: NotAction with an unresolved entry is UNKNOWN"
-    policies: {identity: [{Effect: Allow, NotAction: "${clapa:unresolved:var.excluded}", Resource: "*"}]}
+    policies: {identity: [{Effect: Allow, NotAction: "${darb:unresolved:var.excluded}", Resource: "*"}]}
     expect: UNKNOWN
 
-  - name: clapa.unresolved.deny-action-blocks-allow
+  - name: darb.unresolved.deny-action-blocks-allow
     doc: "docs/DESIGN.md section 6.2: a Deny whose Action is unresolved may apply, so the result is UNKNOWN"
-    policies: {identity: [*allowS3, {Effect: Deny, Action: "${clapa:unresolved:local.denied}", Resource: "*"}]}
+    policies: {identity: [*allowS3, {Effect: Deny, Action: "${darb:unresolved:local.denied}", Resource: "*"}]}
     expect: UNKNOWN
 
-  - name: clapa.unresolved.principal
+  - name: darb.unresolved.principal
     doc: "docs/DESIGN.md section 4.1: Principal = var.reader_arn (unresolved) is UNKNOWN"
-    policies: {resource: [{Effect: Allow, Principal: {AWS: "${clapa:unresolved:var.reader_arn}"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
+    policies: {resource: [{Effect: Allow, Principal: {AWS: "${darb:unresolved:var.reader_arn}"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
     expect: UNKNOWN
     expect_unresolved: ["Principal"]
 
-  - name: clapa.unresolved.service-principal
+  - name: darb.unresolved.service-principal
     doc: "docs/DESIGN.md section 4.1: an unresolved Service principal is UNKNOWN, not a mismatch"
     principal: {kind: service, arn: "cloudtrail.amazonaws.com"}
     action: "s3:PutObject"
-    policies: {resource: [{Effect: Allow, Principal: {Service: "${clapa:unresolved:var.svc}"}, Action: "s3:PutObject", Resource: "arn:aws:s3:::data/*"}]}
+    policies: {resource: [{Effect: Allow, Principal: {Service: "${darb:unresolved:var.svc}"}, Action: "s3:PutObject", Resource: "arn:aws:s3:::data/*"}]}
     expect: UNKNOWN
 
-  - name: clapa.unresolved.notprincipal-deny
+  - name: darb.unresolved.notprincipal-deny
     doc: "docs/DESIGN.md section 4.1: an unresolved NotPrincipal entry might name the caller, so the Deny is UNKNOWN"
     policies:
       identity: [*allowS3]
-      resource: [{Effect: Deny, NotPrincipal: {AWS: ["${clapa:unresolved:var.admin}", "111122223333"]}, Action: "s3:*", Resource: "arn:aws:s3:::data/*"}]
+      resource: [{Effect: Deny, NotPrincipal: {AWS: ["${darb:unresolved:var.admin}", "111122223333"]}, Action: "s3:*", Resource: "arn:aws:s3:::data/*"}]
     expect: UNKNOWN
 
-  - name: clapa.unresolved.notprincipal-already-excluded
+  - name: darb.unresolved.notprincipal-already-excluded
     doc: "docs/DESIGN.md section 4.1: when the resolved entries already exclude the caller, an unresolved entry changes nothing"
     policies:
       identity: [*allowS3]
-      resource: [{Effect: Deny, NotPrincipal: {AWS: ["arn:aws:sts::111122223333:assumed-role/app/s1", "arn:aws:iam::111122223333:role/app", "111122223333", "${clapa:unresolved:var.extra}"]}, Action: "s3:*", Resource: "arn:aws:s3:::data/*"}]
+      resource: [{Effect: Deny, NotPrincipal: {AWS: ["arn:aws:sts::111122223333:assumed-role/app/s1", "arn:aws:iam::111122223333:role/app", "111122223333", "${darb:unresolved:var.extra}"]}, Action: "s3:*", Resource: "arn:aws:s3:::data/*"}]
     expect: ALLOW
 
-  - name: clapa.unresolved.condition-value
+  - name: darb.unresolved.condition-value
     doc: "docs/DESIGN.md section 4.1: an unresolved condition value is UNKNOWN even though the key is known"
     context: {default: absent, present: {"aws:SourceVpce": "vpce-1"}}
-    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {StringEquals: {"aws:SourceVpce": "${clapa:unresolved:var.vpce}"}}}]}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {StringEquals: {"aws:SourceVpce": "${darb:unresolved:var.vpce}"}}}]}
     expect: UNKNOWN
 
-  - name: clapa.unresolved.condition-key
+  - name: darb.unresolved.condition-key
     doc: "docs/DESIGN.md section 4.1: an IRSA trust key built from an unresolved issuer (\"${local.oidc}:sub\") is UNKNOWN"
     principal: {kind: web-identity, arn: "arn:aws:iam::111122223333:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE"}
     action: "sts:AssumeRoleWithWebIdentity"
@@ -85,13 +85,13 @@ cases:
     context: {default: absent, present: {"oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE:sub": "system:serviceaccount:payments:api"}}
     policies:
       resource_policy_required: true
-      resource: [{Effect: Allow, Principal: {Federated: "arn:aws:iam::111122223333:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE"}, Action: "sts:AssumeRoleWithWebIdentity", Condition: {StringEquals: {"${clapa:unresolved:local.oidc}:sub": "system:serviceaccount:payments:api"}}}]
+      resource: [{Effect: Allow, Principal: {Federated: "arn:aws:iam::111122223333:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE"}, Action: "sts:AssumeRoleWithWebIdentity", Condition: {StringEquals: {"${darb:unresolved:local.oidc}:sub": "system:serviceaccount:payments:api"}}}]
     expect: UNKNOWN
     expect_unresolved: ["Condition"]
 
-  - name: clapa.unresolved.caller-identity
+  - name: darb.unresolved.caller-identity
     doc: "docs/DESIGN.md section 4.2: an IRSA caller whose OIDC provider ARN is unknown (issuer not configured) is UNKNOWN, not denied"
-    principal: {kind: web-identity, arn: "${clapa:unresolved:oidc_provider}"}
+    principal: {kind: web-identity, arn: "${darb:unresolved:oidc_provider}"}
     action: "sts:AssumeRoleWithWebIdentity"
     resource: "arn:aws:iam::111122223333:role/target"
     policies:
@@ -99,83 +99,83 @@ cases:
       resource: [{Effect: Allow, Principal: {Federated: "arn:aws:iam::111122223333:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE"}, Action: "sts:AssumeRoleWithWebIdentity"}]
     expect: UNKNOWN
 
-  - name: clapa.unresolved.request-resource-could-match
+  - name: darb.unresolved.request-resource-could-match
     doc: "docs/DESIGN.md section 4.6: a bucket named \"${var.env}-pii\" may be prod-pii, so a grant on arn:aws:s3:::prod-pii/* is UNKNOWN, not denied"
-    resource: "arn:aws:s3:::${clapa:unresolved:var.env}-pii/report.csv"
+    resource: "arn:aws:s3:::${darb:unresolved:var.env}-pii/report.csv"
     policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::prod-pii/*"}]}
     expect: UNKNOWN
 
-  - name: clapa.unresolved.request-resource-cannot-match
+  - name: darb.unresolved.request-resource-cannot-match
     doc: "docs/DESIGN.md section 4.6: a KMS pattern can never match an S3 object, whatever the unknown name is"
-    resource: "arn:aws:s3:::${clapa:unresolved:var.env}-pii/report.csv"
+    resource: "arn:aws:s3:::${darb:unresolved:var.env}-pii/report.csv"
     policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:kms:*"}]}
     expect: IMPLICIT_DENY
 
-  - name: clapa.unresolved.request-resource-always-matches
+  - name: darb.unresolved.request-resource-always-matches
     doc: "docs/DESIGN.md section 4.6: arn:aws:s3:::* matches the object whatever its bucket name is"
-    resource: "arn:aws:s3:::${clapa:unresolved:var.env}-pii/report.csv"
+    resource: "arn:aws:s3:::${darb:unresolved:var.env}-pii/report.csv"
     policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::*"}]}
     expect: ALLOW
 
-  - name: clapa.unresolved.account-of-both-sides
+  - name: darb.unresolved.account-of-both-sides
     doc: "docs/DESIGN.md section 4.6: with the account unknown, same- vs cross-account cannot be decided; a role-ARN grant is UNKNOWN"
-    principal: {kind: assumed-role, arn: "arn:aws:sts::${clapa:unresolved:account}:assumed-role/app/s1", account: "${clapa:unresolved:account}", source: "arn:aws:iam::${clapa:unresolved:account}:role/app"}
-    resource_account: "${clapa:unresolved:account}"
+    principal: {kind: assumed-role, arn: "arn:aws:sts::${darb:unresolved:account}:assumed-role/app/s1", account: "${darb:unresolved:account}", source: "arn:aws:iam::${darb:unresolved:account}:role/app"}
+    resource_account: "${darb:unresolved:account}"
     policies: {resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:role/app"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
     expect: UNKNOWN
 
-  - name: clapa.unresolved.condition-equals-cannot-match
+  - name: darb.unresolved.condition-equals-cannot-match
     doc: "docs/DESIGN.md section 4.6: an encryption context arn:aws:s3:::pii/<unknown key> can never equal another bucket's ARN (scenario 3), so the grant does not apply"
     action: "kms:Decrypt"
     resource: "arn:aws:kms:us-east-1:111122223333:key/k"
-    context: {present: {"kms:EncryptionContext:aws:s3:arn": ["arn:aws:s3:::pii/${clapa:unresolved:object-key}"]}}
+    context: {present: {"kms:EncryptionContext:aws:s3:arn": ["arn:aws:s3:::pii/${darb:unresolved:object-key}"]}}
     policies: {identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {StringEquals: {"kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::receipts"}}}]}
     expect: IMPLICIT_DENY
 
-  - name: clapa.unresolved.condition-like-always-matches
+  - name: darb.unresolved.condition-like-always-matches
     doc: "docs/DESIGN.md section 4.6: arn:aws:s3:::pii/* matches the object ARN whatever its key is"
     action: "kms:Decrypt"
     resource: "arn:aws:kms:us-east-1:111122223333:key/k"
-    context: {present: {"kms:EncryptionContext:aws:s3:arn": ["arn:aws:s3:::pii/${clapa:unresolved:object-key}"]}}
+    context: {present: {"kms:EncryptionContext:aws:s3:arn": ["arn:aws:s3:::pii/${darb:unresolved:object-key}"]}}
     policies: {identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {StringLike: {"kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::pii/*"}}}]}
     expect: ALLOW
 
-  - name: clapa.unresolved.condition-equals-may-match
+  - name: darb.unresolved.condition-equals-may-match
     doc: "docs/DESIGN.md section 4.6: a specific object ARN may or may not be the unknown key"
     action: "kms:Decrypt"
     resource: "arn:aws:kms:us-east-1:111122223333:key/k"
-    context: {present: {"kms:EncryptionContext:aws:s3:arn": ["arn:aws:s3:::pii/${clapa:unresolved:object-key}"]}}
+    context: {present: {"kms:EncryptionContext:aws:s3:arn": ["arn:aws:s3:::pii/${darb:unresolved:object-key}"]}}
     policies: {identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {StringEquals: {"kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::pii/2026/report.csv"}}}]}
     expect: UNKNOWN
 
-  - name: clapa.unresolved.condition-not-equals-cannot-match
+  - name: darb.unresolved.condition-not-equals-cannot-match
     doc: "docs/DESIGN.md section 4.6: StringNotEquals is the negation: a value that can never equal the listed one makes it true"
     action: "kms:Decrypt"
     resource: "arn:aws:kms:us-east-1:111122223333:key/k"
-    context: {present: {"kms:EncryptionContext:aws:s3:arn": ["arn:aws:s3:::pii/${clapa:unresolved:object-key}"]}}
+    context: {present: {"kms:EncryptionContext:aws:s3:arn": ["arn:aws:s3:::pii/${darb:unresolved:object-key}"]}}
     policies: {identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {StringNotEquals: {"kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::receipts"}}}]}
     expect: ALLOW
 
-  - name: clapa.unresolved.condition-ignore-case-stays-unknown
+  - name: darb.unresolved.condition-ignore-case-stays-unknown
     doc: "docs/DESIGN.md section 4.6: only the case-sensitive string operators decide a partly unknown value"
     action: "kms:Decrypt"
     resource: "arn:aws:kms:us-east-1:111122223333:key/k"
-    context: {present: {"kms:EncryptionContext:aws:s3:arn": ["arn:aws:s3:::pii/${clapa:unresolved:object-key}"]}}
+    context: {present: {"kms:EncryptionContext:aws:s3:arn": ["arn:aws:s3:::pii/${darb:unresolved:object-key}"]}}
     policies: {identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {StringEqualsIgnoreCase: {"kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::receipts"}}}]}
     expect: UNKNOWN
 
-  - name: clapa.unresolved.condition-like-unresolved-variable
+  - name: darb.unresolved.condition-like-unresolved-variable
     doc: "docs/DESIGN.md section 4.6: a policy variable that cannot be expanded leaves the comparison unknown"
     action: "kms:Decrypt"
     resource: "arn:aws:kms:us-east-1:111122223333:key/k"
-    context: {present: {"kms:EncryptionContext:aws:s3:arn": ["arn:aws:s3:::pii/${clapa:unresolved:object-key}"]}}
+    context: {present: {"kms:EncryptionContext:aws:s3:arn": ["arn:aws:s3:::pii/${darb:unresolved:object-key}"]}}
     policies: {identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {StringLike: {"kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::${aws:username}/*"}}}]}
     expect: UNKNOWN
 
-  - name: clapa.unresolved.condition-equals-unresolved-variable
+  - name: darb.unresolved.condition-equals-unresolved-variable
     doc: "docs/DESIGN.md section 4.6: a policy variable that cannot be expanded leaves the comparison unknown"
     action: "kms:Decrypt"
     resource: "arn:aws:kms:us-east-1:111122223333:key/k"
-    context: {present: {"kms:EncryptionContext:aws:s3:arn": ["arn:aws:s3:::pii/${clapa:unresolved:object-key}"]}}
+    context: {present: {"kms:EncryptionContext:aws:s3:arn": ["arn:aws:s3:::pii/${darb:unresolved:object-key}"]}}
     policies: {identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {StringEquals: {"kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::${aws:username}"}}}]}
     expect: UNKNOWN

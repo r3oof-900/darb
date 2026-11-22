@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // Rules decide what is a crown jewel (docs/DESIGN.md section 5).

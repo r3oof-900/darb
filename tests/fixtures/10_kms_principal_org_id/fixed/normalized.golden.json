@@ -8,7 +8,7 @@
       "name": "prod",
       "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
       "region": "us-east-1",
-      "source": "clapa.yaml (clusters.prod)"
+      "source": "darb.yaml (clusters.prod)"
     }
   ],
   "collected": 11,
@@ -66,19 +66,6 @@
   "resources": [
     {
       "account": "111122223333",
-      "arn": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.shared",
-      "classification": "",
-      "classified_by": "",
-      "defaulted": [
-        "terraform.aws_kms_key.enable_key_rotation"
-      ],
-      "key_rotation": "false",
-      "kind": "aws:kms:key",
-      "region": "us-east-1",
-      "source": "terraform/data.tf:1-16 (aws_kms_key.shared)"
-    },
-    {
-      "account": "111122223333",
       "arn": "arn:aws:s3:::acme-customer-pii",
       "classification": "pii",
       "classified_by": "tag:DataClass",
@@ -92,6 +79,19 @@
       "region": "us-east-1",
       "restrict_public_buckets": "true",
       "source": "terraform/data.tf:18-23 (aws_s3_bucket.customer_pii)"
+    },
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.shared",
+      "classification": "",
+      "classified_by": "",
+      "defaulted": [
+        "terraform.aws_kms_key.enable_key_rotation"
+      ],
+      "key_rotation": "false",
+      "kind": "aws:kms:key",
+      "region": "us-east-1",
+      "source": "terraform/data.tf:1-16 (aws_kms_key.shared)"
     }
   ],
   "service_accounts": [

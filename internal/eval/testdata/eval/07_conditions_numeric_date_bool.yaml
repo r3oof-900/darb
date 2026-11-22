@@ -42,7 +42,7 @@ cases:
     policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {NumericLessThanIfExists: {"aws:MultiFactorAuthAge": "3600"}}}]}
     expect: ALLOW
 
-  - name: clapa.condition.numeric-unparsable-policy-value-is-unknown
+  - name: darb.condition.numeric-unparsable-policy-value-is-unknown
     doc: "docs/DESIGN.md section 6.2: a value the evaluator cannot parse is UNKNOWN, never guessed"
     policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {NumericLessThan: {"aws:MultiFactorAuthAge": "one hour"}}}]}
     expect: UNKNOWN

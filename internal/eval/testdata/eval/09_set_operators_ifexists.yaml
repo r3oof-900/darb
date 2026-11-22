@@ -59,7 +59,7 @@ cases:
     policies: {identity: [{Effect: Allow, Action: "ec2:CreateTags", Resource: "*", Condition: {"ForAllValues:StringLike": {"aws:TagKeys": ["t*", "e*"]}}}]}
     expect: ALLOW
 
-  - name: clapa.multivalued.without-set-operator-is-unknown
+  - name: darb.multivalued.without-set-operator-is-unknown
     doc: "IAM User Guide › Multivalued context keys (flag): a multivalued key needs ForAnyValue/ForAllValues; without one the result is UNKNOWN"
     policies: {identity: [{Effect: Allow, Action: "ec2:CreateTags", Resource: "*", Condition: {StringEquals: {"aws:TagKeys": "team"}}}]}
     expect: UNKNOWN
@@ -75,7 +75,7 @@ cases:
     policies: {identity: [{Effect: Allow, Action: "ec2:CreateTags", Resource: "*", Condition: {StringEqualsIfExists: {"aws:RequestTag/env": "prod"}}}]}
     expect: IMPLICIT_DENY
 
-  - name: clapa.condition.if-exists-on-unknown-key-is-unknown
+  - name: darb.condition.if-exists-on-unknown-key-is-unknown
     doc: "docs/DESIGN.md section 6.3: IfExists cannot decide a key whose presence is unknown"
     context: {default: unknown}
     policies: {identity: [{Effect: Allow, Action: "ec2:CreateTags", Resource: "*", Condition: {StringEqualsIfExists: {"ec2:InstanceType": "t3.micro"}}}]}

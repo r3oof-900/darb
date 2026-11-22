@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	kmstypes "github.com/aws/aws-sdk-go-v2/service/kms/types"
 
-	"github.com/r3oof-900/clapa/internal/collect/awsraw"
+	"github.com/r3oof-900/darb/internal/collect/awsraw"
 )
 
 // kms lists the region's keys and aliases; for each key it reads its

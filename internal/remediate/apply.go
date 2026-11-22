@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // Apply returns a copy of inv with the edits made; inv is not changed. Every

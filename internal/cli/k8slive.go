@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/app"
+	"github.com/r3oof-900/darb/internal/app"
 )
 
 // k8sFlags are the live Kubernetes flags of scan.

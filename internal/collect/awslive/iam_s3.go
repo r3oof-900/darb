@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3control"
 
-	"github.com/r3oof-900/clapa/internal/collect/awsraw"
+	"github.com/r3oof-900/darb/internal/collect/awsraw"
 )
 
 // iam reads every page of GetAccountAuthorizationDetails (users, groups,

@@ -36,7 +36,7 @@ cases:
     policies: {resource: [{Effect: Allow, Principal: {AWS: "111122223333"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*"}]}
     expect: ALLOW
 
-  - name: clapa.root-user.unknown-resource-account
+  - name: darb.root-user.unknown-resource-account
     doc: "docs/DESIGN.md section 6: own-account and cross-account results differ, so with an unknown resource account the result is UNKNOWN"
     resource_account: ""
     expect: UNKNOWN

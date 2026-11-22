@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/classify"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/classify"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // Summary renders a Loaded inventory as deterministic, indented JSON: the

@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // shape of a synthetic access graph: workloads -> service accounts -> roles
@@ -108,10 +108,10 @@ func BenchmarkAnalyze(b *testing.B) {
 }
 
 // TestPerformanceTarget runs the target shape once with -run and a flag-free
-// opt-in (CLAPA_PERF=1 in the bench workflow), and reports time and memory.
+// opt-in (DARB_PERF=1 in the bench workflow), and reports time and memory.
 func TestPerformanceTarget(t *testing.T) {
 	if testing.Short() || !perfEnabled() {
-		t.Skip("set CLAPA_PERF=1 to run the 50k-node / 500k-edge target")
+		t.Skip("set DARB_PERF=1 to run the 50k-node / 500k-edge target")
 	}
 	g, entries, jewels := synthetic(targetShape, 1)
 	var before runtime.MemStats
@@ -131,4 +131,4 @@ func TestPerformanceTarget(t *testing.T) {
 	}
 }
 
-func perfEnabled() bool { return os.Getenv("CLAPA_PERF") == "1" }
+func perfEnabled() bool { return os.Getenv("DARB_PERF") == "1" }

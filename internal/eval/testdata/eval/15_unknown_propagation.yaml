@@ -12,63 +12,63 @@ defaults:
   context: {default: unknown}
 
 cases:
-  - name: clapa.unknown.allow-depends-on-unknown-key
+  - name: darb.unknown.allow-depends-on-unknown-key
     doc: "docs/DESIGN.md section 6.2: an allow that depends only on an unknown key is UNKNOWN"
     policies: {identity: [*maybeAllow]}
     expect: UNKNOWN
     expect_contributing: ["identity:Maybe"]
     expect_unresolved: ["Condition:aws:SourceVpce"]
 
-  - name: clapa.unknown.definite-allow-wins-over-unknown-allow
+  - name: darb.unknown.definite-allow-wins-over-unknown-allow
     doc: "docs/DESIGN.md section 6.2: one definite allow is enough; an extra unknown allow does not matter"
     policies: {identity: [*maybeAllow, *allowS3]}
     expect: ALLOW
     expect_contributing: ["identity:Definite"]
 
-  - name: clapa.unknown.definite-deny-wins-over-unknown-deny
+  - name: darb.unknown.definite-deny-wins-over-unknown-deny
     doc: "docs/DESIGN.md section 6.2: a definite deny decides regardless of other unknowns"
     policies: {identity: [*allowS3, {Effect: Deny, Action: "s3:*", Resource: "*"}, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {Bool: {"aws:ViaAWSService": "false"}}}]}
     expect: DENY
 
-  - name: clapa.unknown.boundary-depends-on-unknown-key
+  - name: darb.unknown.boundary-depends-on-unknown-key
     doc: "docs/DESIGN.md section 6.2: an unknown permissions boundary makes the result UNKNOWN"
     policies: {identity: [*allowS3], boundary: *maybeAllow}
     expect: UNKNOWN
     expect_missing: ["permissions boundary"]
 
-  - name: clapa.unknown.definite-boundary-deny-beats-unknown-identity
+  - name: darb.unknown.definite-boundary-deny-beats-unknown-identity
     doc: "docs/DESIGN.md section 6.2: if the boundary definitely does not allow, an unknown identity allow cannot help"
     policies: {identity: [*maybeAllow], boundary: {Effect: Allow, Action: "ec2:*", Resource: "*"}}
     expect: IMPLICIT_DENY
 
-  - name: clapa.unknown.unsupported-operator
+  - name: darb.unknown.unsupported-operator
     doc: "docs/DESIGN.md section 6.2: an operator the evaluator does not implement is UNKNOWN, never ignored"
     context: {default: absent}
     policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {StringMatchesRegex: {"aws:username": "a.*"}}}]}
     expect: UNKNOWN
 
-  - name: clapa.unknown.irrelevant-statement-ignored
+  - name: darb.unknown.irrelevant-statement-ignored
     doc: "docs/DESIGN.md section 6.2: an unknown condition in a statement for another action does not affect the decision"
     policies: {identity: [*allowS3, {Effect: Deny, Action: "s3:PutObject", Resource: "*", Condition: {Bool: {"aws:SecureTransport": "false"}}}]}
     expect: ALLOW
 
-  - name: clapa.unknown.resource-policy-condition
+  - name: darb.unknown.resource-policy-condition
     doc: "docs/DESIGN.md section 6.2: an unknown condition on the only resource-policy grant"
     policies: {resource: [{Effect: Allow, Principal: {AWS: "arn:aws:iam::111122223333:role/app"}, Action: "s3:GetObject", Resource: "arn:aws:s3:::data/*", Condition: {StringEquals: {"aws:SourceVpce": "vpce-1"}}}]}
     expect: UNKNOWN
 
-  - name: clapa.unknown.false-element-hides-unknown-condition
+  - name: darb.unknown.false-element-hides-unknown-condition
     doc: "docs/DESIGN.md section 6.2: a statement whose resource definitely does not match is not reported as unresolved"
     policies: {identity: [*allowS3, {Effect: Deny, Action: "s3:*", Resource: "arn:aws:s3:::other/*", Condition: {Bool: {"aws:SecureTransport": "false"}}}]}
     expect: ALLOW
 
-  - name: clapa.unknown.session-policy
+  - name: darb.unknown.session-policy
     doc: "docs/DESIGN.md section 6.2: an unknown session policy makes the result UNKNOWN"
     policies: {identity: [*allowS3], session: [*maybeAllow]}
     expect: UNKNOWN
     expect_missing: ["session policy"]
 
-  - name: clapa.unknown.empty-session-policy-denies
+  - name: darb.unknown.empty-session-policy-denies
     doc: "IAM User Guide › Session policies: a session policy that allows nothing limits the session to nothing"
     policies: {identity: [*allowS3], session: [{Effect: Deny, Action: "ec2:*", Resource: "*"}]}
     expect: IMPLICIT_DENY

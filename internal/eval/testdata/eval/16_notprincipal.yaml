@@ -31,7 +31,7 @@ cases:
       resource: [{Effect: Deny, NotPrincipal: {AWS: ["arn:aws:iam::111122223333:role/app", "111122223333"]}, Action: "s3:*", Resource: "arn:aws:s3:::data/*"}]
     expect: DENY
 
-  - name: clapa.notprincipal.session-and-account-without-role-is-unknown
+  - name: darb.notprincipal.session-and-account-without-role-is-unknown
     doc: "IAM User Guide › NotPrincipal (flag): the documented example also lists the role ARN; without it the effect is not documented, so UNKNOWN"
     policies:
       identity: [*identityAllow]

@@ -8,7 +8,7 @@
       "name": "prod",
       "oidc_issuer": "https://oidc.eks.eu-west-1.amazonaws.com/id/EUW1D539D4633E53DE1B716D3041E",
       "region": "eu-west-1",
-      "source": "clapa.yaml (clusters.prod)"
+      "source": "darb.yaml (clusters.prod)"
     },
     {
       "account": "111122223333",
@@ -16,7 +16,7 @@
       "name": "prod",
       "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
       "region": "us-east-1",
-      "source": "clapa.yaml (clusters.prod)"
+      "source": "darb.yaml (clusters.prod)"
     }
   ],
   "collected": 7,
@@ -24,12 +24,12 @@
     {
       "public": "unknown",
       "reason": "assume-compromised",
-      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app"
+      "workload": "k8s:arn:aws:eks:eu-west-1:111122223333:cluster/prod/apps/Deployment/app"
     },
     {
       "public": "unknown",
       "reason": "assume-compromised",
-      "workload": "k8s:arn:aws:eks:eu-west-1:111122223333:cluster/prod/apps/Deployment/app"
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app"
     }
   ],
   "exposures": [],
@@ -164,10 +164,10 @@
         "k8s.automountServiceAccountToken"
       ],
       "host_network": false,
-      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app",
+      "identity": "k8s:arn:aws:eks:eu-west-1:111122223333:cluster/prod/apps/Deployment/app",
       "privileged": false,
       "service_account": "app",
-      "source": "k8s/us-east-1/apps.yaml:14 (Deployment/apps/app)"
+      "source": "k8s/eu-west-1/apps.yaml:14 (Deployment/apps/app)"
     },
     {
       "automount_token": "true",
@@ -175,10 +175,10 @@
         "k8s.automountServiceAccountToken"
       ],
       "host_network": false,
-      "identity": "k8s:arn:aws:eks:eu-west-1:111122223333:cluster/prod/apps/Deployment/app",
+      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app",
       "privileged": false,
       "service_account": "app",
-      "source": "k8s/eu-west-1/apps.yaml:14 (Deployment/apps/app)"
+      "source": "k8s/us-east-1/apps.yaml:14 (Deployment/apps/app)"
     }
   ]
 }

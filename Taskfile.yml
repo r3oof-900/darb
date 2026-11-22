@@ -2,7 +2,7 @@
 version: "3"
 
 vars:
-  MODULE: github.com/r3oof-900/clapa
+  MODULE: github.com/r3oof-900/darb
   GOLANGCI_LINT_VERSION: v2.15.0
   TASK_VERSION: v3.54.0
   LEFTHOOK_VERSION: v2.2.2
@@ -114,11 +114,11 @@ tasks:
       - go test -run=^$ -bench=. -benchmem -count=10 ./... > bench.txt
 
   build:
-    desc: Build a static, reproducible clapa binary into bin/
+    desc: Build a static, reproducible darb binary into bin/
     env:
       CGO_ENABLED: "0"
     cmds:
-      - go build -trimpath -ldflags "{{.LDFLAGS}}" -o bin/clapa{{exeExt}} ./cmd/clapa
+      - go build -trimpath -ldflags "{{.LDFLAGS}}" -o bin/darb{{exeExt}} ./cmd/darb
 
   vuln:
     desc: Check dependencies for known vulnerabilities

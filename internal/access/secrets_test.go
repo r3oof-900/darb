@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 func TestParameterPaths(t *testing.T) {

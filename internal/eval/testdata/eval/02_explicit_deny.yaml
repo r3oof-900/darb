@@ -73,7 +73,7 @@ cases:
       identity: [[*allowS3, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {Bool: {"aws:SecureTransport": "false"}}}]]
     expect: DENY
 
-  - name: clapa.unknown.deny-with-unknown-condition-blocks-allow
+  - name: darb.unknown.deny-with-unknown-condition-blocks-allow
     doc: "docs/DESIGN.md section 6.2: a Deny that may apply (unknown condition) makes an otherwise-allowed request UNKNOWN"
     context: {default: unknown}
     policies:
@@ -82,7 +82,7 @@ cases:
     expect_contributing: ["identity:MaybeDeny"]
     expect_unresolved: ["Condition:aws:SecureTransport"]
 
-  - name: clapa.unknown.deny-with-unknown-condition-and-no-allow
+  - name: darb.unknown.deny-with-unknown-condition-and-no-allow
     doc: "docs/DESIGN.md section 6.2: an unknown Deny cannot create access; with no allow the result is IMPLICIT_DENY"
     context: {default: unknown}
     policies:

@@ -10,8 +10,8 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/remediate"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/remediate"
 )
 
 // memSource is a Source over files in memory.
@@ -55,7 +55,7 @@ func fuzzInventory(t testing.TB) *model.Inventory {
 }
 
 func fuzzEdits() [][]remediate.Edit {
-	deny := &model.StatementInput{Sid: "ClapaCut00000000", Effect: model.EffectDeny, Action: []string{"s3:GetObject"}, Resource: []string{"arn:aws:s3:::b/*"}}
+	deny := &model.StatementInput{Sid: "DarbCut00000000", Effect: model.EffectDeny, Action: []string{"s3:GetObject"}, Resource: []string{"arn:aws:s3:::b/*"}}
 	return [][]remediate.Edit{
 		{{Op: remediate.OpAddStatement, Policy: "aws_iam_role_policy.x", Statement: deny}},
 		{{Op: remediate.OpRemoveValues, Policy: "aws_iam_role_policy.x", Index: 0, Element: "Resource", Values: []string{"arn:aws:s3:::b/*"}}},

@@ -10,11 +10,11 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/app"
-	"github.com/r3oof-900/clapa/internal/config"
+	"github.com/r3oof-900/darb/internal/app"
+	"github.com/r3oof-900/darb/internal/config"
 )
 
-// remediate: `clapa remediate [scan flags] [--write [--allow-revoke]
+// remediate: `darb remediate [scan flags] [--write [--allow-revoke]
 // [--force]] FINGERPRINT` (DESIGN.md §9, §11). Without --write it shows the
 // plan, both verifications and the patch, and changes nothing. --write
 // applies a fix only when it is verified on both levels; it applies narrow
@@ -37,17 +37,17 @@ func remediateCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	}
 	cfg, err := app.LoadConfig(f.root, f.cfg, f.cfg != "")
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		return ExitUsage
 	}
 	if f.aws.live || f.k8s.any() {
-		_, _ = fmt.Fprintln(stderr, "clapa: remediate verifies a fix by rescanning patched files; with live data there are none: run collect-snapshot and remediate the snapshot (--aws-snapshot)")
+		_, _ = fmt.Fprintln(stderr, "darb: remediate verifies a fix by rescanning patched files; with live data there are none: run collect-snapshot and remediate the snapshot (--aws-snapshot)")
 		return ExitUsage
 	}
 	in := inputs(f, cfg)
 	l, err := app.Load(ctx, in)
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		if errors.Is(err, config.ErrInvalid) {
 			return ExitUsage
 		}
@@ -55,12 +55,12 @@ func remediateCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	}
 	a, err := app.Analyze(l, cfg, f.failOn)
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		return ExitInternal
 	}
 	r, err := app.Remediate(ctx, in, l, a, fp)
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		if strings.Contains(err.Error(), "fingerprint") {
 			return ExitUsage
 		}
@@ -74,12 +74,12 @@ func remediateCmd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 		return ExitOK
 	}
 	if reason := refuseWrite(r, f.root, allowRevoke, force); reason != "" {
-		_, _ = fmt.Fprintln(stderr, "clapa: --write refused:", reason)
+		_, _ = fmt.Fprintln(stderr, "darb: --write refused:", reason)
 		return ExitUsage
 	}
 	written, err := app.WritePatch(f.root, r.Patch)
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		return ExitInternal
 	}
 	for _, p := range written {
@@ -121,12 +121,12 @@ func parseRemediate(args []string, stderr io.Writer, extra func(*flag.FlagSet)) 
 	extra(fs)
 	if err := fs.Parse(args); err != nil || fs.NArg() != 1 {
 		if err == nil {
-			_, _ = fmt.Fprintln(stderr, "clapa: remediate needs exactly one finding fingerprint (or a unique prefix of one)")
+			_, _ = fmt.Fprintln(stderr, "darb: remediate needs exactly one finding fingerprint (or a unique prefix of one)")
 		}
 		return nil, "", false
 	}
 	if !slices.Contains([]string{"critical", "high", "medium", "low", "info"}, f.failOn) {
-		_, _ = fmt.Fprintf(stderr, "clapa: invalid --fail-on %q\n", f.failOn)
+		_, _ = fmt.Fprintf(stderr, "darb: invalid --fail-on %q\n", f.failOn)
 		return nil, "", false
 	}
 	return f, fs.Arg(0), true

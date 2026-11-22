@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // managedKeyCases: the documented defaults of AWS managed KMS keys.
@@ -17,7 +17,7 @@ func managedKeyCases() []defaultCase {
 				return `{"KeyMetadata": {"KeyId": "` + id + `", "Arn": "arn:aws:kms:eu-west-1:111122223333:key/` + id + `", "KeyManager": "` + manager + `"}}`
 			}
 			l := loadTree(t, map[string]string{
-				"snap/manifest.json": `{"format": "clapa-snapshot/v1", "accounts": [{"id": "111122223333", "partition": "aws"}], "calls": []}`,
+				"snap/manifest.json": `{"format": "darb-snapshot/v1", "accounts": [{"id": "111122223333", "partition": "aws"}], "calls": []}`,
 				"snap/111122223333/iam/get-account-authorization-details.json": `{}`,
 				"snap/111122223333/eu-west-1/kms/aws1/describe-key.json":       key("aws1", "AWS"),
 				"snap/111122223333/eu-west-1/kms/aws1/get-key-policy.json":     `{"Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[]}"}`,
@@ -39,14 +39,14 @@ func managedKeyCases() []defaultCase {
 			}
 			// The AWS managed key: principals of the secret's account decrypt.
 			a := analyzeVariant(t, "19_secrets_manager/vulnerable", func(dir string) { replaceIn(t, describe(dir), key, `"KmsKeyId": ""`) })
-			f := findingFor(a, "CLAPA-PATH-001", secret)
+			f := findingFor(a, "DARB-PATH-001", secret)
 			if f == nil || !slices.Contains(f.DefaultsUsed, model.DefaultSecretsManagedKey) || !f.Confirmed {
 				t.Fatalf("aws/secretsmanager, same account: %+v", f)
 			}
 			a = analyzeVariant(t, "19_secrets_manager/vulnerable", func(dir string) {
 				replaceIn(t, describe(dir), key, `"KmsKeyId": "alias/aws/secretsmanager"`)
 			})
-			if f := findingFor(a, "CLAPA-PATH-001", secret); f == nil || !slices.Contains(f.DefaultsUsed, model.DefaultSecretsManagedKey) {
+			if f := findingFor(a, "DARB-PATH-001", secret); f == nil || !slices.Contains(f.DefaultsUsed, model.DefaultSecretsManagedKey) {
 				t.Fatalf("alias/aws/secretsmanager: %+v", f)
 			}
 		}},
@@ -56,7 +56,7 @@ func managedKeyCases() []defaultCase {
 				replaceIn(t, filepath.Join(dir, "snapshot", "111122223333", "us-east-1", "ssm", "%2Fprod%2Fdb%2Fpassword", "describe-parameters.json"),
 					`"KeyId": "arn:aws:kms:us-east-1:111122223333:key/66666666-7777-8888-9999-000000000000"`, `"KeyId": "alias/aws/ssm"`)
 			})
-			f := findingFor(a, "CLAPA-PATH-001", param)
+			f := findingFor(a, "DARB-PATH-001", param)
 			if f == nil || !slices.Contains(f.DefaultsUsed, model.DefaultSSMManagedKey) || !f.Confirmed {
 				t.Fatalf("aws/ssm: %+v", f)
 			}

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/config"
-	"github.com/r3oof-900/clapa/internal/safeio"
+	"github.com/r3oof-900/darb/internal/config"
+	"github.com/r3oof-900/darb/internal/safeio"
 )
 
 // update rewrites the golden files. It is a developer action (task golden);
@@ -69,7 +69,7 @@ func exists(p string) bool { _, err := os.Stat(p); return err == nil }
 
 // k8sInputs: k8s/ is one cluster's manifests (the cluster is resolved as
 // for --k8s DIR); k8s/<region>/ directories (scenario 18) are the clusters
-// clapa.yaml declares in those regions, passed by ARN as --k8s DIR=ARN.
+// darb.yaml declares in those regions, passed by ARN as --k8s DIR=ARN.
 func k8sInputs(t *testing.T, dir string, cfg *config.Config) []K8sDir {
 	t.Helper()
 	entries, err := os.ReadDir(filepath.Join(dir, "k8s"))
@@ -88,7 +88,7 @@ func k8sInputs(t *testing.T, dir string, cfg *config.Config) []K8sDir {
 			}
 		}
 		if key == "" {
-			t.Fatalf("k8s/%s: no cluster in clapa.yaml has that region", e.Name())
+			t.Fatalf("k8s/%s: no cluster in darb.yaml has that region", e.Name())
 		}
 		out = append(out, K8sDir{Path: "k8s/" + e.Name(), Cluster: key})
 	}
@@ -99,9 +99,9 @@ func k8sInputs(t *testing.T, dir string, cfg *config.Config) []K8sDir {
 func scansFor(t *testing.T, dir string) map[string]*Inputs {
 	t.Helper()
 	cfg := config.Default()
-	if data, err := os.ReadFile(filepath.Join(dir, "clapa.yaml")); err == nil { //nolint:gosec // G304: fixed name inside the temp copy.
+	if data, err := os.ReadFile(filepath.Join(dir, "darb.yaml")); err == nil { //nolint:gosec // G304: fixed name inside the temp copy.
 		if cfg, err = config.Parse(data); err != nil {
-			t.Fatalf("clapa.yaml: %v", err)
+			t.Fatalf("darb.yaml: %v", err)
 		}
 	}
 	k8sDirs := k8sInputs(t, dir, cfg)

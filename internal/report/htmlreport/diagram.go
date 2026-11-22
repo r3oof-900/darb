@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 // The path view (DESIGN.md §11): one box per node, one arrow per edge with

@@ -3,8 +3,8 @@ package collect
 import (
 	"context"
 
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/safeio"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/safeio"
 )
 
 // Input names what a collector reads: a file or directory (Path, relative to

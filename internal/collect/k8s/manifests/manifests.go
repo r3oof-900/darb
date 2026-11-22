@@ -16,10 +16,10 @@ import (
 	kjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	sigsyaml "sigs.k8s.io/yaml"
 
-	"github.com/r3oof-900/clapa/internal/collect"
-	"github.com/r3oof-900/clapa/internal/collect/k8sraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/safeio"
+	"github.com/r3oof-900/darb/internal/collect"
+	"github.com/r3oof-900/darb/internal/collect/k8sraw"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/safeio"
 )
 
 // Name identifies this collector in coverage gaps.

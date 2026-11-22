@@ -27,11 +27,11 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 
-	"github.com/r3oof-900/clapa/internal/collect"
-	"github.com/r3oof-900/clapa/internal/collect/k8s/manifests"
-	"github.com/r3oof-900/clapa/internal/collect/k8sraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/safeio"
+	"github.com/r3oof-900/darb/internal/collect"
+	"github.com/r3oof-900/darb/internal/collect/k8s/manifests"
+	"github.com/r3oof-900/darb/internal/collect/k8sraw"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/safeio"
 )
 
 // The live collector against a kind cluster (.github/workflows/
@@ -40,9 +40,9 @@ import (
 // the cluster as a service account bound to exactly the ClusterRole of
 // docs/PERMISSIONS.md.
 func TestIntegrationKind(t *testing.T) {
-	kubeContext := os.Getenv("CLAPA_KIND_CONTEXT")
+	kubeContext := os.Getenv("DARB_KIND_CONTEXT")
 	if kubeContext == "" {
-		t.Skip("CLAPA_KIND_CONTEXT is not set")
+		t.Skip("DARB_KIND_CONTEXT is not set")
 	}
 	admin, err := KubeconfigREST("", kubeContext, false)
 	if err != nil {
@@ -173,16 +173,16 @@ func readerConfig(ctx context.Context, t *testing.T, admin *rest.Config, typed k
 			t.Fatal(err)
 		}
 	}
-	ignore(typed.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "clapa"}}, metav1.CreateOptions{}))
-	ignore(typed.CoreV1().ServiceAccounts("clapa").Create(ctx, &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "reader"}}, metav1.CreateOptions{}))
+	ignore(typed.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "darb"}}, metav1.CreateOptions{}))
+	ignore(typed.CoreV1().ServiceAccounts("darb").Create(ctx, &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "reader"}}, metav1.CreateOptions{}))
 	ignore(typed.RbacV1().ClusterRoles().Create(ctx, &role, metav1.CreateOptions{}))
 	ignore(typed.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: "clapa-read-only"},
+		ObjectMeta: metav1.ObjectMeta{Name: "darb-read-only"},
 		RoleRef:    rbacv1.RoleRef{APIGroup: "rbac.authorization.k8s.io", Kind: "ClusterRole", Name: role.Name},
-		Subjects:   []rbacv1.Subject{{Kind: "ServiceAccount", Namespace: "clapa", Name: "reader"}},
+		Subjects:   []rbacv1.Subject{{Kind: "ServiceAccount", Namespace: "darb", Name: "reader"}},
 	}, metav1.CreateOptions{}))
 	expiry := int64(600)
-	tok, err := typed.CoreV1().ServiceAccounts("clapa").CreateToken(ctx, "reader", &authv1.TokenRequest{Spec: authv1.TokenRequestSpec{ExpirationSeconds: &expiry}}, metav1.CreateOptions{})
+	tok, err := typed.CoreV1().ServiceAccounts("darb").CreateToken(ctx, "reader", &authv1.TokenRequest{Spec: authv1.TokenRequestSpec{ExpirationSeconds: &expiry}}, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}

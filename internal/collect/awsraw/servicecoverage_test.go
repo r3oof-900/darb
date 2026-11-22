@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/coverage"
+	"github.com/r3oof-900/darb/internal/coverage"
 )
 
 func TestServiceCoverage(t *testing.T) {

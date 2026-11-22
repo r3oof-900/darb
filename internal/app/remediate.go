@@ -11,14 +11,14 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/classify"
-	"github.com/r3oof-900/clapa/internal/config"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/patch"
-	"github.com/r3oof-900/clapa/internal/remediate"
-	"github.com/r3oof-900/clapa/internal/rules"
-	"github.com/r3oof-900/clapa/internal/safeio"
-	"github.com/r3oof-900/clapa/internal/verify"
+	"github.com/r3oof-900/darb/internal/classify"
+	"github.com/r3oof-900/darb/internal/config"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/patch"
+	"github.com/r3oof-900/darb/internal/remediate"
+	"github.com/r3oof-900/darb/internal/rules"
+	"github.com/r3oof-900/darb/internal/safeio"
+	"github.com/r3oof-900/darb/internal/verify"
 )
 
 // Remediation is one fix of a finding, verified on both levels (DESIGN.md
@@ -182,7 +182,7 @@ func rescan(ctx context.Context, in *Inputs, r *Remediation) verify.Outcome {
 	case len(in.TerraformPlans) > 0 && slices.ContainsFunc(r.Patch.Files, func(f patch.FileChange) bool { return strings.HasSuffix(f.Path, ".tf") }):
 		return verify.Outcome{Reasons: []string{"the scan reads a Terraform plan: the patched configuration needs a new plan (terraform plan) before it can be rescanned"}}
 	}
-	dir, err := os.MkdirTemp("", "clapa-verify-*")
+	dir, err := os.MkdirTemp("", "darb-verify-*")
 	if err != nil {
 		return verify.Outcome{Reasons: []string{err.Error()}}
 	}

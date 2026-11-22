@@ -8,8 +8,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/app"
-	"github.com/r3oof-900/clapa/internal/llm"
+	"github.com/r3oof-900/darb/internal/app"
+	"github.com/r3oof-900/darb/internal/llm"
 )
 
 // fakeLLM records what it is sent and answers with the identifiers it got
@@ -148,7 +148,7 @@ func TestLLMUsage(t *testing.T) {
 	}
 }
 
-// clapa explain: without --llm the template, with a provider its answer;
+// darb explain: without --llm the template, with a provider its answer;
 // when the provider fails, the template with a note, and exit 0.
 func TestExplainCommand(t *testing.T) {
 	fp := pathFingerprint(t, scan01)

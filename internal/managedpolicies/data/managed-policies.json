@@ -1,5 +1,5 @@
 {
-  "format": "clapa-managed-policies/v2",
+  "format": "darb-managed-policies/v2",
   "snapshot_date": "2026-11-20",
   "partition": "aws",
   "policy_count": 3,

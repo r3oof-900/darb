@@ -9,14 +9,14 @@ import (
 	yamlv3 "go.yaml.in/yaml/v3"
 	"sigs.k8s.io/yaml"
 
-	"github.com/r3oof-900/clapa/internal/arn"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/arn"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // ErrInvalid is returned for configuration that fails validation (exit code 2).
 var ErrInvalid = errors.New("config: invalid configuration")
 
-// Config is clapa.yaml. Every field is documented in docs/DESIGN.md.
+// Config is darb.yaml. Every field is documented in docs/DESIGN.md.
 type Config struct {
 	Version        int                 `json:"version"`
 	Terraform      Terraform           `json:"terraform"`
@@ -88,7 +88,7 @@ type Coverage struct {
 	Tolerance map[string]int `json:"tolerance"`
 }
 
-// Default returns the configuration used when no clapa.yaml is given.
+// Default returns the configuration used when no darb.yaml is given.
 func Default() *Config {
 	yes := true
 	return &Config{
@@ -99,12 +99,12 @@ func Default() *Config {
 	}
 }
 
-// Parse decodes and validates clapa.yaml. Unknown fields are errors, so a
+// Parse decodes and validates darb.yaml. Unknown fields are errors, so a
 // typo cannot silently disable a setting.
 func Parse(data []byte) (*Config, error) {
 	c := Default()
 	if line, found := reservedLine(data); found {
-		return nil, fmt.Errorf("%w: clapa.yaml:%d contains the reserved text %s...}", ErrInvalid, line, model.UnresolvedPrefix)
+		return nil, fmt.Errorf("%w: darb.yaml:%d contains the reserved text %s...}", ErrInvalid, line, model.UnresolvedPrefix)
 	}
 	if err := yaml.UnmarshalStrict(data, c); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalid, err)

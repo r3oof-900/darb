@@ -8,7 +8,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 // Reporter writes plain text.
@@ -28,7 +28,7 @@ func (p *printer) printf(format string, args ...any) {
 // Write renders r.
 func (Reporter) Write(w io.Writer, r *schema.Report) error {
 	p := &printer{w: w}
-	p.printf("clapa %s (rule catalog %s), threat model: assume compromised = %t, fail on %s\n",
+	p.printf("darb %s (rule catalog %s), threat model: assume compromised = %t, fail on %s\n",
 		r.Tool.Version, r.Tool.RuleCatalog, r.ThreatModel.AssumeCompromised, r.ThreatModel.FailOn)
 	p.printf("%d inputs collected; %d gaps beyond tolerance; graph %d nodes, %d edges\n\n",
 		r.Coverage.Collected, r.Coverage.GapsOverTolerance, r.Graph.Nodes, r.Graph.Edges)
@@ -92,7 +92,7 @@ func (p *printer) triage(r *schema.Report) {
 		p.printf("WARNING: the suppression of %s (owner %s) expired on %s: %s\n", e.Fingerprint, e.Owner, e.Expires, fires)
 	}
 	if len(r.Suppressed) > 0 {
-		p.printf("suppressed %d finding(s) (.clapa-ignore.yaml; listed in the JSON report)\n", len(r.Suppressed))
+		p.printf("suppressed %d finding(s) (.darb-ignore.yaml; listed in the JSON report)\n", len(r.Suppressed))
 	}
 	if b := r.Baseline; b != nil {
 		p.printf("baseline %s: %d new, %d unchanged (not shown), %d resolved\n", b.File, b.New, b.Unchanged, len(b.Resolved))

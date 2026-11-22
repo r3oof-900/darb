@@ -1,10 +1,10 @@
 package access
 
 import (
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/eval/condition"
-	"github.com/r3oof-900/clapa/internal/eval/match"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/eval/condition"
+	"github.com/r3oof-900/darb/internal/eval/match"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // EKS Pod Identity (EKS User Guide › "EKS Pod Identity", "Create the role",

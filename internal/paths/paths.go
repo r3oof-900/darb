@@ -3,7 +3,7 @@ package paths
 import (
 	"slices"
 
-	"github.com/r3oof-900/clapa/internal/graph"
+	"github.com/r3oof-900/darb/internal/graph"
 )
 
 // How a node was reached decides which edges may follow (DESIGN.md §7.2):

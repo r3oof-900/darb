@@ -3,10 +3,10 @@ package access
 import (
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/eval/match"
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/eval/match"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // policyFixes prices each side of a policy-decided edge (SCORING.md §4).
@@ -75,7 +75,7 @@ func TestPolicyFixesSides(tt *testing.T) {
 			if f.Side == graph.SideResource && (f.Resource != bucket || f.Policy != bucket+" bucket policy" || f.Kind != graph.FixRevoke || f.Cost != 4) {
 				tt.Errorf("%s: resource fix %+v", c.name, f)
 			}
-			if f.Side == graph.SideIdentity && (f.Policy != "clapa:any-permission" || f.Kind != graph.FixNarrow || f.Cost != 1) {
+			if f.Side == graph.SideIdentity && (f.Policy != "darb:any-permission" || f.Kind != graph.FixNarrow || f.Cost != 1) {
 				tt.Errorf("%s: identity fix %+v", c.name, f)
 			}
 		}

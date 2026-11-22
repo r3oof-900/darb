@@ -5,11 +5,11 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/eval/condition"
-	"github.com/r3oof-900/clapa/internal/eval/match"
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/eval/condition"
+	"github.com/r3oof-900/darb/internal/eval/match"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // identities adds the IAM edges between principals (DESIGN.md §7.2):
@@ -173,7 +173,7 @@ func (b *builder) anyPermission(dst *model.Principal) (*model.Principal, bool) {
 
 func allowAll() *model.PolicyDocument {
 	d, _ := model.NewPolicyDocument(&model.PolicyInput{ // a fixed, valid document
-		ID: "clapa:any-permission", Kind: model.PolicyIdentity, Version: model.Version2012,
+		ID: "darb:any-permission", Kind: model.PolicyIdentity, Version: model.Version2012,
 		Statements: []*model.StatementInput{{Effect: model.EffectAllow, Action: []string{"*"}, Resource: []string{"*"}}},
 	})
 	return d

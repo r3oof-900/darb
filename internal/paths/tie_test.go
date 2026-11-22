@@ -4,8 +4,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/graph"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/graph"
 )
 
 // Two cuts of resolve steps only, each of two steps: {a1, a2} needs two

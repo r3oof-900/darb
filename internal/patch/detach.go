@@ -5,7 +5,7 @@ import (
 
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 
-	"github.com/r3oof-900/clapa/internal/remediate"
+	"github.com/r3oof-900/darb/internal/remediate"
 )
 
 // detachPolicy removes an AWS managed policy's attachment to a role

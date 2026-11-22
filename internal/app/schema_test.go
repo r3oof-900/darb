@@ -14,11 +14,11 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
-	"github.com/r3oof-900/clapa/internal/config"
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/internal/config"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
-// schemas/report.v1.schema.json describes clapa-report/v1 (pkg/schema).
+// schemas/report.v1.schema.json describes darb-report/v1 (pkg/schema).
 // Every scenario's JSON report validates against it, and the schema and
 // the Go types describe the same fields: a field added to one and not the
 // other fails (every object in the schema is closed).
@@ -146,7 +146,7 @@ func TestTriageReportMatchesTheSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 	base := Report(a, in.Config, DefaultFailOn)
-	base.Findings = append(base.Findings[:1:1], schema.Finding{Rule: "CLAPA-POST-006", Fingerprint: strings.Repeat("a", 64), Resource: "arn:aws:kms:x"})
+	base.Findings = append(base.Findings[:1:1], schema.Finding{Rule: "DARB-POST-006", Fingerprint: strings.Repeat("a", 64), Resource: "arn:aws:kms:x"})
 	ApplyTriage(a, &Triage{
 		Suppressions: []config.Suppression{
 			{Fingerprint: a.Findings[0].Fingerprint, Reason: "r", Owner: "o", Expires: "2099-12-31"},

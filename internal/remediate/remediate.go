@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // Remediation (DESIGN.md §9). A finding's plan has one change per cut edge,
@@ -157,7 +157,7 @@ func ForEdge(in *Input, id graph.EdgeID, fx *graph.Fix) Change {
 // sid is the Sid of an added statement: stable for the edge.
 func sid(edge string) string {
 	sum := sha256.Sum256([]byte(edge))
-	return "ClapaCut" + hex.EncodeToString(sum[:4])
+	return "DarbCut" + hex.EncodeToString(sum[:4])
 }
 
 type context struct {

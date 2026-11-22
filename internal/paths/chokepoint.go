@@ -3,7 +3,7 @@ package paths
 import (
 	"slices"
 
-	"github.com/r3oof-900/clapa/internal/graph"
+	"github.com/r3oof-900/darb/internal/graph"
 )
 
 // The cut of one finding (DESIGN.md §7.4, §8; SCORING.md §4).
@@ -11,7 +11,7 @@ import (
 // The flow network is expanded by (node, mode, escalated): the mode decides
 // which edges may follow (paths.go), and "escalated" whether the walk has
 // taken a CAN_ESCALATE yet, so a selection of paths can be cut exactly:
-// the paths of CLAPA-PATH-001 with the dominated escalations merged into
+// the paths of DARB-PATH-001 with the dominated escalations merged into
 // them, or the escalations that are not dominated. Each graph edge is one
 // unit per phase: a series chain of its sides (any side breaks it), each
 // side the parallel set of its parts (every part must change): its own
@@ -26,8 +26,8 @@ const Default int64 = -2
 const scale = 1000
 
 // Select chooses the paths of one finding. Escalation: the paths must take
-// a CAN_ESCALATE whose source is not Dominated (CLAPA-PATH-002); otherwise
-// the paths take none, or only from a Dominated source (CLAPA-PATH-001 and
+// a CAN_ESCALATE whose source is not Dominated (DARB-PATH-002); otherwise
+// the paths take none, or only from a Dominated source (DARB-PATH-001 and
 // the escalations it dominates, DESIGN.md §8).
 type Select struct {
 	Escalation bool

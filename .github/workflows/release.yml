@@ -15,7 +15,7 @@ jobs:
   release:
     # A tag pushed to this repository only: a fork's copy of this workflow
     # (its own tags, its own token) never signs or publishes as this project.
-    if: github.repository == 'r3oof-900/clapa' && startsWith(github.ref, 'refs/tags/v')
+    if: github.repository == 'r3oof-900/darb' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write     # the (draft) GitHub release

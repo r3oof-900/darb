@@ -8,28 +8,28 @@ package posture
 import (
 	"slices"
 
-	"github.com/r3oof-900/clapa/internal/access"
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/rules"
-	"github.com/r3oof-900/clapa/internal/scoring"
+	"github.com/r3oof-900/darb/internal/access"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/rules"
+	"github.com/r3oof-900/darb/internal/scoring"
 )
 
 // Rule IDs.
 const (
-	IRSATrustAnySA     = "CLAPA-POST-001"
-	IMDSv1             = "CLAPA-POST-002"
-	Privileged         = "CLAPA-POST-003"
-	AutomountWithRBAC  = "CLAPA-POST-004"
-	PublicAccessOff    = "CLAPA-POST-005"
-	KeyRotationOff     = "CLAPA-POST-006"
-	NoDefaultDenyNetPo = "CLAPA-POST-007"
+	IRSATrustAnySA     = "DARB-POST-001"
+	IMDSv1             = "DARB-POST-002"
+	Privileged         = "DARB-POST-003"
+	AutomountWithRBAC  = "DARB-POST-004"
+	PublicAccessOff    = "DARB-POST-005"
+	KeyRotationOff     = "DARB-POST-006"
+	NoDefaultDenyNetPo = "DARB-POST-007"
 )
 
 // ProbeSubject is a service account that is not in any input: a trust that
 // allows it allows service accounts it was not written for.
-const ProbeSubject = "clapa-probe"
+const ProbeSubject = "darb-probe"
 
 type rule struct {
 	meta       rules.Meta
@@ -163,7 +163,7 @@ func irsaTrust(in *rules.Input) []hit {
 }
 
 // probeAllowed: the subject of a service account that is not in the input
-// (named clapa-probe) that the trust allows, in a namespace of its own or
+// (named darb-probe) that the trust allows, in a namespace of its own or
 // in any namespace the cluster has in the input — a wildcard scoped to one
 // namespace ("system:serviceaccount:ns:*") accepts every new service
 // account there; "" when none is allowed.

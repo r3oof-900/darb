@@ -1,6 +1,6 @@
 package schema
 
-// SuppressedFinding is a finding a .clapa-ignore.yaml suppression silences
+// SuppressedFinding is a finding a .darb-ignore.yaml suppression silences
 // until its expiry date. It is not in findings and does not count for the
 // exit code.
 type SuppressedFinding struct {

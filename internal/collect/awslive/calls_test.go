@@ -4,8 +4,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/collect/awslive"
-	"github.com/r3oof-900/clapa/internal/collect/awslive/awsfake"
+	"github.com/r3oof-900/darb/internal/collect/awslive"
+	"github.com/r3oof-900/darb/internal/collect/awslive/awsfake"
 )
 
 // Every recorded call of a full collection is one of the allowed APIs.

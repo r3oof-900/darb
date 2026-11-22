@@ -3,9 +3,9 @@ package app
 import (
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/collect/tfraw"
-	"github.com/r3oof-900/clapa/internal/config"
-	"github.com/r3oof-900/clapa/internal/coverage"
+	"github.com/r3oof-900/darb/internal/collect/tfraw"
+	"github.com/r3oof-900/darb/internal/config"
+	"github.com/r3oof-900/darb/internal/coverage"
 )
 
 // Gaps count per kind beyond that kind's tolerance (default 0); a plan

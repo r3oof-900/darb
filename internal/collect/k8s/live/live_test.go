@@ -17,8 +17,8 @@ import (
 	metafake "k8s.io/client-go/metadata/fake"
 	k8stesting "k8s.io/client-go/testing"
 
-	"github.com/r3oof-900/clapa/internal/collect/k8sraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
+	"github.com/r3oof-900/darb/internal/collect/k8sraw"
+	"github.com/r3oof-900/darb/internal/coverage"
 )
 
 func om(ns, name string) metav1.ObjectMeta { return metav1.ObjectMeta{Namespace: ns, Name: name} }
@@ -50,7 +50,7 @@ func clusterObjects() []runtime.Object {
 		&appsv1.ReplicaSet{ObjectMeta: owned(om("payments", "api-7d9"), "Deployment", "api")},
 		&corev1.Pod{ObjectMeta: owned(om("payments", "api-7d9-x1"), "ReplicaSet", "api-7d9")},
 		&corev1.Pod{ObjectMeta: om("payments", "debug")},
-		// Owned by a controller CLAPA does not list (a custom resource): kept,
+		// Owned by a controller darb does not list (a custom resource): kept,
 		// or the workload would vanish.
 		&corev1.Pod{ObjectMeta: owned(om("payments", "canary-1"), "Rollout", "canary")},
 		&corev1.ServiceAccount{ObjectMeta: om("payments", "api")},

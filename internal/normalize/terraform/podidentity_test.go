@@ -3,7 +3,7 @@ package terraform
 import (
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // aws_eks_pod_identity_association: disable_session_tags defaults to false

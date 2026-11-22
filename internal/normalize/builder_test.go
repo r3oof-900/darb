@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // TestDuplicateDefinitionsAreErrors: docs/DESIGN.md section 5 — never

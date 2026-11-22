@@ -1,9 +1,9 @@
 {
-  "format": "clapa-expected/v1",
+  "format": "darb-expected/v1",
   "derived_from": "13.2 row 6",
   "findings": [
     {
-      "rule": "CLAPA-PATH-001",
+      "rule": "DARB-PATH-001",
       "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
       "jewel": "arn:aws:s3:::acme-analytics-warehouse",
       "path": [
@@ -73,37 +73,42 @@
           false
         ],
         "note": "declare intended_access to get a verified root-cause fix"
-      }
+      },
+      "fingerprint": "82498446d05b819fc9f740865a06634799fcd3cc4c176972298e8eabe597acf6"
     },
     {
-      "rule": "CLAPA-POST-006",
+      "rule": "DARB-POST-006",
       "resource": "arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse",
       "score": 350,
       "severity": "medium",
       "defaults_used": [
         "terraform.aws_kms_key.enable_key_rotation"
-      ]
+      ],
+      "fingerprint": "856ae4bba715d3657699c70a1c55bf594a0b1a9fd3a27b1d4d1044625dc8ca5a"
     },
     {
-      "rule": "CLAPA-POST-007",
+      "rule": "DARB-POST-007",
       "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/payments",
       "score": 245,
       "severity": "low",
-      "defaults_used": []
+      "defaults_used": [],
+      "fingerprint": "fe1ae67f98c056f873685d2df3e72ae5def9ae84ccea894079e4f039a7565639"
     },
     {
-      "rule": "CLAPA-POST-008",
+      "rule": "DARB-POST-008",
       "resource": "arn:aws:iam::111122223333:role/payments-api",
       "score": 600,
       "severity": "high",
-      "defaults_used": []
+      "defaults_used": [],
+      "fingerprint": "e81515b217b99141d89ed1cf5b3528e18f5e8891a35b669a764993427a35bd67"
     },
     {
-      "rule": "CLAPA-POST-008",
+      "rule": "DARB-POST-008",
       "resource": "arn:aws:iam::444455556666:role/analytics-admin",
       "score": 600,
       "severity": "high",
-      "defaults_used": []
+      "defaults_used": [],
+      "fingerprint": "0ea3ada095c3ac41768aa068e837212eae9bd656ef058a11af2c5933118aebcb"
     }
   ],
   "absent": [],

@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	ssmtypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
 
-	"github.com/r3oof-900/clapa/internal/collect/awsraw"
+	"github.com/r3oof-900/darb/internal/collect/awsraw"
 )
 
 // secrets lists the region's secrets (metadata: ARN, name, KMS key, tags;

@@ -5,16 +5,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/collect"
-	"github.com/r3oof-900/clapa/internal/collect/terraform/hclstatic"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/eval/condition"
-	"github.com/r3oof-900/clapa/internal/eval/match"
-	"github.com/r3oof-900/clapa/internal/managedpolicies"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/normalize"
-	"github.com/r3oof-900/clapa/internal/safeio"
+	"github.com/r3oof-900/darb/internal/collect"
+	"github.com/r3oof-900/darb/internal/collect/terraform/hclstatic"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/eval/condition"
+	"github.com/r3oof-900/darb/internal/eval/match"
+	"github.com/r3oof-900/darb/internal/managedpolicies"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/normalize"
+	"github.com/r3oof-900/darb/internal/safeio"
 )
 
 func load(t *testing.T, opts *Options) (inv *model.Inventory, gapsText string) {
@@ -64,19 +64,19 @@ func statements(d *model.PolicyDocument) string {
 
 func TestRolePoliciesAndManagedPolicies(t *testing.T) {
 	inv, gaps := load(t, &Options{})
-	role := "arn:aws:iam::${clapa:unresolved:account_of_all}:role/svc/app" // the account is unknown: no provider pin, no option
+	role := "arn:aws:iam::${darb:unresolved:account_of_all}:role/svc/app" // the account is unknown: no provider pin, no option
 	if inv.Principals[0].Identity() != role {
 		t.Fatalf("role identity %q", inv.Principals[0].Identity())
 	}
 	ps := policiesOf(inv, role)
 	for id, want := range map[string]string{
-		"arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess":                "Allow s3:Get*",       // from the vendored snapshot
-		"arn:aws:iam::aws:policy/NotInTheSnapshot":                      "${clapa:unresolved:", // not guessed
-		"arn:aws:iam::999999999999:policy/elsewhere":                    "${clapa:unresolved:", // not in the input
-		"aws_iam_role.app.inline_policy[0](inline-unknown)":             "${clapa:unresolved:", // policy = var.extra_policy, unresolved
-		"arn:aws:iam::aws:policy/AdministratorAccess":                   "Allow * *",           // the boundary
-		"aws_iam_role_policy.oidc_ref":                                  "oidc-provider/oidc.eks.eu-west-1.amazonaws.com/id/XYZ",
-		"arn:aws:iam::${clapa:unresolved:account_of_all}:policy/broken": "${clapa:unresolved:", // malformed JSON
+		"arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess":               "Allow s3:Get*",      // from the vendored snapshot
+		"arn:aws:iam::aws:policy/NotInTheSnapshot":                     "${darb:unresolved:", // not guessed
+		"arn:aws:iam::999999999999:policy/elsewhere":                   "${darb:unresolved:", // not in the input
+		"aws_iam_role.app.inline_policy[0](inline-unknown)":            "${darb:unresolved:", // policy = var.extra_policy, unresolved
+		"arn:aws:iam::aws:policy/AdministratorAccess":                  "Allow * *",          // the boundary
+		"aws_iam_role_policy.oidc_ref":                                 "oidc-provider/oidc.eks.eu-west-1.amazonaws.com/id/XYZ",
+		"arn:aws:iam::${darb:unresolved:account_of_all}:policy/broken": "${darb:unresolved:", // malformed JSON
 	} {
 		d, ok := ps[id]
 		if !ok || !strings.Contains(statements(d), want) {
@@ -88,7 +88,7 @@ func TestRolePoliciesAndManagedPolicies(t *testing.T) {
 			}())
 		}
 	}
-	custom := ps["arn:aws:iam::${clapa:unresolved:account_of_all}:policy/custom"]
+	custom := ps["arn:aws:iam::${darb:unresolved:account_of_all}:policy/custom"]
 	if custom == nil || !strings.Contains(statements(custom), "secret:db-password-tfpend") || !strings.Contains(statements(custom), "parameter/app/token") {
 		t.Fatalf("customer managed policy with resolved references: %v", custom)
 	}
@@ -96,7 +96,7 @@ func TestRolePoliciesAndManagedPolicies(t *testing.T) {
 		"account unknown", "AWS managed policy arn:aws:iam::aws:policy/NotInTheSnapshot is not in the vendored snapshot",
 		"attached role is not defined in the input", "source_policy_documents is not modelled",
 		"bucket is not defined in the input", "OIDC issuer of cluster c is unknown", "IMDS settings of node group bare are unknown",
-		"aws_iam_policy.broken: arn:aws:iam::${clapa:unresolved:account_of_all}:policy/broken:",
+		"aws_iam_policy.broken: arn:aws:iam::${darb:unresolved:account_of_all}:policy/broken:",
 	} {
 		if !strings.Contains(gaps, want) {
 			t.Errorf("missing gap %q in:\n%s", want, gaps)
@@ -143,7 +143,7 @@ func TestPlaceholderAndHelpers(t *testing.T) {
 	if p := placeholderID(`var.a "b"/c`); p != "var.a__b__c" {
 		t.Errorf("placeholder %q", p)
 	}
-	if !strings.Contains(defaultKeyPolicy("aws", model.UnresolvedPlaceholder("account_of_x")), ":iam::${clapa:unresolved:account_of_x}:root") {
+	if !strings.Contains(defaultKeyPolicy("aws", model.UnresolvedPlaceholder("account_of_x")), ":iam::${darb:unresolved:account_of_x}:root") {
 		t.Error("an unknown account keeps the default key policy's delegation unresolved")
 	}
 	if kindName(99) != "value" || kindName(0) != "null" {

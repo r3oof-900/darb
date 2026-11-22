@@ -16,9 +16,9 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/r3oof-900/clapa/internal/llm/pseudonymize"
-	"github.com/r3oof-900/clapa/internal/redact"
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/internal/llm/pseudonymize"
+	"github.com/r3oof-900/darb/internal/redact"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 // Kinds of request.

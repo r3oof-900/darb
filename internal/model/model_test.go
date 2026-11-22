@@ -233,7 +233,7 @@ func TestNodes(t *testing.T) {
 
 func TestUnresolvedPlaceholder(t *testing.T) {
 	p := UnresolvedPlaceholder("var.x")
-	if p != "${clapa:unresolved:var.x}" || !ContainsUnresolved("arn:"+p+"/*") || ContainsUnresolved("${aws:username}") {
+	if p != "${darb:unresolved:var.x}" || !ContainsUnresolved("arn:"+p+"/*") || ContainsUnresolved("${aws:username}") {
 		t.Fatal("placeholder")
 	}
 	if !AnyUnresolved([]string{"a", p}) || AnyUnresolved([]string{"a"}) {
@@ -261,10 +261,10 @@ func TestUnresolvedIDs(t *testing.T) {
 func TestSplitUnresolved(t *testing.T) {
 	u := UnresolvedPlaceholder("x")
 	cases := map[string][]string{
-		"plain":                         {"plain"},
-		"a" + u + "b":                   {"a", "b"},
-		u + u:                           {"", "", ""},
-		"a" + "${clapa:unresolved:open": {"a", ""},
+		"plain":                        {"plain"},
+		"a" + u + "b":                  {"a", "b"},
+		u + u:                          {"", "", ""},
+		"a" + "${darb:unresolved:open": {"a", ""},
 	}
 	for in, want := range cases {
 		got := SplitUnresolved(in)

@@ -4,9 +4,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/paths"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/paths"
 )
 
 // sharedFixes names every resource or policy one change to which breaks two

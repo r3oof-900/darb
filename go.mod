@@ -1,4 +1,4 @@
-module github.com/r3oof-900/clapa
+module github.com/r3oof-900/darb
 
 go 1.26.0
 

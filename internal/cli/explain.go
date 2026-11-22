@@ -10,9 +10,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/app"
-	"github.com/r3oof-900/clapa/internal/config"
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/internal/app"
+	"github.com/r3oof-900/darb/internal/config"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 // llmFlags are the explanation flags of scan and explain (DESIGN.md §10).
@@ -49,7 +49,7 @@ func (l *llmFlags) explainer(env *Env) (app.Explainer, app.LLMOptions, error) {
 	return p, o, err
 }
 
-// explainCmd: `clapa explain [scan input flags] [--llm P [--llm-model M]
+// explainCmd: `darb explain [scan input flags] [--llm P [--llm-model M]
 // [--llm-redact-identifiers]] FINGERPRINT` prints one finding in plain
 // words. Without --llm it prints the template text. It runs on files and
 // snapshots, like remediate. Exit codes: 0 explained (by the provider or,
@@ -63,27 +63,27 @@ func explainCmd(ctx context.Context, args []string, stdout, stderr io.Writer, en
 	f.llm.on(fs)
 	if err := fs.Parse(args); err != nil || fs.NArg() != 1 {
 		if err == nil {
-			_, _ = fmt.Fprintln(stderr, "clapa: explain needs exactly one finding fingerprint (or a unique prefix of one)")
+			_, _ = fmt.Fprintln(stderr, "darb: explain needs exactly one finding fingerprint (or a unique prefix of one)")
 		}
 		return ExitUsage
 	}
 	if !slices.Contains([]string{"console", "json"}, f.format) || f.aws.live || f.k8s.any() {
-		_, _ = fmt.Fprintln(stderr, "clapa: explain prints console or json, and reads files and snapshots (collect-snapshot first for live data)")
+		_, _ = fmt.Fprintln(stderr, "darb: explain prints console or json, and reads files and snapshots (collect-snapshot first for live data)")
 		return ExitUsage
 	}
 	p, opts, err := f.llm.explainer(env)
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		return ExitUsage
 	}
 	cfg, err := app.LoadConfig(f.root, f.cfg, f.cfg != "")
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		return ExitUsage
 	}
 	l, err := app.Load(ctx, inputs(f, cfg))
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		if errors.Is(err, config.ErrInvalid) {
 			return ExitUsage
 		}
@@ -91,12 +91,12 @@ func explainCmd(ctx context.Context, args []string, stdout, stderr io.Writer, en
 	}
 	a, err := app.Analyze(l, cfg, f.failOn)
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		return ExitInternal
 	}
 	found, err := app.ExplainFinding(ctx, app.Report(a, cfg, f.failOn), fs.Arg(0), p, opts.RedactIdentifiers)
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		return ExitUsage
 	}
 	if f.format == "json" {

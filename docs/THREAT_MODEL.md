@@ -1,6 +1,6 @@
-# CLAPA — Threat model of the tool itself
+# darb — Threat model of the tool itself
 
-Scope: the `clapa` binary, its inputs and outputs, its CI/release pipeline. Method:
+Scope: the `darb` binary, its inputs and outputs, its CI/release pipeline. Method:
 assets → trust boundaries → threats (STRIDE) → controls. Each control names where
 it is enforced; "Phase N" means the control lands in that phase.
 
@@ -74,11 +74,11 @@ it is enforced; "Phase N" means the control lands in that phase.
 
 ## 4. Residual risks (accepted)
 
-- A user who scans with admin credentials gives the process admin rights; CLAPA
+- A user who scans with admin credentials gives the process admin rights; darb
   only issues read calls, but cannot prevent a compromised dependency from using them.
   Mitigated by the supply-chain controls above; recommended: run with
   `SecurityAudit` + `ViewOnlyAccess`.
-- Reports are sensitive by nature; CLAPA cannot control where users store them.
+- Reports are sensitive by nature; darb cannot control where users store them.
   The README states this explicitly.
 - False negatives from unmodelled AWS features (KMS grants, S3 ACLs, VPC endpoint
   policies) are reported as coverage gaps, never hidden.

@@ -11,7 +11,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 // SARIF 2.1.0 schema location.
@@ -158,7 +158,7 @@ func convert(f *schema.Finding) result {
 	}
 	res := result{
 		RuleID: f.Rule, Level: level(f.Severity), Message: message{text},
-		PartialFingerprints: map[string]string{"clapaFingerprint/v1": f.Fingerprint},
+		PartialFingerprints: map[string]string{"darbFingerprint/v1": f.Fingerprint},
 		Properties: map[string]any{
 			"severity": f.Severity, "score": f.Score, "confirmed": f.Confirmed, "confidence": f.Confidence,
 			"security-severity": fmt.Sprintf("%.1f", float64(f.Score)/100),

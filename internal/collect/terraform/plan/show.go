@@ -9,14 +9,14 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/r3oof-900/clapa/internal/collect"
+	"github.com/r3oof-900/darb/internal/collect"
 )
 
 // showTimeout bounds "terraform show -json".
 const showTimeout = 2 * time.Minute
 
 // showJSON converts a binary plan file with "terraform show -json <file>".
-// This is the only os/exec in CLAPA (docs/DESIGN.md section 4.1): an
+// This is the only os/exec in darb (docs/DESIGN.md section 4.1): an
 // argument slice, no shell, a timeout, a stdout size cap, and a binary
 // resolved by exec.LookPath (which refuses results relative to the current
 // directory) or given explicitly.

@@ -1,31 +1,33 @@
 {
-  "format": "clapa-expected/v1",
+  "format": "darb-expected/v1",
   "derived_from": "13.2 row 2c: no Bucket Key, StringEquals on bucket A's ARN: the declared access is not satisfied",
   "findings": [
     {
-      "rule": "CLAPA-POST-006",
+      "rule": "DARB-POST-006",
       "resource": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.receipts",
       "score": 350,
       "severity": "medium",
       "defaults_used": [
         "terraform.aws_kms_key.enable_key_rotation"
-      ]
+      ],
+      "fingerprint": "0430ce49cb0bb8465028bbeac67ef965a68b697d23c258c5233c6679920ee48a"
     },
     {
-      "rule": "CLAPA-POST-007",
+      "rule": "DARB-POST-007",
       "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/payments",
       "score": 245,
       "severity": "low",
-      "defaults_used": []
+      "defaults_used": [],
+      "fingerprint": "fe1ae67f98c056f873685d2df3e72ae5def9ae84ccea894079e4f039a7565639"
     }
   ],
   "absent": [
     {
-      "rule": "CLAPA-PATH-001",
+      "rule": "DARB-PATH-001",
       "jewel": "arn:aws:s3:::acme-customer-pii"
     },
     {
-      "rule": "CLAPA-PATH-002",
+      "rule": "DARB-PATH-002",
       "jewel": "arn:aws:s3:::acme-customer-pii"
     }
   ],

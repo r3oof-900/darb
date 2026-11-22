@@ -6,16 +6,16 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/collect"
-	"github.com/r3oof-900/clapa/internal/collect/terraform/hclstatic"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/eval/condition"
-	"github.com/r3oof-900/clapa/internal/eval/match"
-	"github.com/r3oof-900/clapa/internal/managedpolicies"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/normalize"
-	"github.com/r3oof-900/clapa/internal/safeio"
+	"github.com/r3oof-900/darb/internal/collect"
+	"github.com/r3oof-900/darb/internal/collect/terraform/hclstatic"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/eval/condition"
+	"github.com/r3oof-900/darb/internal/eval/match"
+	"github.com/r3oof-900/darb/internal/managedpolicies"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/normalize"
+	"github.com/r3oof-900/darb/internal/safeio"
 )
 
 // Unknown parts of ARNs (account, region, name) must reach the evaluator as
@@ -204,7 +204,7 @@ resource "aws_s3_bucket" "anonymous" {}
 		got[r.ARN()] = true
 	}
 	for _, want := range []string{
-		"arn:aws:s3:::logs-${clapa:unresolved:aws_s3_bucket.prefixed.generated_suffix}",
+		"arn:aws:s3:::logs-${darb:unresolved:aws_s3_bucket.prefixed.generated_suffix}",
 		"arn:aws:s3:::tf-aws_s3_bucket.anonymous",
 	} {
 		if !got[want] {

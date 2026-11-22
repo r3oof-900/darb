@@ -25,7 +25,7 @@ var ErrExecPlugin = errors.New(Name + ": exec credential plugin refused")
 // execPluginError says which context was refused, why, and what to use.
 func execPluginError(kubeContext, plugin string) error {
 	return fmt.Errorf("%w: the kubeconfig context %q authenticates with a credential plugin (%s). "+
-		"CLAPA refuses it for security reasons: a plugin is an external program that runs with your credentials, and CLAPA runs no external commands. "+
+		"darb refuses it for security reasons: a plugin is an external program that runs with your credentials, and darb runs no external commands. "+
 		"For an EKS cluster use --k8s-eks NAME (an in-memory token from your AWS profile); "+
 		"for another cluster use a kubeconfig whose user has a static token or a client certificate",
 		ErrExecPlugin, kubeContext, plugin)

@@ -12,7 +12,7 @@
 //
 // Usage:
 //
-//	go run ./tools/refresh-managed-policies --profile clapa-refresh
+//	go run ./tools/refresh-managed-policies --profile darb-refresh
 //
 // The output is deterministic: the same policies give the same bytes (sorted
 // by ARN, documents compact, one policy per line). Review the diff before
@@ -42,7 +42,7 @@ import (
 
 const (
 	snapshotPath = "internal/managedpolicies/data/managed-policies.json"
-	format       = "clapa-managed-policies/v2"
+	format       = "darb-managed-policies/v2"
 	source       = "IAM ListPolicies (Scope=AWS) and GetPolicyVersion of each policy's DefaultVersionId, refreshed with tools/refresh-managed-policies."
 )
 

@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/safeio"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/safeio"
 )
 
 // FuzzDocuments: any YAML/JSON input is decoded or reported, never a panic.

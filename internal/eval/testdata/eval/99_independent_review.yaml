@@ -174,7 +174,7 @@ cases:
     context: {default: absent, present: {"aws:SourceArn": "arn:aws:sns:us-east-1:111122223333:topic-a"}}
     policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {ArnLike: {"aws:SourceArn": "arn:aws:sns:*:111122223333:*"}}}]}
     expect: ALLOW
-  - name: clapa.indep.numeric-non-number
+  - name: darb.indep.numeric-non-number
     doc: "docs/DESIGN.md section 6.5: AWS does not document a non-numeric value in a numeric comparison, so the result is UNKNOWN, never ALLOW"
     context: {default: absent, present: {"s3:max-keys": "abc"}}
     policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {NumericLessThanEquals: {"s3:max-keys": "10"}}}]}

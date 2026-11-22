@@ -8,8 +8,8 @@ import (
 
 	udiff "github.com/aymanbagabas/go-udiff"
 
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/remediate"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/remediate"
 )
 
 // Source reads the scan's files; paths are slash-separated and relative to

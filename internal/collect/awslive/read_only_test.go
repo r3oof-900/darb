@@ -10,7 +10,7 @@ import (
 )
 
 // valueReads are the calls that return a secret or parameter value.
-// CLAPA reads metadata and policies only, never values.
+// darb reads metadata and policies only, never values.
 func valueReads() []string {
 	return []string{
 		"GetSecretValue", "BatchGetSecretValue", "GetParameter", "GetParameters", "GetParametersByPath",

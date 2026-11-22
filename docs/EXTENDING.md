@@ -1,4 +1,4 @@
-# Extending CLAPA
+# Extending darb
 
 How to add a rule, an input, a report format or an LLM provider without
 breaking the guarantees the tests hold: determinism, UNKNOWN never counted as
@@ -62,7 +62,7 @@ not new rules but new **edges** in the access graph:
    resolve, detach) with the cost of SCORING.md §4.1, and a guard when the
    principal can rewrite the policy the fix relies on (§4.1, "guards").
 4. Add a scenario under `tests/fixtures/NN_name/{vulnerable,fixed}` with
-   `clapa.yaml`, its expected findings derived by hand, and the read audit of
+   `darb.yaml`, its expected findings derived by hand, and the read audit of
    DESIGN.md §13.1 (a path to data must grant the read and, for KMS data, the
    decrypt).
 

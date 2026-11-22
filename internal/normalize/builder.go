@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // ErrDuplicate is returned when two definitions have the same canonical

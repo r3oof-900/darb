@@ -85,7 +85,7 @@ cases:
     policies: {resource: [{Effect: Allow, Principal: *federated, Action: "sts:AssumeRoleWithWebIdentity", Condition: {StringEquals: {"oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE:aud": "sts.amazonaws.com"}}}]}
     expect: ALLOW
 
-  - name: clapa.irsa.trust.sub-unknown
+  - name: darb.irsa.trust.sub-unknown
     doc: "docs/DESIGN.md section 4.2: when the service account is not known, the :sub condition is UNKNOWN"
     principal: *irsaSA
     action: "sts:AssumeRoleWithWebIdentity"

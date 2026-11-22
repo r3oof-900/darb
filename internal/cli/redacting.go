@@ -3,7 +3,7 @@ package cli
 import (
 	"io"
 
-	"github.com/r3oof-900/clapa/internal/redact"
+	"github.com/r3oof-900/darb/internal/redact"
 )
 
 // redacting passes everything written to standard error through the

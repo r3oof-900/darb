@@ -4,19 +4,19 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/access"
-	"github.com/r3oof-900/clapa/internal/collect/tfraw"
-	"github.com/r3oof-900/clapa/internal/config"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/findings"
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/paths"
-	"github.com/r3oof-900/clapa/internal/rules"
-	"github.com/r3oof-900/clapa/internal/rules/catalog"
-	"github.com/r3oof-900/clapa/internal/scoring"
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/internal/access"
+	"github.com/r3oof-900/darb/internal/collect/tfraw"
+	"github.com/r3oof-900/darb/internal/config"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/findings"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/paths"
+	"github.com/r3oof-900/darb/internal/rules"
+	"github.com/r3oof-900/darb/internal/rules/catalog"
+	"github.com/r3oof-900/darb/internal/scoring"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 // DefaultFailOn is the default --fail-on threshold (DESIGN.md §8.2).
@@ -185,7 +185,7 @@ func entryPoints(g *graph.Graph, l *Loaded, assumeCompromised bool) (nodes []gra
 	return nodes, info
 }
 
-// costs: SCORING.md §4 defaults, clapa.yaml overrides per kind, and
+// costs: SCORING.md §4 defaults, darb.yaml overrides per kind, and
 // uncuttable edges (configured, or on a path of declared intended access).
 func costs(g *graph.Graph, cfg *config.Config, uncuttable map[graph.EdgeID]bool) func(graph.EdgeID) int64 {
 	return func(id graph.EdgeID) int64 {

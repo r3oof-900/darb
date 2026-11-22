@@ -51,7 +51,7 @@ func pathFingerprint(t *testing.T, args []string) string {
 		t.Fatal(err)
 	}
 	for _, f := range doc.Findings {
-		if strings.HasPrefix(f.Rule, "CLAPA-PATH-") {
+		if strings.HasPrefix(f.Rule, "DARB-PATH-") {
 			return f.Fingerprint
 		}
 	}
@@ -170,7 +170,7 @@ func TestRemediateWritesRootCause(t *testing.T) {
 	if !strings.Contains(string(data), `Action = ["kms:Decrypt"], Resource = [aws_kms_key.receipts.arn]`) {
 		t.Fatalf("the Allow is not narrowed: %s", data)
 	}
-	if code, out, _ := run(t, append(append([]string{"scan"}, inputArgs(dir)...), "--format", "json")...); code != ExitOK || strings.Contains(out, `"rule": "CLAPA-POST-008"`) {
+	if code, out, _ := run(t, append(append([]string{"scan"}, inputArgs(dir)...), "--format", "json")...); code != ExitOK || strings.Contains(out, `"rule": "DARB-POST-008"`) {
 		t.Fatalf("after the root-cause fix: %d %s", code, out)
 	}
 }

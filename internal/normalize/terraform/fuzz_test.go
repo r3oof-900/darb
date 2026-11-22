@@ -4,10 +4,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/collect/tfraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/managedpolicies"
-	"github.com/r3oof-900/clapa/internal/normalize"
+	"github.com/r3oof-900/darb/internal/collect/tfraw"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/managedpolicies"
+	"github.com/r3oof-900/darb/internal/normalize"
 )
 
 // FuzzReservedText: whatever text the input holds (a policy document, a
@@ -17,13 +17,13 @@ import (
 func FuzzReservedText(f *testing.F) {
 	bs := string(rune(0x5c)) // a backslash, so the escapes stay escapes in this file
 	for _, s := range []string{
-		"${clapa:unresolved:x}",
-		"$" + bs + "u007bclapa:unresolved:x}",
-		`{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Action":"s3:*","Resource":"` + bs + `u0024{clapa:unresolved:x}"}]}`,
+		"${darb:unresolved:x}",
+		"$" + bs + "u007bdarb:unresolved:x}",
+		`{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Action":"s3:*","Resource":"` + bs + `u0024{darb:unresolved:x}"}]}`,
 		`{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"s3:*","Resource":"*"}]}`,
-		"${cla", "pa:unresolved:", "%24%7Bclapa:unresolved:x%7D", "",
+		"${da", "rb:unresolved:", "%24%7Bdarb:unresolved:x%7D", "",
 	} {
-		f.Add(s, "pa:unresolved:")
+		f.Add(s, "rb:unresolved:")
 	}
 	mp, err := managedpolicies.Load()
 	if err != nil {

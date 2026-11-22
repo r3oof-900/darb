@@ -9,12 +9,12 @@ import (
 
 	"pgregory.net/rapid"
 
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/paths"
-	"github.com/r3oof-900/clapa/internal/remediate"
-	"github.com/r3oof-900/clapa/internal/rules"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/paths"
+	"github.com/r3oof-900/darb/internal/remediate"
+	"github.com/r3oof-900/darb/internal/rules"
 )
 
 // The Phase 6 review's properties of one finding per rule (DESIGN.md §8).
@@ -166,7 +166,7 @@ func TestPropertyNoEscalationFindingIsDominated(t *testing.T) {
 		g := a.AccessGraph
 		for i := range a.Findings {
 			f := &a.Findings[i]
-			if f.Rule != "CLAPA-PATH-002" {
+			if f.Rule != "DARB-PATH-002" {
 				continue
 			}
 			jewel, _ := g.Lookup(f.JewelID)
@@ -237,11 +237,11 @@ func TestPropertyCutLeavesNoNewFindingForThePair(t *testing.T) {
 
 // Scenario 22's dominance variant: role/app reads the data and could rewrite
 // its own policy. Cutting the decrypt alone would make that escalation no
-// longer dominated, a new CLAPA-PATH-002 for the pair: verification rejects
+// longer dominated, a new DARB-PATH-002 for the pair: verification rejects
 // it. The finding's cut (the decrypt and the escalation) is accepted.
 func TestDominatedPathsStayInTheCut(t *testing.T) {
 	in, l, a := scanFixture(t, "22_direct_and_escalation/dominance", nil)
-	f := findingFor(a, "CLAPA-PATH-001", "arn:aws:s3:::acme-customer-pii")
+	f := findingFor(a, "DARB-PATH-001", "arn:aws:s3:::acme-customer-pii")
 	if f == nil || len(f.ChokepointEdge) != 2 {
 		t.Fatalf("the cut is the decrypt and the escalation: %+v", f)
 	}

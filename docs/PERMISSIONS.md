@@ -1,12 +1,12 @@
 # Permissions for live collection
 
-CLAPA only reads. `clapa scan --live-aws`, `clapa scan --live-k8s` and
-`clapa collect-snapshot` call the APIs below and nothing else. The tests pin
+darb only reads. `darb scan --live-aws`, `darb scan --live-k8s` and
+`darb collect-snapshot` call the APIs below and nothing else. The tests pin
 the lists: `TestPermissionsDocument` (AWS) and `TestK8sPermissionsDocument`
 (Kubernetes) fail when the code calls an API this page does not grant, and the
 other way round.
 
-**Values are never read.** CLAPA never calls `secretsmanager:GetSecretValue`,
+**Values are never read.** darb never calls `secretsmanager:GetSecretValue`,
 `ssm:GetParameter*`, `s3:GetObject` or `kms:Decrypt`. A test fails if the
 collector's source names any of them. Secret and parameter **metadata** is read:
 names, ARNs, KMS keys, tags and resource policies.
@@ -28,7 +28,7 @@ on those roles.
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "ClapaReadOnly",
+      "Sid": "DarbReadOnly",
       "Effect": "Allow",
       "Action": [
         "eks:DescribeCluster",
@@ -65,7 +65,7 @@ on those roles.
 A KMS key policy that does not allow the caller `kms:GetKeyPolicy` or
 `kms:DescribeKey` makes that key's policy unknown. This is recorded as an
 `access-denied` coverage gap, never read as "no policy". The same holds for
-every other call. A failed list call (for example `kms:ListKeys`) means CLAPA
+every other call. A failed list call (for example `kms:ListKeys`) means darb
 does not know how many keys exist in that region, so coverage for that service
 and region is unknown, never 100%.
 
@@ -76,12 +76,12 @@ Not collected yet, and stated in every report as `not-modelled`:
 
 ## Kubernetes
 
-A `ClusterRole` bound to the identity CLAPA uses. `get` on `configmaps` is
-limited to `aws-auth`. Secrets are listed as metadata only: CLAPA requests
+A `ClusterRole` bound to the identity darb uses. `get` on `configmaps` is
+limited to `aws-auth`. Secrets are listed as metadata only: darb requests
 `PartialObjectMetadataList`, so the API server returns names, namespaces and
 labels, never `data`. Kubernetes RBAC cannot grant "list metadata only", though:
 `list` on secrets also allows a client that asks for full objects to read the
-values. If that is not acceptable, leave out the `secrets` rule. CLAPA then
+values. If that is not acceptable, leave out the `secrets` rule. darb then
 records an `access-denied` gap and does not treat Kubernetes Secrets as
 targets.
 
@@ -89,7 +89,7 @@ targets.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: clapa-read-only
+  name: darb-read-only
 rules:
   - apiGroups: [""]
     resources: [namespaces, pods, serviceaccounts, services]
@@ -115,7 +115,7 @@ rules:
     verbs: [list]
 ```
 
-On EKS, CLAPA can authenticate with an in-memory token: a SigV4-presigned
+On EKS, darb can authenticate with an in-memory token: a SigV4-presigned
 `sts:GetCallerIdentity` URL carrying the `x-k8s-aws-id` header. This is the
 token `aws eks get-token` prints. The identity must be mapped to a Kubernetes
 group bound to the role above, either through an EKS access entry or through

@@ -3,7 +3,7 @@ package classify
 import (
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 func res(kind model.NodeKind, arn string, tags map[string]string) *model.Resource {

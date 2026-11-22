@@ -81,7 +81,7 @@ cases:
     policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "*", Condition: {StringNotEquals: {"aws:PrincipalTag/team": ["billing", "payments"]}}}]}
     expect: IMPLICIT_DENY
 
-  - name: clapa.condition.empty-value-list-is-unknown
+  - name: darb.condition.empty-value-list-is-unknown
     doc: "docs/DESIGN.md section 6.3 (flag): AWS does not document an empty condition value list, so it is UNKNOWN"
     policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "*", Condition: {StringEquals: {"aws:PrincipalTag/team": []}}}]}
     expect: UNKNOWN

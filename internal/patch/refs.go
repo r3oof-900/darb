@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // refs maps the ARNs (and S3 bucket names) of the resources and principals
@@ -80,7 +80,7 @@ type value struct {
 
 // synthetic: an ARN the normalizer made up for a value Terraform knows only
 // after apply; a patch must not write it.
-var synthetic = regexp.MustCompile(`:key/tf-|-tfpend$|^arn:clapa:`)
+var synthetic = regexp.MustCompile(`:key/tf-|-tfpend$|^arn:darb:`)
 
 // resolve renders an ARN for a file: a reference to its definition in the
 // same module, the reference plus a suffix for "<ARN>/<objects>", or the ARN

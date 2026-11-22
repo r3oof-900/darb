@@ -8,7 +8,7 @@
       "name": "prod",
       "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
       "region": "us-east-1",
-      "source": "clapa.yaml (clusters.prod)"
+      "source": "darb.yaml (clusters.prod)"
     }
   ],
   "collected": 8,
@@ -79,8 +79,8 @@
         "k8s.automountServiceAccountToken"
       ],
       "role_arn": "",
-      "source": "k8s/payments.yaml:12 (ServiceAccount/payments/ci)",
-      "subject": "system:serviceaccount:payments:ci"
+      "source": "k8s/payments.yaml:6 (ServiceAccount/payments/api)",
+      "subject": "system:serviceaccount:payments:api"
     },
     {
       "audience": "sts.amazonaws.com",
@@ -91,8 +91,8 @@
         "k8s.automountServiceAccountToken"
       ],
       "role_arn": "",
-      "source": "k8s/payments.yaml:6 (ServiceAccount/payments/api)",
-      "subject": "system:serviceaccount:payments:api"
+      "source": "k8s/payments.yaml:12 (ServiceAccount/payments/ci)",
+      "subject": "system:serviceaccount:payments:ci"
     }
   ],
   "trusts": [],

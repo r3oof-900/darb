@@ -8,7 +8,7 @@
       "name": "prod",
       "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
       "region": "us-east-1",
-      "source": "clapa.yaml (clusters.prod)"
+      "source": "darb.yaml (clusters.prod)"
     }
   ],
   "collected": 5,
@@ -33,6 +33,16 @@
   "pod_identity": [],
   "policies": [
     {
+      "kind": "resource",
+      "policy": "arn:aws:kms:us-east-1:111122223333:key/66666666-7777-8888-9999-000000000000#key-policy",
+      "source": "arn:aws:kms:us-east-1:111122223333:key/66666666-7777-8888-9999-000000000000 via kms:GetKeyPolicy",
+      "statements": [
+        "Allow kms:* on * (0 conditions)"
+      ],
+      "target": "arn:aws:kms:us-east-1:111122223333:key/66666666-7777-8888-9999-000000000000",
+      "unresolved_statements": 0
+    },
+    {
       "kind": "identity",
       "policy": "arn:aws:iam::111122223333:role/payments-api#inline/app",
       "source": "arn:aws:iam::111122223333:role/payments-api via iam:GetAccountAuthorizationDetails",
@@ -41,16 +51,6 @@
         "Allow kms:Decrypt on * (1 conditions)"
       ],
       "target": "arn:aws:iam::111122223333:role/payments-api",
-      "unresolved_statements": 0
-    },
-    {
-      "kind": "resource",
-      "policy": "arn:aws:kms:us-east-1:111122223333:key/66666666-7777-8888-9999-000000000000#key-policy",
-      "source": "arn:aws:kms:us-east-1:111122223333:key/66666666-7777-8888-9999-000000000000 via kms:GetKeyPolicy",
-      "statements": [
-        "Allow kms:* on * (0 conditions)"
-      ],
-      "target": "arn:aws:kms:us-east-1:111122223333:key/66666666-7777-8888-9999-000000000000",
       "unresolved_statements": 0
     }
   ],

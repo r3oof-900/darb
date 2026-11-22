@@ -8,7 +8,7 @@
       "name": "prod",
       "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
       "region": "us-east-1",
-      "source": "clapa.yaml (clusters.prod)"
+      "source": "darb.yaml (clusters.prod)"
     }
   ],
   "collected": 15,
@@ -46,6 +46,16 @@
   "pod_identity": [],
   "policies": [
     {
+      "kind": "resource",
+      "policy": "aws_s3_bucket_policy.customer_pii",
+      "source": "terraform/pii_guard.tf:1-13 (aws_s3_bucket_policy.customer_pii)",
+      "statements": [
+        "Deny s3:* on arn:aws:s3:::acme-customer-pii,arn:aws:s3:::acme-customer-pii/* (0 conditions)"
+      ],
+      "target": "arn:aws:s3:::acme-customer-pii",
+      "unresolved_statements": 0
+    },
+    {
       "default": "kms.default-key-policy",
       "kind": "resource",
       "policy": "aws_kms_key.receipts.policy",
@@ -57,13 +67,14 @@
       "unresolved_statements": 0
     },
     {
+      "default": "kms.default-key-policy",
       "kind": "resource",
-      "policy": "aws_s3_bucket_policy.customer_pii",
-      "source": "terraform/pii_guard.tf:1-13 (aws_s3_bucket_policy.customer_pii)",
+      "policy": "aws_kms_key.pii.policy",
+      "source": "terraform/pii_kms_bucket.tf:1-7 (aws_kms_key.pii)",
       "statements": [
-        "Deny s3:* on arn:aws:s3:::acme-customer-pii,arn:aws:s3:::acme-customer-pii/* (0 conditions)"
+        "Allow kms:* on * (0 conditions)"
       ],
-      "target": "arn:aws:s3:::acme-customer-pii",
+      "target": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
       "unresolved_statements": 0
     },
     {
@@ -75,17 +86,6 @@
         "Allow kms:Decrypt on arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.receipts (1 conditions)"
       ],
       "target": "arn:aws:iam::111122223333:role/payments-api",
-      "unresolved_statements": 0
-    },
-    {
-      "default": "kms.default-key-policy",
-      "kind": "resource",
-      "policy": "aws_kms_key.pii.policy",
-      "source": "terraform/pii_kms_bucket.tf:1-7 (aws_kms_key.pii)",
-      "statements": [
-        "Allow kms:* on * (0 conditions)"
-      ],
-      "target": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
       "unresolved_statements": 0
     }
   ],
@@ -99,19 +99,6 @@
   ],
   "rbac": [],
   "resources": [
-    {
-      "account": "111122223333",
-      "arn": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.receipts",
-      "classification": "",
-      "classified_by": "",
-      "defaulted": [
-        "terraform.aws_kms_key.enable_key_rotation"
-      ],
-      "key_rotation": "false",
-      "kind": "aws:kms:key",
-      "region": "us-east-1",
-      "source": "terraform/receipts.tf:1-3 (aws_kms_key.receipts)"
-    },
     {
       "account": "111122223333",
       "arn": "arn:aws:s3:::acme-customer-pii",
@@ -130,6 +117,30 @@
     },
     {
       "account": "111122223333",
+      "arn": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.receipts",
+      "classification": "",
+      "classified_by": "",
+      "defaulted": [
+        "terraform.aws_kms_key.enable_key_rotation"
+      ],
+      "key_rotation": "false",
+      "kind": "aws:kms:key",
+      "region": "us-east-1",
+      "source": "terraform/receipts.tf:1-3 (aws_kms_key.receipts)"
+    },
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+      "classification": "pii",
+      "classified_by": "tag:DataClass",
+      "defaulted": [],
+      "key_rotation": "true",
+      "kind": "aws:kms:key",
+      "region": "us-east-1",
+      "source": "terraform/pii_kms_bucket.tf:1-7 (aws_kms_key.pii)"
+    },
+    {
+      "account": "111122223333",
       "arn": "arn:aws:s3:::acme-payment-receipts",
       "classification": "",
       "classified_by": "",
@@ -143,17 +154,6 @@
       "region": "us-east-1",
       "restrict_public_buckets": "unknown",
       "source": "terraform/receipts.tf:5-7 (aws_s3_bucket.receipts)"
-    },
-    {
-      "account": "111122223333",
-      "arn": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
-      "classification": "pii",
-      "classified_by": "tag:DataClass",
-      "defaulted": [],
-      "key_rotation": "true",
-      "kind": "aws:kms:key",
-      "region": "us-east-1",
-      "source": "terraform/pii_kms_bucket.tf:1-7 (aws_kms_key.pii)"
     }
   ],
   "service_accounts": [

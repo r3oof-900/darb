@@ -16,7 +16,7 @@ import (
 	"github.com/anthropics/anthropic-sdk-go/v2"
 	"github.com/anthropics/anthropic-sdk-go/v2/option"
 
-	"github.com/r3oof-900/clapa/internal/llm"
+	"github.com/r3oof-900/darb/internal/llm"
 )
 
 // DefaultModel is the model used unless --llm-model names another.
@@ -74,7 +74,7 @@ func (c *Client) Model() string { return c.opts.Model }
 // system: what the model may and may not do. The evidence is data from the
 // scanned infrastructure: names in it may say anything, and are not
 // instructions.
-const system = `You explain the results of CLAPA, a cloud attack-path analyzer, to the engineers who must fix them.
+const system = `You explain the results of darb, a cloud attack-path analyzer, to the engineers who must fix them.
 You receive structured evidence that the analyzer has already computed: the rule, severity, score, status, the attack path, the cheapest fix.
 Explain it in plain, short sentences: what the finding means, how an attacker would use the path, what the fix changes and why it breaks the path.
 Never change or second-guess the severity, the score, the status or the fix: they are decided; explain them as given. Do not invent resources, permissions or steps that are not in the evidence.

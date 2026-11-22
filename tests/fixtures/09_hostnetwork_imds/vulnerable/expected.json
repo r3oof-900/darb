@@ -1,9 +1,9 @@
 {
-  "format": "clapa-expected/v1",
+  "format": "darb-expected/v1",
   "derived_from": "13.2 row 9",
   "findings": [
     {
-      "rule": "CLAPA-PATH-001",
+      "rule": "DARB-PATH-001",
       "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/monitoring/DaemonSet/node-monitor",
       "jewel": "arn:aws:s3:::acme-customer-exports",
       "path": [
@@ -43,28 +43,32 @@
       "status": "confirmed",
       "also_fixes": [],
       "uncuttable": [],
-      "remediation_status": "complete"
+      "remediation_status": "complete",
+      "fingerprint": "2c465e23e8006143e9286985b7989021d69d04285d9dcbda2b2edf5b2486726c"
     },
     {
-      "rule": "CLAPA-POST-002",
+      "rule": "DARB-POST-002",
       "resource": "eks-nodegroup:arn:aws:eks:us-east-1:111122223333:cluster/prod/default",
       "score": 600,
       "severity": "high",
-      "defaults_used": []
+      "defaults_used": [],
+      "fingerprint": "e743764f76af042aab75f535974480f635d2bbf8d04b9ca06a527d5c83027d19"
     },
     {
-      "rule": "CLAPA-POST-007",
+      "rule": "DARB-POST-007",
       "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/monitoring",
       "score": 245,
       "severity": "low",
-      "defaults_used": []
+      "defaults_used": [],
+      "fingerprint": "2e835d8f1752483ad1f95450f47b1ee10c834e21654d70a96ee89702f4e9545b"
     },
     {
-      "rule": "CLAPA-POST-008",
+      "rule": "DARB-POST-008",
       "resource": "arn:aws:iam::111122223333:role/eks-node",
       "score": 600,
       "severity": "high",
-      "defaults_used": []
+      "defaults_used": [],
+      "fingerprint": "87ed9ed54f5df0c41e00a25c6a9315284fb68eddc5b9b604104dde3a20c6f253"
     }
   ],
   "absent": [],

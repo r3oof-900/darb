@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/collect/tfraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/collect/tfraw"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // bucketFacts accumulates what separate Terraform resources say about one bucket.
@@ -216,7 +216,7 @@ func (n *norm) cluster(r *tfraw.Resource) {
 	c := &model.Cluster{Name: name, ARN: n.arnOf(r), Account: n.account(r), Region: n.region(r), Source: src(r)}
 	c.OIDCIssuer = n.opts.OIDCIssuers[c.Key()]
 	if c.OIDCIssuer == "" {
-		n.gap(coverage.KindUnresolved, r, "OIDC issuer of cluster "+name+" is unknown: set clusters[].oidc_issuer in clapa.yaml")
+		n.gap(coverage.KindUnresolved, r, "OIDC issuer of cluster "+name+" is unknown: set clusters[].oidc_issuer in darb.yaml")
 	}
 	n.b.AddCluster(c)
 }

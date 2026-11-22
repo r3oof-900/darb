@@ -7,15 +7,15 @@ import (
 	"io/fs"
 	"time"
 
-	"github.com/r3oof-900/clapa/internal/config"
-	"github.com/r3oof-900/clapa/internal/findings"
-	"github.com/r3oof-900/clapa/internal/rules"
-	"github.com/r3oof-900/clapa/internal/safeio"
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/internal/config"
+	"github.com/r3oof-900/darb/internal/findings"
+	"github.com/r3oof-900/darb/internal/rules"
+	"github.com/r3oof-900/darb/internal/safeio"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 // Triage is what the operator decided about earlier results: suppressions
-// (.clapa-ignore.yaml) and a baseline (a previous JSON report).
+// (.darb-ignore.yaml) and a baseline (a previous JSON report).
 type Triage struct {
 	Suppressions []config.Suppression
 	// Baseline is the previous report (nil: no --baseline); BaselineFile
@@ -26,12 +26,12 @@ type Triage struct {
 }
 
 // LoadIgnore reads the suppression file: rel under root ("" for the
-// default .clapa-ignore.yaml, which may be absent). A suppression without
+// default .darb-ignore.yaml, which may be absent). A suppression without
 // its reason, owner or expiry is a configuration error (exit 2).
 func LoadIgnore(root, rel string) ([]config.Suppression, error) {
 	required := rel != ""
 	if rel == "" {
-		rel = ".clapa-ignore.yaml"
+		rel = ".darb-ignore.yaml"
 	}
 	data, err := safeio.ReadFile(root, rel, safeio.DefaultLimits())
 	switch {
@@ -43,7 +43,7 @@ func LoadIgnore(root, rel string) ([]config.Suppression, error) {
 	return nil, fmt.Errorf("%w: %s: %w", config.ErrInvalid, rel, err)
 }
 
-// ErrBaseline is returned for a baseline that is not a clapa-report/v1 JSON report.
+// ErrBaseline is returned for a baseline that is not a darb-report/v1 JSON report.
 var ErrBaseline = errors.New("not a " + schema.Version + " JSON report")
 
 // LoadBaseline reads a previous JSON report (a path relative to root).

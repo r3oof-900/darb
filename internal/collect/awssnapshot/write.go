@@ -9,7 +9,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/collect/awsraw"
+	"github.com/r3oof-900/darb/internal/collect/awsraw"
 )
 
 // ErrWrite is returned when a bundle cannot be written.

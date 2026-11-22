@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 // A path finding is a result with its location under %SRCROOT% and a code
@@ -14,10 +14,10 @@ import (
 func TestCodeFlows(t *testing.T) {
 	hostile := `"><script>alert(1)</script>`
 	r := &schema.Report{
-		Tool: schema.Tool{Name: "clapa", Version: "test"},
+		Tool: schema.Tool{Name: "darb", Version: "test"},
 		Findings: []schema.Finding{
 			{
-				Rule: "CLAPA-PATH-001", Severity: "critical", Score: 729, Entry: "k8s:w", Jewel: hostile, Fingerprint: "f1",
+				Rule: "DARB-PATH-001", Severity: "critical", Score: 729, Entry: "k8s:w", Jewel: hostile, Fingerprint: "f1",
 				Location: &schema.Location{File: "k8s/app.yaml", StartLine: 14},
 				Hops: []schema.Hop{
 					{Kind: "RUNS_AS", From: "k8s:w", To: "k8s:sa"},
@@ -25,7 +25,7 @@ func TestCodeFlows(t *testing.T) {
 					{Kind: "CAN_READ_PLAINTEXT", From: "arn:aws:iam::1:role/r", To: hostile},
 				},
 			},
-			{Rule: "CLAPA-POST-007", Severity: "low", Score: 245, Resource: "ns", Fingerprint: "f2"},
+			{Rule: "DARB-POST-007", Severity: "low", Score: 245, Resource: "ns", Fingerprint: "f2"},
 		},
 	}
 	var b bytes.Buffer

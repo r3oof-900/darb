@@ -10,8 +10,8 @@ import (
 
 	"pgregory.net/rapid"
 
-	"github.com/r3oof-900/clapa/internal/config"
-	"github.com/r3oof-900/clapa/internal/graph"
+	"github.com/r3oof-900/darb/internal/config"
+	"github.com/r3oof-900/darb/internal/graph"
 )
 
 // A fingerprint names the problem, not its fix (DESIGN.md §8): whatever the

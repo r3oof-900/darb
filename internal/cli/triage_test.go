@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 func scanJSON(t *testing.T, root string, extra ...string) (ExitCode, *schema.Report, string) {
@@ -31,11 +31,11 @@ func writeFile(t *testing.T, root, name, body string) {
 func pathFinding(t *testing.T, r *schema.Report) *schema.Finding {
 	t.Helper()
 	for i := range r.Findings {
-		if r.Findings[i].Rule == "CLAPA-PATH-001" {
+		if r.Findings[i].Rule == "DARB-PATH-001" {
 			return &r.Findings[i]
 		}
 	}
-	t.Fatalf("no CLAPA-PATH-001 in %+v", r.Findings)
+	t.Fatalf("no DARB-PATH-001 in %+v", r.Findings)
 	return nil
 }
 
@@ -50,9 +50,9 @@ func TestSuppressionsThroughTheCLI(t *testing.T) {
 		return "suppressions:\n  - {fingerprint: " + fp + ", reason: accepted until the migration, owner: payments-team, expires: \"" + expires + "\"}\n"
 	}
 
-	// In force: the critical path is silenced; the high CLAPA-POST-008 and
-	// the low CLAPA-POST-007 remain, so the exit code is still 1.
-	writeFile(t, root, ".clapa-ignore.yaml", suppression("2099-12-31"))
+	// In force: the critical path is silenced; the high DARB-POST-008 and
+	// the low DARB-POST-007 remain, so the exit code is still 1.
+	writeFile(t, root, ".darb-ignore.yaml", suppression("2099-12-31"))
 	code, r, _ = scanJSON(t, root)
 	if code != ExitFindings || len(r.Suppressed) != 1 || r.Suppressed[0].Fingerprint != fp || r.Suppressed[0].Owner != "payments-team" || len(r.Findings) != 2 {
 		t.Fatalf("suppressed: exit %d %+v findings %d", code, r.Suppressed, len(r.Findings))
@@ -64,12 +64,12 @@ func TestSuppressionsThroughTheCLI(t *testing.T) {
 	}
 	broad := ""
 	for _, f := range r.Findings {
-		if f.Rule == "CLAPA-POST-008" {
+		if f.Rule == "DARB-POST-008" {
 			broad = f.Fingerprint
 		}
 	}
 	// Both high findings suppressed: only the low one is left, exit 0.
-	writeFile(t, root, ".clapa-ignore.yaml", suppression("2099-12-31")+"  - {fingerprint: "+broad+", reason: legacy key, owner: platform, expires: \"2099-12-31\"}"+"\n")
+	writeFile(t, root, ".darb-ignore.yaml", suppression("2099-12-31")+"  - {fingerprint: "+broad+", reason: legacy key, owner: platform, expires: \"2099-12-31\"}"+"\n")
 	if code, r, _ = scanJSON(t, root); code != ExitOK || len(r.Suppressed) != 2 || len(r.Findings) != 1 {
 		t.Fatalf("both suppressed: exit %d findings %d", code, len(r.Findings))
 	}
@@ -78,7 +78,7 @@ func TestSuppressionsThroughTheCLI(t *testing.T) {
 	}
 
 	// Expired: the finding fires again, and the console says so.
-	writeFile(t, root, ".clapa-ignore.yaml", suppression("2000-01-01"))
+	writeFile(t, root, ".darb-ignore.yaml", suppression("2000-01-01"))
 	code, r, _ = scanJSON(t, root)
 	if code != ExitFindings || len(r.Suppressed) != 0 || len(r.ExpiredSuppressions) != 1 || !r.ExpiredSuppressions[0].Fires || pathFinding(t, r).Fingerprint != fp {
 		t.Fatalf("expired: exit %d %+v", code, r.ExpiredSuppressions)
@@ -88,7 +88,7 @@ func TestSuppressionsThroughTheCLI(t *testing.T) {
 	}
 
 	// A suppression without its owner (or reason, or expiry) is exit 2.
-	writeFile(t, root, ".clapa-ignore.yaml", "suppressions:\n  - {fingerprint: "+fp+", reason: r, expires: \"2099-12-31\"}\n")
+	writeFile(t, root, ".darb-ignore.yaml", "suppressions:\n  - {fingerprint: "+fp+", reason: r, expires: \"2099-12-31\"}\n")
 	if code, _, errOut := scanJSON(t, root); code != ExitUsage || !strings.Contains(errOut, "reason, owner and expires are required") {
 		t.Fatalf("missing owner: exit %d %q", code, errOut)
 	}
@@ -115,7 +115,7 @@ func TestBaselineThroughTheCLI(t *testing.T) {
 	// finding of both scans is unchanged; the fixed scan's rotation finding
 	// on the receipts key is resolved.
 	if len(r.Findings) != r.Baseline.New || pathFinding(t, r) == nil || r.Baseline.Unchanged != 1 || len(r.Baseline.Resolved) != 1 ||
-		r.Baseline.Resolved[0].Rule != "CLAPA-POST-006" {
+		r.Baseline.Resolved[0].Rule != "DARB-POST-006" {
 		t.Fatalf("findings %d baseline %+v", len(r.Findings), r.Baseline)
 	}
 	// The same scan as its own baseline: nothing new, exit 0.
@@ -126,7 +126,7 @@ func TestBaselineThroughTheCLI(t *testing.T) {
 		t.Fatalf("same baseline: exit %d %+v", code, r.Baseline)
 	}
 	writeFile(t, root, "bad.json", `{"schema": "other/v1"}`)
-	if code, _, errOut := scanJSON(t, root, "--baseline", "bad.json"); code != ExitUsage || !strings.Contains(errOut, "not a clapa-report/v1 JSON report") {
+	if code, _, errOut := scanJSON(t, root, "--baseline", "bad.json"); code != ExitUsage || !strings.Contains(errOut, "not a darb-report/v1 JSON report") {
 		t.Fatalf("bad baseline: exit %d %q", code, errOut)
 	}
 }

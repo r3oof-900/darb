@@ -1,9 +1,9 @@
 {
-  "format": "clapa-expected/v1",
+  "format": "darb-expected/v1",
   "derived_from": "13.2 row 14 fixed: account 444455556666's role can only list",
   "findings": [
     {
-      "rule": "CLAPA-PATH-001",
+      "rule": "DARB-PATH-001",
       "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app-a",
       "jewel": "arn:aws:s3:::data-111122223333",
       "path": [
@@ -45,29 +45,31 @@
       "status": "confirmed",
       "also_fixes": [],
       "uncuttable": [],
-      "remediation_status": "complete"
+      "remediation_status": "complete",
+      "fingerprint": "3d81cb438e394f3012c3f60dabf2e79bb8b825c6acacefb66b0fe12260fde6f5"
     },
     {
-      "rule": "CLAPA-POST-007",
+      "rule": "DARB-POST-007",
       "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/apps",
       "score": 245,
       "severity": "low",
-      "defaults_used": []
+      "defaults_used": [],
+      "fingerprint": "86bf50d5ca80fbc6bc4af5637d94bf52b7da9dc9c55316b7221c58456545849d"
     }
   ],
   "absent": [
     {
-      "rule": "CLAPA-PATH-001",
+      "rule": "DARB-PATH-001",
       "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app-a",
       "jewel": "arn:aws:s3:::data-444455556666"
     },
     {
-      "rule": "CLAPA-PATH-001",
+      "rule": "DARB-PATH-001",
       "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app-b",
       "jewel": "arn:aws:s3:::data-111122223333"
     },
     {
-      "rule": "CLAPA-PATH-001",
+      "rule": "DARB-PATH-001",
       "jewel": "arn:aws:s3:::data-444455556666"
     }
   ],

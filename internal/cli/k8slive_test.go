@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/app"
-	"github.com/r3oof-900/clapa/internal/collect/k8s/live/k8sfake"
+	"github.com/r3oof-900/darb/internal/app"
+	"github.com/r3oof-900/darb/internal/collect/k8s/live/k8sfake"
 )
 
 // fakeK8s records how each cluster was asked for and serves one workload.
@@ -50,7 +50,7 @@ const prodConfig = "version: 1\nclusters:\n  - {name: prod, account: \"111122223
 func rootWithConfig(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "clapa.yaml"), []byte(prodConfig), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "darb.yaml"), []byte(prodConfig), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return root
@@ -62,7 +62,7 @@ func TestScanLiveK8s(t *testing.T) {
 	if code == ExitUsage || code == ExitInternal || !strings.Contains(out, `"collected": 3`) {
 		t.Fatalf("exit %d\n%s\n%s", code, out, errOut)
 	}
-	// prod resolves through clapa.yaml to its ARN, the cluster's key.
+	// prod resolves through darb.yaml to its ARN, the cluster's key.
 	if !strings.Contains(out, "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Namespace") &&
 		!strings.Contains(out, "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/payments") {
 		t.Fatalf("the cluster key is not the ARN:\n%s", out)

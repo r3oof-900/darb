@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/r3oof-900/clapa/internal/collect/awslive"
-	"github.com/r3oof-900/clapa/internal/collect/awslive/awsfake"
-	"github.com/r3oof-900/clapa/internal/collect/awsraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
+	"github.com/r3oof-900/darb/internal/collect/awslive"
+	"github.com/r3oof-900/darb/internal/collect/awslive/awsfake"
+	"github.com/r3oof-900/darb/internal/collect/awsraw"
+	"github.com/r3oof-900/darb/internal/coverage"
 )
 
 func run(t *testing.T, ff *awsfake.Factory, regions ...string) (*awsraw.Account, *coverage.Recorder) {

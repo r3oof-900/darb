@@ -14,8 +14,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 
-	"github.com/r3oof-900/clapa/internal/collect/awsraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
+	"github.com/r3oof-900/darb/internal/collect/awsraw"
+	"github.com/r3oof-900/darb/internal/coverage"
 )
 
 // The SDK factory's real clients (serializers, deserializers, paginators,
@@ -77,7 +77,7 @@ func stubResponses() map[string]stubResponse {
 	ok := func(body string) stubResponse { return stubResponse{200, body} }
 	return map[string]stubResponse{
 		"GetCallerIdentity/": ok(`<GetCallerIdentityResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/"><GetCallerIdentityResult>` +
-			`<Arn>arn:aws:sts::111122223333:assumed-role/audit/clapa</Arn><UserId>AROA:clapa</UserId><Account>111122223333</Account>` +
+			`<Arn>arn:aws:sts::111122223333:assumed-role/audit/darb</Arn><UserId>AROA:darb</UserId><Account>111122223333</Account>` +
 			`</GetCallerIdentityResult></GetCallerIdentityResponse>`),
 		"GetAccountAuthorizationDetails/": ok(`<GetAccountAuthorizationDetailsResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/"><GetAccountAuthorizationDetailsResult>` +
 			`<IsTruncated>true</IsTruncated><Marker>p2</Marker><RoleDetailList><member><RoleName>app</RoleName>` +

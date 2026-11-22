@@ -26,7 +26,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/smithy-go"
 
-	"github.com/r3oof-900/clapa/internal/collect/awslive"
+	"github.com/r3oof-900/darb/internal/collect/awslive"
 )
 
 // fake is the account in one region.
@@ -84,7 +84,7 @@ func (f *fake) GetCallerIdentity(ctx context.Context, _ *sts.GetCallerIdentityIn
 	if err := f.do(ctx, "GetCallerIdentity", ""); err != nil {
 		return nil, err
 	}
-	return &sts.GetCallerIdentityOutput{Account: aws.String("111122223333"), Arn: aws.String("arn:aws:sts::111122223333:assumed-role/audit/clapa")}, nil
+	return &sts.GetCallerIdentityOutput{Account: aws.String("111122223333"), Arn: aws.String("arn:aws:sts::111122223333:assumed-role/audit/darb")}, nil
 }
 
 // Two pages: the first has the role, the second the managed policy.

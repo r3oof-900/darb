@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/rules"
+	"github.com/r3oof-900/darb/internal/rules"
 )
 
 // compareRemediation runs the remediation of a finding and compares it.
