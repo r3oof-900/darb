@@ -796,15 +796,17 @@ E["23_k8s_secret_mount/fixed"] = {"derived_from": "DESIGN.md 12.1 priority 1, fi
 # Service: not exposed, 400) runs as records/exporter, whose IRSA role
 # records-exporter (trust: :sub and :aud exact) has s3:GetObject on
 # "arn:aws:s3:::patient-records-vault/*". The bucket has no tags, no
-# policy, no public access block and no encryption configuration (SSE-S3
-# by documented default): unclassified. RUNS_AS, ASSUMES,
+# policy and no encryption configuration (SSE-S3 by documented default):
+# unclassified. Its public access block turns everything off: with no
+# bucket policy nothing grants public access (ACLs are not modelled yet, a
+# note), so it adds no edge. RUNS_AS, ASSUMES,
 # CAN_READ_PLAINTEXT: 3 edges (810): 400 x 810 = 324; impact 400 x blast
 # radius 1000 = 400; 324 x 400 = 129 (rounded down), low. Cut: the read,
 # explicit: revoke, identity, 3; no bucket policy, no key: no other side.
 # Alternative: the IRSA trust, :sub exact: revoke, trust, 7 (RUNS_AS is
-# never offered). Posture rules do not apply to an unclassified bucket
-# (no DARB-POST-005 for the missing public access block); DARB-POST-007 on
-# records. The coverage note names the bucket.
+# never offered). Posture rules do not apply to an unclassified bucket:
+# no DARB-POST-005, although restrict_public_buckets is false (it would
+# fire on a classified bucket); DARB-POST-007 on records. The coverage note names the bucket.
 # fixed: the exporter only writes to the vault (s3:PutObject): no read, no
 # path; the bucket is still unclassified, so the note stays.
 # ignore: the vulnerable input with crown_jewels.unclassified: ignore in
