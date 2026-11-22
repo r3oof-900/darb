@@ -142,8 +142,10 @@ The most important before a real scan:
 - [docs/DESIGN.md](docs/DESIGN.md) — architecture, evaluation semantics, decisions
 - [docs/SCORING.md](docs/SCORING.md) — risk formula and fix costs
 - [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) — threat model of the tool itself
+- [docs/CONFIG.md](docs/CONFIG.md) — `darb.yaml` (`--config FILE`), every key
 - [docs/PERMISSIONS.md](docs/PERMISSIONS.md) — the read-only permissions of live scans
 - [docs/EXTENDING.md](docs/EXTENDING.md) — adding a rule, an input, a format or an LLM provider
+- [docs/AUDIT_DOCS_VS_CODE.md](docs/AUDIT_DOCS_VS_CODE.md) — what the documents claim, checked against the code
 - [docs/FAQ.md](docs/FAQ.md) — questions about results, UNKNOWN and fixes
 - [SECURITY.md](SECURITY.md) — vulnerability disclosure
 - [CONTRIBUTING.md](CONTRIBUTING.md) — tests, expected results, commits

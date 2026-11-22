@@ -596,7 +596,8 @@ tagged sensitive). Each crown jewel records **which** of these marked it.
 
 **Entry points**: workloads exposed via `Service` `LoadBalancer`/`NodePort` or
 `Ingress`; plus every workload under the "assume any pod compromised" threat model
-(`--assume-compromised`, default **on**; the report states which model was used).
+(`threat_model.assume_compromised` in `darb.yaml`, default **on**; there is no flag;
+the report states which model was used).
 
 ---
 
@@ -1601,7 +1602,10 @@ Users can raise it per gap kind in `darb.yaml`; the report shows the tolerance u
 
 Logging: `slog`, `--log-format json`, a redacting handler (keys and value patterns
 from `internal/redact`), `--debug` for stack traces, otherwise one-line errors with
-a hint.
+a hint. *Status (Phase 7 audit):* the redacting `slog` handler exists
+(`redact.Handler`) and everything written to standard error is redacted, but darb
+writes no structured log: `--log-format` and `--debug` do not exist. Errors are
+one line; a recovered panic says it is a bug to report (docs/AUDIT_DOCS_VS_CODE.md).
 
 ---
 

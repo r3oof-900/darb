@@ -125,6 +125,9 @@ func parseRemediate(args []string, stderr io.Writer, extra func(*flag.FlagSet)) 
 		}
 		return nil, "", false
 	}
+	if unused(fs, "remediate", stderr, "format", "output", "ignore", "baseline") {
+		return nil, "", false
+	}
 	if !slices.Contains([]string{"critical", "high", "medium", "low", "info"}, f.failOn) {
 		_, _ = fmt.Fprintf(stderr, "darb: invalid --fail-on %q\n", f.failOn)
 		return nil, "", false

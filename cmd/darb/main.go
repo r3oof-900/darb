@@ -18,7 +18,7 @@ func main() {
 func run() (code cli.ExitCode) {
 	defer func() {
 		if r := recover(); r != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "darb: internal error: %v (re-run with --debug for a stack trace)\n", r)
+			_, _ = fmt.Fprintf(os.Stderr, "darb: internal error: %v (a bug: please report it with the command line; see SECURITY.md for a security issue)\n", r)
 			code = cli.ExitInternal
 		}
 	}()

@@ -29,7 +29,8 @@ func doctorCmd(ctx context.Context, args []string, stdout, stderr io.Writer, env
 	fs.StringVar(&probeK8s, "probe-k8s", "", "ask this kubeconfig context's API server for its version")
 	fs.StringVar(&kubeconfig, "kubeconfig", "", "kubeconfig file (default: KUBECONFIG, then ~/.kube/config)")
 	aws.on(fs, false)
-	if err := fs.Parse(args); err != nil || fs.NArg() > 0 {
+	if err := fs.Parse(args); err != nil || fs.NArg() > 0 ||
+		unused(fs, "doctor", stderr, "aws-assume-role", "aws-external-id", "aws-concurrency", "aws-call-timeout") {
 		return ExitUsage
 	}
 	home, _ := os.UserHomeDir()
@@ -57,7 +58,7 @@ func graphCmd(ctx context.Context, args []string, stdout, stderr io.Writer, env 
 	fs := flag.NewFlagSet("graph", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	scanFlagsOn(fs, f)
-	if err := fs.Parse(args); err != nil || fs.NArg() > 0 {
+	if err := fs.Parse(args); err != nil || fs.NArg() > 0 || unused(fs, "graph", stderr, "ignore", "baseline", "fail-on") {
 		return ExitUsage
 	}
 	if f.format == "console" { // scanFlagsOn's default
@@ -67,34 +68,9 @@ func graphCmd(ctx context.Context, args []string, stdout, stderr io.Writer, env 
 		_, _ = fmt.Fprintf(stderr, "darb: graph writes %s, not %q\n", strings.Join(app.GraphFormats(), " or "), f.format)
 		return ExitUsage
 	}
-	cfg, err := app.LoadConfig(f.root, f.cfg, f.cfg != "")
-	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "darb:", err)
-		return ExitUsage
-	}
-	in := inputs(f, cfg)
-	if f.aws.live {
-		if in.AWSLive, err = f.aws.options(ctx, env); err != nil {
-			_, _ = fmt.Fprintln(stderr, "darb:", err)
-			return ExitUsage
-		}
-	}
-	if in.K8sLive, err = f.k8s.clusters(ctx, env, &f.aws, stderr); err != nil {
-		_, _ = fmt.Fprintln(stderr, "darb:", err)
-		return ExitUsage
-	}
-	l, err := app.Load(ctx, in)
-	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "darb:", err)
-		if errors.Is(err, config.ErrInvalid) {
-			return ExitUsage
-		}
-		return ExitIncomplete
-	}
-	a, err := app.Analyze(l, cfg, f.failOn)
-	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "darb:", err)
-		return ExitInternal
+	a, _, code := analyzeInputs(ctx, f, env, stderr, true)
+	if a == nil {
+		return code
 	}
 	w := stdout
 	if f.output != "" {
@@ -111,4 +87,41 @@ func graphCmd(ctx context.Context, args []string, stdout, stderr io.Writer, env 
 		return ExitInternal
 	}
 	return ExitOK
+}
+
+// analyzeInputs loads darb.yaml and the inputs (live ones when allowed)
+// and analyzes them; on failure it reports the error and returns nil with
+// the exit code.
+func analyzeInputs(ctx context.Context, f *scanFlags, env *Env, stderr io.Writer, live bool) (*app.Analysis, *config.Config, ExitCode) {
+	fail := func(err error, code ExitCode) (*app.Analysis, *config.Config, ExitCode) {
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
+		return nil, nil, code
+	}
+	cfg, err := app.LoadConfig(f.root, f.cfg, f.cfg != "")
+	if err != nil {
+		return fail(err, ExitUsage)
+	}
+	in := inputs(f, cfg)
+	if live && f.aws.live {
+		if in.AWSLive, err = f.aws.options(ctx, env); err != nil {
+			return fail(err, ExitUsage)
+		}
+	}
+	if live {
+		if in.K8sLive, err = f.k8s.clusters(ctx, env, &f.aws, stderr); err != nil {
+			return fail(err, ExitUsage)
+		}
+	}
+	l, err := app.Load(ctx, in)
+	if err != nil {
+		if errors.Is(err, config.ErrInvalid) {
+			return fail(err, ExitUsage)
+		}
+		return fail(err, ExitIncomplete)
+	}
+	a, err := app.Analyze(l, cfg, f.failOn)
+	if err != nil {
+		return fail(err, ExitInternal)
+	}
+	return a, cfg, ExitOK
 }

@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/r3oof-900/darb/internal/app"
-	"github.com/r3oof-900/darb/internal/config"
 	"github.com/r3oof-900/darb/pkg/schema"
 )
 
@@ -67,6 +66,9 @@ func explainCmd(ctx context.Context, args []string, stdout, stderr io.Writer, en
 		}
 		return ExitUsage
 	}
+	if unused(fs, "explain", stderr, "output", "ignore", "baseline") {
+		return ExitUsage
+	}
 	if !slices.Contains([]string{"console", "json"}, f.format) || f.aws.live || f.k8s.any() {
 		_, _ = fmt.Fprintln(stderr, "darb: explain prints console or json, and reads files and snapshots (collect-snapshot first for live data)")
 		return ExitUsage
@@ -76,23 +78,9 @@ func explainCmd(ctx context.Context, args []string, stdout, stderr io.Writer, en
 		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		return ExitUsage
 	}
-	cfg, err := app.LoadConfig(f.root, f.cfg, f.cfg != "")
-	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "darb:", err)
-		return ExitUsage
-	}
-	l, err := app.Load(ctx, inputs(f, cfg))
-	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "darb:", err)
-		if errors.Is(err, config.ErrInvalid) {
-			return ExitUsage
-		}
-		return ExitIncomplete
-	}
-	a, err := app.Analyze(l, cfg, f.failOn)
-	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "darb:", err)
-		return ExitInternal
+	a, cfg, code := analyzeInputs(ctx, f, env, stderr, false)
+	if a == nil {
+		return code
 	}
 	found, err := app.ExplainFinding(ctx, app.Report(a, cfg, f.failOn), fs.Arg(0), p, opts.RedactIdentifiers)
 	if err != nil {

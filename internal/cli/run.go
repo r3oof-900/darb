@@ -82,6 +82,7 @@ func (l *list) Set(v string) error { *l = append(*l, v); return nil }
 
 type scanFlags struct {
 	root, cfg, format, output, failOn, ignore, baseline string
+	terraformBin                                        string
 	fixes, timestamps                                   bool
 	llm                                                 llmFlags
 	plans, tfDirs, k8sDirs, snapshots                   list
@@ -121,6 +122,7 @@ func scanFlagsOn(fset *flag.FlagSet, f *scanFlags) {
 	fset.StringVar(&f.ignore, "ignore", "", "suppression file (default: .darb-ignore.yaml in the root, if present)")
 	fset.StringVar(&f.baseline, "baseline", "", "a previous JSON report: report only new findings, and the resolved ones")
 	fset.Var(&f.plans, "plan", "Terraform plan (JSON or binary), optionally =its configuration directory")
+	fset.StringVar(&f.terraformBin, "terraform-bin", "", "terraform binary that converts a binary --plan (default: terraform on PATH, never the current directory)")
 	fset.Var(&f.tfDirs, "terraform", "Terraform directory scanned statically")
 	fset.Var(&f.k8sDirs, "k8s", "Kubernetes manifests directory, optionally =cluster name")
 	fset.Var(&f.snapshots, "aws-snapshot", "offline AWS snapshot directory (darb-snapshot/v1, written by collect-snapshot)")
@@ -206,7 +208,7 @@ func triage(f *scanFlags) (*app.Triage, error) {
 }
 
 func inputs(f *scanFlags, cfg *config.Config) *app.Inputs {
-	in := &app.Inputs{Root: f.root, Config: cfg, Limits: app.DefaultLimits(), TerraformDirs: f.tfDirs, AWSSnapshots: f.snapshots}
+	in := &app.Inputs{Root: f.root, Config: cfg, Limits: app.DefaultLimits(), TerraformDirs: f.tfDirs, AWSSnapshots: f.snapshots, TerraformBin: f.terraformBin}
 	for _, p := range f.plans {
 		path, dir, _ := strings.Cut(p, "=")
 		in.TerraformPlans = append(in.TerraformPlans, app.PlanInput{Path: path, ConfigDir: dir})
@@ -264,4 +266,19 @@ func rulesCmd(args []string, stdout, stderr io.Writer) ExitCode {
 	}
 	_, _ = fmt.Fprintln(stderr, usage)
 	return ExitUsage
+}
+
+// unused rejects flags of the shared set that a command parses but does
+// not use: they are a usage error, never silently ignored.
+func unused(fs *flag.FlagSet, cmd string, stderr io.Writer, names ...string) bool {
+	var set []string
+	fs.Visit(func(f *flag.Flag) {
+		if slices.Contains(names, f.Name) {
+			set = append(set, "--"+f.Name)
+		}
+	})
+	if len(set) > 0 {
+		_, _ = fmt.Fprintf(stderr, "darb: %s does not use %s\n", cmd, strings.Join(set, ", "))
+	}
+	return len(set) > 0
 }
