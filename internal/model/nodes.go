@@ -163,8 +163,12 @@ type WorkloadInput struct {
 	// ProjectedAudiences are the audiences of serviceAccountToken volumes the
 	// pod spec projects itself (no annotation needed).
 	ProjectedAudiences []string
-	Defaulted          []string
-	Source             SourceLocation
+	// SecretRefs: the Secrets of its namespace the pod spec names (secret
+	// and projected volumes, env secretKeyRef, envFrom secretRef); the
+	// kubelet gives them to the pod without any RBAC check (DESIGN.md 7.2).
+	SecretRefs []string
+	Defaulted  []string
+	Source     SourceLocation
 }
 
 // Workload is a Kubernetes workload.
@@ -178,6 +182,7 @@ type Workload struct {
 	hostNetwork    bool
 	privileged     bool
 	projected      []string
+	secretRefs     []string
 	automountToken Tri
 	defaulted      []string
 	source         SourceLocation
@@ -189,13 +194,16 @@ func NewWorkload(in *WorkloadInput) *Workload {
 	return &Workload{
 		id: NewID(KindK8sWorkload, identity), cluster: in.Cluster, namespace: in.Namespace, kind: in.Kind,
 		name: in.Name, serviceAccount: in.ServiceAccount, hostNetwork: in.HostNetwork, privileged: in.Privileged,
-		projected: sortedSet(in.ProjectedAudiences), automountToken: in.AutomountToken, defaulted: sortedSet(in.Defaulted), source: in.Source,
+		projected: sortedSet(in.ProjectedAudiences), secretRefs: sortedSet(in.SecretRefs), automountToken: in.AutomountToken, defaulted: sortedSet(in.Defaulted), source: in.Source,
 	}
 }
 
 // ProjectedAudiences returns the audiences of the service account tokens
 // the pod spec projects.
 func (w *Workload) ProjectedAudiences() []string { return slices.Clone(w.projected) }
+
+// SecretRefs returns the Secrets of its namespace the pod spec names.
+func (w *Workload) SecretRefs() []string { return slices.Clone(w.secretRefs) }
 
 // Privileged reports whether any container runs privileged.
 func (w *Workload) Privileged() bool { return w.privileged }
@@ -244,6 +252,15 @@ func (w *Workload) WithoutTokenMount() *Workload {
 	c.projected = slices.Clone(w.projected)
 	c.defaulted = slices.DeleteFunc(slices.Clone(w.defaulted), func(d string) bool { return d == DefaultAutomountToken })
 	c.automountToken = False
+	return &c
+}
+
+// WithoutSecretRef is w whose pod spec no longer names Secret name.
+func (w *Workload) WithoutSecretRef(name string) *Workload {
+	c := *w
+	c.projected = slices.Clone(w.projected)
+	c.defaulted = slices.Clone(w.defaulted)
+	c.secretRefs = slices.DeleteFunc(slices.Clone(w.secretRefs), func(s string) bool { return s == name })
 	return &c
 }
 

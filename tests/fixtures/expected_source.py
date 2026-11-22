@@ -650,6 +650,52 @@ E["21_k8s_secret/fixed"] = {"derived_from": "Phase 6 instruction, fixed: automou
                             "findings": [no_default_deny(NS_PAYMENTS)],
                             "absent": [{"rule": "CLAPA-PATH-001", "jewel": K8S_SECRET}, {"rule": "CLAPA-POST-004", "resource": CI}]}
 
+# 23 - Kubernetes Secrets read without RBAC (DESIGN.md 12.1, priority 1;
+# Phase 7). The kubelet gives a pod every Secret its spec names (a volume,
+# env valueFrom.secretKeyRef, envFrom.secretRef), with no RBAC check on
+# the pod's identity (Kubernetes docs, Secrets, sections "Using Secrets as
+# files from a Pod" and "Using Secrets as environment variables"); and
+# whoever may create pods in a namespace can create one that mounts any
+# Secret of it (Kubernetes docs, RBAC Good Practices, section "Workload
+# creation": permission to create workloads in a namespace implicitly
+# grants access to the Secrets that can be mounted in its pods).
+# Vulnerable: api (not exposed: 400) names payments/db-credentials
+# (DataClass secret, 1000) in an env var and a volume; its token is not
+# mounted, it has no RBAC. One edge, CAN_READ_PLAINTEXT[mount]: 400 x 1000
+# (1 edge) = 400; x 1000 = 400, medium. The only fix is the workload's:
+# stop naming the Secret, revoke (it removes what the pod was written to
+# use), 5. No other side, no alternative (one edge).
+# ci-runner (400) runs as ci, token mounted by default, whose Role may
+# create pods in payments: RUNS_AS[k8s-token], then
+# CAN_READ_PLAINTEXT[pod-create] (an RBAC right, like the [k8s] read of
+# scenario 21). 2 edges: 360, medium. Cut as in scenario 21: the token
+# mount (workload, revoke, 5, the path uses ci's RBAC) and the Role grant
+# (rbac, revoke, 5) are equal: closest to the entry, the token; the grant
+# is the alternative. ci may also create pods running as api
+# (CAN_ESCALATE[rbac] ci -> api), but nothing leads from api's account to
+# the Secret (the mount edge starts at the api workload): no escalation
+# finding. CLAPA-POST-004 on ci-runner (350, medium, the default), and
+# CLAPA-POST-007 on payments. Fixed: api names only api-config (no
+# DataClass: not a jewel), ci's Role is get/list pods: no path;
+# CLAPA-POST-004 stays (ci still has RBAC, token mounted by default).
+API_W = f"k8s:{PROD}/payments/Deployment/api"
+DB_SECRET = f"k8s:{PROD}/payments/Secret/db-credentials"
+MOUNT_EDGE = f"CAN_READ_PLAINTEXT[mount] {API_W} -> {DB_SECRET}"
+POD_CREATE_EDGE = f"CAN_READ_PLAINTEXT[pod-create] {SA_CI} -> {DB_SECRET}"
+E["23_k8s_secret_mount/vulnerable"] = {"derived_from": "DESIGN.md 12.1 priority 1: Secrets mounted into pods, and through pod creation", "findings": [
+    path_finding("CLAPA-PATH-001", API_W, DB_SECRET, [f"CAN_READ_PLAINTEXT[mount] {DB_SECRET}"],
+                 400, "medium", [MOUNT_EDGE], [], fix=[step(MOUNT_EDGE, "workload", "revoke", 5)],
+                 other_side=[], alternative_detail=[]),
+    path_finding("CLAPA-PATH-001", CI, DB_SECRET, [f"RUNS_AS[k8s-token] {SA_CI}", f"CAN_READ_PLAINTEXT[pod-create] {DB_SECRET}"],
+                 360, "medium", [TOKEN_EDGE], [POD_CREATE_EDGE], defaults=[AUTOMOUNT_DEFAULT],
+                 fix=[step(TOKEN_EDGE, "workload", "revoke", 5)],
+                 other_side=[], alternative_detail=[step(POD_CREATE_EDGE, "rbac", "revoke", 5)]),
+    posture("CLAPA-POST-004", CI, 350, "medium", [AUTOMOUNT_DEFAULT]),
+    no_default_deny(NS_PAYMENTS)]}
+E["23_k8s_secret_mount/fixed"] = {"derived_from": "DESIGN.md 12.1 priority 1, fixed: no jewel named, no pod creation",
+                                  "findings": [posture("CLAPA-POST-004", CI, 350, "medium", [AUTOMOUNT_DEFAULT]), no_default_deny(NS_PAYMENTS)],
+                                  "absent": [{"rule": "CLAPA-PATH-001", "jewel": DB_SECRET}]}
+
 # Phase 6 review, item 2 - 01_classic/key_outside_input: scenario 1 with the
 # PII bucket encrypted by a key that is not in the input (aws_kms_key.pii
 # removed; kms_master_key_id is a literal key ARN). The key's policy is

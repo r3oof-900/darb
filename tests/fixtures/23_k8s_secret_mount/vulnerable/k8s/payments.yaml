@@ -1,0 +1,108 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: payments
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: api
+  namespace: payments
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ci
+  namespace: payments
+---
+# api reads db-credentials through the kubelet: an environment variable and
+# a volume. No RBAC is involved, and its token is not mounted.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: payments
+spec:
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      serviceAccountName: api
+      automountServiceAccountToken: false
+      containers:
+        - name: api
+          image: registry.example.com/payments/api:7
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: password
+          volumeMounts:
+            - name: db
+              mountPath: /etc/db
+              readOnly: true
+      volumes:
+        - name: db
+          secret:
+            secretName: db-credentials
+---
+# ci-runner may create pods in payments: a pod it creates can mount any
+# Secret of the namespace.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ci-runner
+  namespace: payments
+spec:
+  selector:
+    matchLabels:
+      app: ci-runner
+  template:
+    metadata:
+      labels:
+        app: ci-runner
+    spec:
+      serviceAccountName: ci
+      containers:
+        - name: runner
+          image: registry.example.com/ci/runner:3
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-creator
+  namespace: payments
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list, create]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ci-pod-creator
+  namespace: payments
+subjects:
+  - kind: ServiceAccount
+    name: ci
+    namespace: payments
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: pod-creator
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-credentials
+  namespace: payments
+  labels:
+    DataClass: secret
+type: Opaque
+stringData:
+  password: dummy

@@ -138,6 +138,8 @@ or turning off something specific):
 | `RUNS_AS[k8s-token]`: the pod's own Kubernetes token, when an RBAC binding of its service account is used on the path (`automountServiceAccountToken: false` takes away rights granted on purpose). With no binding used, the token is on no path: turning it off is hardening (`CLAPA-POST-004`), not a cut | workload | revoke | **5** |
 | `CAN_ESCALATE` via K8s RBAC (remove/limit the binding) | rbac | revoke | **5** |
 | `CAN_READ_PLAINTEXT[k8s]` (RBAC `get`/`list`/`watch` on a Kubernetes Secret; remove/limit the rule) | rbac | revoke | **5** |
+| `CAN_READ_PLAINTEXT[mount]` (the pod spec names the Secret; stop naming it: the pod loses what it was written to use; Phase 7) | workload | revoke | **5** |
+| `CAN_READ_PLAINTEXT[pod-create]` (RBAC `create pods` in the Secret's namespace; remove/limit the rule; Phase 7) | rbac | revoke | **5** |
 | `MAPS_TO` (`aws-auth` / access entry) | mapping | revoke | **8** |
 | `RUNS_AS` (change the workload's identity) | workload | revoke | **100** |
 | `PROTECTS` | none | structural fact, not a permission | **∞** |

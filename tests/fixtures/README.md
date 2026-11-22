@@ -50,6 +50,7 @@ diff is a behaviour change.
 | 19 | `19_secrets_manager` | IRSA → role → `GetSecretValue` + `kms:Decrypt` on `*` → Secrets Manager secret | path | decrypt conditioned on another secret's `SecretARN` |
 | 20 | `20_ssm_securestring` | IRSA → role → `ssm:GetParameter` + `kms:Decrypt` on `*` → SecureString | path | decrypt conditioned on another parameter's `PARAMETER_ARN` |
 | 21 | `21_k8s_secret` | token mounted + RBAC `get secrets` → Kubernetes Secret | direct path (the pod's own token) | `automountServiceAccountToken: false` |
+| 23 | `23_k8s_secret_mount` | Secret named in env and a volume (no RBAC); `create pods` in its namespace | two paths (mount; pod creation) | non-jewel Secret named; pods read only |
 | 22 | `22_direct_and_escalation` | `role/app` reads PII (decrypt on an unresolved variable) and may assume `role/ops`, which rewrites its own policy; `dominance`: `role/app` decrypts and rewrites its own policy | a direct and an escalation finding for one pair; `dominance`: one direct finding whose cut includes the escalation | `role/ops` only lists |
 
 For the "no path" scenarios (2, 3, 11) the vulnerable variant is the near-miss

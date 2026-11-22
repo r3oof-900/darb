@@ -337,3 +337,14 @@ func TestRemediationCopies(t *testing.T) {
 		t.Error("WithS3")
 	}
 }
+
+// A workload without one Secret reference keeps the others.
+func TestWithoutSecretRef(t *testing.T) {
+	w := NewWorkload(&WorkloadInput{Cluster: "c", Namespace: "n", Kind: "Pod", Name: "p", SecretRefs: []string{"b", "a", "b"}})
+	if got := w.SecretRefs(); len(got) != 2 || got[0] != "a" {
+		t.Fatalf("refs %v", got)
+	}
+	if got := w.WithoutSecretRef("a").SecretRefs(); len(got) != 1 || got[0] != "b" || len(w.SecretRefs()) != 2 {
+		t.Errorf("without a: %v (original %v)", got, w.SecretRefs())
+	}
+}

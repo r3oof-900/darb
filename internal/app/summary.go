@@ -158,11 +158,17 @@ func nonNil(ss []string) []string {
 func kubernetesSummary(s map[string]any, inv *model.Inventory, names map[model.ID]string) {
 	s["workloads"] = mapSlice(inv.Workloads, func(w *model.Workload) any {
 		names[w.ID()] = w.Identity()
-		return map[string]any{
+		out := map[string]any{
 			"identity": w.Identity(), "service_account": w.ServiceAccount(),
 			"host_network": w.HostNetwork(), "privileged": w.Privileged(), "automount_token": w.AutomountToken().String(),
 			"defaulted": nonNil(w.Defaulted()), "source": loc(w.Source()),
 		}
+		// Phase 7: only when the pod spec names a Secret, so the goldens of
+		// workloads that name none are unchanged.
+		if refs := w.SecretRefs(); len(refs) > 0 {
+			out["secret_refs"] = refs
+		}
+		return out
 	})
 	s["service_accounts"] = mapSlice(inv.ServiceAccounts, func(sa *model.ServiceAccount) any {
 		return map[string]any{

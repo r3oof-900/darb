@@ -66,7 +66,7 @@ func editOne(l stmtList, e *remediate.Edit, id string) (gone bool, added string,
 		}
 		gone, err := l.removeValues(e.Index, e)
 		return gone, "", err
-	case remediate.OpNodeMetadata, remediate.OpRemoveHostNetwork, remediate.OpRemoveExposure, remediate.OpRestrictPublic, remediate.OpDisableTokenMount, remediate.OpDetachPolicy:
+	case remediate.OpNodeMetadata, remediate.OpRemoveHostNetwork, remediate.OpRemoveExposure, remediate.OpRestrictPublic, remediate.OpDisableTokenMount, remediate.OpRemoveSecretRef, remediate.OpDetachPolicy:
 	}
 	return false, "", nil
 }

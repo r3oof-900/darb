@@ -173,6 +173,8 @@ func (p *patcher) placeAll(inv *model.Inventory, edits []remediate.Edit) ([]*pol
 			err = p.removeHostNetwork(e)
 		case remediate.OpDisableTokenMount:
 			err = p.disableTokenMount(e)
+		case remediate.OpRemoveSecretRef:
+			err = p.removeSecretRef(e)
 		case remediate.OpRemoveExposure:
 			err = p.removeExposure(e)
 		case remediate.OpRestrictPublic:

@@ -34,8 +34,10 @@ func target(e *graph.Edge) mode {
 // (k8s), RBAC is, and minting when the account itself holds that right
 // ("minted-self"); after an RBAC escalation (full), everything is.
 func allowed(m mode, e *graph.Edge) bool {
-	// A Kubernetes Secret read (CAN_READ_PLAINTEXT[k8s]) is RBAC too.
-	rbac := e.Kind == graph.CanEscalate && e.Sub == "rbac" || e.Kind == graph.CanReadPlaintext && e.Sub == "k8s"
+	// A Kubernetes Secret read (CAN_READ_PLAINTEXT[k8s]) is RBAC too, and so
+	// is one through creating a pod that names it ([pod-create]).
+	rbac := e.Kind == graph.CanEscalate && e.Sub == "rbac" ||
+		e.Kind == graph.CanReadPlaintext && (e.Sub == "k8s" || e.Sub == graph.SubPodCreate)
 	mint := e.Kind == graph.Assumes && (e.Sub == "minted" || e.Sub == "minted-self")
 	switch m {
 	case identity:

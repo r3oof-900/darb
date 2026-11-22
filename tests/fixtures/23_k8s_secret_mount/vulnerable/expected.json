@@ -1,0 +1,99 @@
+{
+  "format": "clapa-expected/v1",
+  "derived_from": "DESIGN.md 12.1 priority 1: Secrets mounted into pods, and through pod creation",
+  "findings": [
+    {
+      "rule": "CLAPA-PATH-001",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
+      "jewel": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials",
+      "path": [
+        "CAN_READ_PLAINTEXT[mount] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 400,
+      "severity": "medium",
+      "chokepoints": [
+        "CAN_READ_PLAINTEXT[mount] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials"
+      ],
+      "alternative_fix": [],
+      "defaults_used": [],
+      "fix": [
+        {
+          "edge": "CAN_READ_PLAINTEXT[mount] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials",
+          "side": "workload",
+          "fix_kind": "revoke",
+          "cost": 5
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": [],
+      "status": "confirmed",
+      "also_fixes": [],
+      "uncuttable": [],
+      "remediation_status": "complete"
+    },
+    {
+      "rule": "CLAPA-PATH-001",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner",
+      "jewel": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials",
+      "path": [
+        "RUNS_AS[k8s-token] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci",
+        "CAN_READ_PLAINTEXT[pod-create] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 360,
+      "severity": "medium",
+      "chokepoints": [
+        "RUNS_AS[k8s-token] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci"
+      ],
+      "alternative_fix": [
+        "CAN_READ_PLAINTEXT[pod-create] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials"
+      ],
+      "defaults_used": [
+        "k8s.automountServiceAccountToken"
+      ],
+      "fix": [
+        {
+          "edge": "RUNS_AS[k8s-token] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci",
+          "side": "workload",
+          "fix_kind": "revoke",
+          "cost": 5
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": [
+        {
+          "edge": "CAN_READ_PLAINTEXT[pod-create] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials",
+          "side": "rbac",
+          "fix_kind": "revoke",
+          "cost": 5
+        }
+      ],
+      "status": "confirmed",
+      "also_fixes": [],
+      "uncuttable": [],
+      "remediation_status": "complete"
+    },
+    {
+      "rule": "CLAPA-POST-004",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner",
+      "score": 350,
+      "severity": "medium",
+      "defaults_used": [
+        "k8s.automountServiceAccountToken"
+      ]
+    },
+    {
+      "rule": "CLAPA-POST-007",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/payments",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": []
+    }
+  ],
+  "absent": [],
+  "intended_access": [],
+  "no_edges": []
+}

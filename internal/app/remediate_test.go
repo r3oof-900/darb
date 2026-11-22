@@ -149,9 +149,10 @@ func TestEveryVulnerableScenarioIsFixed(t *testing.T) {
 			}
 		}
 	}
-	// 01, 01b, 04 (2), 04b, 05 (2), 06, 07, 08 (2), 09, 12, 14 (2), 16, 17, 18 (2), 19, 20, 21, 22 (PATH-002).
-	if fixed != 23 {
-		t.Fatalf("%d findings fixed, want 23", fixed)
+	// 01, 01b, 04 (2), 04b, 05 (2), 06, 07, 08 (2), 09, 12, 14 (2), 16, 17, 18 (2), 19, 20, 21, 22 (PATH-002),
+	// 23 (2: the mount, removed from the pod spec; the pod creation, by the token mount).
+	if fixed != 25 {
+		t.Fatalf("%d findings fixed, want 25", fixed)
 	}
 }
 

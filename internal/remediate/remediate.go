@@ -47,6 +47,10 @@ const (
 	// OpDisableTokenMount sets automountServiceAccountToken: false in
 	// Workload's pod spec.
 	OpDisableTokenMount Op = "disable-token-mount"
+	// OpRemoveSecretRef removes every reference to Secret from Workload's
+	// pod spec: its secret volumes (and their mounts), env secretKeyRef and
+	// envFrom secretRef entries.
+	OpRemoveSecretRef Op = "remove-secret-ref"
 	// OpDetachPolicy detaches the AWS managed policy Policy from Principal:
 	// AWS owns its document, which is never edited (SCORING.md §4.1).
 	OpDetachPolicy Op = "detach-policy"
@@ -68,6 +72,7 @@ type Edit struct {
 	Exposure  *model.NetworkExposure
 	Bucket    *model.Resource
 	Principal *model.Principal
+	Secret    string // OpRemoveSecretRef: the Secret's name
 }
 
 // Change breaks one edge.
@@ -137,7 +142,13 @@ func ForEdge(in *Input, id graph.EdgeID, fx *graph.Fix) Change {
 		c.TODO = fmt.Sprintf("no generator for %s fixes yet (%s side: %s); change it by hand", e.Kind, fx.Side, fx.Policy)
 	case graph.CanEscalate:
 		x.escalate()
-	case graph.MapsTo, graph.CanReadPlaintext, graph.Protects:
+	case graph.CanReadPlaintext:
+		if e.Sub == graph.SubMount && fx.Side == graph.SideWorkload {
+			x.secretRef()
+			break
+		}
+		c.TODO = fmt.Sprintf("no generator for %s fixes yet (%s side: %s); change it by hand", e.Kind, fx.Side, fx.Policy)
+	case graph.MapsTo, graph.Protects:
 		c.TODO = fmt.Sprintf("no generator for %s fixes yet (%s side: %s); change it by hand", e.Kind, fx.Side, fx.Policy)
 	}
 	return c
@@ -283,6 +294,23 @@ func (x *context) tokenMount() {
 	}
 	x.change.Edits = []Edit{{Op: OpDisableTokenMount, Workload: w}}
 	x.change.Why = "set automountServiceAccountToken: false in " + w.Identity() + ": its pods no longer hold their service account's Kubernetes token"
+}
+
+// secretRef: the pod spec stops naming the Secret (DESIGN.md 7.2): the
+// kubelet no longer gives it to the pod. The workload loses what it was
+// written to use: a revoke (SCORING.md 4.1).
+func (x *context) secretRef() {
+	w := x.workload(x.e.From)
+	if w == nil {
+		x.todo("the workload is not in the input")
+		return
+	}
+	name := x.g.Node(x.e.To).Identity
+	if i := strings.LastIndex(name, "/Secret/"); i >= 0 {
+		name = name[i+len("/Secret/"):]
+	}
+	x.change.Edits = []Edit{{Op: OpRemoveSecretRef, Workload: w, Secret: name}}
+	x.change.Why = "stop naming Secret " + name + " in " + w.Identity() + " (its env, envFrom and volumes): its pods no longer get it; first remove what reads it, or move the value out of the crown jewel"
 }
 
 // exposure: the Service stops exposing the workload outside the cluster.

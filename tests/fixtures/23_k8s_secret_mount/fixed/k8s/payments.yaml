@@ -1,0 +1,115 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: payments
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: api
+  namespace: payments
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ci
+  namespace: payments
+---
+# api reads only api-config, which is not a crown jewel.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: payments
+spec:
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      serviceAccountName: api
+      automountServiceAccountToken: false
+      containers:
+        - name: api
+          image: registry.example.com/payments/api:7
+          env:
+            - name: API_MODE
+              valueFrom:
+                secretKeyRef:
+                  name: api-config
+                  key: mode
+          volumeMounts:
+            - name: config
+              mountPath: /etc/api
+              readOnly: true
+      volumes:
+        - name: config
+          secret:
+            secretName: api-config
+---
+# ci-runner may only read pods.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ci-runner
+  namespace: payments
+spec:
+  selector:
+    matchLabels:
+      app: ci-runner
+  template:
+    metadata:
+      labels:
+        app: ci-runner
+    spec:
+      serviceAccountName: ci
+      containers:
+        - name: runner
+          image: registry.example.com/ci/runner:3
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-creator
+  namespace: payments
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ci-pod-creator
+  namespace: payments
+subjects:
+  - kind: ServiceAccount
+    name: ci
+    namespace: payments
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: pod-creator
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-credentials
+  namespace: payments
+  labels:
+    DataClass: secret
+type: Opaque
+stringData:
+  password: dummy
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-config
+  namespace: payments
+type: Opaque
+stringData:
+  mode: live
