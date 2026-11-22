@@ -143,8 +143,14 @@ The most important before a real scan:
 - AWS RAM shares of advanced SSM parameters are not collected: a parameter
   shared only through RAM is not seen as shared. The report names every
   parameter of the input that can be shared (a `not-modelled` note).
-- AWS Organizations SCPs and RCPs, and KMS grants, are not collected: they can
-  only make darb report a path that is blocked, never hide one.
+- **KMS grants are not collected, and S3 ACLs are not evaluated: either can
+  hide a real path.** A grant can give `kms:Decrypt` to a principal the key
+  policy does not name; an ACL can grant read to another account or to everyone.
+  Every report with KMS keys or buckets names them in a `not-modelled` note.
+- AWS Organizations SCPs and RCPs are not collected: they only restrict access,
+  so without them darb may report a path that one of them blocks, never hide
+  one (a `not-modelled` note on every scan with AWS data).
+- Every limit and how the report states it: [DESIGN.md §12.3](docs/DESIGN.md#123-limits-every-report-states-phase-7).
 
 ## Documents
 

@@ -666,9 +666,14 @@ the resource side (resource policy, the resource's RCPs) must **both** allow.
 **KMS** (AWS KMS Developer Guide › "Key policies in AWS KMS" › "Default key policy"):
 the key policy must allow, either directly or by naming the account root, which
 enables IAM policies to grant access. An IAM policy alone never grants access to a
-key whose policy does not delegate. KMS **grants** are not in the MVP input list;
-**Flag**: unmodelled grants can only *add* access, so their absence is reported as a
-coverage gap ("KMS grants not evaluated") rather than silently ignored.
+key whose policy does not delegate. KMS **grants** are not in the MVP input list.
+**Flag**: unmodelled grants can only *add* access, so their absence can hide a
+real path. *Correction (Phase 7):* this flag promised a coverage gap ("KMS grants
+not evaluated"); none was recorded, so a scan could look complete while grants
+were unknown. Every report with KMS keys now carries a `not-modelled` note
+naming them (§12.3). A gap on every key would make every scan end with exit
+code 3, so the plan is to collect grants (`kms:ListGrants`, `aws_kms_grant`) and
+keep a gap only where a key's grants could not be read.
 
 **Role trust policies** are resource-based policies on the role and follow the same
 table for `sts:AssumeRole*`. **Flag**: AWS stores role principals by unique ID; a
@@ -684,7 +689,9 @@ is unknown; an account whose setting is not in the input leaves the bucket's).
 Sources: `s3control GetPublicAccessBlock` (live, snapshot file
 `<account>/s3control/get-public-access-block.json`) and Terraform
 `aws_s3_account_public_access_block` (`account_id`, else the provider's account;
-a `restrict_public_buckets` that is not a literal is unknown, a gap). **Flag**: S3 ACLs are not modelled; reported as a gap
+a `restrict_public_buckets` that is not a literal is unknown, a gap). **Flag** (*corrected in Phase 7*: no gap was recorded; every report with buckets
+now carries a `not-modelled` note naming them, §12.3; ACLs can hide a real path,
+since they grant access): S3 ACLs are not modelled; reported as a gap
 unless Object Ownership is `BucketOwnerEnforced` (ACLs disabled).
 
 **Session policies** are rarely visible in static inputs. When a chain does not show
@@ -1773,6 +1780,30 @@ Workflows that only make sense once their subject exists (`bench.yml` — Phase 
 `integration.yml` — Phase 6, `release.yml` + `.goreleaser.yaml` — Phase 7) are
 added in those phases rather than as placeholders.
 
+### 12.3 Limits every report states (Phase 7)
+
+What darb does not collect or evaluate, how the report says so, and whether its
+absence can hide a real path. `TestStatedLimits` reads this table: for every
+row, the report of its scenario must carry the match (a `not-modelled` note
+with that subject, or a coverage gap whose detail contains that text), and
+every note subject the code can write must have a row. A limit stated
+anywhere else in the documents belongs here first.
+
+| Limit | Match | Can it hide a real path? | Scenario |
+|---|---|---|---|
+| KMS grants are not collected | `note: KMS grants` | **yes**: a grant can give `kms:Decrypt` to a principal the key policy does not name; the note names the keys | `01_classic/vulnerable` |
+| S3 bucket and object ACLs are not evaluated | `note: S3 ACLs` | **yes**: an ACL can grant read to another account or to everyone; the note names the buckets | `01_classic/vulnerable` |
+| AWS RAM shares of SSM parameters are not collected | `note: AWS RAM shares of SSM parameters` | **yes**: a share grants another account read; the note names the parameters that can be shared (advanced, Intelligent-Tiering or unknown tier) | `inline:ssm-parameter-without-tier` |
+| AWS Organizations SCPs and RCPs are not collected | `note: AWS Organizations SCPs and RCPs` | no: they only restrict, so a reported path may be one they block | `01_classic/vulnerable` |
+| Kubernetes admission policies are not read | `note: Kubernetes Secrets through admission` | no: admission only rejects pods | `21_k8s_secret/vulnerable` |
+| Account-level S3 Block Public Access missing from a snapshot written before Phase 7 | `note: S3 account-level Block Public Access` | no: the bucket's own setting applies, which can only report more | `14_same_names_two_accounts/vulnerable` |
+| An AWS managed policy missing from the vendored snapshot | `gap: managed policy document not available` | no: its grants are UNKNOWN, so paths through it are reported as unconfirmed, never dropped | `19_secrets_manager/unknown_managed_policy` |
+
+These notes do not change the exit code; a coverage gap counts against the
+tolerance (§11). Collecting KMS grants and S3 ACLs, so that a gap remains only
+where something is really unknown (a failed `ListGrants`, ACLs enabled on a
+bucket), is the next step before `v0.1.0`.
+
 ### 12.2 Deferred work (recorded at the Phase 4 approval; after Phase 5)
 
 | # | Work | Why it waits / what done means |
@@ -1902,6 +1933,7 @@ of 2026-11-22, with the evidence that shows it. CI evidence is the full run on
 | 11 | SARIF validated against the official schema | §11 | met | `TestEverySARIFReportMatchesTheOfficialSchema` (OASIS 2.1.0, pinned) |
 | 11b | JUnit report validated against a known JUnit schema; Markdown bounded for a PR comment | §11 | met | `junit-schema` CI job (`xmllint`, JUnit 10 XSD), `TestJUnitAndMarkdownReports`, `internal/report/markdown` tests |
 | 11c | Logging: `slog`, `--log-format json`, redacted, `--debug` stack traces | §11 | met | `TestJSONLogsAreRedacted`, `TestCLIJSONLogs`, `TestCrash` |
+| 11d | Every limit the documents state is in the report, and says whether it can hide a path | §12.3 | met; KMS grants and S3 ACLs are stated, not yet collected | `TestStatedLimits`, `TestResourceNotes` |
 | 12 | HTML: strict CSP, untrusted names inert | §11 | met | `internal/report/htmlreport` tests (hostile names, CSP hashes) |
 | 13 | Live collection read-only, permissions documented exactly | §4.4, §4.5 | met | `TestClientInterfacesAreReadOnly`, `TestPermissionsDocument`, `TestK8sPermissionsDocument` |
 | 14 | Live collectors tested on fakes, LocalStack and kind only | §12 (Phase 6) | met | `localstack` and `kind` jobs; no test reaches a cloud API |

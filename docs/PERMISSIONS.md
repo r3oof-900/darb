@@ -69,10 +69,17 @@ every other call. A failed list call (for example `kms:ListKeys`) means darb
 does not know how many keys exist in that region, so coverage for that service
 and region is unknown, never 100%.
 
-Not collected yet, and stated in every report as `not-modelled`:
+Not collected yet; each report states them as `not-modelled` notes
+(DESIGN.md §12.3):
 
-- KMS grants (`kms:ListGrants`).
-- AWS Organizations SCPs and RCPs.
+- KMS grants (`kms:ListGrants`). **This can hide a real path:** a grant can give
+  `kms:Decrypt` to a principal the key policy does not name. The note names the
+  keys.
+- S3 bucket and object ACLs (`s3:GetBucketAcl`, `s3:GetBucketOwnershipControls`).
+  **This can hide a real path:** an ACL can grant read to another account or to
+  everyone. The note names the buckets.
+- AWS Organizations SCPs and RCPs. They only restrict access: without them a
+  reported path may be one they block, and none is hidden.
 
 ## Kubernetes
 
