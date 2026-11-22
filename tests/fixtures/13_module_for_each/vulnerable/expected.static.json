@@ -126,6 +126,14 @@
       "fingerprint": "df7b113507c09e56eb19c0e1f186d2046d67f84c02ca64b736480db249578fec"
     }
   ],
+  "gaps": [
+    {
+      "kind": "unresolved",
+      "contains": [
+        "Object Ownership of this bucket is not in the input"
+      ]
+    }
+  ],
   "absent": [],
   "intended_access": [],
   "no_edges": []

@@ -1,0 +1,21 @@
+{
+  "format": "darb-expected/v1",
+  "derived_from": "phase 2 fixed: ACLs disabled (BucketOwnerEnforced)",
+  "exit_code": 0,
+  "findings": [],
+  "absent": [
+    {
+      "rule": "DARB-PATH-003",
+      "jewel": "arn:aws:s3:::acme-partner-exports"
+    }
+  ],
+  "gaps_absent": [
+    "ACLs are enabled",
+    "Object Ownership of this bucket is not in the input"
+  ],
+  "notes_absent": [
+    "S3 ACLs"
+  ],
+  "intended_access": [],
+  "no_edges": []
+}

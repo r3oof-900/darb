@@ -1,0 +1,36 @@
+{
+  "format": "darb-expected/v1",
+  "derived_from": "phase 2: ACLs enabled and a public-read bucket ACL",
+  "exit_code": 3,
+  "findings": [],
+  "absent": [
+    {
+      "rule": "DARB-PATH-003",
+      "jewel": "arn:aws:s3:::acme-partner-exports"
+    },
+    {
+      "rule": "DARB-POST-005",
+      "resource": "arn:aws:s3:::acme-partner-exports"
+    }
+  ],
+  "gaps": [
+    {
+      "kind": "not-modelled",
+      "contains": [
+        "ACLs are enabled (Object Ownership ObjectWriter)",
+        "object ACLs are not collected",
+        "AllUsers"
+      ]
+    }
+  ],
+  "notes": [
+    {
+      "subject": "S3 ACLs",
+      "contains": [
+        "arn:aws:s3:::acme-partner-exports"
+      ]
+    }
+  ],
+  "intended_access": [],
+  "no_edges": []
+}
