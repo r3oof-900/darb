@@ -1,0 +1,79 @@
+{
+  "format": "darb-expected/v1",
+  "derived_from": "after v0.1.0-rc.1: a data store without classification is a crown jewel, unclassified",
+  "findings": [
+    {
+      "rule": "DARB-PATH-001",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/records/Deployment/exporter",
+      "jewel": "arn:aws:s3:::patient-records-vault",
+      "path": [
+        "RUNS_AS k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/records/ServiceAccount/exporter",
+        "ASSUMES arn:aws:iam::111122223333:role/records-exporter",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::patient-records-vault"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 129,
+      "severity": "low",
+      "chokepoints": [
+        "CAN_READ arn:aws:iam::111122223333:role/records-exporter -> arn:aws:s3:::patient-records-vault"
+      ],
+      "alternative_fix": [
+        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/records/ServiceAccount/exporter -> arn:aws:iam::111122223333:role/records-exporter"
+      ],
+      "defaults_used": [
+        "eks.irsa.audience",
+        "eks.irsa.oidc-provider-audience",
+        "s3.default-encryption"
+      ],
+      "fix": [
+        {
+          "edge": "CAN_READ arn:aws:iam::111122223333:role/records-exporter -> arn:aws:s3:::patient-records-vault",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 3
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": [
+        {
+          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/records/ServiceAccount/exporter -> arn:aws:iam::111122223333:role/records-exporter",
+          "side": "trust",
+          "fix_kind": "revoke",
+          "cost": 7
+        }
+      ],
+      "status": "confirmed",
+      "also_fixes": [],
+      "uncuttable": [],
+      "remediation_status": "complete",
+      "fingerprint": "6f426027b55db8ccf5ddd6fc2df831c612eb9f8c2dff86b1065f39e9f37e80a2"
+    },
+    {
+      "rule": "DARB-POST-007",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/records",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": [],
+      "fingerprint": "e3aeca9c87b565ebd979690d5245f8b507acdfe51901c85cb2ad557d4d5f2ae4"
+    }
+  ],
+  "absent": [
+    {
+      "rule": "DARB-POST-005",
+      "resource": "arn:aws:s3:::patient-records-vault"
+    }
+  ],
+  "notes": [
+    {
+      "subject": "Unclassified data stores",
+      "contains": [
+        "1 data store has no classification; treated as `unclassified`",
+        "tag them or list them in `crown_jewels.explicit`",
+        "arn:aws:s3:::patient-records-vault"
+      ]
+    }
+  ],
+  "intended_access": [],
+  "no_edges": []
+}

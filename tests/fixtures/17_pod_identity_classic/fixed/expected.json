@@ -3,6 +3,62 @@
   "derived_from": "13.2 row 17 fixed (as scenario 1 fixed)",
   "findings": [
     {
+      "rule": "DARB-PATH-001",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
+      "jewel": "arn:aws:s3:::acme-payment-receipts",
+      "path": [
+        "RUNS_AS k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api",
+        "ASSUMES arn:aws:iam::111122223333:role/payments-api",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-payment-receipts"
+      ],
+      "confirmed": false,
+      "confidence": "low",
+      "score": 324,
+      "severity": "medium",
+      "chokepoints": [
+        "CAN_DECRYPT[for arn:aws:s3:::acme-payment-receipts] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.receipts"
+      ],
+      "alternative_fix": [
+        "CAN_READ arn:aws:iam::111122223333:role/payments-api -> arn:aws:s3:::acme-payment-receipts"
+      ],
+      "defaults_used": [
+        "eks.pod-identity.disableSessionTags"
+      ],
+      "fix": [
+        {
+          "edge": "CAN_DECRYPT[for arn:aws:s3:::acme-payment-receipts] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.receipts",
+          "side": "resource",
+          "fix_kind": "narrow",
+          "cost": 2
+        }
+      ],
+      "other_side_fix": [
+        {
+          "edge": "CAN_DECRYPT[for arn:aws:s3:::acme-payment-receipts] arn:aws:iam::111122223333:role/payments-api -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.receipts",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 3
+        }
+      ],
+      "alternative_fix_detail": [
+        {
+          "edge": "CAN_READ arn:aws:iam::111122223333:role/payments-api -> arn:aws:s3:::acme-payment-receipts",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 3
+        }
+      ],
+      "status": "unconfirmed",
+      "undecided": [
+        "Bucket Key",
+        "bucket_key_enabled"
+      ],
+      "also_fixes": [],
+      "uncuttable": [],
+      "remediation_status": "complete",
+      "fingerprint": "6becd5925e3ccb8758ea9bb076a62da96bcc0066ceddeaf8a9beb784daad60e3"
+    },
+    {
       "rule": "DARB-POST-006",
       "resource": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.receipts",
       "score": 350,
@@ -29,6 +85,16 @@
     {
       "rule": "DARB-PATH-002",
       "jewel": "arn:aws:s3:::acme-customer-pii"
+    }
+  ],
+  "notes": [
+    {
+      "subject": "Unclassified data stores",
+      "contains": [
+        "1 data store has no classification; treated as `unclassified`",
+        "tag them or list them in `crown_jewels.explicit`",
+        "arn:aws:s3:::acme-payment-receipts"
+      ]
     }
   ],
   "intended_access": [],

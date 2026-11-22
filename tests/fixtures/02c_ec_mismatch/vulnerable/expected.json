@@ -29,6 +29,10 @@
     {
       "rule": "DARB-PATH-002",
       "jewel": "arn:aws:s3:::acme-customer-pii"
+    },
+    {
+      "rule": "DARB-PATH-001",
+      "jewel": "arn:aws:s3:::acme-payment-receipts"
     }
   ],
   "intended_access": [
@@ -37,6 +41,16 @@
       "action": "s3:GetObject",
       "resource": "arn:aws:s3:::acme-payment-receipts/*",
       "status": "not-satisfied"
+    }
+  ],
+  "notes": [
+    {
+      "subject": "Unclassified data stores",
+      "contains": [
+        "1 data store has no classification; treated as `unclassified`",
+        "tag them or list them in `crown_jewels.explicit`",
+        "arn:aws:s3:::acme-payment-receipts"
+      ]
     }
   ],
   "no_edges": []
