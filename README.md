@@ -123,8 +123,10 @@ The most important before a real scan:
 - **AWS managed policies**: the bundled snapshot has 3 policies until it is
   refreshed with `tools/refresh-managed-policies`; any other attached managed
   policy is UNKNOWN (reported, never treated as "no permissions").
-- Secrets mounted into pods, account-level S3 Block Public Access and RAM
-  shares: see §12.1 for their current status.
+- AWS RAM shares of advanced SSM parameters are not collected: a parameter
+  shared only through RAM is not seen as shared (listed as `not-modelled`).
+- AWS Organizations SCPs and RCPs, and KMS grants, are not collected: they can
+  only make CLAPA report a path that is blocked, never hide one.
 
 ## Documents
 

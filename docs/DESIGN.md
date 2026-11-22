@@ -1682,6 +1682,26 @@ Decided while implementing:
 - **Names in the bundle.** Name escaping (`!x` for an upper-case letter) keeps
   two names that differ only in case apart on case-insensitive file systems.
 
+### 12.0d Phase 7 status
+
+- HTML report (merged, r3oof-900/clapa#2): self-contained, strict CSP, path
+  view, one fix section, print styles, examples in `docs/examples/`.
+- LLM explanations (§10): off by default; `scan --llm anthropic`,
+  `clapa explain`; redaction (48 formats), pseudonyms, labelled output; the
+  CLI's standard error is redacted too.
+- Documentation: README, EXTENDING, FAQ. SARIF gained code flows and
+  `%SRCROOT%` locations (§11).
+- Distribution: `.goreleaser.yaml`, `release.yml` (cosign keyless signature of
+  the checksums, an SPDX SBOM per archive, SLSA provenance, draft releases); CI
+  builds a snapshot twice and requires identical archives.
+- §12.1: Secrets through mounts and pod creation (priority 1) and account-level
+  S3 Block Public Access (priority 2) done, each with a hand-derived scenario
+  that the engine matched; the tolerance row was already done (test added);
+  RAM shares (priority 3) left open with the research recorded; the managed-
+  policy refresh is still deferred (not run, as instructed).
+- Not done: `clapa graph` and `clapa doctor` (§11 lists them; no phase
+  implemented them); SARIF validation against the official schema (§11).
+
 ### 12.1 Known constraints carried between phases
 
 | Constraint | Effect today | Must be resolved by | Plan |
@@ -1689,8 +1709,8 @@ Decided while implementing:
 | **AWS managed policy snapshot has 3 policies** (`AdministratorAccess`, `AmazonS3FullAccess`, `AmazonS3ReadOnlyAccess`) — recorded after the Phase 3 review | every other AWS managed policy attached to a role is an unknown Allow + unknown Deny and a `not-modelled` gap: never "no permissions", but paths through such roles are UNKNOWN (confidence low) instead of decided | **before any scan of a real account** (live collectors meet real accounts, where most roles use managed policies). Phase 6 itself is tested on fakes, LocalStack and kind only | `tools/refresh-managed-policies` is **ready and tested** (546ec63): it lists every AWS-owned policy (`iam:ListPolicies`, `Scope=AWS`) and fetches each `DefaultVersionId` (`iam:GetPolicyVersion`), nothing else; `--profile` selects the profile, the SDK reads its credentials; the snapshot (format v2) records the date, partition, count and each default version, sorted, byte-for-byte deterministic. The refresh was **deferred on 2026-11-21**: only a valid profile is missing (the one tried was not found in `C:\Users\<user>\.aws\{config,credentials}`). Run: `go run ./tools/refresh-managed-policies --profile <profile>`, then review the diff and the scenarios whose results change, and commit the snapshot alone. Until then a live or snapshot scan reports every attached managed policy that is not in the snapshot (Phase 6) |
 | ~~**Kubernetes Secrets mounted into pods**~~ — **done in Phase 7**: `CAN_READ_PLAINTEXT[mount]` from each workload to each Secret its pod spec names, and `CAN_READ_PLAINTEXT[pod-create]` from each subject that may create pods in the namespace (§7.2); scenario 23 derived by hand before the engine ran, no difference; the mount fix is generated and verified on both levels | admission policies that could reject such a pod are not read (`not-modelled` note) | — | — |
 | ~~**S3 account-level Block Public Access**~~ — **done in Phase 7**: collected (live, snapshot, Terraform) and combined with the bucket's, the most restrictive applies (§6, S3 Block Public Access); variant `12_public_bucket/account_block` derived by hand before the engine ran, no difference | a snapshot written before Phase 7 has no account setting (a `not-modelled` note per account) | — | — |
-| **AWS RAM shares of advanced SSM parameters** — Phase 6 review | cross-account access is evaluated from the resource policies collected; a RAM share not reflected in them is missed | **priority 3**: before multi-account parameter sharing is in scope | collect RAM resource shares (`ram:ListResources`, `ram:GetResourceShareAssociations`) for parameters |
-| Coverage tolerance counts gaps | plan gaps for provider-computed attributes (`arn`, `id`, …) are recorded; the exit-code tolerance does not exist yet | Phase 5 (exit codes) | count only gaps that a decision used (section 4.6, "Provider-computed attributes") |
+| **AWS RAM shares of advanced SSM parameters** — Phase 6 review | cross-account access is evaluated from the resource policies collected; a RAM share not reflected in them is missed | **priority 3**: before multi-account parameter sharing is in scope | collect RAM resource shares (`ram:ListResources`, `ram:GetResourceShareAssociations`) for parameters <br>*Phase 7 research (not implemented):* Parameter Store › "Working with shared parameters" confirms only advanced-tier parameters can be shared; consumers are accounts, OUs or the organization; the RAM permissions are read-only (`AWSRAMDefaultPermissionSSMParameterReadOnly`: `DescribeParameters`, `GetParameter`, `GetParameters`; `...WithHistory` adds `GetParameterHistory`); a `PutResourcePolicy` share must be promoted to a RAM share. Neither that page nor the `GetResourcePolicies` reference says whether a RAM share appears as a resource policy, so modelling it would rest on a guess: left open for review, still listed as `not-modelled` |
+| ~~Coverage tolerance counts gaps~~ — **done** (Phase 5; test added in Phase 7, `TestGapsOverTolerance`): gaps count per kind beyond that kind's tolerance in `clapa.yaml` (default 0); a plan attribute the provider computes (`tfraw.ReasonComputed`) is not counted, since an edge that rests on it carries its own UNKNOWN | — | — | — |
 
 Workflows that only make sense once their subject exists (`bench.yml` — Phase 4,
 `integration.yml` — Phase 6, `release.yml` + `.goreleaser.yaml` — Phase 7) are
