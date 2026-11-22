@@ -3,7 +3,12 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"net/url"
+	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -109,5 +114,60 @@ func TestCollectRefusesOtherPolicies(t *testing.T) {
 	}
 	if _, err := decode("not json"); err == nil {
 		t.Fatal("a document that is not JSON must be refused")
+	}
+}
+
+// A document that would add JSON of its own (`{}}, {"arn": ...`), or that
+// is not an object, is refused naming its ARN, and no file is written.
+func TestInjectedDocumentIsRefused(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "managed-policies.json")
+	h := header{Format: format, Date: "2026-11-22", Partition: "aws", Source: source}
+	for name, doc := range map[string]string{
+		"injection":  `{}}, {"arn": "arn:aws:iam::aws:policy/Fake", "default_version_id": "v1", "document": {"Statement":[{"Effect":"Allow","Action":"*","Resource":"*"}]}`,
+		"two values": `{} {}`,
+		"array":      `[{"Effect":"Allow"}]`,
+		"string":     `"x"`,
+		"empty":      ``,
+	} {
+		ps := []policy{
+			{ARN: "arn:aws:iam::aws:policy/Good", DefaultVersionID: "v1", Document: []byte(`{"Version":"2012-10-17","Statement":[]}`)},
+			{ARN: "arn:aws:iam::aws:policy/Bad", DefaultVersionID: "v2", Document: []byte(doc)},
+		}
+		_, err := writeSnapshot(path, h, ps)
+		if err == nil || !strings.Contains(err.Error(), "policy arn:aws:iam::aws:policy/Bad: the document") {
+			t.Errorf("%s: %v", name, err)
+		}
+		if _, statErr := os.Stat(path); !errors.Is(statErr, os.ErrNotExist) {
+			t.Fatalf("%s: a file was written", name)
+		}
+	}
+}
+
+// The vendored snapshot (three policies) is written again byte for byte.
+func TestCurrentSnapshotIsRewrittenIdentically(t *testing.T) {
+	file := filepath.Join("..", "..", filepath.FromSlash(snapshotPath))
+	data, err := os.ReadFile(file) //nolint:gosec // G304: the repository's own snapshot.
+	if err != nil {
+		t.Fatal(err)
+	}
+	var f snapshotFile
+	if uerr := json.Unmarshal(data, &f); uerr != nil {
+		t.Fatal(uerr)
+	}
+	var ps []policy
+	for _, e := range f.Policies {
+		ps = append(ps, policy{ARN: e.ARN, DefaultVersionID: e.DefaultVersionID, Document: e.Document})
+	}
+	slices.Reverse(ps) // the order of the input does not matter
+	out, err := renderWith(header{Format: f.Format, Date: f.SnapshotDate, Partition: f.Partition, Source: f.Source}, ps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ps) != 3 || !bytes.Equal(out, data) {
+		t.Fatalf("%d policies; the rewrite differs:\n%s", len(ps), out)
+	}
+	empty, err := renderWith(header{Format: format, Date: "d", Partition: "aws", Source: "s"}, nil)
+	if err != nil || !json.Valid(empty) || !strings.Contains(string(empty), "\"policies\": [\n  ]\n}") {
+		t.Errorf("an empty snapshot: %v %q", err, empty)
 	}
 }
