@@ -1855,6 +1855,37 @@ Dependabot needs no GitHub App installation and covers `gomod` and
   used by CI).
 - Fuzz targets run ≥ 5 minutes each in a scheduled/nightly job, not on every PR.
 
+### 15.1 Criteria and their status (end of Phase 7)
+
+The build specification's §15 text is not in this repository; the criteria
+below are those this document records (the section named for each). Status as
+of 2026-11-22, with the evidence that shows it. CI evidence is the full run on
+`r3oof-900/darb#1` at 3126b3a (14 of 14 checks passed).
+
+| # | Criterion | Recorded in | Status | Evidence |
+|---|---|---|---|---|
+| 1 | CI green on the two latest Go releases, Linux, macOS and Windows | §15 | met | six `test` jobs (1.26.x, 1.27.x × 3 OS) |
+| 2 | Tests run with `-race` in CI | §15, §6.4 | met | `ci.yml` "Test (race)"; `task test:norace` only for machines without cgo |
+| 3 | Every fuzz target ≥ 5 minutes, nightly | §15 | configured, not yet observed | `fuzz.yml` (9 targets, schedule 03:17); `fuzz-smoke` passes on every PR; no nightly run yet on the new repository |
+| 4 | ≥ 95% branch coverage (gobco) on the core | §6.4, §12 | met | `branch-coverage` job (`task cover:branch`) |
+| 5 | Evaluator: ≥ 150 cases, properties | §12 | met | 294 cases in `internal/eval/testdata/eval`; property tests |
+| 6 | Every scenario matches its hand-derived `expected.json` | §8.2, §13 | met | 60 expected files, 155 fingerprints computed in `expected_source.py`; `open_mismatches.txt`: no difference open |
+| 7 | 50k nodes / 500k edges in < 60 s and < 2 GB | §7.4 | met | `bench` job, "Performance target" step (`DARB_PERF=1`) |
+| 8 | Every vulnerable scenario's patch, applied and rescanned, removes its path | §9.3 | met, with three documented exceptions | `TestEveryVulnerableScenarioIsFixed`: 25 findings fixed; 10 (UNKNOWN: what is missing, no patch), 13 (module input: a TODO), 22 direct (pending resolution) |
+| 9 | Same input, byte-identical output | §3.4 | met | goldens scanned twice; `TestExampleReports`; `release-snapshot` builds twice, identical archives |
+| 10 | JSON report validated against its schema | §11 | met | `TestEveryReportMatchesTheSchema`, `TestSchemaDescribesTheGoTypes` |
+| 11 | SARIF validated against the official schema | §11 | met | `TestEverySARIFReportMatchesTheOfficialSchema` (OASIS 2.1.0, pinned) |
+| 12 | HTML: strict CSP, untrusted names inert | §11 | met | `internal/report/htmlreport` tests (hostile names, CSP hashes) |
+| 13 | Live collection read-only, permissions documented exactly | §4.4, §4.5 | met | `TestClientInterfacesAreReadOnly`, `TestPermissionsDocument`, `TestK8sPermissionsDocument` |
+| 14 | Live collectors tested on fakes, LocalStack and kind only | §12 (Phase 6) | met | `localstack` and `kind` jobs; no test reaches a cloud API |
+| 15 | No secret in logs, errors or LLM evidence | §10, THREAT_MODEL | met | `internal/redact` tests, `TestStderrIsRedacted`, `TestRequestCarriesOnlyPreparedEvidence` |
+| 16 | LLM off by default, labelled, never deciding | §10 | met | `TestScanLLM`, `TestExplainedReportMatchesTheSchema` |
+| 17 | Releases: reproducible, SBOM, signed, provenance | §12, THREAT_MODEL | partly observed | `release-snapshot` (reproducible archives, SBOMs); cosign signing and provenance run only on a `v*` tag: no release yet |
+| 18 | Commands of §11 | §11 | met, one item open | scan, explain, graph, remediate, rules, collect-snapshot, doctor, version; `doctor` does not call `iam:SimulatePrincipalPolicy` (§11) |
+| 19 | Dependencies ≥ 2 weeks old, actions pinned by SHA, no known vulnerability | §12, CONTRIBUTING | met | `security` job (depage, govulncheck, gitleaks); 85 requirements |
+| 20 | AWS managed-policy snapshot complete before a real-account scan | §12.1 | **not met** (deferred) | 3 policies vendored; `tools/refresh-managed-policies` ready, not run as instructed; `darb doctor` warns |
+| 21 | Known constraints of §12.1 | §12.1 | 2 of 3 done | Secrets mounts and pod creation, account Block Public Access done; RAM shares named, not collected |
+
 ## Appendix A — Toolchain pinned in Phase 1 (verified 2026-11-20)
 
 | Tool | Version |
