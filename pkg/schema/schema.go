@@ -12,14 +12,16 @@ type Report struct {
 	// --timestamps, so that two scans of the same input are identical.
 	GeneratedAt string `json:"generated_at,omitempty"`
 	// Inputs: what was scanned, each with a digest.
-	Inputs         []ScannedInput   `json:"inputs,omitempty"`
-	ThreatModel    ThreatModel      `json:"threat_model"`
-	Summary        Summary          `json:"summary"`
-	Findings       []Finding        `json:"findings"`
-	IntendedAccess []IntendedAccess `json:"intended_access"`
-	Coverage       Coverage         `json:"coverage"`
-	Graph          Graph            `json:"graph"`
-	Rules          []Rule           `json:"rules"`
+	Inputs []ScannedInput `json:"inputs,omitempty"`
+	// ExecutiveSummary: with scan --llm, the report in a few sentences.
+	ExecutiveSummary *Explanation     `json:"executive_summary,omitempty"`
+	ThreatModel      ThreatModel      `json:"threat_model"`
+	Summary          Summary          `json:"summary"`
+	Findings         []Finding        `json:"findings"`
+	IntendedAccess   []IntendedAccess `json:"intended_access"`
+	Coverage         Coverage         `json:"coverage"`
+	Graph            Graph            `json:"graph"`
+	Rules            []Rule           `json:"rules"`
 	// Suppressed, ExpiredSuppressions: .clapa-ignore.yaml (--ignore);
 	// Baseline: the comparison with --baseline. Absent when not used.
 	Suppressed          []SuppressedFinding  `json:"suppressed,omitempty"`
@@ -200,6 +202,31 @@ type Finding struct {
 	Fingerprint       string    `json:"fingerprint"`
 	// Remediation: with scan --fixes, the finding's verified fixes.
 	Remediation *Remediation `json:"remediation,omitempty"`
+	// Explanation: with scan --llm, the finding in plain words (or the
+	// template when the provider failed; Note says so).
+	Explanation *Explanation `json:"explanation,omitempty"`
+}
+
+// Explanation is a finding (or the report) in plain words: what it is, how
+// an attacker uses it, what the fix does. AIGenerated: written by an LLM
+// provider (Model); it never changes a verdict, a score or a fix
+// (DESIGN.md §10).
+type Explanation struct {
+	Summary     string `json:"summary"`
+	Attack      string `json:"attack,omitempty"`
+	Fix         string `json:"fix,omitempty"`
+	AIGenerated bool   `json:"ai_generated"`
+	Model       string `json:"model,omitempty"`
+	Note        string `json:"note,omitempty"`
+}
+
+// Label is how every report heads an explanation: an AI-generated one is
+// marked as such.
+func (e *Explanation) Label() string {
+	if e.AIGenerated {
+		return "AI-generated explanation (" + e.Model + "; it does not change the verdict, the score or the fix)"
+	}
+	return "Explanation (template text: " + e.Note + ")"
 }
 
 // FixStep is one change that breaks one edge.

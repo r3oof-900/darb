@@ -43,6 +43,10 @@ func (Reporter) Write(w io.Writer, r *schema.Report) error {
 		}
 	}
 	p.printf("confirmed unless denied %d, unconfirmed %d (severities are the worst case of every unknown)\n\n", r.Summary.ConfirmedUnlessDenied, r.Summary.Unconfirmed)
+	if e := r.ExecutiveSummary; e != nil {
+		p.explanation("", e)
+		p.printf("\n")
+	}
 	for i := range r.Findings {
 		finding(p, &r.Findings[i])
 	}
@@ -122,6 +126,9 @@ func finding(p *printer, f *schema.Finding) {
 	} else {
 		p.path(f)
 	}
+	if e := f.Explanation; e != nil {
+		p.explanation("    ", e)
+	}
 	if len(f.Chokepoints) > 0 {
 		p.printf("    cheapest fix (cost %d): %s\n", f.CutCost, strings.Join(f.Chokepoints, "; "))
 	}
@@ -194,5 +201,15 @@ func (p *printer) path(f *schema.Finding) {
 	}
 	for _, step := range f.Path {
 		p.printf("      %s\n", step)
+	}
+}
+
+// explanation prints an explanation under its label (DESIGN.md §10).
+func (p *printer) explanation(indent string, e *schema.Explanation) {
+	p.printf("%s%s:\n", indent, e.Label())
+	for _, part := range []struct{ name, text string }{{"", e.Summary}, {"the attack: ", e.Attack}, {"the fix: ", e.Fix}} {
+		if part.text != "" {
+			p.printf("%s  %s%s\n", indent, part.name, strings.ReplaceAll(part.text, "\n", "\n"+indent+"  "))
+		}
 	}
 }

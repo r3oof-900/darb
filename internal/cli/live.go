@@ -20,6 +20,25 @@ type Env struct {
 	K8s app.K8sConnector
 	// Now is the clock of --timestamps (tests fix it); nil: the wall clock.
 	Now func() time.Time
+	// Getenv reads the environment (the LLM API key); nil: os.Getenv.
+	Getenv func(string) string
+	// Explainer makes the --llm provider (tests pass a fake); nil:
+	// app.NewExplainer.
+	Explainer func(app.LLMOptions) (app.Explainer, error)
+}
+
+func (e *Env) getenv(k string) string {
+	if e == nil || e.Getenv == nil {
+		return os.Getenv(k)
+	}
+	return e.Getenv(k)
+}
+
+func (e *Env) explainer(o app.LLMOptions) (app.Explainer, error) {
+	if e == nil || e.Explainer == nil {
+		return app.NewExplainer(o)
+	}
+	return e.Explainer(o)
 }
 
 func (e *Env) now() time.Time {

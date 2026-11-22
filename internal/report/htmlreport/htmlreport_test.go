@@ -68,6 +68,7 @@ func hostileReport() *schema.Report {
 				DefaultsUsed: []schema.Default{{Key: "k", Setting: scriptName, Value: breakout, ValueSource: "default", Reference: endOfData}},
 				Evidence:     []string{endOfData}, Location: &schema.Location{File: scriptName, StartLine: 1, Address: breakout, ARN: endOfData},
 				Fingerprint: "f1",
+				Explanation: &schema.Explanation{Summary: scriptName, Attack: breakout, Fix: endOfData, AIGenerated: true, Model: templateText},
 			},
 			{Rule: "CLAPA-POST-001", Kind: "posture", Title: breakout, Severity: "high", Score: 600, Status: "confirmed", Resource: scriptName, NoFix: true, Fingerprint: "f2"},
 		},
@@ -81,6 +82,7 @@ func hostileReport() *schema.Report {
 		ExpiredSuppressions: []schema.ExpiredSuppression{{Fingerprint: "f4", Reason: scriptName, Owner: breakout, Expires: "2026-01-01", Fires: true}},
 		Baseline:            &schema.Baseline{File: scriptName, New: 1, Unchanged: 1, Resolved: []schema.ResolvedItem{{Fingerprint: "f5", Rule: "CLAPA-PATH-001", Entry: scriptName, Jewel: breakout}}},
 		ExitCode:            1,
+		ExecutiveSummary:    &schema.Explanation{Summary: endOfData, Note: scriptName},
 	}
 }
 

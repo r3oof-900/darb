@@ -49,10 +49,11 @@ it is enforced; "Phase N" means the control lands in that phase.
 ### Information disclosure
 | Threat | Control |
 |---|---|
-| Secrets from inputs reaching logs | redacting `slog` handler (key and value patterns, `internal/redact`); tokens never logged (Phase 2–6) |
+| Secrets from inputs reaching logs | everything the CLI writes to standard error passes through the redactor (`internal/redact`, 48 value formats plus secret-named keys); a redacting `slog` handler exists for any future structured log; tokens never logged. *Correction (Phase 7):* earlier versions of this table said the handler existed from Phase 2; `internal/redact` was a stub until Phase 7 and the CLI wrote errors unredacted. Both are now implemented and tested (`TestStderrIsRedacted`, `TestHandler`) |
 | Reports leaking via world-readable files | output files created with mode `0600` (Phase 4) |
-| Evidence sent to an LLM | off by default; structured evidence only, never raw files; secret redactor with ≥ 40 formats and a false-positive corpus; optional pseudonymisation of identifiers (Phase 7) |
+| Evidence sent to an LLM | off by default (`--llm anthropic`); the key is read from `ANTHROPIC_API_KEY` only (never a flag, never printed or reported); structured fields of the report only (`llm.Evidence`: rule, severity, score, status, entry, jewel, path, undecided, cheapest fix, defaults), never a file of the input; every string through the secret redactor (48 formats, false-positive corpus); `--llm-redact-identifiers` replaces account IDs, ARNs and names by tokens restored locally, one mapping per report; misconfigurations are never sent, only path findings and the summary. Residual risk: without `--llm-redact-identifiers`, resource names and account IDs reach the provider |
 | Unexpected network egress | the tool talks only to the cloud APIs being read and the explicitly enabled LLM provider; no telemetry, no update checks |
+| Supply chain of the LLM SDK | `anthropic-sdk-go/v2` v2.7.0 is imported by `internal/llm/claude` only (layer table, depguard); it brings OpenTelemetry API packages, `tidwall/*` JSON helpers, `invopop/jsonschema` and `standard-webhooks` as indirect modules, all checked by `tools/depage` (≥ 2 weeks old). They are linked into the binary even when `--llm` is off |
 
 ### Denial of service
 | Threat | Control |
@@ -67,7 +68,7 @@ it is enforced; "Phase N" means the control lands in that phase.
 | XSS in the HTML report via resource names/tags | `html/template` auto-escaping, data as escaped JSON, strict CSP with hashed inline assets, test with `<script>` names (Phase 7) |
 | Terminal escape-sequence injection via names in console output | control characters stripped from every untrusted string before printing (Phase 4) |
 | Markdown/SARIF injection into CI annotations | untrusted strings escaped per format (Phase 4) |
-| Prompt injection via resource names into the LLM | LLM output is explanation only: it cannot change verdicts, scores or fixes; output is escaped like untrusted input (Phase 7) |
+| Prompt injection via resource names into the LLM | LLM output is explanation only: it is stored beside the verdict, score and fix and never read back by the engine; the system prompt states that evidence is data; the answer must match a JSON schema, each part ≤ 4000 characters, control characters removed, HTML-escaped, and labelled "AI-generated explanation" in every format; any failure (timeout, refusal, cap, invalid JSON) falls back to template text with a note. Residual risk: an injected name can make the *explanation* wrong or misleading; the label and the engine's own fields beside it are the mitigation |
 | Code execution through templates | no `text/template` for HTML; Terraform function whitelist only; no `unsafe`; no `os/exec` except the plan conversion (enforced by `internal/archtest`) |
 | Overly broad live-scan permissions | documented minimal read-only policy (`docs/PERMISSIONS.md`, Phase 6) |
 

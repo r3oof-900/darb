@@ -23,10 +23,13 @@ const usage = `usage:
              [--live-k8s CONTEXT[=CLUSTER]]... [--k8s-eks NAME]... [--kubeconfig FILE] [--insecure]
              [--format console|json|sarif|html] [--output FILE] [--fail-on critical|high|medium|low|info]
              [--ignore FILE] [--baseline PREVIOUS.json] [--fixes] [--timestamps]
+             [--llm anthropic [--llm-model M] [--llm-redact-identifiers]]
   clapa collect-snapshot --out DIR [AWS flags]
              AWS flags: [--aws-profile P] [--aws-region R]... [--aws-assume-role ARN]...
              [--aws-external-id ID] [--aws-concurrency N] [--aws-call-timeout D]
   clapa remediate [scan input flags] [--write [--allow-revoke] [--force]] FINGERPRINT
+  clapa explain [scan input flags] [--llm anthropic [--llm-model M] [--llm-redact-identifiers]] FINGERPRINT
+             (the API key of --llm is read from ANTHROPIC_API_KEY only)
   clapa rules list
   clapa rules show RULE-ID
   clapa version
@@ -40,6 +43,7 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) ExitCode 
 
 // RunWith is Run with the connections of env.
 func RunWith(ctx context.Context, args []string, stdout, stderr io.Writer, env *Env) ExitCode {
+	stderr = redacting{stderr}
 	if len(args) == 0 {
 		_, _ = fmt.Fprintln(stderr, usage)
 		return ExitUsage
@@ -51,6 +55,8 @@ func RunWith(ctx context.Context, args []string, stdout, stderr io.Writer, env *
 		return collectSnapshot(ctx, args[1:], stdout, stderr, env)
 	case "remediate":
 		return remediateCmd(ctx, args[1:], stdout, stderr)
+	case "explain":
+		return explainCmd(ctx, args[1:], stdout, stderr, env)
 	case "rules":
 		return rulesCmd(args[1:], stdout, stderr)
 	case "version":
@@ -71,6 +77,7 @@ func (l *list) Set(v string) error { *l = append(*l, v); return nil }
 type scanFlags struct {
 	root, cfg, format, output, failOn, ignore, baseline string
 	fixes, timestamps                                   bool
+	llm                                                 llmFlags
 	plans, tfDirs, k8sDirs, snapshots                   list
 	aws                                                 awsFlags
 	k8s                                                 k8sFlags
@@ -83,11 +90,16 @@ func parseScan(args []string, stderr io.Writer) (*scanFlags, bool) {
 	scanFlagsOn(fset, f)
 	fset.BoolVar(&f.fixes, "fixes", false, "remediate every path finding: strategies, patches and both verifications in the report (slower)")
 	fset.BoolVar(&f.timestamps, "timestamps", false, "state when the report was generated (otherwise two scans of the same input are identical)")
+	f.llm.on(fset)
 	if err := fset.Parse(args); err != nil || fset.NArg() > 0 {
 		return nil, false
 	}
 	if !slices.Contains([]string{"critical", "high", "medium", "low", "info"}, f.failOn) || !slices.Contains(app.Formats(), f.format) {
 		_, _ = fmt.Fprintf(stderr, "clapa: invalid --fail-on %q or --format %q\n", f.failOn, f.format)
+		return nil, false
+	}
+	if err := f.llm.check(); err != nil {
+		_, _ = fmt.Fprintln(stderr, "clapa:", err)
 		return nil, false
 	}
 	return f, true
@@ -156,6 +168,14 @@ func scan(ctx context.Context, args []string, stdout, stderr io.Writer, env *Env
 			_, _ = fmt.Fprintln(stderr, "clapa:", err)
 			return ExitInternal
 		}
+	}
+	if f.llm.provider != "" {
+		p, opts, err := f.llm.explainer(env)
+		if err != nil {
+			_, _ = fmt.Fprintln(stderr, "clapa:", err)
+			return ExitUsage
+		}
+		app.ExplainReport(ctx, rep, p, opts.RedactIdentifiers)
 	}
 	if f.timestamps {
 		rep.GeneratedAt = env.now().UTC().Format(time.RFC3339)

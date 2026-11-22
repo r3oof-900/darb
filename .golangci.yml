@@ -1021,6 +1021,7 @@ linters:
             - "$gostd"
             - "github.com/r3oof-900/clapa/pkg/schema$"
             - "github.com/r3oof-900/clapa/internal/redact$"
+            - "github.com/r3oof-900/clapa/internal/llm/pseudonymize$"
           deny:
             - pkg: "os"
               desc: "forbidden in the pure layer (docs/DESIGN.md section 3)"
@@ -1048,6 +1049,29 @@ linters:
               desc: "forbidden in the pure layer (docs/DESIGN.md section 3)"
             - pkg: "testing"
               desc: "forbidden in the pure layer (docs/DESIGN.md section 3)"
+        internal-llm-claude:
+          list-mode: strict
+          files:
+            - "**/internal/llm/claude/*.go"
+            - "!$test"
+          allow:
+            - "$gostd"
+            - "github.com/r3oof-900/clapa/internal/llm$"
+            - "github.com/anthropics/anthropic-sdk-go/v2$"
+            - "github.com/anthropics/anthropic-sdk-go/v2/"
+          deny:
+            - pkg: "os/exec"
+              desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
+            - pkg: "syscall"
+              desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
+            - pkg: "plugin"
+              desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
+            - pkg: "unsafe"
+              desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
+            - pkg: "text/template"
+              desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
+            - pkg: "testing"
+              desc: "forbidden in the io layer (docs/DESIGN.md section 3)"
         internal-llm-pseudonymize:
           list-mode: strict
           files:
@@ -1425,6 +1449,7 @@ linters:
             - "!$test"
           allow:
             - "$gostd"
+            - "log/slog$"
           deny:
             - pkg: "os"
               desc: "forbidden in the pure layer (docs/DESIGN.md section 3)"
@@ -1434,7 +1459,9 @@ linters:
               desc: "forbidden in the pure layer (docs/DESIGN.md section 3)"
             - pkg: "io/ioutil"
               desc: "forbidden in the pure layer (docs/DESIGN.md section 3)"
-            - pkg: "log"
+            - pkg: "log$"
+              desc: "forbidden in the pure layer (docs/DESIGN.md section 3)"
+            - pkg: "log/syslog"
               desc: "forbidden in the pure layer (docs/DESIGN.md section 3)"
             - pkg: "syscall"
               desc: "forbidden in the pure layer (docs/DESIGN.md section 3)"

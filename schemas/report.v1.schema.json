@@ -11,6 +11,7 @@
     "tool": {"$ref": "#/$defs/tool"},
     "generated_at": {"description": "When the report was made (RFC 3339, UTC); only with --timestamps.", "type": "string", "format": "date-time"},
     "inputs": {"description": "What was scanned, each with the SHA-256 of what was read.", "type": "array", "items": {"$ref": "#/$defs/scannedInput"}},
+    "executive_summary": {"$ref": "#/$defs/explanation"},
     "threat_model": {"$ref": "#/$defs/threatModel"},
     "summary": {"$ref": "#/$defs/summary"},
     "findings": {"type": ["array", "null"], "items": {"$ref": "#/$defs/finding"}},
@@ -110,6 +111,19 @@
         "to_kind": {"type": "string"},
         "cut": {"enum": ["cut", "resolve"]},
         "parts": {"description": "What a derived read stands for: the read, the decrypt, the key protecting the data.", "type": "array", "items": {"$ref": "#/$defs/hop"}}
+      }
+    },
+    "explanation": {
+      "description": "A finding or the report in plain words (scan --llm). ai_generated: written by an LLM provider; it never changes a verdict, a score or a fix. Otherwise template text, and note says why.",
+      "type": "object", "additionalProperties": false,
+      "required": ["summary", "ai_generated"],
+      "properties": {
+        "summary": {"type": "string"},
+        "attack": {"type": "string"},
+        "fix": {"type": "string"},
+        "ai_generated": {"type": "boolean"},
+        "model": {"type": "string"},
+        "note": {"type": "string"}
       }
     },
     "scannedInput": {
@@ -237,6 +251,7 @@
         "shared_fix_possible": {"description": "Resources or policies one change to which breaks two or more chokepoint edges.", "type": "array", "items": {"type": "string"}},
         "worst_case_path": {"description": "A less certain path of the same rule that scores higher than path; the severity is its score.", "type": "array", "items": {"type": "string"}},
         "remediation": {"$ref": "#/$defs/remediation"},
+        "explanation": {"$ref": "#/$defs/explanation"},
         "hops": {"description": "path as edges with both ends.", "type": "array", "items": {"$ref": "#/$defs/hop"}},
         "branches": {"description": "cut edges off path (an escalation of a dominated path merged into this cut), each followed by the edge to the jewel.", "type": "array", "items": {"type": "array", "items": {"$ref": "#/$defs/hop"}}},
         "worst_case_hops": {"description": "worst_case_path as edges with both ends.", "type": "array", "items": {"$ref": "#/$defs/hop"}},

@@ -131,7 +131,7 @@ generates. Rules for reading the table:
 | `internal/archtest` | tooling | — (leaf) | — | — |
 | `internal/arn` | core | — (leaf) | — | — |
 | `internal/classify` | core | `internal/model`, `internal/arn` | — | — |
-| `internal/cli` | entry | `internal/app`, `internal/config`, `internal/rules`, `internal/rules/catalog`, `internal/version`, `internal/redact`, `pkg/schema` | `github.com/spf13/cobra` | std: `os/exec`; tests: `internal/collect/awslive`, `internal/collect/awslive/awsfake`, `internal/collect/k8s/live/k8sfake` |
+| `internal/cli` | entry | `internal/app`, `internal/config`, `internal/rules`, `internal/rules/catalog`, `internal/version`, `internal/redact`, `pkg/schema` | `github.com/spf13/cobra` | std: `os/exec`; tests: `internal/collect/awslive`, `internal/collect/awslive/awsfake`, `internal/collect/k8s/live/k8sfake`, `internal/llm` |
 | `internal/collect` | io | `internal/coverage`, `internal/safeio` | — | std: `net/url`; tests: `internal/model` |
 | `internal/collect/awslive` | io | `internal/collect`, `internal/coverage`, `internal/collect/awsraw` | `github.com/aws/aws-sdk-go-v2`, `github.com/aws/smithy-go`, `golang.org/x/sync` | tests: `internal/collect/awslive/awsfake` |
 | `internal/collect/awslive/awsfake` | io | `internal/collect/awslive` | `github.com/aws/aws-sdk-go-v2`, `github.com/aws/smithy-go` | — |
@@ -152,7 +152,8 @@ generates. Rules for reading the table:
 | `internal/findings` | core | `internal/model`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/scoring` | — | — |
 | `internal/graph` | core | `internal/model`, `internal/eval` | — | — |
 | `internal/iampolicy` | core | `internal/model`, `internal/arn` | — | — |
-| `internal/llm` | pure | `pkg/schema`, `internal/redact` | — | — |
+| `internal/llm` | pure | `pkg/schema`, `internal/redact`, `internal/llm/pseudonymize` | — | — |
+| `internal/llm/claude` | io | `internal/llm` | `github.com/anthropics/anthropic-sdk-go/v2` | tests: `internal/llm/pseudonymize` |
 | `internal/llm/pseudonymize` | pure | — (leaf) | — | — |
 | `internal/managedpolicies` | pure | — (leaf) | — | — |
 | `internal/model` | core | `internal/arn` | — | — |
@@ -162,7 +163,7 @@ generates. Rules for reading the table:
 | `internal/normalize/terraform` | pure | `internal/model`, `internal/arn`, `internal/normalize`, `internal/coverage`, `internal/iampolicy`, `internal/managedpolicies`, `internal/collect/tfraw` | `github.com/hashicorp/hcl/v2`, `github.com/hashicorp/terraform-json`, `github.com/zclconf/go-cty` | tests: `internal/collect`, `internal/collect/terraform/hclstatic`, `internal/collect/terraform/plan`, `internal/safeio`, `internal/eval`, `internal/eval/match`, `internal/eval/condition` |
 | `internal/patch` | pure | `internal/model`, `internal/iampolicy`, `internal/remediate`, `internal/findings` | `github.com/hashicorp/hcl/v2`, `github.com/zclconf/go-cty`, `github.com/aymanbagabas/go-udiff`, `go.yaml.in/yaml/v3` | — |
 | `internal/paths` | core | `internal/model`, `internal/graph` | — | tests: `internal/eval` |
-| `internal/redact` | pure | — (leaf) | — | — |
+| `internal/redact` | pure | — (leaf) | — | std: `log/slog` |
 | `internal/remediate` | core | `internal/model`, `internal/arn`, `internal/iampolicy`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/findings` | — | — |
 | `internal/report` | pure | `pkg/schema`, `internal/model`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/scoring`, `internal/findings`, `internal/coverage`, `internal/version` | — | — |
 | `internal/report/console` | pure | `internal/report`, `pkg/schema` | — | — |
@@ -1387,7 +1388,7 @@ no fix within the constraints, TODO, rejected), 2 usage or `--write` refused,
 
 ---
 
-## 10. LLM integration (Phase 7; interface only now)
+## 10. LLM integration (Phase 7)
 
 Off by default; enabled only with `--llm <provider>` plus an API key. Provider is
 deferred to Phase 7. The generic interface:
@@ -1407,6 +1408,35 @@ pseudonymises account IDs, ARNs and names with a reversible mapping kept locally
 Structured output against a JSON schema, timeout, retries, token cap; any failure ⇒
 template text plus a note that the fallback happened. Output labelled "AI-generated
 explanation" and HTML-escaped like any other untrusted string.
+
+**Implementation (Phase 7).**
+
+- Packages: `internal/llm` (pure: `Evidence`, `Prepare` = redact then
+  pseudonymise, `Explain` = ask, validate, restore, strip control characters,
+  or fall back to `Template`), `internal/llm/pseudonymize` (reversible tokens
+  `arn-0001`, `account-0001`, …), `internal/llm/claude` (io; the only package
+  that imports the provider SDK).
+- Provider `anthropic`: `anthropic-sdk-go/v2` v2.7.0, Messages API, model
+  `claude-opus-5-5` unless `--llm-model`; structured output with a closed JSON
+  schema (`summary`, `attack`, `fix`); timeout 2 minutes per call, 2 retries
+  (429, 5xx, connection errors), token cap 4000; a refusal is re-served by the
+  API's default fallback model; `stop_reason` refusal or max_tokens is a failure.
+- CLI: `scan --llm anthropic [--llm-model M] [--llm-redact-identifiers]`
+  explains every attack-path finding and writes `executive_summary`;
+  misconfigurations are explained by their rule's rationale, not sent.
+  `clapa explain [scan input flags] [--llm …] FINGERPRINT` explains one
+  finding of any kind (console or json); without `--llm` it prints the
+  template text. The key comes from `ANTHROPIC_API_KEY` only; `--llm` without
+  it is a usage error (exit 2) naming the variable.
+- Report: `finding.explanation` and `executive_summary`
+  (`schemas/report.v1.schema.json` `$defs/explanation`): `ai_generated`,
+  `model`, `note` (why the template was used). Console and HTML head each one
+  with `Explanation.Label()`; the HTML puts it in an `<aside>`, escaped.
+- What the engine reads back: nothing. Removing every explanation from an
+  explained report gives the unexplained report byte for byte
+  (`TestExplainedReportMatchesTheSchema`).
+- Tests use a fake provider (an `httptest` server for the SDK client, a stub
+  `Explainer` for the CLI); no test calls the real API.
 
 ---
 

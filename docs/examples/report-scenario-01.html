@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;sha256-7/Sp8QnmE0b95Z680qDQ&#43;2u&#43;bmMmyjbmwJpChVaYtpw=&#39;; script-src &#39;sha256-HWDQQS6cRP7A2zp2bfIhHBpggeyS1SyXPx&#43;HaFLRtig=&#39;; img-src &#39;none&#39;; base-uri &#39;none&#39;; form-action &#39;none&#39;">
+<meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;sha256-V9NlV0SRU7IHg1KVpYpdKG1VqW14xB1x58lJ3ASeCeU=&#39;; script-src &#39;sha256-HWDQQS6cRP7A2zp2bfIhHBpggeyS1SyXPx&#43;HaFLRtig=&#39;; img-src &#39;none&#39;; base-uri &#39;none&#39;; form-action &#39;none&#39;">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CLAPA report</title>
@@ -66,6 +66,7 @@ pre{overflow-x:auto;background:var(--bg);border:1px solid var(--line);border-rad
 .badge.strat{color:var(--low)}.strategy.mitigation .badge.strat{color:var(--warn)}
 .changes{margin:.2rem 0;padding-left:1.2rem}
 .fix h4{margin-top:.6rem}
+.explain{border-left:3px solid var(--line);padding:.1rem .8rem;margin:.6rem 0;white-space:pre-line}.explain .label{font-size:.85rem;color:var(--muted);white-space:normal}
 @media print{
 :root{--bg:#fff;--fg:#000;--muted:#333;--line:#888;--card:#fff;--node:#fff;--crit:#000;--high:#000;--med:#000;--low:#000;--info:#000;--warn:#000;--cut:#000;--resolve:#000;--ok:#000;--addbg:#fff;--addfg:#000;--delbg:#fff;--delfg:#000}
 body{font-size:11pt}
@@ -109,6 +110,7 @@ a{color:#000}
 <p>11 objects collected; 0 coverage gaps (0 over tolerance); graph: 7 nodes, 7 edges, 1 entry–jewel pair.</p>
 
 
+
 <form id="filters" hidden>
 <fieldset><legend>Severity</legend><label><input type="checkbox" value="critical" checked> critical</label> <label><input type="checkbox" value="high" checked> high</label> <label><input type="checkbox" value="medium" checked> medium</label> <label><input type="checkbox" value="low" checked> low</label> <label><input type="checkbox" value="info" checked> info</label> </fieldset>
 <label>Status <select><option value="">any</option><option value="confirmed">confirmed</option><option value="confirmed_unless_denied">confirmed unless denied</option><option value="unconfirmed">unconfirmed</option></select></label>
@@ -140,6 +142,7 @@ a{color:#000}
 </svg></figure>
 <ol class="path"><li><code>RUNS_AS k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api</code></li><li><code>ASSUMES arn:aws:iam::111122223333:role/payments-api</code></li><li><code>CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii</code></li></ol>
 <p class="muted">1 path found.</p>
+
 
 <div class="fix">
 
@@ -191,6 +194,7 @@ a{color:#000}
 
 
 
+
 <details><summary>Evidence, defaults and location</summary>
 
 <h4>Evidence</h4><ul><li><code>aws_iam_role_policy.payments_api DecryptAnything: kms:Decrypt on every resource</code></li><li><code>reachable_from: [k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api]</code></li></ul>
@@ -202,6 +206,7 @@ a{color:#000}
 <h3><span class="badge sev-low">LOW 245</span> <code>CLAPA-POST-007</code> Namespace has no default-deny ingress NetworkPolicy</h3>
 
 <p>Resource <code>k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/payments</code></p>
+
 
 
 
@@ -287,6 +292,7 @@ a{color:#000}
 </script>
 </body>
 </html>
+
 
 
 

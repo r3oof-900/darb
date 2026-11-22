@@ -59,6 +59,7 @@ const (
 	extYAMLv3    = "go.yaml.in/yaml/v3"
 	extXMod      = "golang.org/x/mod"
 	extXNetHTML  = "golang.org/x/net/html" // tests of the HTML report parse its output
+	extAnthropic = "github.com/anthropics/anthropic-sdk-go/v2"
 )
 
 // coreModel is the set of core packages most rule-layer packages build on.
@@ -132,7 +133,8 @@ func pureRules() []*Rule {
 	normDeps := coreModel("internal/normalize", "internal/coverage")
 	return []*Rule{
 		{Package: "pkg/schema", Layer: LayerPure},
-		{Package: "internal/redact", Layer: LayerPure},
+		// log/slog: the redacting log handler is a slog.Handler (it logs nothing).
+		{Package: "internal/redact", Layer: LayerPure, ExtraStd: []string{"log/slog"}},
 		{Package: "internal/version", Layer: LayerPure},
 		{Package: "internal/managedpolicies", Layer: LayerPure},
 		{Package: "internal/config", Layer: LayerPure, Internal: coreModel("internal/classify"), External: []string{extSigsYAML, extYAMLv3}},
@@ -175,7 +177,9 @@ func pureRules() []*Rule {
 		{Package: "internal/report/htmlreport", Layer: LayerPure, Internal: []string{"internal/report", "pkg/schema"}, External: []string{extXNetHTML}},
 		{Package: "internal/report/junit", Layer: LayerPure, Internal: []string{"internal/report", "pkg/schema"}},
 		{Package: "internal/report/markdown", Layer: LayerPure, Internal: []string{"internal/report", "pkg/schema"}},
-		{Package: "internal/llm", Layer: LayerPure, Internal: []string{"pkg/schema", "internal/redact"}},
+		{Package: "internal/llm", Layer: LayerPure, Internal: []string{"pkg/schema", "internal/redact", "internal/llm/pseudonymize"}},
+		// The only package that sends anything to an LLM provider (--llm).
+		{Package: "internal/llm/claude", Layer: LayerIO, Internal: []string{"internal/llm"}, External: []string{extAnthropic}, TestInternal: []string{"internal/llm/pseudonymize"}},
 		{Package: "internal/llm/pseudonymize", Layer: LayerPure},
 	}
 }
@@ -261,7 +265,7 @@ func entryRules() []*Rule {
 			External: []string{extCobra},
 			// os/exec only for `git status` before `remediate --write`.
 			ExtraStd:     []string{"os/exec"},
-			TestInternal: []string{"internal/collect/awslive", "internal/collect/awslive/awsfake", "internal/collect/k8s/live/k8sfake"},
+			TestInternal: []string{"internal/collect/awslive", "internal/collect/awslive/awsfake", "internal/collect/k8s/live/k8sfake", "internal/llm"},
 		},
 		{Package: "cmd/clapa", Layer: LayerEntry, Internal: []string{"internal/cli"}},
 	}
