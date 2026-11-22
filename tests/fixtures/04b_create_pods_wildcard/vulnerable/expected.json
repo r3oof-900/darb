@@ -1,9 +1,9 @@
 {
-  "format": "clapa-expected/v1",
+  "format": "darb-expected/v1",
   "derived_from": "13.2 row 4b (Phase 4 review)",
   "findings": [
     {
-      "rule": "CLAPA-PATH-001",
+      "rule": "DARB-PATH-001",
       "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/tools/Deployment/builder",
       "jewel": "arn:aws:s3:::acme-customer-pii",
       "path": [
@@ -52,30 +52,34 @@
       "status": "confirmed",
       "also_fixes": [],
       "uncuttable": [],
-      "remediation_status": "complete"
+      "remediation_status": "complete",
+      "fingerprint": "e00d12839afd52712d424bfba2adc2950290e81a3c06bfe06e54c3866369c0c6"
     },
     {
-      "rule": "CLAPA-POST-001",
+      "rule": "DARB-POST-001",
       "resource": "arn:aws:iam::111122223333:role/payments-api",
       "score": 600,
       "severity": "high",
-      "defaults_used": []
+      "defaults_used": [],
+      "fingerprint": "28371fef9db21fcd42f24e284252c8e52ea019d3fa9d88f3b91a8b9a0e0cc77e"
     },
     {
-      "rule": "CLAPA-POST-004",
+      "rule": "DARB-POST-004",
       "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/tools/Deployment/builder",
       "score": 350,
       "severity": "medium",
       "defaults_used": [
         "k8s.automountServiceAccountToken"
-      ]
+      ],
+      "fingerprint": "8848f0593d48bd76f0c99f26dc8482751dc6c3d0d992d77f02c4740e29923b6e"
     },
     {
-      "rule": "CLAPA-POST-007",
+      "rule": "DARB-POST-007",
       "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/tools",
       "score": 245,
       "severity": "low",
-      "defaults_used": []
+      "defaults_used": [],
+      "fingerprint": "65c3cbff75819fbf308a6f9a1eac6188f3edf3b7a6dddba0a1047d039b3abce2"
     }
   ],
   "absent": [],

@@ -4,8 +4,8 @@ import (
 	"cmp"
 	"slices"
 
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // NodeID indexes a node in a Graph.
@@ -180,7 +180,7 @@ type Edge struct {
 // pod's own Kubernetes token (two RUNS_AS edges join a pod and its service
 // account), otherwise the kind.
 func Label(e *Edge) string {
-	if e.Kind == RunsAs && e.Sub != "" {
+	if e.Kind == RunsAs && e.Sub != "" || e.Kind == CanReadPlaintext && (e.Sub == SubMount || e.Sub == SubPodCreate) {
 		return string(e.Kind) + "[" + e.Sub + "]"
 	}
 	return string(e.Kind)

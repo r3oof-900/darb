@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // secrets: each Secrets Manager secret is a data resource encrypted with
@@ -42,7 +42,7 @@ func (n *norm) parameters() {
 			enc = model.Encryption{Type: "aws:kms", KeyARN: n.keyARN(p.Region, p.KeyID, "alias/aws/ssm")}
 		}
 		res := model.NewResource(&model.ResourceInput{
-			Kind: model.KindSSMParameter, ARN: p.ARN, Account: n.acct.ID, Region: p.Region, Tags: tagMap(p.Tags), Encryption: enc, Source: loc,
+			Kind: model.KindSSMParameter, ARN: p.ARN, Account: n.acct.ID, Region: p.Region, Tags: tagMap(p.Tags), Encryption: enc, Tier: p.Tier, Source: loc,
 		})
 		n.b.AddResource(res)
 		ploc := apiLoc(p.ARN, "ssm:GetResourcePolicies")

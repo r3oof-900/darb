@@ -1,16 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/r3oof-900/clapa/schemas/report.v1.schema.json",
-  "title": "CLAPA report (clapa-report/v1)",
-  "description": "The document every CLAPA output format renders (pkg/schema). Fields are only added within a major version; every object is closed, so a field this schema does not describe fails validation.",
+  "$id": "https://github.com/r3oof-900/darb/schemas/report.v1.schema.json",
+  "title": "darb report (darb-report/v1)",
+  "description": "The document every darb output format renders (pkg/schema). Fields are only added within a major version; every object is closed, so a field this schema does not describe fails validation.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "tool", "threat_model", "summary", "findings", "intended_access", "coverage", "graph", "rules", "exit_code"],
   "properties": {
-    "schema": {"const": "clapa-report/v1"},
+    "schema": {"const": "darb-report/v1"},
     "tool": {"$ref": "#/$defs/tool"},
     "generated_at": {"description": "When the report was made (RFC 3339, UTC); only with --timestamps.", "type": "string", "format": "date-time"},
     "inputs": {"description": "What was scanned, each with the SHA-256 of what was read.", "type": "array", "items": {"$ref": "#/$defs/scannedInput"}},
+    "executive_summary": {"$ref": "#/$defs/explanation"},
     "threat_model": {"$ref": "#/$defs/threatModel"},
     "summary": {"$ref": "#/$defs/summary"},
     "findings": {"type": ["array", "null"], "items": {"$ref": "#/$defs/finding"}},
@@ -18,7 +19,7 @@
     "coverage": {"$ref": "#/$defs/coverage"},
     "graph": {"$ref": "#/$defs/graph"},
     "rules": {"type": ["array", "null"], "items": {"$ref": "#/$defs/rule"}},
-    "suppressed": {"description": "Findings a .clapa-ignore.yaml suppression silences until it expires; not in findings, not counted for the exit code.", "type": "array", "items": {"$ref": "#/$defs/suppressedFinding"}},
+    "suppressed": {"description": "Findings a .darb-ignore.yaml suppression silences until it expires; not in findings, not counted for the exit code.", "type": "array", "items": {"$ref": "#/$defs/suppressedFinding"}},
     "expired_suppressions": {"description": "Suppressions past their expiry date: their findings, when still present, are in findings again.", "type": "array", "items": {"$ref": "#/$defs/expiredSuppression"}},
     "baseline": {"$ref": "#/$defs/baseline"},
     "exit_code": {"description": "0 clean, 1 findings at or above fail_on, 2 usage or configuration error, 3 incomplete scan, 4 internal error.", "enum": [0, 1, 2, 3, 4]}
@@ -29,7 +30,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["name", "version", "commit", "rule_catalog_version", "information_uri"],
       "properties": {
-        "name": {"const": "clapa"},
+        "name": {"const": "darb"},
         "version": {"type": "string"},
         "commit": {"type": "string"},
         "rule_catalog_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
@@ -110,6 +111,19 @@
         "to_kind": {"type": "string"},
         "cut": {"enum": ["cut", "resolve"]},
         "parts": {"description": "What a derived read stands for: the read, the decrypt, the key protecting the data.", "type": "array", "items": {"$ref": "#/$defs/hop"}}
+      }
+    },
+    "explanation": {
+      "description": "A finding or the report in plain words (scan --llm). ai_generated: written by an LLM provider; it never changes a verdict, a score or a fix. Otherwise template text, and note says why.",
+      "type": "object", "additionalProperties": false,
+      "required": ["summary", "ai_generated"],
+      "properties": {
+        "summary": {"type": "string"},
+        "attack": {"type": "string"},
+        "fix": {"type": "string"},
+        "ai_generated": {"type": "boolean"},
+        "model": {"type": "string"},
+        "note": {"type": "string"}
       }
     },
     "scannedInput": {
@@ -210,7 +224,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["rule", "rule_version", "kind", "title", "severity", "score", "factors", "confirmed", "status", "confidence", "defaults_used", "fingerprint"],
       "properties": {
-        "rule": {"type": "string", "pattern": "^CLAPA-(PATH|POST)-[0-9]{3}$"},
+        "rule": {"type": "string", "pattern": "^DARB-(PATH|POST)-[0-9]{3}$"},
         "rule_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
         "kind": {"enum": ["path", "posture"]},
         "title": {"type": "string"},
@@ -237,6 +251,7 @@
         "shared_fix_possible": {"description": "Resources or policies one change to which breaks two or more chokepoint edges.", "type": "array", "items": {"type": "string"}},
         "worst_case_path": {"description": "A less certain path of the same rule that scores higher than path; the severity is its score.", "type": "array", "items": {"type": "string"}},
         "remediation": {"$ref": "#/$defs/remediation"},
+        "explanation": {"$ref": "#/$defs/explanation"},
         "hops": {"description": "path as edges with both ends.", "type": "array", "items": {"$ref": "#/$defs/hop"}},
         "branches": {"description": "cut edges off path (an escalation of a dominated path merged into this cut), each followed by the edge to the jewel.", "type": "array", "items": {"type": "array", "items": {"$ref": "#/$defs/hop"}}},
         "worst_case_hops": {"description": "worst_case_path as edges with both ends.", "type": "array", "items": {"$ref": "#/$defs/hop"}},
@@ -311,7 +326,7 @@
       "required": ["fingerprint", "rule", "severity", "reason", "owner", "expires"],
       "properties": {
         "fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "rule": {"type": "string", "pattern": "^CLAPA-(PATH|POST)-[0-9]{3}$"},
+        "rule": {"type": "string", "pattern": "^DARB-(PATH|POST)-[0-9]{3}$"},
         "severity": {"$ref": "#/$defs/severity"},
         "entry": {"type": "string"},
         "jewel": {"type": "string"},
@@ -358,7 +373,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["id", "version", "kind", "title", "rationale", "attack_techniques", "references"],
       "properties": {
-        "id": {"type": "string", "pattern": "^CLAPA-(PATH|POST)-[0-9]{3}$"},
+        "id": {"type": "string", "pattern": "^DARB-(PATH|POST)-[0-9]{3}$"},
         "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
         "kind": {"enum": ["path", "posture"]},
         "title": {"type": "string"},

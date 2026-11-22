@@ -54,6 +54,9 @@ type ResourceInput struct {
 	Encryption     Encryption
 	S3             S3Settings
 	KeyRotation    Tri // KMS keys: automatic rotation (Unknown when not stated and no deterministic default)
+	// Tier: SSM parameters: "Standard", "Advanced" or "Intelligent-Tiering";
+	// "" when not known (Terraform without tier takes the region's default).
+	Tier string
 	// Defaulted lists the settings that took a documented default
 	// (DocumentedDefaults keys).
 	Defaulted []string
@@ -72,6 +75,7 @@ type Resource struct {
 	classifiedBy   string
 	encryption     Encryption
 	s3             S3Settings
+	tier           string
 	keyRotation    Tri
 	defaulted      []string
 	source         SourceLocation
@@ -87,7 +91,7 @@ func NewResource(in *ResourceInput) *Resource {
 	return &Resource{
 		id: NewID(in.Kind, in.ARN), kind: in.Kind, arn: in.ARN, account: in.Account, region: in.Region,
 		tags: tags, classification: in.Classification, classifiedBy: in.ClassifiedBy,
-		encryption: in.Encryption, s3: in.S3, keyRotation: in.KeyRotation, defaulted: sortedSet(in.Defaulted), source: in.Source,
+		encryption: in.Encryption, s3: in.S3, keyRotation: in.KeyRotation, tier: in.Tier, defaulted: sortedSet(in.Defaulted), source: in.Source,
 	}
 }
 
@@ -100,6 +104,16 @@ func sortedSet(ss []string) []string {
 
 // KeyRotation reports a KMS key's automatic rotation.
 func (r *Resource) KeyRotation() Tri { return r.keyRotation }
+
+// Tier returns an SSM parameter's tier ("" when not known).
+func (r *Resource) Tier() string { return r.tier }
+
+// Shareable reports whether an SSM parameter may be shared through AWS
+// RAM: only advanced-tier parameters can be (Parameter Store › Working with
+// shared parameters: "To share a parameter, it must be in the advanced
+// parameter tier."). Intelligent-Tiering may make a parameter advanced, and
+// an unknown tier may be advanced.
+func (r *Resource) Shareable() bool { return r.kind == KindSSMParameter && r.tier != "Standard" }
 
 // Defaulted returns the settings that took a documented default.
 func (r *Resource) Defaulted() []string { return slices.Clone(r.defaulted) }
@@ -163,8 +177,12 @@ type WorkloadInput struct {
 	// ProjectedAudiences are the audiences of serviceAccountToken volumes the
 	// pod spec projects itself (no annotation needed).
 	ProjectedAudiences []string
-	Defaulted          []string
-	Source             SourceLocation
+	// SecretRefs: the Secrets of its namespace the pod spec names (secret
+	// and projected volumes, env secretKeyRef, envFrom secretRef); the
+	// kubelet gives them to the pod without any RBAC check (DESIGN.md 7.2).
+	SecretRefs []string
+	Defaulted  []string
+	Source     SourceLocation
 }
 
 // Workload is a Kubernetes workload.
@@ -178,6 +196,7 @@ type Workload struct {
 	hostNetwork    bool
 	privileged     bool
 	projected      []string
+	secretRefs     []string
 	automountToken Tri
 	defaulted      []string
 	source         SourceLocation
@@ -189,13 +208,16 @@ func NewWorkload(in *WorkloadInput) *Workload {
 	return &Workload{
 		id: NewID(KindK8sWorkload, identity), cluster: in.Cluster, namespace: in.Namespace, kind: in.Kind,
 		name: in.Name, serviceAccount: in.ServiceAccount, hostNetwork: in.HostNetwork, privileged: in.Privileged,
-		projected: sortedSet(in.ProjectedAudiences), automountToken: in.AutomountToken, defaulted: sortedSet(in.Defaulted), source: in.Source,
+		projected: sortedSet(in.ProjectedAudiences), secretRefs: sortedSet(in.SecretRefs), automountToken: in.AutomountToken, defaulted: sortedSet(in.Defaulted), source: in.Source,
 	}
 }
 
 // ProjectedAudiences returns the audiences of the service account tokens
 // the pod spec projects.
 func (w *Workload) ProjectedAudiences() []string { return slices.Clone(w.projected) }
+
+// SecretRefs returns the Secrets of its namespace the pod spec names.
+func (w *Workload) SecretRefs() []string { return slices.Clone(w.secretRefs) }
 
 // Privileged reports whether any container runs privileged.
 func (w *Workload) Privileged() bool { return w.privileged }
@@ -244,6 +266,15 @@ func (w *Workload) WithoutTokenMount() *Workload {
 	c.projected = slices.Clone(w.projected)
 	c.defaulted = slices.DeleteFunc(slices.Clone(w.defaulted), func(d string) bool { return d == DefaultAutomountToken })
 	c.automountToken = False
+	return &c
+}
+
+// WithoutSecretRef is w whose pod spec no longer names Secret name.
+func (w *Workload) WithoutSecretRef(name string) *Workload {
+	c := *w
+	c.projected = slices.Clone(w.projected)
+	c.defaulted = slices.Clone(w.defaulted)
+	c.secretRefs = slices.DeleteFunc(slices.Clone(w.secretRefs), func(s string) bool { return s == name })
 	return &c
 }
 

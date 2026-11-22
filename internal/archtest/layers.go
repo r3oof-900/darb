@@ -17,12 +17,12 @@ const (
 	LayerIO Layer = "io"
 	// LayerEntry packages wire the pipeline (app, cli, main).
 	LayerEntry Layer = "entry"
-	// LayerTooling packages are repository tooling, never linked into clapa.
+	// LayerTooling packages are repository tooling, never linked into darb.
 	LayerTooling Layer = "tooling"
 )
 
 // ModulePath is the Go module path of this repository.
-const ModulePath = "github.com/r3oof-900/clapa"
+const ModulePath = "github.com/r3oof-900/darb"
 
 // Rule states exactly what one package may import.
 type Rule struct {
@@ -132,7 +132,8 @@ func pureRules() []*Rule {
 	normDeps := coreModel("internal/normalize", "internal/coverage")
 	return []*Rule{
 		{Package: "pkg/schema", Layer: LayerPure},
-		{Package: "internal/redact", Layer: LayerPure},
+		// log/slog: the redacting log handler is a slog.Handler (it logs nothing).
+		{Package: "internal/redact", Layer: LayerPure, ExtraStd: []string{"log/slog"}},
 		{Package: "internal/version", Layer: LayerPure},
 		{Package: "internal/managedpolicies", Layer: LayerPure},
 		{Package: "internal/config", Layer: LayerPure, Internal: coreModel("internal/classify"), External: []string{extSigsYAML, extYAMLv3}},
@@ -175,7 +176,9 @@ func pureRules() []*Rule {
 		{Package: "internal/report/htmlreport", Layer: LayerPure, Internal: []string{"internal/report", "pkg/schema"}, External: []string{extXNetHTML}},
 		{Package: "internal/report/junit", Layer: LayerPure, Internal: []string{"internal/report", "pkg/schema"}},
 		{Package: "internal/report/markdown", Layer: LayerPure, Internal: []string{"internal/report", "pkg/schema"}},
-		{Package: "internal/llm", Layer: LayerPure, Internal: []string{"pkg/schema", "internal/redact"}},
+		{Package: "internal/llm", Layer: LayerPure, Internal: []string{"pkg/schema", "internal/redact", "internal/llm/pseudonymize"}},
+		// The only package that sends anything to an LLM provider (--llm).
+		{Package: "internal/llm/claude", Layer: LayerIO, Internal: []string{"internal/llm"}, TestInternal: []string{"internal/llm/pseudonymize"}},
 		{Package: "internal/llm/pseudonymize", Layer: LayerPure},
 	}
 }
@@ -211,7 +214,7 @@ func ioRules() []*Rule {
 			},
 		},
 		{
-			// Test support only: imported by _test.go files, never linked into clapa.
+			// Test support only: imported by _test.go files, never linked into darb.
 			Package: "internal/collect/k8s/live/k8sfake", Layer: LayerIO,
 			Internal: []string{"internal/collect/k8s/live"},
 			External: k8sExt,
@@ -228,7 +231,7 @@ func ioRules() []*Rule {
 			TestInternal: []string{"internal/collect/awslive/awsfake"},
 		},
 		{
-			// Test support only: imported by _test.go files, never linked into clapa.
+			// Test support only: imported by _test.go files, never linked into darb.
 			Package: "internal/collect/awslive/awsfake", Layer: LayerIO,
 			Internal: []string{"internal/collect/awslive"},
 			External: []string{extAWSSDK, extSmithy},
@@ -261,9 +264,9 @@ func entryRules() []*Rule {
 			External: []string{extCobra},
 			// os/exec only for `git status` before `remediate --write`.
 			ExtraStd:     []string{"os/exec"},
-			TestInternal: []string{"internal/collect/awslive", "internal/collect/awslive/awsfake", "internal/collect/k8s/live/k8sfake"},
+			TestInternal: []string{"internal/collect/awslive", "internal/collect/awslive/awsfake", "internal/collect/k8s/live/k8sfake", "internal/llm"},
 		},
-		{Package: "cmd/clapa", Layer: LayerEntry, Internal: []string{"internal/cli"}},
+		{Package: "cmd/darb", Layer: LayerEntry, Internal: []string{"internal/cli"}},
 	}
 }
 

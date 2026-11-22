@@ -17,7 +17,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 //go:embed report.html.tmpl report.css report.js

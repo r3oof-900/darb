@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/remediate"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/remediate"
 )
 
 // stmtList is the statements of one policy in one of the forms a patch
@@ -66,7 +66,7 @@ func editOne(l stmtList, e *remediate.Edit, id string) (gone bool, added string,
 		}
 		gone, err := l.removeValues(e.Index, e)
 		return gone, "", err
-	case remediate.OpNodeMetadata, remediate.OpRemoveHostNetwork, remediate.OpRemoveExposure, remediate.OpRestrictPublic, remediate.OpDisableTokenMount, remediate.OpDetachPolicy:
+	case remediate.OpNodeMetadata, remediate.OpRemoveHostNetwork, remediate.OpRemoveExposure, remediate.OpRestrictPublic, remediate.OpDisableTokenMount, remediate.OpRemoveSecretRef, remediate.OpDetachPolicy:
 	}
 	return false, "", nil
 }

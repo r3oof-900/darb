@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/rules"
+	"github.com/r3oof-900/darb/internal/rules"
 )
 
 // analyzeVariant copies a fixture variant, lets edit change the copy, and
@@ -56,7 +56,7 @@ func TestPassRoleWithoutInvokeIsLowerConfidence(t *testing.T) {
 	a := analyzeVariant(t, "07_passrole_lambda/vulnerable", func(dir string) {
 		replaceIn(t, filepath.Join(dir, "terraform", "role.tf"), `["lambda:CreateFunction", "lambda:InvokeFunction"]`, `["lambda:CreateFunction"]`)
 	})
-	f := findingFor(a, "CLAPA-PATH-002", "arn:aws:s3:::acme-customer-pii")
+	f := findingFor(a, "DARB-PATH-002", "arn:aws:s3:::acme-customer-pii")
 	if f == nil || f.Confidence != "medium" || f.Factors.Confidence != 700 {
 		t.Fatalf("PassRole + CreateFunction alone: %+v", f)
 	}
@@ -67,7 +67,7 @@ func TestPassRoleWithoutInvokeIsLowerConfidence(t *testing.T) {
 func TestOrganizationIDDecidesScenario10(t *testing.T) {
 	withOrg := func(org string) *Analysis {
 		return analyzeVariant(t, "10_kms_principal_org_id/vulnerable", func(dir string) {
-			f, err := os.OpenFile(filepath.Join(dir, "clapa.yaml"), os.O_APPEND|os.O_WRONLY, 0) //nolint:gosec // G304: temp copy.
+			f, err := os.OpenFile(filepath.Join(dir, "darb.yaml"), os.O_APPEND|os.O_WRONLY, 0) //nolint:gosec // G304: temp copy.
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -77,10 +77,10 @@ func TestOrganizationIDDecidesScenario10(t *testing.T) {
 			}
 		})
 	}
-	if f := findingFor(withOrg("o-a1b2c3d4e5"), "CLAPA-PATH-001", "arn:aws:s3:::acme-customer-pii"); f == nil || !f.Confirmed {
+	if f := findingFor(withOrg("o-a1b2c3d4e5"), "DARB-PATH-001", "arn:aws:s3:::acme-customer-pii"); f == nil || !f.Confirmed {
 		t.Errorf("matching organization: %+v", f)
 	}
-	if f := findingFor(withOrg("o-other"), "CLAPA-PATH-001", "arn:aws:s3:::acme-customer-pii"); f != nil {
+	if f := findingFor(withOrg("o-other"), "DARB-PATH-001", "arn:aws:s3:::acme-customer-pii"); f != nil {
 		t.Errorf("non-matching organization: %+v", f)
 	}
 }
@@ -155,18 +155,18 @@ func TestProjectedTokenWithoutAnnotation(t *testing.T) {
 // create on serviceaccounts/token is as good as create on pods: it mints a
 // token with any audience for any service account of the namespace. Minting
 // one for the account itself is not another identity (DESIGN.md 7.2): the
-// path is CLAPA-PATH-001, as scenario 4b.
+// path is DARB-PATH-001, as scenario 4b.
 func TestTokenRequestIsLikePodCreation(t *testing.T) {
 	a := analyzeVariant(t, "04b_create_pods_wildcard/vulnerable", func(dir string) {
 		replaceIn(t, filepath.Join(dir, "k8s", "tools.yaml"), `resources: ["pods"]`, `resources: ["serviceaccounts/token"]`)
 	})
-	if f := findingFor(a, "CLAPA-PATH-001", "arn:aws:s3:::acme-customer-pii"); f == nil || f.Entry != "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/tools/Deployment/builder" {
+	if f := findingFor(a, "DARB-PATH-001", "arn:aws:s3:::acme-customer-pii"); f == nil || f.Entry != "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/tools/Deployment/builder" {
 		t.Errorf("token request: %+v", f)
 	}
 	a = analyzeVariant(t, "04b_create_pods_wildcard/vulnerable", func(dir string) {
 		replaceIn(t, filepath.Join(dir, "k8s", "tools.yaml"), `verbs: ["create", "get", "list"]`, `verbs: ["get", "list"]`)
 	})
-	if f := findingFor(a, "CLAPA-PATH-001", "arn:aws:s3:::acme-customer-pii"); f != nil {
+	if f := findingFor(a, "DARB-PATH-001", "arn:aws:s3:::acme-customer-pii"); f != nil {
 		t.Errorf("read-only RBAC mints nothing: %+v", f)
 	}
 }
@@ -277,7 +277,7 @@ resource "aws_eks_access_policy_association" "deployer" {
 		a := analyzeVariant(t, "08_rbac_create_pods/fixed", deployerSetup(t, c.k8s, c.tf))
 		var f *rules.Finding
 		for i := range a.Findings {
-			if a.Findings[i].Entry == "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/deploy" && a.Findings[i].Rule == "CLAPA-PATH-002" {
+			if a.Findings[i].Entry == "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/deploy" && a.Findings[i].Rule == "DARB-PATH-002" {
 				f = &a.Findings[i]
 			}
 		}
@@ -289,7 +289,7 @@ resource "aws_eks_access_policy_association" "deployer" {
 	view := strings.Replace(accessEntry, "AmazonEKSEditPolicy", "AmazonEKSViewPolicy", 1)
 	a := analyzeVariant(t, "08_rbac_create_pods/fixed", deployerSetup(t, "", view))
 	for i := range a.Findings {
-		if a.Findings[i].Entry == "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/deploy" && a.Findings[i].Rule == "CLAPA-PATH-002" {
+		if a.Findings[i].Entry == "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/deploy" && a.Findings[i].Rule == "DARB-PATH-002" {
 			t.Errorf("view only: %+v", a.Findings[i])
 		}
 	}
@@ -362,7 +362,7 @@ resource "aws_iam_role_policy_attachment" "api" {
 	}
 	for _, c := range cases {
 		a := analyzeVariant(t, "07_passrole_lambda/fixed", policy(c.statements, c.extra))
-		f := findingFor(a, "CLAPA-PATH-002", pii)
+		f := findingFor(a, "DARB-PATH-002", pii)
 		if f == nil || !f.Confirmed || !strings.Contains(strings.Join(f.Path, " | "), c.step) {
 			t.Errorf("%s: %+v", c.name, f)
 		}
@@ -380,7 +380,7 @@ resource "aws_iam_role_policy_attachment" "api" {
 			t.Fatal(err)
 		}
 	})
-	if f := findingFor(analyzeVariant(t, "07_passrole_lambda/fixed", bounded), "CLAPA-PATH-002", pii); f != nil {
+	if f := findingFor(analyzeVariant(t, "07_passrole_lambda/fixed", bounded), "DARB-PATH-002", pii); f != nil {
 		t.Errorf("the boundary still applies: %+v", f)
 	}
 }

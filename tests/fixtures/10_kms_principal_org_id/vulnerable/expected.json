@@ -1,9 +1,9 @@
 {
-  "format": "clapa-expected/v1",
+  "format": "darb-expected/v1",
   "derived_from": "13.2 row 10 (no organization ID configured)",
   "findings": [
     {
-      "rule": "CLAPA-PATH-001",
+      "rule": "DARB-PATH-001",
       "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
       "jewel": "arn:aws:s3:::acme-customer-pii",
       "path": [
@@ -31,7 +31,7 @@
           "side": "resource",
           "fix_kind": "resolve",
           "cost": 0,
-          "resolve": "assume: {\"aws:PrincipalOrgID\": [...]} in clapa.yaml"
+          "resolve": "assume: {\"aws:PrincipalOrgID\": [...]} in darb.yaml"
         }
       ],
       "other_side_fix": [],
@@ -52,30 +52,34 @@
       "remediation_status": "partial_pending_resolution",
       "remediation": {
         "missing": true
-      }
+      },
+      "fingerprint": "b2113156f5b8e654d956e2fa48fd29a41a4e344219f79bf274686dcc09d04a66"
     },
     {
-      "rule": "CLAPA-POST-006",
+      "rule": "DARB-POST-006",
       "resource": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.shared",
       "score": 350,
       "severity": "medium",
       "defaults_used": [
         "terraform.aws_kms_key.enable_key_rotation"
-      ]
+      ],
+      "fingerprint": "361dc5a17ff8ff2984d23f4d5313605e79b12027597afc38c4ab7c5d41815791"
     },
     {
-      "rule": "CLAPA-POST-007",
+      "rule": "DARB-POST-007",
       "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/payments",
       "score": 245,
       "severity": "low",
-      "defaults_used": []
+      "defaults_used": [],
+      "fingerprint": "fe1ae67f98c056f873685d2df3e72ae5def9ae84ccea894079e4f039a7565639"
     },
     {
-      "rule": "CLAPA-POST-008",
+      "rule": "DARB-POST-008",
       "resource": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.shared",
       "score": 600,
       "severity": "high",
-      "defaults_used": []
+      "defaults_used": [],
+      "fingerprint": "32c5909cf0544b22f3a0cb7f94e481375e18ab4940f5b938d7c7d71ac8e3d4b8"
     }
   ],
   "absent": [],

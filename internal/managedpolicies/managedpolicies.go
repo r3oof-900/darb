@@ -36,7 +36,7 @@ func Load() (*Snapshot, error) {
 	if err := json.Unmarshal(snapshotJSON, &s); err != nil {
 		return nil, fmt.Errorf("managedpolicies: embedded snapshot: %w", err)
 	}
-	if s.Format != "clapa-managed-policies/v2" {
+	if s.Format != "darb-managed-policies/v2" {
 		return nil, fmt.Errorf("managedpolicies: unexpected format %q", s.Format)
 	}
 	if s.PolicyCount != len(s.Policies) {

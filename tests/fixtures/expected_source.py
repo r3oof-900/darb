@@ -9,6 +9,7 @@ Each score is worked by hand from docs/SCORING.md (per-mille, floor after
 each multiplication); the arithmetic is in the comments. Run
 `python tests/fixtures/expected_source.py` to write the expected.json files.
 """
+import hashlib
 import json
 import pathlib
 
@@ -17,8 +18,8 @@ ROLE = f"arn:aws:iam::{ACCT}:role/payments-api"
 # Phase 6 (cluster identity by ARN, DESIGN.md 5): a Kubernetes identity is
 # k8s:{cluster key}/{namespace}/{kind}/{name}, the key being the cluster's
 # ARN when its account and region are known. Every scenario with Kubernetes
-# input declares prod in 111122223333, us-east-1 in its clapa.yaml, so its
-# key is this ARN; it is derived from clapa.yaml, not read from the tool.
+# input declares prod in 111122223333, us-east-1 in its darb.yaml, so its
+# key is this ARN; it is derived from darb.yaml, not read from the tool.
 PROD = f"arn:aws:eks:us-east-1:{ACCT}:cluster/prod"
 PII = "arn:aws:s3:::acme-customer-pii"
 PII_KEY = f"arn:aws:kms:us-east-1:{ACCT}:key/tf-aws_kms_key.pii"
@@ -119,23 +120,23 @@ def pii_decrypt_fixes(cut, alt):
 # blast radius 1000 (one jewel) = 900; score 810 x 900 / 1000 = 729, critical.
 def classic(entry=API, sa=SA_API, role=ROLE, defaults=None, also_fixes=None):
     cut, alt = decrypt_cut(role, PII_KEY, PII)
-    return path_finding("CLAPA-PATH-001", entry, PII,
+    return path_finding("DARB-PATH-001", entry, PII,
                         [f"RUNS_AS {sa}", f"ASSUMES {role}", f"CAN_READ_PLAINTEXT {PII}"],
                         729, "critical", cut, alt, defaults=IRSA_DEFAULTS if defaults is None else defaults,
                         also_fixes=also_fixes, **pii_decrypt_fixes(cut, alt))
 
 
-# CLAPA-POST-007: base medium 350, confidence medium 700: 350 x 700 / 1000 = 245, low.
+# DARB-POST-007: base medium 350, confidence medium 700: 350 x 700 / 1000 = 245, low.
 def no_default_deny(ns):
-    return posture("CLAPA-POST-007", ns, 245, "low")
+    return posture("DARB-POST-007", ns, 245, "low")
 
 
-# CLAPA-POST-006: base medium 350, confidence high: 350, medium.
+# DARB-POST-006: base medium 350, confidence high: 350, medium.
 def rotation_off(key, defaulted=True):
-    return posture("CLAPA-POST-006", key, 350, "medium", [ROTATION_DEFAULT] if defaulted else [])
+    return posture("DARB-POST-006", key, 350, "medium", [ROTATION_DEFAULT] if defaulted else [])
 
 
-ABSENT_PII = [{"rule": "CLAPA-PATH-001", "jewel": PII}, {"rule": "CLAPA-PATH-002", "jewel": PII}]
+ABSENT_PII = [{"rule": "DARB-PATH-001", "jewel": PII}, {"rule": "DARB-PATH-002", "jewel": PII}]
 
 E = {}
 
@@ -178,27 +179,27 @@ for v in ("vulnerable", "fixed"):
 # 4, 5 - wildcard :sub / :aud only: a path from every service account's
 # workload. tools/debug runs as tools/default, not exposed (exposure 400):
 # likelihood 400 x 810 = 324; 324 x 900 = 291, medium.
-# CLAPA-POST-001: base high 600, confidence high: 600, high.
+# DARB-POST-001: base high 600, confidence high: 600, high.
 NS_TOOLS = f"k8s:{PROD}//Namespace/tools"
 for n, row in (("04_wildcard_sub", 4), ("05_aud_only", 5)):
     cut, alt = decrypt_cut(ROLE, PII_KEY, PII)
-    debug = path_finding("CLAPA-PATH-001", f"k8s:{PROD}/tools/Deployment/debug", PII,
+    debug = path_finding("DARB-PATH-001", f"k8s:{PROD}/tools/Deployment/debug", PII,
                          [f"RUNS_AS k8s:{PROD}/tools/ServiceAccount/default", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
                          291, "medium", cut, alt, defaults=IRSA_DEFAULTS, **pii_decrypt_fixes(cut, alt))
     E[f"{n}/vulnerable"] = {"derived_from": f"13.2 row {row}",
-                            "findings": [classic(), debug, posture("CLAPA-POST-001", ROLE, 600, "high"),
+                            "findings": [classic(), debug, posture("DARB-POST-001", ROLE, 600, "high"),
                                          no_default_deny(NS_PAYMENTS), no_default_deny(NS_TOOLS)]}
     E[f"{n}/fixed"] = {"derived_from": f"13.2 row {row} fixed: :sub pinned to payments/api",
                        "findings": [classic(), no_default_deny(NS_PAYMENTS), no_default_deny(NS_TOOLS)],
-                       "absent": [{"rule": "CLAPA-PATH-001", "entry": f"k8s:{PROD}/tools/Deployment/debug", "jewel": PII},
-                                  {"rule": "CLAPA-POST-001", "resource": ROLE}]}
+                       "absent": [{"rule": "DARB-PATH-001", "entry": f"k8s:{PROD}/tools/Deployment/debug", "jewel": PII},
+                                  {"rule": "DARB-POST-001", "resource": ROLE}]}
 
 # 4b - added in the Phase 4 review: a service account without annotation
 # whose Role may create pods in its namespace mints an sts.amazonaws.com
 # token for itself (RUNS_AS[k8s-token], then ASSUMES via the minted token)
 # and the wildcard trust accepts it. Phase 6 review: the pod's own token and
 # a token minted for its own account are not another identity (DESIGN.md
-# 7.2), so the path is CLAPA-PATH-001 (it was CLAPA-PATH-002). builder is not exposed (400),
+# 7.2), so the path is DARB-PATH-001 (it was DARB-PATH-002). builder is not exposed (400),
 # 3 edges (810): 324; 324 x 900 = 291, medium. The token is mounted by
 # default; the OIDC provider is not in the input, so its audience is the
 # documented sts.amazonaws.com.
@@ -209,15 +210,15 @@ cut, alt = decrypt_cut(ROLE, PII_KEY, PII)
 # create-pods binding is used on the path): workload, 5; the read (revoke,
 # 3) is the cheapest cut sharing no edge with the decrypt.
 E["04b_create_pods_wildcard/vulnerable"] = {"derived_from": "13.2 row 4b (Phase 4 review)", "findings": [
-    path_finding("CLAPA-PATH-001", BUILDER, PII,
+    path_finding("DARB-PATH-001", BUILDER, PII,
                  [f"RUNS_AS[k8s-token] k8s:{PROD}/tools/ServiceAccount/builder", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
                  291, "medium", cut, alt, defaults=[OIDC_DEFAULT, AUTOMOUNT_DEFAULT], **pii_decrypt_fixes(cut, alt)),
-    posture("CLAPA-POST-001", ROLE, 600, "high"),
-    posture("CLAPA-POST-004", BUILDER, 350, "medium", [AUTOMOUNT_DEFAULT]),
+    posture("DARB-POST-001", ROLE, 600, "high"),
+    posture("DARB-POST-004", BUILDER, 350, "medium", [AUTOMOUNT_DEFAULT]),
     no_default_deny(NS_TOOLS_4B)]}
 E["04b_create_pods_wildcard/fixed"] = {"derived_from": "13.2 row 4b fixed: :sub pinned to payments/api", "findings": [
-    posture("CLAPA-POST-004", BUILDER, 350, "medium", [AUTOMOUNT_DEFAULT]), no_default_deny(NS_TOOLS_4B)],
-    "absent": [{"rule": "CLAPA-PATH-001", "entry": BUILDER, "jewel": PII}, {"rule": "CLAPA-POST-001", "resource": ROLE}]}
+    posture("DARB-POST-004", BUILDER, 350, "medium", [AUTOMOUNT_DEFAULT]), no_default_deny(NS_TOOLS_4B)],
+    "absent": [{"rule": "DARB-PATH-001", "entry": BUILDER, "jewel": PII}, {"rule": "DARB-POST-001", "resource": ROLE}]}
 
 # 6 - sts:AssumeRole on * -> AdministratorAccess role in account B -> PII in B.
 # 4 edges (hops 729), exposure 1000: likelihood 729; 729 x 900 = 656, high.
@@ -233,7 +234,7 @@ WAREHOUSE_KEY = f"arn:aws:kms:us-east-1:{B}:key/tf-aws_kms_key.warehouse"
 CHAIN = f"ASSUMES {ROLE} -> {ADMIN}"
 # Phase 6 review, dominance (DESIGN.md 8): analytics-admin can rewrite its
 # own policies (AdministratorAccess), but it already reads the warehouse
-# directly, confirmed: that escalation is dominated, no CLAPA-PATH-002, and
+# directly, confirmed: that escalation is dominated, no DARB-PATH-002, and
 # nothing else for also_fixes to name.
 # Phase 6 review, rounds 5-6: the cheapest cut sharing no edge with CHAIN.
 # After analytics-admin: its read of the warehouse and its escalation to
@@ -251,7 +252,7 @@ CHAIN = f"ASSUMES {ROLE} -> {ADMIN}"
 ADMIN_DECRYPT = f"CAN_DECRYPT[for {WAREHOUSE}] {ADMIN} -> {WAREHOUSE_KEY}"
 ADMIN_ESCALATE = f"CAN_ESCALATE[iam:modify-policy] {ADMIN} -> {ADMIN}"
 E["06_role_chain_cross_account/vulnerable"] = {"derived_from": "13.2 row 6", "findings": [
-    path_finding("CLAPA-PATH-001", API, WAREHOUSE,
+    path_finding("DARB-PATH-001", API, WAREHOUSE,
                  [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"ASSUMES {ADMIN}", f"CAN_READ_PLAINTEXT {WAREHOUSE}"],
                  656, "high", [CHAIN], [ADMIN_DECRYPT, ADMIN_ESCALATE], defaults=IRSA_DEFAULTS,
                  fix=[step(CHAIN, "identity", "narrow", 1)],
@@ -263,7 +264,7 @@ E["06_role_chain_cross_account/vulnerable"] = {"derived_from": "13.2 row 6", "fi
     rotation_off(WAREHOUSE_KEY), no_default_deny(NS_PAYMENTS)]}
 E["06_role_chain_cross_account/fixed"] = {"derived_from": "13.2 row 6 fixed: AssumeRole scoped to one role in account A",
                                           "findings": [rotation_off(WAREHOUSE_KEY), no_default_deny(NS_PAYMENTS)],
-                                          "absent": [{"rule": "CLAPA-PATH-001", "jewel": WAREHOUSE}]}
+                                          "absent": [{"rule": "DARB-PATH-001", "jewel": WAREHOUSE}]}
 
 # 7 - iam:PassRole + lambda:CreateFunction + lambda:InvokeFunction -> role reading PII.
 # 4 edges, exposure 1000: 729 x 900 = 656, high.
@@ -275,7 +276,7 @@ cut, alt = decrypt_cut(PROCESSOR, PII_KEY, PII)
 # lambda.amazonaws.com exactly: revoke, trust, 7); the read costs 3.
 PASS = f"CAN_ESCALATE[iam:passrole:lambda] {ROLE} -> {PROCESSOR}"
 E["07_passrole_lambda/vulnerable"] = {"derived_from": "13.2 row 7", "findings": [
-    path_finding("CLAPA-PATH-002", API, PII,
+    path_finding("DARB-PATH-002", API, PII,
                  [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_ESCALATE {PROCESSOR}", f"CAN_READ_PLAINTEXT {PII}"],
                  656, "high", cut, [PASS], defaults=IRSA_DEFAULTS,
                  **{**pii_decrypt_fixes(cut, alt), "alternative_detail": [step(PASS, "identity", "narrow", 2)]}),
@@ -288,7 +289,7 @@ E["07_passrole_lambda/fixed"] = {"derived_from": "13.2 row 7 fixed: PassRole sco
 # creates a pod as api, which assumes the role: 4 edges (729):
 # 400 x 729 = 291; 291 x 900 = 261, medium.
 # The api workload's own read of PII (scenario 1 shape, 729) is in both variants.
-# CLAPA-POST-004 on ci-runner: base medium 350, confidence high: 350, medium.
+# DARB-POST-004 on ci-runner: base medium 350, confidence high: 350, medium.
 CI = f"k8s:{PROD}/payments/Deployment/ci-runner"
 SA_CI = f"k8s:{PROD}/payments/ServiceAccount/ci"
 cut, alt = decrypt_cut(ROLE, PII_KEY, PII)
@@ -298,28 +299,28 @@ cut, alt = decrypt_cut(ROLE, PII_KEY, PII)
 # own token (revoke, its binding is used: 5) and the create-pods binding
 # (5) are dearer.
 E["08_rbac_create_pods/vulnerable"] = {"derived_from": "13.2 row 8", "findings": [
-    classic(also_fixes=[{"rule": "CLAPA-PATH-002", "entry": CI, "jewel": PII}]),
-    path_finding("CLAPA-PATH-002", CI, PII,
+    classic(also_fixes=[{"rule": "DARB-PATH-002", "entry": CI, "jewel": PII}]),
+    path_finding("DARB-PATH-002", CI, PII,
                  [f"RUNS_AS[k8s-token] {SA_CI}", f"CAN_ESCALATE {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
                  261, "medium", cut, alt, defaults=IRSA_DEFAULTS + [AUTOMOUNT_DEFAULT],
-                 also_fixes=[{"rule": "CLAPA-PATH-001", "entry": API, "jewel": PII}], **pii_decrypt_fixes(cut, alt)),
-    posture("CLAPA-POST-004", CI, 350, "medium", [AUTOMOUNT_DEFAULT]),
+                 also_fixes=[{"rule": "DARB-PATH-001", "entry": API, "jewel": PII}], **pii_decrypt_fixes(cut, alt)),
+    posture("DARB-POST-004", CI, 350, "medium", [AUTOMOUNT_DEFAULT]),
     no_default_deny(NS_PAYMENTS)]}
 E["08_rbac_create_pods/fixed"] = {"derived_from": "13.2 row 8 fixed: get/list/watch only", "findings": [
-    classic(), posture("CLAPA-POST-004", CI, 350, "medium", [AUTOMOUNT_DEFAULT]), no_default_deny(NS_PAYMENTS)],
-    "absent": [{"rule": "CLAPA-PATH-002", "entry": CI, "jewel": PII}]}
+    classic(), posture("DARB-POST-004", CI, 350, "medium", [AUTOMOUNT_DEFAULT]), no_default_deny(NS_PAYMENTS)],
+    "absent": [{"rule": "DARB-PATH-002", "entry": CI, "jewel": PII}]}
 
 # 9 - hostNetwork DaemonSet + IMDSv1 -> node role -> s3:GetObject on * -> SSE-S3 PII.
 # Not exposed (400), 2 edges (900), NODE_ROLE precondition known satisfied (900):
 # 400 x 900 = 360; 360 x 900 = 324; x confidence 1000 = 324; 324 x 900 = 291, medium.
 # The bucket states no encryption: SSE-S3 by documented default.
-# CLAPA-POST-002: base high 600: high.
+# DARB-POST-002: base high 600: high.
 NODE = f"arn:aws:iam::{ACCT}:role/eks-node"
 EXPORTS = "arn:aws:s3:::acme-customer-exports"
 NS_MON = f"k8s:{PROD}//Namespace/monitoring"
 IMDS_EDGE = f"NODE_ROLE k8s:{PROD}/monitoring/DaemonSet/node-monitor -> {NODE}"
 E["09_hostnetwork_imds/vulnerable"] = {"derived_from": "13.2 row 9", "findings": [
-    path_finding("CLAPA-PATH-001", f"k8s:{PROD}/monitoring/DaemonSet/node-monitor", EXPORTS,
+    path_finding("DARB-PATH-001", f"k8s:{PROD}/monitoring/DaemonSet/node-monitor", EXPORTS,
                  [f"NODE_ROLE {NODE}", f"CAN_READ_PLAINTEXT {EXPORTS}"], 291, "medium",
                  [f"CAN_READ {NODE} -> {EXPORTS}"], [IMDS_EDGE], defaults=[S3_DEFAULT],
                  # The node role grants s3:GetObject on "*": broad, narrow, identity, 1.
@@ -330,12 +331,12 @@ E["09_hostnetwork_imds/vulnerable"] = {"derived_from": "13.2 row 9", "findings":
                  # revoke, 5 (SCORING.md 4.1).
                  fix=[step(f"CAN_READ {NODE} -> {EXPORTS}", "identity", "narrow", 1)], other_side=[],
                  alternative_detail=[step(IMDS_EDGE, "node", "revoke", 5)]),
-    posture("CLAPA-POST-002", f"eks-nodegroup:{PROD}/default", 600, "high"),
+    posture("DARB-POST-002", f"eks-nodegroup:{PROD}/default", 600, "high"),
     no_default_deny(NS_MON)]}
 E["09_hostnetwork_imds/fixed"] = {"derived_from": "13.2 row 9 fixed: IMDSv2 required, hop limit 1, no hostNetwork",
                                   "findings": [no_default_deny(NS_MON)],
-                                  "absent": [{"rule": "CLAPA-PATH-001", "jewel": EXPORTS},
-                                             {"rule": "CLAPA-POST-002", "resource": f"eks-nodegroup:{PROD}/default"}]}
+                                  "absent": [{"rule": "DARB-PATH-001", "jewel": EXPORTS},
+                                             {"rule": "DARB-POST-002", "resource": f"eks-nodegroup:{PROD}/default"}]}
 
 # 10 - decrypt only from a key policy with aws:PrincipalOrgID, org not configured:
 # UNKNOWN, and it needs an unknown allow (the key policy's condition):
@@ -345,15 +346,15 @@ E["09_hostnetwork_imds/fixed"] = {"derived_from": "13.2 row 9 fixed: IMDSv2 requ
 # Cut: the role has no kms:Decrypt of its own; the key policy grants it to
 # Principal "*" only under aws:PrincipalOrgID, which is unknown (no
 # organization configured): the side rests only on an unknown Allow, so its
-# fix is resolve, 0, assume: {"aws:PrincipalOrgID": [...]} in clapa.yaml
+# fix is resolve, 0, assume: {"aws:PrincipalOrgID": [...]} in darb.yaml
 # (Phase 6 review, round 7; it was narrow, key policy, 2): no patch, as in
 # Phase 5. The alternative is the read, an explicit s3:GetObject on the
 # bucket's objects: revoke, identity side, 3.
 SHARED_KEY = f"arn:aws:kms:us-east-1:{ACCT}:key/tf-aws_kms_key.shared"
-ORG_ASSUME = 'assume: {"aws:PrincipalOrgID": [...]} in clapa.yaml'
+ORG_ASSUME = 'assume: {"aws:PrincipalOrgID": [...]} in darb.yaml'
 cut, alt = decrypt_cut(ROLE, SHARED_KEY, PII)
 E["10_kms_principal_org_id/vulnerable"] = {"derived_from": "13.2 row 10 (no organization ID configured)", "findings": [
-    path_finding("CLAPA-PATH-001", API, PII, [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
+    path_finding("DARB-PATH-001", API, PII, [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
                  729, "critical", cut, alt, confirmed=False, confidence="low", defaults=IRSA_DEFAULTS,
                  undecided=["aws:PrincipalOrgID"],
                  fix=[step(cut[0], "resource", "resolve", 0, resolve=ORG_ASSUME)], other_side=[],
@@ -370,19 +371,35 @@ for v in ("vulnerable", "fixed"):
 
 # 12 - anonymous read: 1 edge, exposure 1000: likelihood 1000; 1000 x 900 = 900,
 # critical. Cut: CAN_READ granted to a public principal, cost 2.
-# CLAPA-POST-005: base high 600: high.
+# DARB-POST-005: base high 600: high.
 LEADS = "arn:aws:s3:::acme-marketing-leads"
 E["12_public_bucket/vulnerable"] = {"derived_from": "13.2 row 12", "findings": [
-    path_finding("CLAPA-PATH-003", "anonymous", LEADS, [f"CAN_READ_PLAINTEXT {LEADS}"], 900, "critical",
+    path_finding("DARB-PATH-003", "anonymous", LEADS, [f"CAN_READ_PLAINTEXT {LEADS}"], 900, "critical",
                  [f"CAN_READ anonymous -> {LEADS}"], defaults=[S3_DEFAULT],
                  # The bucket policy grants Principal "*": broad, narrow, bucket policy, 2.
                  # The anonymous caller has no identity policy: no other side.
                  # Round 5: the path is that one edge: no other cut, no alternative.
                  fix=[step(f"CAN_READ anonymous -> {LEADS}", "resource", "narrow", 2)], other_side=[], alternative_detail=[]),
-    posture("CLAPA-POST-005", LEADS, 600, "high")]}
+    posture("DARB-POST-005", LEADS, 600, "high")]}
+# 12/account_block (DESIGN.md 12.1 priority 2; Phase 7): the vulnerable
+# variant plus aws_s3_account_public_access_block with
+# restrict_public_buckets = true. S3 applies the most restrictive of the
+# account and bucket settings (S3 User Guide, Blocking public access: "If
+# the block public access settings for the access point, bucket, or account
+# differ, then Amazon S3 applies the most restrictive combination of the
+# access point, bucket, and account settings."), and RestrictPublicBuckets
+# limits a bucket with a public policy to AWS service principals and the
+# owner account's authorized users: the anonymous read is denied, no
+# CAN_READ edge, no DARB-PATH-003; the bucket is effectively blocked, no
+# DARB-POST-005. The policy still grants s3:GetObject to "*" with no
+# condition, and the anonymous caller is an entry point, so DARB-POST-008
+# stays as in the vulnerable variant: 600, high (added with BROAD below).
+E["12_public_bucket/account_block"] = {"derived_from": "DESIGN.md 12.1 priority 2: account-level Block Public Access on",
+                                       "findings": [], "absent": [{"rule": "DARB-PATH-003", "jewel": LEADS},
+                                                                  {"rule": "DARB-POST-005", "resource": LEADS}]}
 E["12_public_bucket/fixed"] = {"derived_from": "13.2 row 12 fixed: Block Public Access on, policy names one role",
-                               "findings": [], "absent": [{"rule": "CLAPA-PATH-003", "jewel": LEADS},
-                                                          {"rule": "CLAPA-POST-005", "resource": LEADS}]}
+                               "findings": [], "absent": [{"rule": "DARB-PATH-003", "jewel": LEADS},
+                                                          {"rule": "DARB-POST-005", "resource": LEADS}]}
 
 # 13 - module + for_each -> 3 IRSA roles for 3 SAs, SSE-S3 PII bucket.
 # Plan: CronJobs are not exposed (400), 3 edges (810): 400 x 810 = 324;
@@ -393,7 +410,7 @@ E["12_public_bucket/fixed"] = {"derived_from": "13.2 row 12 fixed: Block Public 
 # findings are below the default --fail-on high).
 NS_ANALYTICS = f"k8s:{PROD}//Namespace/analytics"
 def reader(name, static=False):
-    role = f"arn:aws:iam::{ACCT}:role/reader-" + ("${clapa:unresolved:each.value}" if static else name)
+    role = f"arn:aws:iam::{ACCT}:role/reader-" + ("${darb:unresolved:each.value}" if static else name)
     trust = f"ASSUMES k8s:{PROD}/analytics/ServiceAccount/{name} -> {role}"
     if static:
         # Round 7: statically the trust's :sub (...:analytics:${each.value})
@@ -403,13 +420,13 @@ def reader(name, static=False):
         # trust. A cut with a resolve step takes an alternative of known
         # steps only; the read is a resolve step too and RUNS_AS is never
         # offered: alternative_fix [] (SCORING.md 4.3).
-        return path_finding("CLAPA-PATH-001", f"k8s:{PROD}/analytics/CronJob/{name}", PII,
+        return path_finding("DARB-PATH-001", f"k8s:{PROD}/analytics/CronJob/{name}", PII,
                             [f"RUNS_AS k8s:{PROD}/analytics/ServiceAccount/{name}", f"ASSUMES {role}", f"CAN_READ_PLAINTEXT {PII}"],
                             291, "medium", [trust], [],
                             confirmed=False, confidence="low", defaults=IRSA_DEFAULTS,
                             fix=[step(trust, "trust", "resolve", 0, resolve="--plan")], other_side=[],
                             alternative_detail=[])
-    return path_finding("CLAPA-PATH-001", f"k8s:{PROD}/analytics/CronJob/{name}", PII,
+    return path_finding("DARB-PATH-001", f"k8s:{PROD}/analytics/CronJob/{name}", PII,
                         [f"RUNS_AS k8s:{PROD}/analytics/ServiceAccount/{name}", f"ASSUMES {role}", f"CAN_READ_PLAINTEXT {PII}"],
                         291, "medium", [f"CAN_READ {role} -> {PII}"], [trust],
                         confirmed=not static, confidence="low" if static else "high", defaults=IRSA_DEFAULTS,
@@ -427,7 +444,7 @@ E["13_module_for_each/vulnerable"] = {"derived_from": "13.2 row 13 (plan mode)",
                                       "findings": [reader(n) for n in READERS] + [no_default_deny(NS_ANALYTICS)]}
 E["13_module_for_each/fixed"] = {"derived_from": "13.2 row 13 fixed (plan mode): roles read a non-PII bucket",
                                  "findings": [no_default_deny(NS_ANALYTICS)],
-                                 "absent": [{"rule": "CLAPA-PATH-001", "jewel": PII}]}
+                                 "absent": [{"rule": "DARB-PATH-001", "jewel": PII}]}
 STATIC = {}
 for v, why in (("vulnerable", "13.2 row 13 (static mode)"),
                ("fixed", "13.2 row 13 (static mode): the module's var.bucket is not resolved statically, so the fixed roles' bucket is as unknown as the vulnerable ones'")):
@@ -444,7 +461,7 @@ for v, why in (("vulnerable", "13.2 row 13 (static mode)"),
 def own(acct, sa):
     role, bucket = f"arn:aws:iam::{acct}:role/app", f"arn:aws:s3:::data-{acct}"
     trust = f"ASSUMES k8s:{PROD}/apps/ServiceAccount/{sa} -> {role}"
-    return path_finding("CLAPA-PATH-001", f"k8s:{PROD}/apps/Deployment/{sa}", bucket,
+    return path_finding("DARB-PATH-001", f"k8s:{PROD}/apps/Deployment/{sa}", bucket,
                         [f"RUNS_AS k8s:{PROD}/apps/ServiceAccount/{sa}", f"ASSUMES {role}", f"CAN_READ_PLAINTEXT {bucket}"],
                         291, "medium", [f"CAN_READ {role} -> {bucket}"], [trust], defaults=IRSA_DEFAULTS,
                         # The inline policy "data" grants s3:GetObject on "arn:aws:s3:::data-<acct>/*":
@@ -460,8 +477,8 @@ NO_CROSSING = [
     {"from": f"k8s:{PROD}/apps/ServiceAccount/app-b", "to": f"arn:aws:iam::{ACCT}:role/app"},
 ]
 CROSS_ABSENT = [
-    {"rule": "CLAPA-PATH-001", "entry": f"k8s:{PROD}/apps/Deployment/app-a", "jewel": f"arn:aws:s3:::data-{B}"},
-    {"rule": "CLAPA-PATH-001", "entry": f"k8s:{PROD}/apps/Deployment/app-b", "jewel": f"arn:aws:s3:::data-{ACCT}"},
+    {"rule": "DARB-PATH-001", "entry": f"k8s:{PROD}/apps/Deployment/app-a", "jewel": f"arn:aws:s3:::data-{B}"},
+    {"rule": "DARB-PATH-001", "entry": f"k8s:{PROD}/apps/Deployment/app-b", "jewel": f"arn:aws:s3:::data-{ACCT}"},
 ]
 NS_APPS = f"k8s:{PROD}//Namespace/apps"
 E["14_same_names_two_accounts/vulnerable"] = {"derived_from": "13.2 row 14 (entries added in the Phase 4 review)", "distinct_fingerprints": True,
@@ -469,7 +486,7 @@ E["14_same_names_two_accounts/vulnerable"] = {"derived_from": "13.2 row 14 (entr
                                               "absent": CROSS_ABSENT, "no_edges": NO_CROSSING}
 E["14_same_names_two_accounts/fixed"] = {"derived_from": "13.2 row 14 fixed: account 444455556666's role can only list",
                                          "findings": [own(ACCT, "app-a"), no_default_deny(NS_APPS)],
-                                         "absent": CROSS_ABSENT + [{"rule": "CLAPA-PATH-001", "jewel": f"arn:aws:s3:::data-{B}"}],
+                                         "absent": CROSS_ABSENT + [{"rule": "DARB-PATH-001", "jewel": f"arn:aws:s3:::data-{B}"}],
                                          "no_edges": NO_CROSSING}
 
 # 18 - two clusters named prod in one account, in eu-west-1 and us-east-1
@@ -490,7 +507,7 @@ USE1 = f"arn:aws:eks:us-east-1:{ACCT}:cluster/prod"
 def regional(cluster, region):
     role, bucket = f"arn:aws:iam::{ACCT}:role/app-{region}", f"arn:aws:s3:::data-{region}"
     trust = f"ASSUMES k8s:{cluster}/apps/ServiceAccount/app -> {role}"
-    return path_finding("CLAPA-PATH-001", f"k8s:{cluster}/apps/Deployment/app", bucket,
+    return path_finding("DARB-PATH-001", f"k8s:{cluster}/apps/Deployment/app", bucket,
                         [f"RUNS_AS k8s:{cluster}/apps/ServiceAccount/app", f"ASSUMES {role}", f"CAN_READ_PLAINTEXT {bucket}"],
                         291, "medium", [f"CAN_READ {role} -> {bucket}"], [trust], defaults=IRSA_DEFAULTS,
                         # The inline policy grants s3:GetObject on "arn:aws:s3:::data-<region>/*":
@@ -508,8 +525,8 @@ TWO_PROD_NO_CROSSING = [
     {"from": f"arn:aws:iam::{ACCT}:role/app-us", "to": "arn:aws:s3:::data-eu"},
 ]
 TWO_PROD_CROSS_ABSENT = [
-    {"rule": "CLAPA-PATH-001", "entry": f"k8s:{EUW1}/apps/Deployment/app", "jewel": "arn:aws:s3:::data-us"},
-    {"rule": "CLAPA-PATH-001", "entry": f"k8s:{USE1}/apps/Deployment/app", "jewel": "arn:aws:s3:::data-eu"},
+    {"rule": "DARB-PATH-001", "entry": f"k8s:{EUW1}/apps/Deployment/app", "jewel": "arn:aws:s3:::data-us"},
+    {"rule": "DARB-PATH-001", "entry": f"k8s:{USE1}/apps/Deployment/app", "jewel": "arn:aws:s3:::data-eu"},
 ]
 TWO_PROD_NS = [no_default_deny(f"k8s:{EUW1}//Namespace/apps"), no_default_deny(f"k8s:{USE1}//Namespace/apps")]
 E["18_same_cluster_name_two_regions/vulnerable"] = {
@@ -519,7 +536,7 @@ E["18_same_cluster_name_two_regions/vulnerable"] = {
 E["18_same_cluster_name_two_regions/fixed"] = {
     "derived_from": "Phase 6 instruction, fixed: the us-east-1 role can only list its bucket", "exit_code": 0,
     "findings": [regional(EUW1, "eu")] + TWO_PROD_NS,
-    "absent": TWO_PROD_CROSS_ABSENT + [{"rule": "CLAPA-PATH-001", "jewel": "arn:aws:s3:::data-us"}],
+    "absent": TWO_PROD_CROSS_ABSENT + [{"rule": "DARB-PATH-001", "jewel": "arn:aws:s3:::data-us"}],
     "no_edges": TWO_PROD_NO_CROSSING}
 
 # 15 - empty input: exit 3, nothing collected, never "0 findings".
@@ -540,7 +557,7 @@ E["17_pod_identity_classic/fixed"] = {"derived_from": "13.2 row 17 fixed (as sce
                                       "absent": ABSENT_PII}
 
 
-# CLAPA-POST-008 (Phase 5 review): a broad grant of a sensitive action.
+# DARB-POST-008 (Phase 5 review): a broad grant of a sensitive action.
 # Derived by hand from each fixture's policies, before the rule existed:
 # an Allow of kms:Decrypt, sts:AssumeRole, iam:PassRole, s3:GetObject,
 # secretsmanager:GetSecretValue or ssm:GetParameter (or a wildcard covering
@@ -556,7 +573,7 @@ def broad_grant(resource, reachable=True):
     # every principal, any reached principal, or the anonymous caller when
     # it has no condition); medium (base 350, confidence high: 350) when no
     # path reaches it: real accounts hold intended admin roles.
-    return posture("CLAPA-POST-008", resource, 600 if reachable else 350, "high" if reachable else "medium")
+    return posture("DARB-POST-008", resource, 600 if reachable else 350, "high" if reachable else "medium")
 
 
 ADMIN_ROLE = "arn:aws:iam::444455556666:role/analytics-admin"
@@ -574,6 +591,7 @@ BROAD = {
     "10_kms_principal_org_id/vulnerable": [SHARED_KEY],       # key policy: Principal "*", org condition only
     "11_boundary_deny/vulnerable": [ROLE],                    # boundary allows everything else
     "12_public_bucket/vulnerable": [LEADS],                   # bucket policy: Principal "*"
+    "12_public_bucket/account_block": [LEADS],                # the same policy; the account block does not change it
     "16_malformed_inputs/vulnerable": [ROLE],                 # kms:Decrypt on "*"
     "16_malformed_inputs/fixed": [ROLE],                      # same role file
     "17_pod_identity_classic/vulnerable": [ROLE],             # kms:Decrypt on "*"
@@ -596,7 +614,7 @@ for variant, resources in BROAD.items():
 # 1000 = 1000: 810, critical. The cut is the decrypt, broad: narrow,
 # identity, 1; the key policy is broad too: narrow, resource side, 2; the
 # alternative is the read, an explicit grant: revoke, identity, 3 (the
-# secret has no resource policy: no other side). CLAPA-POST-008 on the
+# secret has no resource policy: no other side). DARB-POST-008 on the
 # role (kms:Decrypt on "*", reached from api): 600, high.
 SECRET = f"arn:aws:secretsmanager:us-east-1:{ACCT}:secret:prod/db-aaaaaa"
 SECRET_KEY = f"arn:aws:kms:us-east-1:{ACCT}:key/11111111-2222-3333-4444-555555555555"
@@ -608,7 +626,7 @@ PARAM_KEY = f"arn:aws:kms:us-east-1:{ACCT}:key/66666666-7777-8888-9999-000000000
 
 def secret_target(jewel, key):
     cut, alt = decrypt_cut(ROLE, key, jewel)
-    return path_finding("CLAPA-PATH-001", API, jewel,
+    return path_finding("DARB-PATH-001", API, jewel,
                         [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {jewel}"],
                         810, "critical", cut, alt, defaults=IRSA_DEFAULTS, **pii_decrypt_fixes(cut, alt))
 
@@ -620,35 +638,81 @@ for n, jewel, key, other in (
                             "findings": [secret_target(jewel, key), broad_grant(ROLE), no_default_deny(NS_PAYMENTS)]}
     E[f"{n}/fixed"] = {"derived_from": "Phase 6 instruction, fixed: " + other,
                        "findings": [no_default_deny(NS_PAYMENTS)],
-                       "absent": [{"rule": "CLAPA-PATH-001", "jewel": jewel}, {"rule": "CLAPA-POST-008", "resource": ROLE}]}
+                       "absent": [{"rule": "DARB-PATH-001", "jewel": jewel}, {"rule": "DARB-POST-008", "resource": ROLE}]}
 
 # 21 - Kubernetes Secret. ci-runner (not exposed: 400) runs as ci, whose
 # Role may get secrets in payments; its token is mounted by default. The
 # path is its own Kubernetes token (RUNS_AS[k8s-token], DESIGN.md 7.2:
 # direct access, Phase 6 review), then the RBAC read of
-# payments/db-credentials (DataClass secret, 1000): CLAPA-PATH-001. 2 edges (900): 400 x 900 = 360; x 1000 = 360, medium.
+# payments/db-credentials (DataClass secret, 1000): DARB-PATH-001. 2 edges (900): 400 x 900 = 360; x 1000 = 360, medium.
 # The cut is turning the token mount off: ci's Role binding is used on the
 # path, so it takes away a right granted on purpose: workload, revoke, 5
 # (Phase 6 review, round 6; it was narrow, 3). The RBAC read also costs 5
 # (rbac, revoke): equal, closest to the entry: the token; the read is the
-# alternative. CLAPA-POST-004 on ci-runner (token mounted by default, the
+# alternative. DARB-POST-004 on ci-runner (token mounted by default, the
 # account has RBAC): 350, medium. Fixed: the pod sets
-# automountServiceAccountToken: false: no path, no CLAPA-POST-004.
+# automountServiceAccountToken: false: no path, no DARB-POST-004.
 K8S_SECRET = f"k8s:{PROD}/payments/Secret/db-credentials"
 TOKEN_EDGE = f"RUNS_AS[k8s-token] {CI} -> {SA_CI}"
 K8S_READ = f"CAN_READ_PLAINTEXT {SA_CI} -> {K8S_SECRET}"
 E["21_k8s_secret/vulnerable"] = {"derived_from": "Phase 6 instruction: Kubernetes Secrets as targets", "findings": [
-    path_finding("CLAPA-PATH-001", CI, K8S_SECRET, [f"RUNS_AS[k8s-token] {SA_CI}", f"CAN_READ_PLAINTEXT {K8S_SECRET}"],
+    path_finding("DARB-PATH-001", CI, K8S_SECRET, [f"RUNS_AS[k8s-token] {SA_CI}", f"CAN_READ_PLAINTEXT {K8S_SECRET}"],
                  360, "medium", [TOKEN_EDGE], [K8S_READ], defaults=[AUTOMOUNT_DEFAULT],
                  fix=[step(TOKEN_EDGE, "workload", "revoke", 5)],
                  # The cut edge (a fact) has no other side. Round 5: the only
                  # other edge is the RBAC read itself: rbac, revoke, 5.
                  other_side=[], alternative_detail=[step(K8S_READ, "rbac", "revoke", 5)]),
-    posture("CLAPA-POST-004", CI, 350, "medium", [AUTOMOUNT_DEFAULT]),
+    posture("DARB-POST-004", CI, 350, "medium", [AUTOMOUNT_DEFAULT]),
     no_default_deny(NS_PAYMENTS)]}
 E["21_k8s_secret/fixed"] = {"derived_from": "Phase 6 instruction, fixed: automountServiceAccountToken: false",
                             "findings": [no_default_deny(NS_PAYMENTS)],
-                            "absent": [{"rule": "CLAPA-PATH-001", "jewel": K8S_SECRET}, {"rule": "CLAPA-POST-004", "resource": CI}]}
+                            "absent": [{"rule": "DARB-PATH-001", "jewel": K8S_SECRET}, {"rule": "DARB-POST-004", "resource": CI}]}
+
+# 23 - Kubernetes Secrets read without RBAC (DESIGN.md 12.1, priority 1;
+# Phase 7). The kubelet gives a pod every Secret its spec names (a volume,
+# env valueFrom.secretKeyRef, envFrom.secretRef), with no RBAC check on
+# the pod's identity (Kubernetes docs, Secrets, sections "Using Secrets as
+# files from a Pod" and "Using Secrets as environment variables"); and
+# whoever may create pods in a namespace can create one that mounts any
+# Secret of it (Kubernetes docs, RBAC Good Practices, section "Workload
+# creation": permission to create workloads in a namespace implicitly
+# grants access to the Secrets that can be mounted in its pods).
+# Vulnerable: api (not exposed: 400) names payments/db-credentials
+# (DataClass secret, 1000) in an env var and a volume; its token is not
+# mounted, it has no RBAC. One edge, CAN_READ_PLAINTEXT[mount]: 400 x 1000
+# (1 edge) = 400; x 1000 = 400, medium. The only fix is the workload's:
+# stop naming the Secret, revoke (it removes what the pod was written to
+# use), 5. No other side, no alternative (one edge).
+# ci-runner (400) runs as ci, token mounted by default, whose Role may
+# create pods in payments: RUNS_AS[k8s-token], then
+# CAN_READ_PLAINTEXT[pod-create] (an RBAC right, like the [k8s] read of
+# scenario 21). 2 edges: 360, medium. Cut as in scenario 21: the token
+# mount (workload, revoke, 5, the path uses ci's RBAC) and the Role grant
+# (rbac, revoke, 5) are equal: closest to the entry, the token; the grant
+# is the alternative. ci may also create pods running as api
+# (CAN_ESCALATE[rbac] ci -> api), but nothing leads from api's account to
+# the Secret (the mount edge starts at the api workload): no escalation
+# finding. DARB-POST-004 on ci-runner (350, medium, the default), and
+# DARB-POST-007 on payments. Fixed: api names only api-config (no
+# DataClass: not a jewel), ci's Role is get/list pods: no path;
+# DARB-POST-004 stays (ci still has RBAC, token mounted by default).
+API_W = f"k8s:{PROD}/payments/Deployment/api"
+DB_SECRET = f"k8s:{PROD}/payments/Secret/db-credentials"
+MOUNT_EDGE = f"CAN_READ_PLAINTEXT[mount] {API_W} -> {DB_SECRET}"
+POD_CREATE_EDGE = f"CAN_READ_PLAINTEXT[pod-create] {SA_CI} -> {DB_SECRET}"
+E["23_k8s_secret_mount/vulnerable"] = {"derived_from": "DESIGN.md 12.1 priority 1: Secrets mounted into pods, and through pod creation", "findings": [
+    path_finding("DARB-PATH-001", API_W, DB_SECRET, [f"CAN_READ_PLAINTEXT[mount] {DB_SECRET}"],
+                 400, "medium", [MOUNT_EDGE], [], fix=[step(MOUNT_EDGE, "workload", "revoke", 5)],
+                 other_side=[], alternative_detail=[]),
+    path_finding("DARB-PATH-001", CI, DB_SECRET, [f"RUNS_AS[k8s-token] {SA_CI}", f"CAN_READ_PLAINTEXT[pod-create] {DB_SECRET}"],
+                 360, "medium", [TOKEN_EDGE], [POD_CREATE_EDGE], defaults=[AUTOMOUNT_DEFAULT],
+                 fix=[step(TOKEN_EDGE, "workload", "revoke", 5)],
+                 other_side=[], alternative_detail=[step(POD_CREATE_EDGE, "rbac", "revoke", 5)]),
+    posture("DARB-POST-004", CI, 350, "medium", [AUTOMOUNT_DEFAULT]),
+    no_default_deny(NS_PAYMENTS)]}
+E["23_k8s_secret_mount/fixed"] = {"derived_from": "DESIGN.md 12.1 priority 1, fixed: no jewel named, no pod creation",
+                                  "findings": [posture("DARB-POST-004", CI, 350, "medium", [AUTOMOUNT_DEFAULT]), no_default_deny(NS_PAYMENTS)],
+                                  "absent": [{"rule": "DARB-PATH-001", "jewel": DB_SECRET}]}
 
 # Phase 6 review, item 2 - 01_classic/key_outside_input: scenario 1 with the
 # PII bucket encrypted by a key that is not in the input (aws_kms_key.pii
@@ -665,11 +729,11 @@ E["21_k8s_secret/fixed"] = {"derived_from": "Phase 6 instruction, fixed: automou
 # snapshot of its account). The cut is that resolve step; nothing is
 # uncuttable any more; the alternative is the read, explicit: revoke,
 # identity, 3.
-# CLAPA-POST-008 on the role (kms:Decrypt on "*").
+# DARB-POST-008 on the role (kms:Decrypt on "*").
 OUTSIDE_KEY = f"arn:aws:kms:us-east-1:{ACCT}:key/0b1c2d3e-0000-4000-8000-000000000001"
 KEY_SCAN = "scan the key's Terraform or plan, or a snapshot of its account"
 E["01_classic/key_outside_input"] = {"derived_from": "Phase 6 review, item 2: a KMS key outside the input", "findings": [
-    path_finding("CLAPA-PATH-001", API, PII, [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
+    path_finding("DARB-PATH-001", API, PII, [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
                  729, "critical", [f"CAN_DECRYPT[for {PII}] {ROLE} -> {OUTSIDE_KEY}"], [f"CAN_READ {ROLE} -> {PII}"],
                  confirmed=False, confidence="low", defaults=IRSA_DEFAULTS, undecided=[OUTSIDE_KEY + " is not in the input"],
                  fix=[step(f"CAN_DECRYPT[for {PII}] {ROLE} -> {OUTSIDE_KEY}", "resource", "resolve", 0, resolve=KEY_SCAN)],
@@ -704,7 +768,7 @@ UNKNOWN_DECRYPT = f"CAN_DECRYPT[for {SECRET}] {ROLE} -> {SECRET_KEY}"
 UNKNOWN_ESCALATE = f"CAN_ESCALATE[iam:modify-policy] {ROLE} -> {ROLE}"
 E["19_secrets_manager/unknown_managed_policy"] = {
     "derived_from": "Phase 6 review, item 1: an unknown AWS managed policy never lowers the severity", "findings": [
-        path_finding("CLAPA-PATH-001", API, SECRET, [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {SECRET}"],
+        path_finding("DARB-PATH-001", API, SECRET, [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {SECRET}"],
                      810, "critical", [UNKNOWN_DECRYPT, UNKNOWN_ESCALATE], [TRUST_EDGE], confirmed=False,
                      status="confirmed_unless_denied", confidence="medium",
                      defaults=IRSA_DEFAULTS, undecided=["ReadOnlyAccess", "tools/refresh-managed-policies"],
@@ -715,7 +779,7 @@ E["19_secrets_manager/unknown_managed_policy"] = {
         # Phase 6 review, dominance (DESIGN.md 8): the unknown policy may let
         # payments-api rewrite its own policies (an unconfirmed escalation),
         # but payments-api reads the secret directly at a stronger status
-        # (confirmed_unless_denied): dominated, no CLAPA-PATH-002.
+        # (confirmed_unless_denied): dominated, no DARB-PATH-002.
         broad_grant(ROLE), no_default_deny(NS_PAYMENTS)]}
 
 # 22 - one pair, two findings (Phase 6 review). apps/app (not exposed: 400)
@@ -728,7 +792,7 @@ E["19_secrets_manager/unknown_managed_policy"] = {
 # it grants itself the read and the decrypt (role with any permission):
 # confirmed.
 #
-# CLAPA-PATH-001 (the paths without an escalation): RUNS_AS, ASSUMES app,
+# DARB-PATH-001 (the paths without an escalation): RUNS_AS, ASSUMES app,
 # CAN_READ_PLAINTEXT: 3 edges (810): 400 x 810 = 324; x 900 = 291, medium;
 # unconfirmed, confidence low; undecided names the variable and --plan. Cut
 # (SCORING.md 4.1): the decrypt's identity grant rests only on its context
@@ -739,7 +803,7 @@ E["19_secrets_manager/unknown_managed_policy"] = {
 # regain the access only through role/ops, another identity, so the cut
 # holds (SCORING.md 4.2).
 #
-# CLAPA-PATH-002: RUNS_AS, ASSUMES app, ASSUMES ops, CAN_ESCALATE ops,
+# DARB-PATH-002: RUNS_AS, ASSUMES app, ASSUMES ops, CAN_ESCALATE ops,
 # CAN_READ_PLAINTEXT: 5 edges (656): 400 x 656 = 262; x 900 = 235, low;
 # confirmed. Not dominated: role/ops has no access of its own. Nothing
 # after the "any permission" node is cuttable (SCORING.md 4.2), but the edge
@@ -759,8 +823,8 @@ E["19_secrets_manager/unknown_managed_policy"] = {
 # the entry: the IRSA trust. Neither cut breaks the other finding's path:
 # also_fixes empty.
 #
-# CLAPA-POST-006 on the key (rotation by the Terraform default) and
-# CLAPA-POST-007 on apps. The unresolved variable is a coverage gap: exit 3
+# DARB-POST-006 on the key (rotation by the Terraform default) and
+# DARB-POST-007 on apps. The unresolved variable is a coverage gap: exit 3
 # (no finding at or above high).
 APP_ROLE = f"arn:aws:iam::{ACCT}:role/app"
 OPS_ROLE = f"arn:aws:iam::{ACCT}:role/ops"
@@ -773,7 +837,7 @@ def app_direct(confirmed):
     path = [f"RUNS_AS {SA_APP}", f"ASSUMES {APP_ROLE}", f"CAN_READ_PLAINTEXT {PII}"]
     if not confirmed:
         cut, alt = decrypt_cut(APP_ROLE, PII_KEY, PII)
-        return path_finding("CLAPA-PATH-001", APP, PII, path, 291, "medium", cut, alt,
+        return path_finding("DARB-PATH-001", APP, PII, path, 291, "medium", cut, alt,
                             confirmed=False, confidence="low", defaults=IRSA_DEFAULTS, undecided=["pii_bucket_arn", "--plan"],
                             **{**pii_decrypt_fixes(cut, alt),
                                "fix": [step(cut[0], "identity", "resolve", 0, resolve="-var-file (pii_bucket_arn)")]})
@@ -796,7 +860,7 @@ def app_direct(confirmed):
     # Cuts breaking both paths: {decrypt 1, escalate 4} = 5;
     # {read 3, escalate 4} = 7; {trust} = 7; {RUNS_AS} = 100. The min-cut is
     # 5. Cutting the decrypt alone (1) is not a cut: the escalation path
-    # survives and becomes a CLAPA-PATH-002 (TestDominatedPathsStayInTheCut).
+    # survives and becomes a DARB-PATH-002 (TestDominatedPathsStayInTheCut).
     # alternative_fix, the cheapest cut sharing no edge with it: the IRSA
     # trust, 7 (the {read, escalate} cut shares the escalation). Both
     # identity fixes are statements of role/app's one inline policy
@@ -804,7 +868,7 @@ def app_direct(confirmed):
     decrypt = f"CAN_DECRYPT[for {PII}] {APP_ROLE} -> {PII_KEY}"
     escalate = f"CAN_ESCALATE[iam:modify-policy] {APP_ROLE} -> {APP_ROLE}"
     trust = f"ASSUMES {SA_APP} -> {APP_ROLE}"
-    return path_finding("CLAPA-PATH-001", APP, PII, path, 291, "medium", [decrypt, escalate], [trust], defaults=IRSA_DEFAULTS,
+    return path_finding("DARB-PATH-001", APP, PII, path, 291, "medium", [decrypt, escalate], [trust], defaults=IRSA_DEFAULTS,
                         fix=[step(decrypt, "identity", "narrow", 1), step(escalate, "identity", "revoke", 4)],
                         other_side=[step(decrypt, "resource", "narrow", 2)],
                         alternative_detail=[step(trust, "trust", "revoke", 7)], shared_fix=[APP_ROLE])
@@ -816,7 +880,7 @@ E["22_direct_and_escalation/vulnerable"] = {
     "derived_from": "Phase 6 review: a pair with a direct finding and an escalation finding", "exit_code": 3,
     "distinct_fingerprints": True, "findings": [
         app_direct(False),
-        path_finding("CLAPA-PATH-002", APP, PII,
+        path_finding("DARB-PATH-002", APP, PII,
                      [f"RUNS_AS {SA_APP}", f"ASSUMES {APP_ROLE}", f"ASSUMES {OPS_ROLE}", f"CAN_ESCALATE {OPS_ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
                      235, "low", [OPS_ESCALATE], [f"ASSUMES {SA_APP} -> {APP_ROLE}"], defaults=IRSA_DEFAULTS,
                      fix=[step(OPS_ESCALATE, "identity", "revoke", 4)], other_side=[],
@@ -825,11 +889,11 @@ E["22_direct_and_escalation/vulnerable"] = {
 E["22_direct_and_escalation/fixed"] = {
     "derived_from": "Phase 6 review, fixed: role/ops can no longer rewrite its own policy", "exit_code": 3, "findings": [
         app_direct(False), rotation_off(PII_KEY), no_default_deny(NS_APPS_22)],
-    "absent": [{"rule": "CLAPA-PATH-002", "entry": APP, "jewel": PII}]}
+    "absent": [{"rule": "DARB-PATH-002", "entry": APP, "jewel": PII}]}
 E["22_direct_and_escalation/dominance"] = {
     "derived_from": "Phase 6 review, dominance: role/app decrypts (confirmed) and rewrites its own policy; no role/ops",
     "exit_code": 0, "findings": [app_direct(True), rotation_off(PII_KEY), no_default_deny(NS_APPS_22)],
-    "absent": [{"rule": "CLAPA-PATH-002", "entry": APP, "jewel": PII}]}
+    "absent": [{"rule": "DARB-PATH-002", "entry": APP, "jewel": PII}]}
 
 # Remediation strategies (Phase 5 review). A root-cause fix narrows the
 # broad Allow to what declared intended access uses through it; without
@@ -848,10 +912,10 @@ def with_remediation(variant, rule, jewel, remediation):
 
 
 # 1 and 6: kms:Decrypt / sts:AssumeRole on "*", no intended access declared.
-with_remediation("01_classic/vulnerable", "CLAPA-PATH-001", PII, MITIGATION_FIRST)
-with_remediation("06_role_chain_cross_account/vulnerable", "CLAPA-PATH-001", WAREHOUSE, MITIGATION_FIRST)
+with_remediation("01_classic/vulnerable", "DARB-PATH-001", PII, MITIGATION_FIRST)
+with_remediation("06_role_chain_cross_account/vulnerable", "DARB-PATH-001", WAREHOUSE, MITIGATION_FIRST)
 # 10: UNKNOWN until the organization ID is known: what is missing, no fix.
-with_remediation("10_kms_principal_org_id/vulnerable", "CLAPA-PATH-001", PII, {"missing": True})
+with_remediation("10_kms_principal_org_id/vulnerable", "DARB-PATH-001", PII, {"missing": True})
 
 # 1b - scenario 1 plus the API's legitimate use, declared: it reads the
 # payment receipts bucket (its own KMS key). The PII path is scenario 1's
@@ -864,15 +928,55 @@ with_remediation("10_kms_principal_org_id/vulnerable", "CLAPA-PATH-001", PII, {"
 E["01b_classic_intended/vulnerable"] = {"derived_from": "Phase 5 review: scenario 1 with intended_access declared",
     "findings": [classic(), rotation_off(RECEIPTS_KEY), no_default_deny(NS_PAYMENTS), broad_grant(ROLE)],
     "intended_access": intended("verified")}
-with_remediation("01b_classic_intended/vulnerable", "CLAPA-PATH-001", PII, {"order": ["root-cause", "mitigation"], "verified": [True, True]})
+with_remediation("01b_classic_intended/vulnerable", "DARB-PATH-001", PII, {"order": ["root-cause", "mitigation"], "verified": [True, True]})
 E["01b_classic_intended/fixed"] = {"derived_from": "Phase 5 review: the root-cause fix of 1b applied (kms:Decrypt on the receipts key only)",
     "findings": [rotation_off(RECEIPTS_KEY), no_default_deny(NS_PAYMENTS)],
     "absent": ABSENT_PII, "intended_access": intended("verified")}
 
 
+# Fingerprints (DESIGN.md 5 "Stable IDs", 8 "Fingerprint", 8.1 "Posture
+# finding identities"), written from the documents, not from the engine:
+# a node ID is sha256("darb/v1" NUL kind NUL canonical identity); a path
+# fingerprint sha256("darb/fingerprint/v1" NUL rule NUL major NUL entry ID
+# NUL jewel ID), a posture one the same with the resource ID. Every rule of
+# the catalog is at major version 1. The kind follows from the canonical
+# identity's form (DESIGN.md 5).
+def kind_of(identity):
+    if identity == "anonymous":
+        return "aws:anonymous"
+    if identity.startswith("eks-nodegroup:"):
+        return "aws:eks:nodegroup"
+    if identity.startswith("k8s:"):
+        if "//Namespace/" in identity:
+            return "k8s:namespace"
+        if "/Secret/" in identity:
+            return "k8s:secret"
+        return "k8s:workload"
+    if identity.startswith("arn:aws:s3:::"):
+        return "aws:s3:bucket"
+    if identity.startswith("arn:aws:secretsmanager:"):
+        return "aws:secretsmanager:secret"
+    if identity.startswith("arn:aws:ssm:") and ":parameter/" in identity:
+        return "aws:ssm:parameter"
+    if ":role/" in identity:
+        return "aws:iam:role"
+    assert identity.startswith("arn:aws:kms:"), identity
+    return "aws:kms:key"
+
+
+def node_id(identity):
+    return hashlib.sha256("\0".join(["darb/v1", kind_of(identity), identity]).encode()).hexdigest()
+
+
+def fingerprint(f):
+    ids = [node_id(f["resource"])] if "resource" in f else [node_id(f["entry"]), node_id(f["jewel"])]
+    return hashlib.sha256("\0".join(["darb/fingerprint/v1", f["rule"], "1", *ids]).encode()).hexdigest()
+
+
 def write(name, doc):
-    out = {"format": "clapa-expected/v1"}
+    out = {"format": "darb-expected/v1"}
     out.update(doc)
+    out["findings"] = [{**f, "fingerprint": fingerprint(f)} for f in out.get("findings", [])]
     out.setdefault("absent", [])
     out.setdefault("intended_access", [])
     out.setdefault("no_edges", [])

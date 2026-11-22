@@ -1,6 +1,8 @@
 // Package sarif writes the report as SARIF 2.1.0 (OASIS), for code-scanning
 // tools. Each finding is a result; its fingerprint is the result's partial
-// fingerprint, so a moved line keeps the alert.
+// fingerprint, so a moved line keeps the alert. An attack path is the
+// result's code flow, one location per hop; file locations are relative to
+// %SRCROOT%, the scan root.
 package sarif
 
 import (
@@ -9,7 +11,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 // SARIF 2.1.0 schema location.
@@ -58,11 +60,25 @@ type result struct {
 	Level               string            `json:"level"`
 	Message             message           `json:"message"`
 	Locations           []location        `json:"locations,omitempty"`
+	CodeFlows           []codeFlow        `json:"codeFlows,omitempty"`
 	PartialFingerprints map[string]string `json:"partialFingerprints"`
 	Properties          map[string]any    `json:"properties"`
 }
 
+type codeFlow struct {
+	ThreadFlows []threadFlow `json:"threadFlows"`
+}
+
+type threadFlow struct {
+	Locations []threadFlowLocation `json:"locations"`
+}
+
+type threadFlowLocation struct {
+	Location location `json:"location"`
+}
+
 type location struct {
+	Message          *message  `json:"message,omitempty"`
 	PhysicalLocation *physical `json:"physicalLocation,omitempty"`
 	LogicalLocations []logical `json:"logicalLocations,omitempty"`
 }
@@ -73,8 +89,12 @@ type physical struct {
 }
 
 type artifact struct {
-	URI string `json:"uri"`
+	URI       string `json:"uri"`
+	URIBaseID string `json:"uriBaseId,omitempty"`
 }
+
+// srcRoot is the base of every file location: the scan root (--root).
+const srcRoot = "%SRCROOT%"
 
 type region struct {
 	StartLine int `json:"startLine"`
@@ -117,6 +137,8 @@ func (Reporter) Write(w io.Writer, r *schema.Report) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	enc.SetEscapeHTML(false)
+	// %SRCROOT% is left to the consumer (code scanning maps it to the
+	// checkout), so the report names no local directory.
 	return enc.Encode(log{Schema: schemaURI, Version: "2.1.0", Runs: []run{{Tool: tool{Driver: d}, Results: results}}})
 }
 
@@ -136,7 +158,7 @@ func convert(f *schema.Finding) result {
 	}
 	res := result{
 		RuleID: f.Rule, Level: level(f.Severity), Message: message{text},
-		PartialFingerprints: map[string]string{"clapaFingerprint/v1": f.Fingerprint},
+		PartialFingerprints: map[string]string{"darbFingerprint/v1": f.Fingerprint},
 		Properties: map[string]any{
 			"severity": f.Severity, "score": f.Score, "confirmed": f.Confirmed, "confidence": f.Confidence,
 			"security-severity": fmt.Sprintf("%.1f", float64(f.Score)/100),
@@ -145,7 +167,7 @@ func convert(f *schema.Finding) result {
 	if l := f.Location; l != nil {
 		loc := location{}
 		if l.File != "" {
-			loc.PhysicalLocation = &physical{ArtifactLocation: artifact{URI: l.File}}
+			loc.PhysicalLocation = &physical{ArtifactLocation: artifact{URI: l.File, URIBaseID: srcRoot}}
 			if l.StartLine > 0 {
 				loc.PhysicalLocation.Region = &region{StartLine: l.StartLine, EndLine: l.EndLine}
 			}
@@ -155,5 +177,26 @@ func convert(f *schema.Finding) result {
 		}
 		res.Locations = []location{loc}
 	}
+	res.CodeFlows = flow(f, res.Locations)
 	return res
+}
+
+// flow is the attack path as a code flow: the entry (at the finding's
+// location), then one location per hop, named by the node it reaches.
+func flow(f *schema.Finding, at []location) []codeFlow {
+	if len(f.Hops) == 0 {
+		return nil
+	}
+	first := location{Message: &message{"entry " + f.Entry}, LogicalLocations: []logical{{FullyQualifiedName: f.Entry}}}
+	if len(at) > 0 {
+		first.PhysicalLocation = at[0].PhysicalLocation
+	}
+	locs := []threadFlowLocation{{Location: first}}
+	for _, h := range f.Hops {
+		locs = append(locs, threadFlowLocation{Location: location{
+			Message:          &message{h.Kind + " " + h.From + " -> " + h.To},
+			LogicalLocations: []logical{{FullyQualifiedName: h.To}},
+		}})
+	}
+	return []codeFlow{{ThreadFlows: []threadFlow{{Locations: locs}}}}
 }

@@ -6,12 +6,12 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/collect/awsraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/iampolicy"
-	"github.com/r3oof-900/clapa/internal/managedpolicies"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/normalize"
+	"github.com/r3oof-900/darb/internal/collect/awsraw"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/iampolicy"
+	"github.com/r3oof-900/darb/internal/managedpolicies"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/normalize"
 )
 
 // Name identifies this normalizer in coverage gaps.
@@ -24,6 +24,7 @@ func Normalize(s *awsraw.Snapshot, mp *managedpolicies.Snapshot, b *normalize.Bu
 		n.iam()
 		n.keys()
 		n.buckets()
+		n.accountBlock()
 		n.clusters()
 		n.secrets()
 		n.parameters()

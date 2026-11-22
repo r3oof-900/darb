@@ -1,0 +1,133 @@
+{
+  "addons": [],
+  "boundaries": [],
+  "clusters": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "name": "prod",
+      "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
+      "region": "us-east-1",
+      "source": "darb.yaml (clusters.prod)"
+    }
+  ],
+  "collected": 9,
+  "entry_points": [
+    {
+      "public": "unknown",
+      "reason": "assume-compromised",
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner"
+    },
+    {
+      "public": "unknown",
+      "reason": "assume-compromised",
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api"
+    }
+  ],
+  "exposures": [],
+  "gaps": [],
+  "mappings": [],
+  "network_policies": [],
+  "node_groups": [],
+  "pod_identity": [],
+  "policies": [],
+  "principals": [],
+  "rbac": [
+    {
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "namespace": "payments",
+      "rules": [
+        {
+          "APIGroups": [
+            ""
+          ],
+          "Resources": [
+            "pods"
+          ],
+          "Verbs": [
+            "get",
+            "list"
+          ],
+          "ResourceNames": null
+        }
+      ],
+      "source": "k8s/payments.yaml:83 (RoleBinding/payments/ci-pod-creator)",
+      "subject": "ServiceAccount:payments/ci",
+      "unresolved": ""
+    }
+  ],
+  "resources": [
+    {
+      "account": "",
+      "arn": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/api-config",
+      "classification": "",
+      "classified_by": "",
+      "defaulted": [],
+      "kind": "k8s:secret",
+      "region": "",
+      "source": "k8s/payments.yaml:108 (Secret/payments/api-config)"
+    },
+    {
+      "account": "",
+      "arn": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials",
+      "classification": "secret",
+      "classified_by": "tag:DataClass",
+      "defaulted": [],
+      "kind": "k8s:secret",
+      "region": "",
+      "source": "k8s/payments.yaml:97 (Secret/payments/db-credentials)"
+    }
+  ],
+  "service_accounts": [
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
+      "role_arn": "",
+      "source": "k8s/payments.yaml:6 (ServiceAccount/payments/api)",
+      "subject": "system:serviceaccount:payments:api"
+    },
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
+      "role_arn": "",
+      "source": "k8s/payments.yaml:12 (ServiceAccount/payments/ci)",
+      "subject": "system:serviceaccount:payments:ci"
+    }
+  ],
+  "trusts": [],
+  "workloads": [
+    {
+      "automount_token": "true",
+      "defaulted": [
+        "k8s.automountServiceAccountToken"
+      ],
+      "host_network": false,
+      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner",
+      "privileged": false,
+      "service_account": "ci",
+      "source": "k8s/payments.yaml:54 (Deployment/payments/ci-runner)"
+    },
+    {
+      "automount_token": "false",
+      "defaulted": [],
+      "host_network": false,
+      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
+      "privileged": false,
+      "secret_refs": [
+        "api-config"
+      ],
+      "service_account": "api",
+      "source": "k8s/payments.yaml:19 (Deployment/payments/api)"
+    }
+  ]
+}

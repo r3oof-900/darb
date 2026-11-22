@@ -7,9 +7,9 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"sigs.k8s.io/yaml"
 
-	"github.com/r3oof-900/clapa/internal/collect/k8sraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/collect/k8sraw"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // rbac resolves every (Cluster)RoleBinding to the rules of the role it

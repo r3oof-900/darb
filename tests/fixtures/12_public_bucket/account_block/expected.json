@@ -1,0 +1,26 @@
+{
+  "format": "darb-expected/v1",
+  "derived_from": "DESIGN.md 12.1 priority 2: account-level Block Public Access on",
+  "findings": [
+    {
+      "rule": "DARB-POST-008",
+      "resource": "arn:aws:s3:::acme-marketing-leads",
+      "score": 600,
+      "severity": "high",
+      "defaults_used": [],
+      "fingerprint": "8f670339c387cb9520e2109c6be977a22503c87c83c52f6460551f882db498da"
+    }
+  ],
+  "absent": [
+    {
+      "rule": "DARB-PATH-003",
+      "jewel": "arn:aws:s3:::acme-marketing-leads"
+    },
+    {
+      "rule": "DARB-POST-005",
+      "resource": "arn:aws:s3:::acme-marketing-leads"
+    }
+  ],
+  "intended_access": [],
+  "no_edges": []
+}

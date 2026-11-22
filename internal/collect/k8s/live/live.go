@@ -16,8 +16,8 @@ import (
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 
-	"github.com/r3oof-900/clapa/internal/collect/k8sraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
+	"github.com/r3oof-900/darb/internal/collect/k8sraw"
+	"github.com/r3oof-900/darb/internal/coverage"
 )
 
 // Name identifies this collector in coverage gaps.
@@ -151,7 +151,7 @@ func (c *collector) listKind(ctx context.Context, k *kind) error {
 	return nil
 }
 
-// ownerKinds: controllers whose template CLAPA analyses.
+// ownerKinds: controllers whose template darb analyses.
 func ownerKinds() []string {
 	return []string{"Deployment", "ReplicaSet", "StatefulSet", "DaemonSet", "Job", "CronJob"}
 }
@@ -213,7 +213,7 @@ func (c *collector) secrets(ctx context.Context) error {
 }
 
 // awsAuth reads the kube-system/aws-auth ConfigMap (EKS IAM mappings), the
-// one ConfigMap CLAPA analyses; a cluster without it is not an error.
+// one ConfigMap darb analyses; a cluster without it is not an error.
 func (c *collector) awsAuth(ctx context.Context) error {
 	var cm *corev1.ConfigMap
 	notFound := false

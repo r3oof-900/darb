@@ -5,9 +5,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/iampolicy"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/iampolicy"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // KeyPolicyNotInInput suffixes the ID of the unknown key policy of a key

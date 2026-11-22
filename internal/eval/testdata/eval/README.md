@@ -9,7 +9,7 @@ the corpus must be the four same-account resource-policy cases committed to in
 
 - `name` is unique and dotted, starting with the documentation it encodes:
   `iam-ug.` (IAM User Guide), `kms-dg.` (KMS Developer Guide), `org-ug.`
-  (Organizations User Guide), `eks-ug.`, `s3-ug.`, or `clapa.` for a decision of
+  (Organizations User Guide), `eks-ug.`, `s3-ug.`, or `darb.` for a decision of
   ours recorded in DESIGN.md.
 - `doc` names the exact documentation section (or DESIGN.md section).
 - At least 150 cases (enforced).

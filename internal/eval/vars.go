@@ -3,9 +3,9 @@ package eval
 import (
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/arn"
-	"github.com/r3oof-900/clapa/internal/eval/condition"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/arn"
+	"github.com/r3oof-900/darb/internal/eval/condition"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // expander resolves ${...} policy variables (IAM User Guide › "IAM policy

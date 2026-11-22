@@ -9,7 +9,7 @@ import (
 
 	"golang.org/x/net/html"
 
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 // hostile: names an input could carry (a resource named <script>, an
@@ -26,11 +26,11 @@ func hostileReport() *schema.Report {
 		{Edge: "CAN_READ " + breakout, Side: "identity", Kind: "revoke", Policy: scriptName, Cost: 3},
 		{Edge: "CAN_DECRYPT " + endOfData, Side: "identity", Kind: "resolve", Policy: templateText, Resolve: scriptName},
 	}
-	also := []schema.FindingRef{{Rule: "CLAPA-PATH-002", Entry: scriptName, Jewel: breakout}}
+	also := []schema.FindingRef{{Rule: "DARB-PATH-002", Entry: scriptName, Jewel: breakout}}
 	unc := []schema.UncuttableEdge{{Edge: endOfData, Reason: "no single change breaks it"}}
 	return &schema.Report{
-		Schema: "clapa-report/v1", GeneratedAt: "2026-11-22T00:00:00Z",
-		Tool:   schema.Tool{Name: "clapa", Version: "test", RuleCatalog: "1"},
+		Schema: "darb-report/v1", GeneratedAt: "2026-11-22T00:00:00Z",
+		Tool:   schema.Tool{Name: "darb", Version: "test", RuleCatalog: "1"},
 		Inputs: []schema.ScannedInput{{Kind: "terraform-dir", Path: scriptName, Digest: "sha256:00"}, {Kind: "aws-live", Accounts: []string{breakout}, Regions: []string{endOfData}, Digest: "sha256:01"}},
 		Summary: schema.Summary{
 			Findings: 2, BySeverity: map[string]int{"critical": 1, "high": 1},
@@ -38,7 +38,7 @@ func hostileReport() *schema.Report {
 		},
 		Findings: []schema.Finding{
 			{
-				Rule: "CLAPA-PATH-001", Kind: "path", Title: "A workload can read crown-jewel data", Severity: "critical", Score: 729,
+				Rule: "DARB-PATH-001", Kind: "path", Title: "A workload can read crown-jewel data", Severity: "critical", Score: 729,
 				Status: "unconfirmed", Confidence: "low", Undecided: []string{scriptName},
 				Entry: breakout, Jewel: scriptName, Path: []string{"RUNS_AS " + scriptName, "CAN_READ_PLAINTEXT " + endOfData},
 				PathsFound: 2, PathsTruncated: true, WorstCasePath: []string{"ASSUMES " + breakout},
@@ -68,19 +68,21 @@ func hostileReport() *schema.Report {
 				DefaultsUsed: []schema.Default{{Key: "k", Setting: scriptName, Value: breakout, ValueSource: "default", Reference: endOfData}},
 				Evidence:     []string{endOfData}, Location: &schema.Location{File: scriptName, StartLine: 1, Address: breakout, ARN: endOfData},
 				Fingerprint: "f1",
+				Explanation: &schema.Explanation{Summary: scriptName, Attack: breakout, Fix: endOfData, AIGenerated: true, Model: templateText},
 			},
-			{Rule: "CLAPA-POST-001", Kind: "posture", Title: breakout, Severity: "high", Score: 600, Status: "confirmed", Resource: scriptName, NoFix: true, Fingerprint: "f2"},
+			{Rule: "DARB-POST-001", Kind: "posture", Title: breakout, Severity: "high", Score: 600, Status: "confirmed", Resource: scriptName, NoFix: true, Fingerprint: "f2"},
 		},
 		IntendedAccess: []schema.IntendedAccess{{Principal: scriptName, Action: "s3:GetObject", Resource: breakout, Status: "verified", Detail: endOfData}},
 		Coverage: schema.Coverage{
 			Collected: 3, Gaps: []schema.Gap{{Kind: "unresolved", Source: scriptName, File: breakout, Line: 2, Detail: endOfData}},
 			Notes: []schema.Note{{Kind: "not-modelled", Subject: scriptName, Detail: breakout}},
 		},
-		Rules:               []schema.Rule{{ID: "CLAPA-PATH-001", Version: "1.0.0", Title: scriptName, Techniques: []string{"T1530"}}},
-		Suppressed:          []schema.SuppressedFinding{{Fingerprint: "f3", Rule: "CLAPA-PATH-001", Severity: "low", Entry: scriptName, Jewel: breakout, Reason: endOfData, Owner: scriptName, Expires: "2027-01-01"}},
+		Rules:               []schema.Rule{{ID: "DARB-PATH-001", Version: "1.0.0", Title: scriptName, Techniques: []string{"T1530"}}},
+		Suppressed:          []schema.SuppressedFinding{{Fingerprint: "f3", Rule: "DARB-PATH-001", Severity: "low", Entry: scriptName, Jewel: breakout, Reason: endOfData, Owner: scriptName, Expires: "2027-01-01"}},
 		ExpiredSuppressions: []schema.ExpiredSuppression{{Fingerprint: "f4", Reason: scriptName, Owner: breakout, Expires: "2026-01-01", Fires: true}},
-		Baseline:            &schema.Baseline{File: scriptName, New: 1, Unchanged: 1, Resolved: []schema.ResolvedItem{{Fingerprint: "f5", Rule: "CLAPA-PATH-001", Entry: scriptName, Jewel: breakout}}},
+		Baseline:            &schema.Baseline{File: scriptName, New: 1, Unchanged: 1, Resolved: []schema.ResolvedItem{{Fingerprint: "f5", Rule: "DARB-PATH-001", Entry: scriptName, Jewel: breakout}}},
 		ExitCode:            1,
+		ExecutiveSummary:    &schema.Explanation{Summary: endOfData, Note: scriptName},
 	}
 }
 
@@ -215,7 +217,7 @@ func TestDataBlockIsTheReport(t *testing.T) {
 	}
 	var data string
 	walk(doc, func(n *html.Node) {
-		if id, _ := attr(n, "id"); id == "clapa-report" {
+		if id, _ := attr(n, "id"); id == "darb-report" {
 			data = text(n)
 		}
 	})
@@ -268,7 +270,7 @@ func TestPathViewIsStatic(t *testing.T) {
 		t.Fatalf("%d path views, want the path and the worst-case path", figures)
 	}
 	first := firstFigure(out)
-	for _, want := range []string{`<g class="edge cut"`, `<g class="edge resolve"`, "✂", ">?<", `marker-end="url(#clapa-arrow-cut)"`} {
+	for _, want := range []string{`<g class="edge cut"`, `<g class="edge resolve"`, "✂", ">?<", `marker-end="url(#darb-arrow-cut)"`} {
 		if !strings.Contains(first, want) {
 			t.Errorf("the path view lacks %s", want)
 		}
@@ -342,7 +344,7 @@ func TestFixesSection(t *testing.T) {
 // A cut of resolve steps only: decide first, then the known alternative.
 func TestResolveOnlyFix(t *testing.T) {
 	f := schema.Finding{
-		Rule: "CLAPA-PATH-001", Kind: "path", Severity: "medium", Score: 291, Status: "unconfirmed", Fingerprint: "r",
+		Rule: "DARB-PATH-001", Kind: "path", Severity: "medium", Score: 291, Status: "unconfirmed", Fingerprint: "r",
 		Chokepoints:          []string{"CAN_DECRYPT x -> k"},
 		Fix:                  []schema.FixStep{{Edge: "CAN_DECRYPT x -> k", Side: "identity", Kind: "resolve", Policy: "p", Resolve: "-var-file (b)"}},
 		AlternativeFixDetail: []schema.FixStep{{Edge: "CAN_READ x -> b", Side: "identity", Kind: "revoke", Policy: "p", Cost: 3}},
@@ -361,10 +363,10 @@ func TestResolveOnlyFix(t *testing.T) {
 // Attack paths come before misconfigurations, each by severity then score.
 func TestAttackPathsFirst(t *testing.T) {
 	fs := []schema.Finding{
-		{Rule: "CLAPA-POST-001", Kind: "posture", Severity: "critical", Score: 900, Title: "post-critical", Fingerprint: "a"},
-		{Rule: "CLAPA-PATH-001", Kind: "path", Severity: "medium", Score: 291, Title: "path-medium", Fingerprint: "b"},
-		{Rule: "CLAPA-PATH-002", Kind: "path", Severity: "high", Score: 600, Title: "path-high-600", Fingerprint: "c"},
-		{Rule: "CLAPA-PATH-003", Kind: "path", Severity: "high", Score: 700, Title: "path-high-700", Fingerprint: "d"},
+		{Rule: "DARB-POST-001", Kind: "posture", Severity: "critical", Score: 900, Title: "post-critical", Fingerprint: "a"},
+		{Rule: "DARB-PATH-001", Kind: "path", Severity: "medium", Score: 291, Title: "path-medium", Fingerprint: "b"},
+		{Rule: "DARB-PATH-002", Kind: "path", Severity: "high", Score: 600, Title: "path-high-600", Fingerprint: "c"},
+		{Rule: "DARB-PATH-003", Kind: "path", Severity: "high", Score: 700, Title: "path-high-700", Fingerprint: "d"},
 	}
 	out := render(t, &schema.Report{Summary: schema.Summary{BySeverity: map[string]int{}}, Findings: fs})
 	want := []string{`id="paths-h"`, "path-high-700", "path-high-600", "path-medium", `id="posture-h"`, "post-critical"}

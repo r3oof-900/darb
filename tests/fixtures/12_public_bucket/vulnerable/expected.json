@@ -1,9 +1,9 @@
 {
-  "format": "clapa-expected/v1",
+  "format": "darb-expected/v1",
   "derived_from": "13.2 row 12",
   "findings": [
     {
-      "rule": "CLAPA-PATH-003",
+      "rule": "DARB-PATH-003",
       "entry": "anonymous",
       "jewel": "arn:aws:s3:::acme-marketing-leads",
       "path": [
@@ -33,21 +33,24 @@
       "status": "confirmed",
       "also_fixes": [],
       "uncuttable": [],
-      "remediation_status": "complete"
+      "remediation_status": "complete",
+      "fingerprint": "0c2bc2feeb191ca3e5600580ab11b4f0c08747c73352852fb28101425ce5ecc8"
     },
     {
-      "rule": "CLAPA-POST-005",
+      "rule": "DARB-POST-005",
       "resource": "arn:aws:s3:::acme-marketing-leads",
       "score": 600,
       "severity": "high",
-      "defaults_used": []
+      "defaults_used": [],
+      "fingerprint": "d7033ba3c9ce788d082cc481cad53bd1469afac8c4849abedb74ae11fe1d1b76"
     },
     {
-      "rule": "CLAPA-POST-008",
+      "rule": "DARB-POST-008",
       "resource": "arn:aws:s3:::acme-marketing-leads",
       "score": 600,
       "severity": "high",
-      "defaults_used": []
+      "defaults_used": [],
+      "fingerprint": "8f670339c387cb9520e2109c6be977a22503c87c83c52f6460551f882db498da"
     }
   ],
   "absent": [],

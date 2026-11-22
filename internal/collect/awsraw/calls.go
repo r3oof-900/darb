@@ -1,6 +1,6 @@
 package awsraw
 
-import "github.com/r3oof-900/clapa/internal/coverage"
+import "github.com/r3oof-900/darb/internal/coverage"
 
 // Call outcomes (Call.Status).
 const (

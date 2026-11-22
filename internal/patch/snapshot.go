@@ -6,8 +6,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/remediate"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/remediate"
 )
 
 // Policies read from an offline snapshot or a live account are fixed as a

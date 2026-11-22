@@ -3,7 +3,7 @@ package model
 import "strings"
 
 // DefaultClusterName names the cluster of Kubernetes input that names
-// none and has no cluster in clapa.yaml (docs/DESIGN.md 5).
+// none and has no cluster in darb.yaml (docs/DESIGN.md 5).
 const DefaultClusterName = "default"
 
 // EKSClusterARN returns the ARN of an EKS cluster, or "" when the account,

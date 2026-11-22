@@ -1,6 +1,6 @@
 package awssnapshot
 
-import "github.com/r3oof-900/clapa/internal/collect/awsraw"
+import "github.com/r3oof-900/darb/internal/collect/awsraw"
 
 func (r *reader) bucketFile(b *awsraw.Bucket, f, name string) error {
 	switch name {

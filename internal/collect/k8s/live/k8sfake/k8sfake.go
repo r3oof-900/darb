@@ -11,7 +11,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	metafake "k8s.io/client-go/metadata/fake"
 
-	"github.com/r3oof-900/clapa/internal/collect/k8s/live"
+	"github.com/r3oof-900/darb/internal/collect/k8s/live"
 )
 
 // Clients serves objs: Secrets as their metadata, everything else typed.

@@ -1,24 +1,24 @@
-// Command clapa is the Cross-Layer Cloud Attack-Path Analyzer.
+// Command darb is the Cross-Layer Cloud Attack-Path Analyzer.
 package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 
-	"github.com/r3oof-900/clapa/internal/cli"
+	"github.com/r3oof-900/darb/internal/cli"
 )
 
 func main() {
 	os.Exit(int(run()))
 }
 
-// run is the only place that recovers panics; they map to exit code 4.
+// run is the only place that recovers panics; they map to exit code 4
+// (with --debug, the stack trace is printed too).
 func run() (code cli.ExitCode) {
 	defer func() {
 		if r := recover(); r != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "clapa: internal error: %v (re-run with --debug for a stack trace)\n", r)
+			cli.Crash(os.Stderr, os.Args[1:], r)
 			code = cli.ExitInternal
 		}
 	}()

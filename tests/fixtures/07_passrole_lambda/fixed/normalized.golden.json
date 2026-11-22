@@ -8,7 +8,7 @@
       "name": "prod",
       "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
       "region": "us-east-1",
-      "source": "clapa.yaml (clusters.prod)"
+      "source": "darb.yaml (clusters.prod)"
     }
   ],
   "collected": 13,
@@ -33,17 +33,6 @@
   "pod_identity": [],
   "policies": [
     {
-      "kind": "identity",
-      "policy": "aws_iam_role_policy.payments_api",
-      "source": "terraform/role.tf:6-22 (aws_iam_role_policy.payments_api)",
-      "statements": [
-        "Allow iam:PassRole on arn:aws:iam::111122223333:role/notifier (1 conditions)",
-        "Allow lambda:CreateFunction on * (0 conditions)"
-      ],
-      "target": "arn:aws:iam::111122223333:role/payments-api",
-      "unresolved_statements": 0
-    },
-    {
       "default": "kms.default-key-policy",
       "kind": "resource",
       "policy": "aws_kms_key.pii.policy",
@@ -64,20 +53,31 @@
       ],
       "target": "arn:aws:iam::111122223333:role/data-processor",
       "unresolved_statements": 0
+    },
+    {
+      "kind": "identity",
+      "policy": "aws_iam_role_policy.payments_api",
+      "source": "terraform/role.tf:6-22 (aws_iam_role_policy.payments_api)",
+      "statements": [
+        "Allow iam:PassRole on arn:aws:iam::111122223333:role/notifier (1 conditions)",
+        "Allow lambda:CreateFunction on * (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/payments-api",
+      "unresolved_statements": 0
     }
   ],
   "principals": [
     {
       "account": "111122223333",
-      "identity": "arn:aws:iam::111122223333:role/payments-api",
-      "kind": "aws:iam:role",
-      "source": "terraform/role.tf:1-4 (aws_iam_role.payments_api)"
-    },
-    {
-      "account": "111122223333",
       "identity": "arn:aws:iam::111122223333:role/data-processor",
       "kind": "aws:iam:role",
       "source": "terraform/processor.tf:1-7 (aws_iam_role.data_processor)"
+    },
+    {
+      "account": "111122223333",
+      "identity": "arn:aws:iam::111122223333:role/payments-api",
+      "kind": "aws:iam:role",
+      "source": "terraform/role.tf:1-4 (aws_iam_role.payments_api)"
     }
   ],
   "rbac": [],
@@ -127,22 +127,22 @@
   "trusts": [
     {
       "kind": "resource",
-      "policy": "aws_iam_role.payments_api.assume_role_policy",
-      "source": "terraform/role.tf:1-4 (aws_iam_role.payments_api)",
-      "statements": [
-        "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (2 conditions)"
-      ],
-      "target": "arn:aws:iam::111122223333:role/payments-api",
-      "unresolved_statements": 0
-    },
-    {
-      "kind": "resource",
       "policy": "aws_iam_role.data_processor.assume_role_policy",
       "source": "terraform/processor.tf:1-7 (aws_iam_role.data_processor)",
       "statements": [
         "Allow sts:AssumeRole on \u003cno Resource element\u003e (0 conditions)"
       ],
       "target": "arn:aws:iam::111122223333:role/data-processor",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "resource",
+      "policy": "aws_iam_role.payments_api.assume_role_policy",
+      "source": "terraform/role.tf:1-4 (aws_iam_role.payments_api)",
+      "statements": [
+        "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (2 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/payments-api",
       "unresolved_statements": 0
     }
   ],

@@ -22,11 +22,11 @@ type ignoreFile struct {
 	Suppressions []Suppression `json:"suppressions"`
 }
 
-// ParseIgnore decodes .clapa-ignore.yaml.
+// ParseIgnore decodes .darb-ignore.yaml.
 func ParseIgnore(data []byte) ([]Suppression, error) {
 	var f ignoreFile
 	if err := yaml.UnmarshalStrict(data, &f); err != nil {
-		return nil, fmt.Errorf("%w: .clapa-ignore.yaml: %w", ErrInvalid, err)
+		return nil, fmt.Errorf("%w: .darb-ignore.yaml: %w", ErrInvalid, err)
 	}
 	var problems []string
 	seen := map[string]bool{}

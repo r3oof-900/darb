@@ -75,7 +75,7 @@ cases:
     policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {"Null": {"aws:PrincipalTag/team": "true"}}}]}
     expect: IMPLICIT_DENY
 
-  - name: clapa.condition.null-on-unknown-key-is-unknown
+  - name: darb.condition.null-on-unknown-key-is-unknown
     doc: "docs/DESIGN.md section 6.3: whether an unknown key exists is itself unknown"
     context: {default: unknown}
     policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {"Null": {"aws:TokenIssueTime": "true"}}}]}

@@ -5,14 +5,14 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/rules"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/rules"
 )
 
 // Two strategies (decided in the Phase 5 review). A mitigation blocks the
 // path only (a Deny, Block Public Access): verifiable at once, but the broad
-// grant remains, and CLAPA-POST-008 keeps reporting it. A root-cause fix
+// grant remains, and DARB-POST-008 keeps reporting it. A root-cause fix
 // narrows the broad Allow itself to exactly what the declared intended
 // access uses through it; without intended access that use is not known, so
 // it is a suggestion listing what the wildcard matches in the input,

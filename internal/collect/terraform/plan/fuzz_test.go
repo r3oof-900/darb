@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/coverage"
+	"github.com/r3oof-900/darb/internal/coverage"
 )
 
 // FuzzPlanJSON: any input either fails cleanly or converts without panicking.

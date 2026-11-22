@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // Options identify the policy being parsed.
@@ -16,12 +16,12 @@ type Options struct {
 	Source model.SourceLocation
 	// Placeholders: the caller wrote unresolved placeholders into the text
 	// itself, as plain text. Every placeholder in the decoded document must
-	// then be one of those; one produced by JSON escapes ("${clapa:...")
+	// then be one of those; one produced by JSON escapes ("${darb:...")
 	// is input. Without it, any placeholder is input.
 	Placeholders bool
 }
 
-// ErrReservedText is returned when a document contains CLAPA's reserved
+// ErrReservedText is returned when a document contains darb's reserved
 // placeholder text that the caller did not write: it is invalid input.
 var ErrReservedText = errors.New("iampolicy: input contains the reserved text " + model.UnresolvedPrefix + "...}")
 

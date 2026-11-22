@@ -9,11 +9,11 @@ fails if `git diff --exit-code -- tests/fixtures` is not clean after the tests.
 
 | Path | Meaning |
 |---|---|
-| `clapa.yaml` | configuration (account, region, cluster `prod` and its IRSA issuer, intended access) |
+| `darb.yaml` | configuration (account, region, cluster `prod` and its IRSA issuer, intended access) |
 | `terraform/` | Terraform scanned statically (HCL) |
 | `plan.json` | Terraform plan JSON; when present, the variant is scanned from the plan, and `terraform/` separately in static mode |
 | `k8s/` | Kubernetes manifests of cluster `prod` |
-| `snapshot/` | an offline AWS snapshot (`clapa-snapshot/v1`) |
+| `snapshot/` | an offline AWS snapshot (`darb-snapshot/v1`) |
 | `normalized.golden.json` | the normalized inventory, coverage gaps and entry points (Phase 3) |
 | `normalized.static.golden.json` | the same for the static scan, when a plan is present |
 | `expected.json` | findings by rule ID and fingerprint (added in Phase 4, with the rules) |
@@ -40,6 +40,7 @@ diff is a behaviour change.
 | 10 | `10_kms_principal_org_id` | key policy grants `kms:Decrypt` to `{"AWS": "*"}` with `aws:PrincipalOrgID` | UNKNOWN unless the org ID is configured | key policy names the role |
 | 11 | `11_boundary_deny` | scenario 1 + a permissions boundary with an explicit Deny on the PII objects | no path (boundary deny) | boundary that allows only queues and logs |
 | 12 | `12_public_bucket` | bucket policy `Principal "*"`, Block Public Access off, SSE-S3 | public read | Block Public Access on, policy names one role |
+| 12 (account_block) | `12_public_bucket/account_block` | the vulnerable files plus `aws_s3_account_public_access_block`, `restrict_public_buckets = true` (Phase 7) | no path, no `DARB-POST-005`; `DARB-POST-008` stays | — |
 | 13 | `13_module_for_each` | module + `for_each` → 3 IRSA roles reading PII (`toset(...)` + `aws_iam_role.r[each.value]`; bucket SSE-S3 stated explicitly). `plan.json` is real `terraform show -json` output (see below), scanned with `terraform/` as its configuration | plan: 3 roles resolved; static: unresolved, reported | roles read a non-PII bucket |
 | 14 | `14_same_names_two_accounts` | role `app` and bucket `data-<account>` in two accounts (snapshot); workloads `apps/app-a` and `apps/app-b` assume each account's role by IRSA | two distinct nodes, two findings, nothing crosses between the accounts | account 444455556666's role can only list |
 | 15 | `15_empty_input` | nothing to scan | `collected: 0` → exit 3, never "0 findings" | one namespace manifest |
@@ -50,6 +51,7 @@ diff is a behaviour change.
 | 19 | `19_secrets_manager` | IRSA → role → `GetSecretValue` + `kms:Decrypt` on `*` → Secrets Manager secret | path | decrypt conditioned on another secret's `SecretARN` |
 | 20 | `20_ssm_securestring` | IRSA → role → `ssm:GetParameter` + `kms:Decrypt` on `*` → SecureString | path | decrypt conditioned on another parameter's `PARAMETER_ARN` |
 | 21 | `21_k8s_secret` | token mounted + RBAC `get secrets` → Kubernetes Secret | direct path (the pod's own token) | `automountServiceAccountToken: false` |
+| 23 | `23_k8s_secret_mount` | Secret named in env and a volume (no RBAC); `create pods` in its namespace | two paths (mount; pod creation) | non-jewel Secret named; pods read only |
 | 22 | `22_direct_and_escalation` | `role/app` reads PII (decrypt on an unresolved variable) and may assume `role/ops`, which rewrites its own policy; `dominance`: `role/app` decrypts and rewrites its own policy | a direct and an escalation finding for one pair; `dominance`: one direct finding whose cut includes the escalation | `role/ops` only lists |
 
 For the "no path" scenarios (2, 3, 11) the vulnerable variant is the near-miss
@@ -74,7 +76,7 @@ touched), adds a `mock_override.tf` with fake credentials,
 `skip_credentials_validation`, `skip_requesting_account_id`,
 `skip_metadata_api_check`, `skip_region_validation` and
 `allowed_account_ids = null` (the provider cannot check the allowed account
-without looking it up; `clapa.yaml` sets the account), then runs
+without looking it up; `darb.yaml` sets the account), then runs
 `terraform init`, `terraform plan -refresh=false -out=plan.tfplan` and
 `terraform show -json plan.tfplan`. Nothing is applied and no AWS API is
 called. Committed files were made with Terraform 1.17.1 and `hashicorp/aws`

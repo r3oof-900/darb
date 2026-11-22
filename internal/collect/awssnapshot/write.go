@@ -9,7 +9,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/collect/awsraw"
+	"github.com/r3oof-900/darb/internal/collect/awsraw"
 )
 
 // ErrWrite is returned when a bundle cannot be written.
@@ -117,6 +117,9 @@ func p(parts ...string) string {
 func (w *writer) account(a *awsraw.Account) {
 	if a.Auth != nil {
 		w.file(path.Join(a.ID, "iam", "get-account-authorization-details.json"), a.Auth)
+	}
+	if a.PublicAccessBlock != nil {
+		w.file(path.Join(a.ID, "s3control", "get-public-access-block.json"), map[string]any{"PublicAccessBlockConfiguration": a.PublicAccessBlock})
 	}
 	for _, b := range a.Buckets {
 		w.bucket(a.ID, b)

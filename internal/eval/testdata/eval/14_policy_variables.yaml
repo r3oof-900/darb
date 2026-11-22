@@ -18,7 +18,7 @@ cases:
     policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::home/${aws:username}/*"}]}
     expect: IMPLICIT_DENY
 
-  - name: clapa.variables.unknown-value-is-unknown
+  - name: darb.variables.unknown-value-is-unknown
     doc: "docs/DESIGN.md section 6.3: a variable whose value is not known makes the Resource match UNKNOWN"
     context: {default: unknown}
     policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::home/${aws:username}/*"}]}
@@ -69,7 +69,7 @@ cases:
     policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "arn:aws:s3:::home", Condition: {StringLike: {"s3:prefix": "home/${aws:username}/*"}}}]}
     expect: ALLOW
 
-  - name: clapa.variables.multivalued-key-is-unknown
+  - name: darb.variables.multivalued-key-is-unknown
     doc: "docs/DESIGN.md section 6.3: a variable over a key with several values cannot be substituted"
     context: {default: absent, present: {"aws:username": ["alice", "bob"]}}
     policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "arn:aws:s3:::home/${aws:username}/*"}]}

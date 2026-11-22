@@ -10,22 +10,22 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/collect"
-	"github.com/r3oof-900/clapa/internal/collect/awsraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/safeio"
+	"github.com/r3oof-900/darb/internal/collect"
+	"github.com/r3oof-900/darb/internal/collect/awsraw"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/safeio"
 )
 
 // Name identifies this collector in coverage gaps.
 const Name = "aws-snapshot"
 
 // Format is the snapshot format this reader understands.
-const Format = "clapa-snapshot/v1"
+const Format = "darb-snapshot/v1"
 
 // ErrFormat is returned when manifest.json is missing or of another format.
 var ErrFormat = errors.New("awssnapshot: not a " + Format + " bundle")
 
-// Bundle layout (written by "clapa collect-snapshot", docs/DESIGN.md 4.3):
+// Bundle layout (written by "darb collect-snapshot", docs/DESIGN.md 4.3):
 //
 //	manifest.json
 //	<account>/iam/get-account-authorization-details.json
@@ -46,7 +46,7 @@ type manifest struct {
 }
 
 // Collect reads a snapshot bundle. Every call the manifest records as failed
-// (access denied, throttled, ...) is a coverage gap; files CLAPA does not
+// (access denied, throttled, ...) is a coverage gap; files darb does not
 // recognise are reported, not ignored.
 func Collect(ctx context.Context, in *collect.Input, rec *coverage.Recorder) (*awsraw.Snapshot, error) {
 	r := &reader{base: filepath.Join(in.Root, filepath.FromSlash(in.Path)), in: in, rec: rec}
@@ -152,6 +152,14 @@ func (r *reader) place(a *awsraw.Account, l *layout, f string, parts []string) e
 		a.Auth = &awsraw.AuthorizationDetails{}
 		return r.json(f, a.Auth)
 	}
+	if f == path.Join(a.ID, "s3control", "get-public-access-block.json") {
+		var v struct {
+			Config awsraw.PublicAccessBlock `json:"PublicAccessBlockConfiguration"`
+		}
+		err := r.json(f, &v)
+		a.PublicAccessBlock = &v.Config
+		return err
+	}
 	if len(parts) < 4 {
 		return errUnknownFile
 	}
@@ -210,6 +218,7 @@ func failedPolicies(a *awsraw.Account) {
 	for _, b := range a.Buckets {
 		b.PolicyFailed = failed["s3 GetBucketPolicy "+b.Name]
 	}
+	a.PublicAccessBlockFailed = failed["s3control GetPublicAccessBlock "+a.ID]
 	for _, s := range a.Secrets {
 		s.PolicyFailed = failed["secretsmanager GetResourcePolicy "+s.ARN]
 	}

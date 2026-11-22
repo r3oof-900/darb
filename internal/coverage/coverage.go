@@ -9,7 +9,7 @@ import (
 // Kind classifies a coverage gap.
 type Kind string
 
-// Gap kinds. Every gap means "CLAPA could not see or decide something";
+// Gap kinds. Every gap means "darb could not see or decide something";
 // none of them is ever reported as safe.
 const (
 	// KindUnresolved: a static value (variable, local, expression) was not resolved.

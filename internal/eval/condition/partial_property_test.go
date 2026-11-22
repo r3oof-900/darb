@@ -6,7 +6,7 @@ import (
 
 	"pgregory.net/rapid"
 
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // A definite answer from the known parts of a request value is accepted only

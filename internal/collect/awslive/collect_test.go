@@ -1,6 +1,7 @@
 package awslive_test
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"slices"
@@ -8,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/r3oof-900/clapa/internal/collect/awslive"
-	"github.com/r3oof-900/clapa/internal/collect/awslive/awsfake"
-	"github.com/r3oof-900/clapa/internal/collect/awsraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
+	"github.com/r3oof-900/darb/internal/collect/awslive"
+	"github.com/r3oof-900/darb/internal/collect/awslive/awsfake"
+	"github.com/r3oof-900/darb/internal/collect/awsraw"
+	"github.com/r3oof-900/darb/internal/coverage"
 )
 
 func run(t *testing.T, ff *awsfake.Factory, regions ...string) (*awsraw.Account, *coverage.Recorder) {
@@ -144,7 +145,8 @@ func TestCollectSeveralRegions(t *testing.T) {
 		t.Fatalf("keys %d clusters %d secrets %d buckets %d", len(a.Keys), len(a.Clusters), len(a.Secrets), len(a.Buckets))
 	}
 	if !slices.IsSortedFunc(a.Calls, func(x, y awsraw.Call) int {
-		return strings.Compare(x.Service+x.Region+x.API+x.Target, y.Service+y.Region+y.API+y.Target)
+		return cmp.Or(strings.Compare(x.Service, y.Service), strings.Compare(x.Region, y.Region),
+			strings.Compare(x.API, y.API), strings.Compare(x.Target, y.Target))
 	}) {
 		t.Fatal("calls are not sorted")
 	}
@@ -178,5 +180,22 @@ func TestCollectCancelled(t *testing.T) {
 	_, err := awslive.Collect(ctx, &awslive.Options{Factory: &awsfake.Factory{}, Regions: []string{"eu-west-1"}}, &coverage.Recorder{})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("err %v", err)
+	}
+}
+
+// The account's Block Public Access: read once per account; none
+// configured is every setting off; a failed call is recorded as failed.
+func TestCollectAccountBlock(t *testing.T) {
+	a, _ := run(t, &awsfake.Factory{}, "eu-west-1", "us-east-1")
+	if a.PublicAccessBlock == nil || a.PublicAccessBlock.RestrictPublicBuckets || !a.PublicAccessBlock.BlockPublicPolicy || a.PublicAccessBlockFailed {
+		t.Fatalf("collected %+v", a.PublicAccessBlock)
+	}
+	none, _ := run(t, &awsfake.Factory{Fail: map[string]error{"GetAccountPublicAccessBlock": awsfake.Denied("NoSuchPublicAccessBlockConfiguration")}}, "eu-west-1")
+	if none.PublicAccessBlock == nil || *none.PublicAccessBlock != (awsraw.PublicAccessBlock{}) || none.PublicAccessBlockFailed {
+		t.Fatalf("none configured: %+v", none.PublicAccessBlock)
+	}
+	denied, rec := run(t, &awsfake.Factory{Fail: map[string]error{"GetAccountPublicAccessBlock": awsfake.Denied("AccessDenied")}}, "eu-west-1")
+	if denied.PublicAccessBlock != nil || !denied.PublicAccessBlockFailed || rec.Count(coverage.KindAccessDenied) != 1 {
+		t.Fatalf("denied: %+v %v", denied.PublicAccessBlock, rec.Gaps())
 	}
 }

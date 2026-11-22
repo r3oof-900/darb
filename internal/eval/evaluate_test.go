@@ -3,8 +3,8 @@ package eval
 import (
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/eval/match"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/eval/match"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 func TestNilContextMeansEveryKeyUnknown(t *testing.T) {

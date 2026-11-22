@@ -8,8 +8,8 @@ import (
 
 	"pgregory.net/rapid"
 
-	"github.com/r3oof-900/clapa/internal/iampolicy"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/iampolicy"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // Attaching a policy whose document is unknown (an AWS managed policy

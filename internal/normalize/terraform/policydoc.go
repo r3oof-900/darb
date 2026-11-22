@@ -3,10 +3,10 @@ package terraform
 import (
 	"encoding/json"
 
-	"github.com/r3oof-900/clapa/internal/collect/tfraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/iampolicy"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/collect/tfraw"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/iampolicy"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // policyDocJSON renders data "aws_iam_policy_document" as policy JSON

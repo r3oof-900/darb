@@ -3,7 +3,7 @@ package paths
 import (
 	"slices"
 
-	"github.com/r3oof-900/clapa/internal/graph"
+	"github.com/r3oof-900/darb/internal/graph"
 )
 
 // The flow network of one finding's cut (chokepoint.go).

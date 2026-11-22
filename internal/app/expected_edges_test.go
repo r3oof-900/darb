@@ -1,6 +1,6 @@
 package app
 
-import "github.com/r3oof-900/clapa/internal/graph"
+import "github.com/r3oof-900/darb/internal/graph"
 
 // noEdges reports every edge between nodes the expected file forbids.
 func noEdges(forbidden []expectedNoEdge, g *graph.Graph) []string {

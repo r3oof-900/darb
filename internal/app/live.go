@@ -7,13 +7,13 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/access"
-	"github.com/r3oof-900/clapa/internal/collect/awslive"
-	"github.com/r3oof-900/clapa/internal/collect/awsraw"
-	"github.com/r3oof-900/clapa/internal/collect/awssnapshot"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/managedpolicies"
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/internal/access"
+	"github.com/r3oof-900/darb/internal/collect/awslive"
+	"github.com/r3oof-900/darb/internal/collect/awsraw"
+	"github.com/r3oof-900/darb/internal/collect/awssnapshot"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/managedpolicies"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 // AWSLive configures a live AWS collection (scan --live-aws, collect-snapshot).
@@ -33,7 +33,7 @@ type AWSConnector func(ctx context.Context, profile string, regions []string) (a
 var ErrNoRegion = errors.New("no AWS region: pass --aws-region or set a region in the AWS configuration")
 
 // ConnectAWS loads the shared AWS configuration (the SDK reads the
-// credentials; CLAPA never does) and makes SDK clients.
+// credentials; darb never does) and makes SDK clients.
 func ConnectAWS(ctx context.Context, profile string, regions []string) (awslive.Factory, []string, error) {
 	first := ""
 	if len(regions) > 0 {
@@ -104,10 +104,16 @@ func awsNotes(snap *awsraw.Snapshot, mp *managedpolicies.Snapshot) []access.Note
 			notes = append(notes, access.Note{Kind: NoteServiceCoverage, Subject: strings.TrimSpace(a.ID + " " + c.Service + " " + c.Region), Detail: c.String()})
 		}
 	}
-	notes = append(notes, access.Note{
-		Kind: "not-modelled", Subject: "S3 account-level Block Public Access",
-		Detail: "not collected (s3:GetAccountPublicAccessBlock): a bucket without its own setting is treated as not blocked, which can report a path the account setting blocks, never hide one",
-	})
+	for _, a := range snap.Accounts {
+		// Collected since Phase 7; a snapshot written before has no file
+		// for it and no failed call.
+		if a.PublicAccessBlock == nil && !a.PublicAccessBlockFailed {
+			notes = append(notes, access.Note{
+				Kind: "not-modelled", Subject: a.ID + " S3 account-level Block Public Access",
+				Detail: "not in the input (s3:GetAccountPublicAccessBlock; a snapshot from before Phase 7): a bucket without its own setting is treated as not blocked, which can report a path the account setting blocks, never hide one",
+			})
+		}
+	}
 	return notes
 }
 

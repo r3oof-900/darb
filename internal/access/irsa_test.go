@@ -3,9 +3,9 @@ package access
 import (
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/iampolicy"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/iampolicy"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 func trust(t *testing.T, js string) *model.PolicyDocument {

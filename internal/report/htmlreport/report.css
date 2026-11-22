@@ -58,6 +58,7 @@ pre{overflow-x:auto;background:var(--bg);border:1px solid var(--line);border-rad
 .badge.strat{color:var(--low)}.strategy.mitigation .badge.strat{color:var(--warn)}
 .changes{margin:.2rem 0;padding-left:1.2rem}
 .fix h4{margin-top:.6rem}
+.explain{border-left:3px solid var(--line);padding:.1rem .8rem;margin:.6rem 0;white-space:pre-line}.explain .label{font-size:.85rem;color:var(--muted);white-space:normal}
 @media print{
 :root{--bg:#fff;--fg:#000;--muted:#333;--line:#888;--card:#fff;--node:#fff;--crit:#000;--high:#000;--med:#000;--low:#000;--info:#000;--warn:#000;--cut:#000;--resolve:#000;--ok:#000;--addbg:#fff;--addfg:#000;--delbg:#fff;--delfg:#000}
 body{font-size:11pt}

@@ -233,7 +233,7 @@ func TestNodes(t *testing.T) {
 
 func TestUnresolvedPlaceholder(t *testing.T) {
 	p := UnresolvedPlaceholder("var.x")
-	if p != "${clapa:unresolved:var.x}" || !ContainsUnresolved("arn:"+p+"/*") || ContainsUnresolved("${aws:username}") {
+	if p != "${darb:unresolved:var.x}" || !ContainsUnresolved("arn:"+p+"/*") || ContainsUnresolved("${aws:username}") {
 		t.Fatal("placeholder")
 	}
 	if !AnyUnresolved([]string{"a", p}) || AnyUnresolved([]string{"a"}) {
@@ -261,10 +261,10 @@ func TestUnresolvedIDs(t *testing.T) {
 func TestSplitUnresolved(t *testing.T) {
 	u := UnresolvedPlaceholder("x")
 	cases := map[string][]string{
-		"plain":                         {"plain"},
-		"a" + u + "b":                   {"a", "b"},
-		u + u:                           {"", "", ""},
-		"a" + "${clapa:unresolved:open": {"a", ""},
+		"plain":                        {"plain"},
+		"a" + u + "b":                  {"a", "b"},
+		u + u:                          {"", "", ""},
+		"a" + "${darb:unresolved:open": {"a", ""},
 	}
 	for in, want := range cases {
 		got := SplitUnresolved(in)
@@ -335,5 +335,46 @@ func TestRemediationCopies(t *testing.T) {
 	before := r.S3()
 	if c := r.WithS3(S3Settings{RestrictPublicBuckets: True}); c.S3().RestrictPublicBuckets != True || r.S3() != before || c.ID() != r.ID() {
 		t.Error("WithS3")
+	}
+}
+
+// A workload without one Secret reference keeps the others.
+func TestWithoutSecretRef(t *testing.T) {
+	w := NewWorkload(&WorkloadInput{Cluster: "c", Namespace: "n", Kind: "Pod", Name: "p", SecretRefs: []string{"b", "a", "b"}})
+	if got := w.SecretRefs(); len(got) != 2 || got[0] != "a" {
+		t.Fatalf("refs %v", got)
+	}
+	if got := w.WithoutSecretRef("a").SecretRefs(); len(got) != 1 || got[0] != "b" || len(w.SecretRefs()) != 2 {
+		t.Errorf("without a: %v (original %v)", got, w.SecretRefs())
+	}
+}
+
+// The stricter of a bucket's and its account's setting applies; an unknown
+// one leaves an "off" unknown; another account's setting does nothing.
+func TestRestrictPublic(t *testing.T) {
+	bucket := func(v Tri) *Resource {
+		return NewResource(&ResourceInput{Kind: KindS3Bucket, ARN: "arn:aws:s3:::b", Account: "1", S3: S3Settings{RestrictPublicBuckets: v}})
+	}
+	account := func(acct string, v Tri) []*AccountPublicAccessBlock {
+		return []*AccountPublicAccessBlock{{Account: acct, RestrictPublicBuckets: v}}
+	}
+	for _, c := range []struct {
+		bucket  Tri
+		account []*AccountPublicAccessBlock
+		want    Tri
+	}{
+		{False, nil, False},
+		{Unknown, nil, Unknown},
+		{True, account("1", False), True},
+		{False, account("1", True), True},
+		{False, account("1", Unknown), Unknown},
+		{Unknown, account("1", False), Unknown},
+		{False, account("1", False), False},
+		{False, account("2", True), False},
+	} {
+		inv := &Inventory{AccountBlocks: c.account}
+		if got := inv.RestrictPublic(bucket(c.bucket)); got != c.want {
+			t.Errorf("bucket %v, account %+v: %v, want %v", c.bucket, c.account, got, c.want)
+		}
 	}
 }

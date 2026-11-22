@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/patch"
-	"github.com/r3oof-900/clapa/internal/remediate"
-	"github.com/r3oof-900/clapa/internal/verify"
+	"github.com/r3oof-900/darb/internal/patch"
+	"github.com/r3oof-900/darb/internal/remediate"
+	"github.com/r3oof-900/darb/internal/verify"
 )
 
 // WriteRemediation prints a remediation: the finding, what is missing (an

@@ -5,11 +5,11 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/access"
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/paths"
-	"github.com/r3oof-900/clapa/internal/rules"
-	"github.com/r3oof-900/clapa/internal/scoring"
+	"github.com/r3oof-900/darb/internal/access"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/paths"
+	"github.com/r3oof-900/darb/internal/rules"
+	"github.com/r3oof-900/darb/internal/scoring"
 )
 
 // One finding per (rule, entry, jewel) (DESIGN.md §8): the paths of a pair

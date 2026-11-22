@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // checkPlaceholders records an error for every placeholder in the inventory

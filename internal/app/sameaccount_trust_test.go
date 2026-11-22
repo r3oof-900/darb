@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/remediate"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/remediate"
 )
 
 // Scenario 22: role/ops's trust names role/app's ARN in the same account.
@@ -39,7 +39,7 @@ func TestSameAccountTrustNamingTheRoleARNMakesTheIdentitySideNonCutting(t *testi
 	if !found {
 		t.Fatal("no ASSUMES role/app -> role/ops")
 	}
-	f := findingFor(a, "CLAPA-PATH-002", "arn:aws:s3:::acme-customer-pii")
+	f := findingFor(a, "DARB-PATH-002", "arn:aws:s3:::acme-customer-pii")
 	if f == nil {
 		t.Fatal("no escalation finding")
 	}

@@ -3,11 +3,11 @@ package report
 import (
 	"io"
 
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/rules"
-	"github.com/r3oof-900/clapa/internal/version"
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/rules"
+	"github.com/r3oof-900/darb/internal/version"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 // Reporter renders a report document in one format.
@@ -37,8 +37,8 @@ func Build(in *Input) *schema.Report {
 	r := &schema.Report{
 		Schema: schema.Version,
 		Tool: schema.Tool{
-			Name: "clapa", Version: v.Version, Commit: v.Commit, RuleCatalog: in.CatalogVersion,
-			InformationURI: "https://github.com/r3oof-900/clapa",
+			Name: "darb", Version: v.Version, Commit: v.Commit, RuleCatalog: in.CatalogVersion,
+			InformationURI: "https://github.com/r3oof-900/darb",
 		},
 		ThreatModel:    schema.ThreatModel{AssumeCompromised: in.AssumeCompromised, FailOn: in.FailOn},
 		Summary:        schema.Summary{Findings: len(in.Findings), BySeverity: map[string]int{}},

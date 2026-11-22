@@ -3,10 +3,10 @@ package access
 import (
 	"slices"
 
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/eval/match"
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/eval/match"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // nodeRoles adds NODE_ROLE: a pod reaches its node's instance role through
@@ -118,7 +118,7 @@ func (b *builder) read(role *model.Principal, j *model.Resource) {
 	req := &eval.Request{Principal: principal, Action: "s3:GetObject", Resource: object, ResourceAccount: j.Account(), Context: b.context(role, nil)}
 	read := eval.Evaluate(req, set)
 	if role == nil {
-		read.Verdict = publicAccess(read.Verdict, j.S3().RestrictPublicBuckets)
+		read.Verdict = publicAccess(read.Verdict, b.inv.RestrictPublic(j))
 	}
 	if !grants(read.Verdict) {
 		return

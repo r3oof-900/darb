@@ -13,7 +13,7 @@ import (
 )
 
 // newSerializer builds a strict JSON serializer over a scheme holding only
-// the API groups CLAPA analyses, so field semantics match the API server and
+// the API groups darb analyses, so field semantics match the API server and
 // unknown fields are reported (docs/DESIGN.md section 4.2).
 func newSerializer() (*kjson.Serializer, error) {
 	s := runtime.NewScheme()
@@ -27,7 +27,7 @@ func newSerializer() (*kjson.Serializer, error) {
 	return kjson.NewSerializerWithOptions(kjson.DefaultMetaFactory, s, s, kjson.SerializerOptions{Strict: true}), nil
 }
 
-// supported lists the kinds CLAPA analyses (docs/DESIGN.md section 4.2).
+// supported lists the kinds darb analyses (docs/DESIGN.md section 4.2).
 func supported(kind string) bool {
 	switch kind {
 	case "Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob", "Pod", "ReplicaSet",

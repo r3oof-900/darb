@@ -5,18 +5,18 @@ package pathrules
 import (
 	"slices"
 
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/paths"
-	"github.com/r3oof-900/clapa/internal/rules"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/paths"
+	"github.com/r3oof-900/darb/internal/rules"
 )
 
 // Rule IDs.
 const (
-	WorkloadReadsJewel = "CLAPA-PATH-001"
-	EscalationToJewel  = "CLAPA-PATH-002"
-	PublicJewel        = "CLAPA-PATH-003"
+	WorkloadReadsJewel = "DARB-PATH-001"
+	EscalationToJewel  = "DARB-PATH-002"
+	PublicJewel        = "DARB-PATH-003"
 )
 
 type pathRule struct{ meta rules.Meta }

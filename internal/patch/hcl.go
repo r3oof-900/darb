@@ -11,8 +11,8 @@ import (
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/zclconf/go-cty/cty"
 
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/remediate"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/remediate"
 )
 
 // errTODO marks an edit that cannot be placed exactly; the message says why
@@ -214,7 +214,7 @@ func (p *patcher) byHand(pe *policyEdits) string {
 			parts = append(parts, fmt.Sprintf("remove statement %d", e.Index))
 		case remediate.OpSetValues:
 			parts = append(parts, fmt.Sprintf("set the %s of statement %d to %s", e.Element, e.Index, strings.Join(e.Values, ", ")))
-		case remediate.OpNodeMetadata, remediate.OpRemoveHostNetwork, remediate.OpRemoveExposure, remediate.OpRestrictPublic, remediate.OpDisableTokenMount, remediate.OpDetachPolicy:
+		case remediate.OpNodeMetadata, remediate.OpRemoveHostNetwork, remediate.OpRemoveExposure, remediate.OpRestrictPublic, remediate.OpDisableTokenMount, remediate.OpRemoveSecretRef, remediate.OpDetachPolicy:
 		}
 	}
 	return "by hand: " + strings.Join(parts, "; ")

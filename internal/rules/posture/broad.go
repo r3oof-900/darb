@@ -5,19 +5,19 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/eval/match"
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/paths"
-	"github.com/r3oof-900/clapa/internal/rules"
-	"github.com/r3oof-900/clapa/internal/scoring"
+	"github.com/r3oof-900/darb/internal/eval/match"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/paths"
+	"github.com/r3oof-900/darb/internal/rules"
+	"github.com/r3oof-900/darb/internal/scoring"
 )
 
 // BroadGrant is the rule of a sensitive action granted on every resource, or to every
 // principal (DESIGN.md §8.1, decided in the Phase 5 review). A remediation
 // that only blocks one path (a mitigation) leaves the grant; this finding
 // keeps it visible, so the scan is not clean while it exists.
-const BroadGrant = "CLAPA-POST-008"
+const BroadGrant = "DARB-POST-008"
 
 // sensitiveActions read data or take an identity.
 func sensitiveActions() []string {

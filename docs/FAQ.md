@@ -1,0 +1,139 @@
+# FAQ
+
+## Results
+
+### Why is a finding "unconfirmed" and still critical?
+
+Because something on its path is not known, and darb scores the worst case
+of every unknown ([DESIGN.md §6.2](DESIGN.md#62-three-valued-logic-unknown)).
+The status says how sure the path is, the severity how bad it is if the
+unknowns go the attacker's way:
+
+| Status | Meaning |
+|---|---|
+| `confirmed` | every step is decided |
+| `confirmed_unless_denied` | every required Allow is known; only a Deny that could not be evaluated stands in the way |
+| `unconfirmed` | a step needs an Allow (or a fact) that is not known |
+
+The finding's `undecided` list names each unknown and what resolves it: a
+managed-policy refresh, an `assume:` entry in `darb.yaml` for a context
+key, a `--plan` for a value only Terraform knows, or the missing input.
+Resolve them and rescan; a severity can then go down, never up.
+
+### The scan found nothing. Am I secure?
+
+darb never says so. An empty result means "no path in what was scanned";
+the report lists the coverage it rests on (inputs, gaps, `not-modelled`
+notes). With nothing collected, the console says so and the exit code is 3.
+Exit 0 also requires coverage within tolerance (default: no gap).
+
+### Why exit code 3 when there are no findings?
+
+The scan is incomplete: a coverage gap above the tolerance in `darb.yaml`
+(for example an unresolved Terraform variable), or no input at all. Findings
+take precedence (exit 1): they are actionable even when coverage is partial.
+
+### Why is a path reported that an SCP would block?
+
+AWS Organizations SCPs and RCPs, KMS grants and account-level S3 Block Public
+Access are not collected yet ([PERMISSIONS.md](PERMISSIONS.md)). Each is
+listed in every report as `not-modelled`. They can only make darb report a
+path that is in fact blocked, never hide one.
+
+### Why is every role with an AWS managed policy UNKNOWN?
+
+The bundled managed-policy snapshot holds only `AdministratorAccess`,
+`AmazonS3FullAccess` and `AmazonS3ReadOnlyAccess` until it is refreshed with
+`tools/refresh-managed-policies` ([DESIGN.md §12.1](DESIGN.md#121-known-constraints-carried-between-phases)).
+Any other attached managed policy is an unknown Allow and Deny: never "no
+permissions". The report warns about each one.
+
+### Are fingerprints stable?
+
+Yes, across scans and machines: a fingerprint is a hash of the rule ID, the
+rule's major version and the finding's identity (entry and jewel for a path,
+the resource for a misconfiguration), not of a file path or a line. Two scans
+of the same input are byte-identical unless `--timestamps` is given.
+
+## Fixes
+
+### What is the "cheapest fix"?
+
+The smallest set of changes that breaks every path of the finding (a weighted
+minimum cut, [SCORING.md §4](SCORING.md)). Narrowing a broad grant costs
+less than revoking an explicit one; a resource policy costs more than an
+identity policy when both work. The report also gives an alternative fix
+that shares no change with the chosen one, when there is one.
+
+### Root cause or mitigation?
+
+`darb remediate` (or `scan --fixes`) labels each verified fix. A
+**root-cause** fix removes the broad grant; a **mitigation** blocks this path
+only and leaves the broad grant in place, which other paths may use. Root
+causes are offered first.
+
+### What is a "resolve" step?
+
+A change darb cannot price because the grant it would change is not known
+(an unknown Allow). It costs nothing and changes nothing: it names the command
+that decides the unknown. A fix with such a step is
+`partial_pending_resolution`: resolve, rescan, and the fix may need more
+steps.
+
+### Does `remediate --write` change my cloud?
+
+No. It writes to your Terraform or manifest files, only when the fix is
+verified both in memory and by rescanning the patched files, only into a
+clean git tree (unless `--force`), and a revoke needs `--allow-revoke`. It
+never calls a cloud API. Live input has no files to patch: run
+`collect-snapshot` and remediate the snapshot to see the policy to apply.
+
+## Triage
+
+### How do I accept a finding?
+
+Add it to `.darb-ignore.yaml` (or `--ignore FILE`) with a reason, an owner
+and an expiry date:
+
+```yaml
+suppressions:
+  - {fingerprint: b2113156f5b8e654..., reason: "break-glass role, reviewed", owner: platform-team, expires: "2027-03-31"}
+```
+
+A missing field is a configuration error. A suppressed finding is listed in
+the report and does not count for the exit code; after `expires` it fires
+again and the console warns.
+
+### How do I fail CI only on new findings?
+
+`darb scan ... --baseline previous.json --fail-on high`: only findings not in
+the previous JSON report are reported and decide the exit code; the ones that
+are gone are listed as resolved.
+
+### How do I see results in GitHub code scanning?
+
+`--format sarif --output darb.sarif`, then upload it with
+`github/codeql-action/upload-sarif`. Paths appear as code flows, and darb's
+fingerprint is the SARIF `partialFingerprints`.
+
+## Privacy
+
+### Does darb send anything anywhere?
+
+Only to the cloud APIs it reads (live scans, read-only) and, when you pass
+`--llm`, to that LLM provider. No telemetry, no update check.
+
+### What does `--llm` send?
+
+Structured fields of the report for each attack path (rule, severity, score,
+status, entry, jewel, path, undecided, cheapest fix, defaults relied on), with
+every secret redacted. Never a file of your input, never a policy document.
+With `--llm-redact-identifiers`, account IDs, ARNs and names are replaced by
+tokens such as `arn-0001` and restored locally. Misconfigurations are not
+sent. The answer is labelled "AI-generated explanation" and never changes a
+verdict, a score or a fix. See [THREAT_MODEL.md](THREAT_MODEL.md).
+
+### Where does the API key go?
+
+`ANTHROPIC_API_KEY` in the environment only; there is no flag for it. It is
+never printed, logged or written to a report.

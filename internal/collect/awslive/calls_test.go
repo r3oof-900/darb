@@ -4,8 +4,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/collect/awslive"
-	"github.com/r3oof-900/clapa/internal/collect/awslive/awsfake"
+	"github.com/r3oof-900/darb/internal/collect/awslive"
+	"github.com/r3oof-900/darb/internal/collect/awslive/awsfake"
 )
 
 // Every recorded call of a full collection is one of the allowed APIs.
@@ -14,7 +14,7 @@ func TestCallsAreAllowed(t *testing.T) {
 	a, _ := run(t, ff, "eu-west-1")
 	iamName := map[string]string{
 		"s3:ListBuckets": "s3:ListAllMyBuckets", "s3:GetBucketEncryption": "s3:GetEncryptionConfiguration",
-		"s3:GetPublicAccessBlock": "s3:GetBucketPublicAccessBlock",
+		"s3:GetPublicAccessBlock": "s3:GetBucketPublicAccessBlock", "s3control:GetPublicAccessBlock": "s3:GetAccountPublicAccessBlock",
 	}
 	used := map[string]bool{}
 	for _, c := range a.Calls {

@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/archtest"
+	"github.com/r3oof-900/darb/internal/archtest"
 )
 
 func main() {

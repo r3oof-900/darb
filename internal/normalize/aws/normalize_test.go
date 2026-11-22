@@ -5,13 +5,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/collect"
-	"github.com/r3oof-900/clapa/internal/collect/awssnapshot"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/managedpolicies"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/normalize"
-	"github.com/r3oof-900/clapa/internal/safeio"
+	"github.com/r3oof-900/darb/internal/collect"
+	"github.com/r3oof-900/darb/internal/collect/awssnapshot"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/managedpolicies"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/normalize"
+	"github.com/r3oof-900/darb/internal/safeio"
 )
 
 func TestNormalizeSnapshot(t *testing.T) {
@@ -40,11 +40,11 @@ func TestNormalizeSnapshot(t *testing.T) {
 	for key, want := range map[string]string{
 		"arn:aws:iam::111122223333:role/app#inline/cli-object|identity":  "Allow s3:GetObject",
 		"arn:aws:iam::111122223333:role/app#inline/json-string|identity": "Allow kms:Decrypt",
-		"arn:aws:iam::111122223333:role/app#inline/broken|identity":      "${clapa:unresolved:",
-		"arn:aws:iam::111122223333:role/app#inline/bad-escape|identity":  "${clapa:unresolved:",
-		"arn:aws:iam::111122223333:role/app#inline/missing|identity":     "${clapa:unresolved:",
+		"arn:aws:iam::111122223333:role/app#inline/broken|identity":      "${darb:unresolved:",
+		"arn:aws:iam::111122223333:role/app#inline/bad-escape|identity":  "${darb:unresolved:",
+		"arn:aws:iam::111122223333:role/app#inline/missing|identity":     "${darb:unresolved:",
 		"arn:aws:iam::aws:policy/AmazonS3FullAccess|identity":            "Allow s3:*",
-		"arn:aws:iam::aws:policy/NotInTheSnapshot|identity":              "${clapa:unresolved:",
+		"arn:aws:iam::aws:policy/NotInTheSnapshot|identity":              "${darb:unresolved:",
 		"arn:aws:iam::111122223333:policy/custom|identity":               "Allow sqs:*", // the default version, not v1
 		"arn:aws:iam::111122223333:policy/custom|boundary":               "Allow sqs:*",
 	} {

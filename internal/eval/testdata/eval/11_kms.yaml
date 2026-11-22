@@ -59,7 +59,7 @@ cases:
     policies: {resource: [*rootKeyPolicy], identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {StringEquals: {"kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::payments"}}}]}
     expect: IMPLICIT_DENY
 
-  - name: clapa.kms.encryption-context-unknown
+  - name: darb.kms.encryption-context-unknown
     doc: "docs/DESIGN.md section 7.3: without the target's encryption context the decrypt edge is UNKNOWN"
     context: {default: unknown}
     policies: {resource: [*rootKeyPolicy], identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {StringEquals: {"kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::payments"}}}]}

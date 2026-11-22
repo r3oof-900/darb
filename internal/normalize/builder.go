@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // ErrDuplicate is returned when two definitions have the same canonical
@@ -147,6 +147,11 @@ func (b *Builder) AddNodeGroup(n *model.NodeGroup) { b.inv.NodeGroups = append(b
 // AddRBAC records a resolved RBAC grant.
 func (b *Builder) AddRBAC(g *model.RBACGrant) { b.inv.RBAC = append(b.inv.RBAC, g) }
 
+// AddAccountBlock records an account's S3 Block Public Access.
+func (b *Builder) AddAccountBlock(a *model.AccountPublicAccessBlock) {
+	b.inv.AccountBlocks = append(b.inv.AccountBlocks, a)
+}
+
 // AddMapping records an IAM-to-Kubernetes identity mapping.
 func (b *Builder) AddMapping(m *model.IdentityMapping) { b.inv.Mappings = append(b.inv.Mappings, m) }
 
@@ -181,6 +186,9 @@ func (b *Builder) Build() (*model.Inventory, error) {
 	slices.SortFunc(inv.RBAC, compareRBAC)
 	slices.SortFunc(inv.Mappings, func(a, c *model.IdentityMapping) int {
 		return strings.Compare(a.Cluster+"/"+a.PrincipalARN, c.Cluster+"/"+c.PrincipalARN)
+	})
+	slices.SortFunc(inv.AccountBlocks, func(a, c *model.AccountPublicAccessBlock) int {
+		return cmp.Or(strings.Compare(a.Account, c.Account), strings.Compare(a.Source.String(), c.Source.String()))
 	})
 	return &inv, nil
 }

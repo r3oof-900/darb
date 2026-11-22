@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/collect"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/safeio"
+	"github.com/r3oof-900/darb/internal/collect"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/safeio"
 )
 
 func TestCollectSnapshot(t *testing.T) {

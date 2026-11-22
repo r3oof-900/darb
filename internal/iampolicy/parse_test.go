@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 func parse(t *testing.T, kind model.PolicyKind, js string) (*model.PolicyDocument, error) {
@@ -157,13 +157,13 @@ func TestReservedText(t *testing.T) {
 		{"no placeholder", doc("s3:GetObject", "*"), false, true},
 		{"input placeholder", doc(ph, "*"), false, false},
 		{"caller placeholder", doc(ph, "*"), true, true},
-		{"JSON-escaped placeholder", doc(dollar+"{clapa:unresolved:var.env}", "*"), true, false},
-		{"escaped next to a caller one", doc(ph, dollar+"{clapa:unresolved:var.env}"), true, false},
-		{"escaped brace", doc("$"+brace+"clapa:unresolved:x}", "*"), true, false},
+		{"JSON-escaped placeholder", doc(dollar+"{darb:unresolved:var.env}", "*"), true, false},
+		{"escaped next to a caller one", doc(ph, dollar+"{darb:unresolved:var.env}"), true, false},
+		{"escaped brace", doc("$"+brace+"darb:unresolved:x}", "*"), true, false},
 		{"in a condition key", `{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Action":"*","Resource":"*",` +
-			`"Condition":{"StringEquals":{"` + dollar + `{clapa:unresolved:k}":"v"}}}]}`, true, false},
+			`"Condition":{"StringEquals":{"` + dollar + `{darb:unresolved:k}":"v"}}}]}`, true, false},
 		{"in a principal list", `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"*","Resource":"*",` +
-			`"Principal":{"AWS":["arn:aws:iam::1:root","` + dollar + `{clapa:unresolved:p}"]}}]}`, true, false},
+			`"Principal":{"AWS":["arn:aws:iam::1:root","` + dollar + `{darb:unresolved:p}"]}}]}`, true, false},
 	}
 	if !strings.Contains(cases[3].text, string(rune(0x5c))+"u0024") {
 		t.Fatal("the escape must reach the parser as an escape")

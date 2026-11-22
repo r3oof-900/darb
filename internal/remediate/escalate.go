@@ -4,7 +4,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // escalationActions: the IAM actions an escalation edge rests on.

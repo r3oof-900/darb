@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // Apply returns a copy of inv with the edits made; inv is not changed. Every
@@ -21,7 +21,7 @@ func Apply(inv *model.Inventory, edits []Edit) (*model.Inventory, error) {
 				order = append(order, e.Policy)
 			}
 			byDoc[e.Policy] = append(byDoc[e.Policy], *e)
-		case OpNodeMetadata, OpRemoveHostNetwork, OpRemoveExposure, OpRestrictPublic, OpDisableTokenMount, OpDetachPolicy:
+		case OpNodeMetadata, OpRemoveHostNetwork, OpRemoveExposure, OpRestrictPublic, OpDisableTokenMount, OpRemoveSecretRef, OpDetachPolicy:
 			applyFact(&out, e)
 		}
 	}
@@ -49,6 +49,13 @@ func applyFact(out *model.Inventory, e *Edit) {
 		out.Workloads = replaceAll(out.Workloads, func(w *model.Workload) *model.Workload {
 			if w.ID() == e.Workload.ID() {
 				return w.WithoutTokenMount()
+			}
+			return w
+		})
+	case OpRemoveSecretRef:
+		out.Workloads = replaceAll(out.Workloads, func(w *model.Workload) *model.Workload {
+			if w.ID() == e.Workload.ID() {
+				return w.WithoutSecretRef(e.Secret)
 			}
 			return w
 		})

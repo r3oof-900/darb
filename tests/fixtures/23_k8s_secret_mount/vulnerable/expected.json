@@ -1,0 +1,103 @@
+{
+  "format": "darb-expected/v1",
+  "derived_from": "DESIGN.md 12.1 priority 1: Secrets mounted into pods, and through pod creation",
+  "findings": [
+    {
+      "rule": "DARB-PATH-001",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
+      "jewel": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials",
+      "path": [
+        "CAN_READ_PLAINTEXT[mount] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 400,
+      "severity": "medium",
+      "chokepoints": [
+        "CAN_READ_PLAINTEXT[mount] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials"
+      ],
+      "alternative_fix": [],
+      "defaults_used": [],
+      "fix": [
+        {
+          "edge": "CAN_READ_PLAINTEXT[mount] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials",
+          "side": "workload",
+          "fix_kind": "revoke",
+          "cost": 5
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": [],
+      "status": "confirmed",
+      "also_fixes": [],
+      "uncuttable": [],
+      "remediation_status": "complete",
+      "fingerprint": "3c8d267da4ad1a1faca06cc6bf0d2f39e189874a892eb5d478dd0c22489421b7"
+    },
+    {
+      "rule": "DARB-PATH-001",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner",
+      "jewel": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials",
+      "path": [
+        "RUNS_AS[k8s-token] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci",
+        "CAN_READ_PLAINTEXT[pod-create] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 360,
+      "severity": "medium",
+      "chokepoints": [
+        "RUNS_AS[k8s-token] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci"
+      ],
+      "alternative_fix": [
+        "CAN_READ_PLAINTEXT[pod-create] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials"
+      ],
+      "defaults_used": [
+        "k8s.automountServiceAccountToken"
+      ],
+      "fix": [
+        {
+          "edge": "RUNS_AS[k8s-token] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci",
+          "side": "workload",
+          "fix_kind": "revoke",
+          "cost": 5
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": [
+        {
+          "edge": "CAN_READ_PLAINTEXT[pod-create] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/ci -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials",
+          "side": "rbac",
+          "fix_kind": "revoke",
+          "cost": 5
+        }
+      ],
+      "status": "confirmed",
+      "also_fixes": [],
+      "uncuttable": [],
+      "remediation_status": "complete",
+      "fingerprint": "9de1db280a1c73473e229578ea7235234680eac0883f3dce2c85d2a06c84fa73"
+    },
+    {
+      "rule": "DARB-POST-004",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner",
+      "score": 350,
+      "severity": "medium",
+      "defaults_used": [
+        "k8s.automountServiceAccountToken"
+      ],
+      "fingerprint": "6c219da168767c29d2ca433063d21c01754850d399aea35b2c83751c82d1b399"
+    },
+    {
+      "rule": "DARB-POST-007",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/payments",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": [],
+      "fingerprint": "fe1ae67f98c056f873685d2df3e72ae5def9ae84ccea894079e4f039a7565639"
+    }
+  ],
+  "absent": [],
+  "intended_access": [],
+  "no_edges": []
+}

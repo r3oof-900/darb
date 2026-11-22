@@ -9,7 +9,7 @@ import (
 
 	yaml "go.yaml.in/yaml/v3"
 
-	"github.com/r3oof-900/clapa/internal/remediate"
+	"github.com/r3oof-900/darb/internal/remediate"
 )
 
 // Kubernetes manifests are edited line by line at the lines a YAML parser

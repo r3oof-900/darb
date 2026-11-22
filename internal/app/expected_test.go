@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/rules"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/rules"
 )
 
 // expected.json (DESIGN.md §8.2): written by hand before the rules existed.
@@ -35,12 +35,15 @@ type expectedFile struct {
 }
 
 type expectedFinding struct {
-	Rule      string   `json:"rule"`
-	Entry     *string  `json:"entry"`
-	Jewel     string   `json:"jewel"`
-	Resource  string   `json:"resource"`
-	Path      []string `json:"path"`
-	Confirmed *bool    `json:"confirmed"`
+	Rule     string  `json:"rule"`
+	Entry    *string `json:"entry"`
+	Jewel    string  `json:"jewel"`
+	Resource string  `json:"resource"`
+	// Fingerprint: computed in tests/fixtures/expected_source.py from the
+	// documented formula (DESIGN.md 5, 8), not from the engine.
+	Fingerprint string   `json:"fingerprint"`
+	Path        []string `json:"path"`
+	Confirmed   *bool    `json:"confirmed"`
 	// Status (DESIGN.md 6.2) and, for a path with unknowns, texts each of
 	// which some undecided entry must contain (the unknown's name, what
 	// resolves it).
@@ -147,7 +150,7 @@ func kindOf(identity string) model.NodeKind {
 // fingerprint is the §8 formula written again, independently of the engine:
 // it names the problem (rule, entry, jewel or resource), never the fix.
 func fingerprint(rule string, f *expectedFinding) string {
-	parts := []string{"clapa/fingerprint/v1", rule, "1"}
+	parts := []string{"darb/fingerprint/v1", rule, "1"}
 	if f.Resource != "" {
 		parts = append(parts, string(model.NewID(kindOf(f.Resource), f.Resource)))
 	} else {
@@ -221,6 +224,7 @@ func compareFinding(e *expectedFinding, a *rules.Finding) []string {
 	diffs = append(diffs, comparePhase6(e, a)...)
 	if e.Entry != nil || e.Resource != "" {
 		diff("fingerprint (independent §8 formula)", fingerprint(e.Rule, e), a.Fingerprint)
+		diff("fingerprint (expected_source.py)", e.Fingerprint, a.Fingerprint)
 	}
 	return diffs
 }
@@ -337,7 +341,7 @@ func TestExpectedFindings(t *testing.T) {
 			t.Fatal(err)
 		}
 		var exp expectedFile
-		if jerr := json.Unmarshal(data, &exp); jerr != nil || exp.Format != "clapa-expected/v1" {
+		if jerr := json.Unmarshal(data, &exp); jerr != nil || exp.Format != "darb-expected/v1" {
 			t.Fatalf("%s: %v", file, jerr)
 		}
 		dir := copyTree(t, variant)

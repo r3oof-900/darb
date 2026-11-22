@@ -8,26 +8,26 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/access"
-	"github.com/r3oof-900/clapa/internal/classify"
-	"github.com/r3oof-900/clapa/internal/collect"
-	"github.com/r3oof-900/clapa/internal/collect/awslive"
-	"github.com/r3oof-900/clapa/internal/collect/awsraw"
-	"github.com/r3oof-900/clapa/internal/collect/awssnapshot"
-	"github.com/r3oof-900/clapa/internal/collect/k8s/live"
-	"github.com/r3oof-900/clapa/internal/collect/k8s/manifests"
-	"github.com/r3oof-900/clapa/internal/collect/terraform/hclstatic"
-	"github.com/r3oof-900/clapa/internal/collect/terraform/plan"
-	"github.com/r3oof-900/clapa/internal/config"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/managedpolicies"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/normalize"
-	normaws "github.com/r3oof-900/clapa/internal/normalize/aws"
-	normk8s "github.com/r3oof-900/clapa/internal/normalize/k8s"
-	normtf "github.com/r3oof-900/clapa/internal/normalize/terraform"
-	"github.com/r3oof-900/clapa/internal/safeio"
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/internal/access"
+	"github.com/r3oof-900/darb/internal/classify"
+	"github.com/r3oof-900/darb/internal/collect"
+	"github.com/r3oof-900/darb/internal/collect/awslive"
+	"github.com/r3oof-900/darb/internal/collect/awsraw"
+	"github.com/r3oof-900/darb/internal/collect/awssnapshot"
+	"github.com/r3oof-900/darb/internal/collect/k8s/live"
+	"github.com/r3oof-900/darb/internal/collect/k8s/manifests"
+	"github.com/r3oof-900/darb/internal/collect/terraform/hclstatic"
+	"github.com/r3oof-900/darb/internal/collect/terraform/plan"
+	"github.com/r3oof-900/darb/internal/config"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/managedpolicies"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/normalize"
+	normaws "github.com/r3oof-900/darb/internal/normalize/aws"
+	normk8s "github.com/r3oof-900/darb/internal/normalize/k8s"
+	normtf "github.com/r3oof-900/darb/internal/normalize/terraform"
+	"github.com/r3oof-900/darb/internal/safeio"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 // Inputs lists what to scan; paths are slash-separated, relative to Root.
@@ -64,7 +64,7 @@ type Loaded struct {
 	Inventory   *model.Inventory
 	EntryPoints []classify.EntryPoint
 	Gaps        []coverage.Gap
-	// Intended is clapa.yaml's intended_access with every Kubernetes
+	// Intended is darb.yaml's intended_access with every Kubernetes
 	// principal written with its cluster key (resolveIdentities).
 	Intended []config.IntendedAccess
 	// Notes say what a scan of AWS could not decide (managed policies
@@ -85,7 +85,7 @@ func Load(ctx context.Context, in *Inputs) (*Loaded, error) {
 	}
 	l := &loader{in: in, mp: mp, rec: &coverage.Recorder{}, b: normalize.NewBuilder()}
 	// Kubernetes last: its cluster names resolve against the clusters
-	// Terraform, AWS and clapa.yaml describe (clusterKey).
+	// Terraform, AWS and darb.yaml describe (clusterKey).
 	for _, step := range []func(context.Context) error{l.terraform, l.aws, l.kubernetes} {
 		if serr := step(ctx); serr != nil {
 			return nil, serr
@@ -183,7 +183,7 @@ var ErrAmbiguousCluster = errors.New("ambiguous cluster")
 
 // clusterKey resolves the cluster a Kubernetes input names (--k8s
 // DIR=CLUSTER, --live-k8s CONTEXT=CLUSTER) to its key (model.ClusterKey):
-// an ARN is the key; a name is looked up in clapa.yaml and in the clusters
+// an ARN is the key; a name is looked up in darb.yaml and in the clusters
 // Terraform and AWS describe, and must match one cluster (two clusters of
 // one name need the ARN); a name nothing describes is its own key. No name
 // means the one configured cluster, or DefaultClusterName.
@@ -196,7 +196,7 @@ func (l *loader) clusterKey(name string) (string, error) {
 		case 1:
 			name = cfg.Clusters[0].Name
 		default:
-			return "", fmt.Errorf("%w: %w: clapa.yaml declares %d clusters: name the cluster of each Kubernetes input (DIR=CLUSTER)",
+			return "", fmt.Errorf("%w: %w: darb.yaml declares %d clusters: name the cluster of each Kubernetes input (DIR=CLUSTER)",
 				config.ErrInvalid, ErrAmbiguousCluster, len(cfg.Clusters))
 		}
 	}
@@ -261,7 +261,7 @@ func terraformOptions(c *config.Config) *normtf.Options {
 	return &normtf.Options{Account: c.Terraform.Account, Region: c.Terraform.Region, Partition: c.Terraform.Partition, OIDCIssuers: issuers}
 }
 
-// addConfiguredClusters adds clusters declared only in clapa.yaml (e.g. a
+// addConfiguredClusters adds clusters declared only in darb.yaml (e.g. a
 // cluster whose manifests are scanned without its Terraform).
 func addConfiguredClusters(c *config.Config, b *normalize.Builder) {
 	for _, cl := range c.Clusters {
@@ -269,7 +269,7 @@ func addConfiguredClusters(c *config.Config, b *normalize.Builder) {
 		if !b.Has(model.NewID("cluster", model.ClusterKey(arn, cl.Name))) {
 			b.AddCluster(&model.Cluster{
 				Name: cl.Name, ARN: arn, Account: cl.Account, Region: cl.Region, OIDCIssuer: cl.OIDCIssuer,
-				Source: model.FileLocation("clapa.yaml", 0, 0, "clusters."+cl.Name),
+				Source: model.FileLocation("darb.yaml", 0, 0, "clusters."+cl.Name),
 			})
 		}
 	}

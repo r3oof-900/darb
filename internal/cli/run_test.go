@@ -37,13 +37,13 @@ func TestCommands(t *testing.T) {
 	if code, _, _ := run(t, "frobnicate"); code != ExitUsage {
 		t.Error("unknown command")
 	}
-	if code, out, _ := run(t, "version"); code != ExitOK || !strings.Contains(out, "rule catalog 1.2.1") {
+	if code, out, _ := run(t, "version"); code != ExitOK || !strings.Contains(out, "rule catalog 2.0.0") {
 		t.Errorf("version: %q", out)
 	}
-	if code, out, _ := run(t, "rules", "list"); code != ExitOK || strings.Count(out, "CLAPA-") != 11 {
+	if code, out, _ := run(t, "rules", "list"); code != ExitOK || strings.Count(out, "DARB-") != 11 {
 		t.Errorf("rules list: %q", out)
 	}
-	if code, out, _ := run(t, "rules", "show", "CLAPA-PATH-001"); code != ExitOK || !strings.Contains(out, "T1530") || !strings.Contains(out, "https://") {
+	if code, out, _ := run(t, "rules", "show", "DARB-PATH-001"); code != ExitOK || !strings.Contains(out, "T1530") || !strings.Contains(out, "https://") {
 		t.Errorf("rules show: %q", out)
 	}
 	for _, args := range [][]string{{"rules", "show", "NOPE"}, {"rules"}, {"scan", "--format", "xml"}, {"scan", "--fail-on", "urgent"}, {"scan", "--bogus"}, {"scan", "extra"}} {
@@ -64,7 +64,7 @@ func TestEmptyScanIsIncomplete(t *testing.T) {
 func TestScanFormats(t *testing.T) {
 	args := []string{"scan", "--root", fixtures + "01_classic/vulnerable", "--terraform", "terraform", "--k8s", "k8s"}
 	code, out, _ := run(t, args...)
-	if code != ExitFindings || !strings.Contains(out, "[CRITICAL 729] CLAPA-PATH-001") {
+	if code != ExitFindings || !strings.Contains(out, "[CRITICAL 729] DARB-PATH-001") {
 		t.Fatalf("console: %d %q", code, out)
 	}
 	_, out, _ = run(t, append(args, "--format", "json")...)
@@ -76,18 +76,18 @@ func TestScanFormats(t *testing.T) {
 			Score int    `json:"score"`
 		} `json:"findings"`
 	}
-	if err := json.Unmarshal([]byte(out), &doc); err != nil || doc.Schema != "clapa-report/v1" || doc.ExitCode != 1 || doc.Findings[0].Score != 729 {
+	if err := json.Unmarshal([]byte(out), &doc); err != nil || doc.Schema != "darb-report/v1" || doc.ExitCode != 1 || doc.Findings[0].Score != 729 {
 		t.Fatalf("json: %v %+v", err, doc)
 	}
 	_, out, _ = run(t, append(args, "--format", "sarif")...)
-	if !strings.Contains(out, `"version": "2.1.0"`) || !strings.Contains(out, "clapaFingerprint/v1") {
+	if !strings.Contains(out, `"version": "2.1.0"`) || !strings.Contains(out, "darbFingerprint/v1") {
 		t.Fatalf("sarif: %q", out)
 	}
 	report := filepath.Join(t.TempDir(), "report.json")
 	if code, _, _ := run(t, append(args, "--format", "json", "--output", report)...); code != ExitFindings {
 		t.Fatalf("--output: %d", code)
 	}
-	if data, err := os.ReadFile(report); err != nil || !strings.Contains(string(data), "CLAPA-PATH-001") { //nolint:gosec // G304: the test's own temp file.
+	if data, err := os.ReadFile(report); err != nil || !strings.Contains(string(data), "DARB-PATH-001") { //nolint:gosec // G304: the test's own temp file.
 		t.Fatalf("report file: %v", err)
 	}
 	if code, _, _ := run(t, append(args, "--output", t.TempDir())...); code != ExitUsage {

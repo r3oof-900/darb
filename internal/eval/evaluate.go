@@ -5,9 +5,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/eval/condition"
-	"github.com/r3oof-900/clapa/internal/eval/match"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/eval/condition"
+	"github.com/r3oof-900/darb/internal/eval/match"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // Evaluate decides req against ps following AWS's documented policy

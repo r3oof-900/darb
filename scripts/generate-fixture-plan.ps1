@@ -40,7 +40,7 @@ if ($Variant) {
   $Source = Join-Path $repo $Source
   $Out = Join-Path $repo $Out
 }
-$work = Join-Path ([IO.Path]::GetTempPath()) ("clapa-plan-" + [guid]::NewGuid().ToString('N'))
+$work = Join-Path ([IO.Path]::GetTempPath()) ("darb-plan-" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $work | Out-Null
 Copy-Item -Recurse -Path (Join-Path $Source '*') -Destination $work
 
@@ -55,7 +55,7 @@ provider "aws" {
   skip_metadata_api_check     = true
   skip_region_validation      = true
   # allowed_account_ids needs the real account ID, which skip_requesting_account_id
-  # prevents the provider from looking up; the fixture's clapa.yaml sets the account.
+  # prevents the provider from looking up; the fixture's darb.yaml sets the account.
   allowed_account_ids = null
 }
 '@ | Set-Content -Encoding ascii -Path (Join-Path $work 'mock_override.tf')

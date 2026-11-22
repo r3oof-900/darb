@@ -8,7 +8,7 @@
       "name": "prod",
       "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
       "region": "us-east-1",
-      "source": "clapa.yaml (clusters.prod)"
+      "source": "darb.yaml (clusters.prod)"
     }
   ],
   "collected": 11,
@@ -150,16 +150,16 @@
       "policy": "aws_iam_role_policy.read[*]",
       "source": "terraform/modules/readers/main.tf:23-31 (aws_iam_role_policy.read[*])",
       "statements": [
-        "Allow s3:GetObject on arn:aws:s3:::${clapa:unresolved:var.bucket}/* (1 conditions)"
+        "Allow s3:GetObject on arn:aws:s3:::${darb:unresolved:var.bucket}/* (1 conditions)"
       ],
-      "target": "arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
+      "target": "arn:aws:iam::111122223333:role/reader-${darb:unresolved:each.value}",
       "unresolved_statements": 1
     }
   ],
   "principals": [
     {
       "account": "111122223333",
-      "identity": "arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
+      "identity": "arn:aws:iam::111122223333:role/reader-${darb:unresolved:each.value}",
       "kind": "aws:iam:role",
       "source": "terraform/modules/readers/main.tf:9-21 (aws_iam_role.r[*])"
     }
@@ -229,7 +229,7 @@
       "statements": [
         "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (1 conditions)"
       ],
-      "target": "arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
+      "target": "arn:aws:iam::111122223333:role/reader-${darb:unresolved:each.value}",
       "unresolved_statements": 0
     }
   ],

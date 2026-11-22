@@ -16,13 +16,15 @@ import (
 	kmstypes "github.com/aws/aws-sdk-go-v2/service/kms/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/aws-sdk-go-v2/service/s3control"
+	s3ctypes "github.com/aws/aws-sdk-go-v2/service/s3control/types"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	smtypes "github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	ssmtypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
 
-	"github.com/r3oof-900/clapa/internal/collect/awsraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
+	"github.com/r3oof-900/darb/internal/collect/awsraw"
+	"github.com/r3oof-900/darb/internal/coverage"
 )
 
 // The live collector against LocalStack (.github/workflows/integration.yml).
@@ -30,9 +32,9 @@ import (
 // reach a real AWS account. The setup below writes to LocalStack; the
 // collector itself only reads.
 func TestIntegrationLocalStack(t *testing.T) {
-	endpoint := os.Getenv("CLAPA_LOCALSTACK_ENDPOINT")
+	endpoint := os.Getenv("DARB_LOCALSTACK_ENDPOINT")
 	if endpoint == "" {
-		t.Skip("CLAPA_LOCALSTACK_ENDPOINT is not set")
+		t.Skip("DARB_LOCALSTACK_ENDPOINT is not set")
 	}
 	u, err := url.Parse(endpoint)
 	if err != nil || (u.Hostname() != "localhost" && u.Hostname() != "127.0.0.1") {
@@ -47,6 +49,13 @@ func TestIntegrationLocalStack(t *testing.T) {
 	pathStyle := func(o *s3.Options) { o.UsePathStyle = true }
 	keyID := setUp(ctx, t, &cfg, pathStyle)
 
+	// The account's Block Public Access, through s3control. If this
+	// LocalStack cannot store it, the collector must still record the call
+	// as failed (unknown), never as "off".
+	_, putErr := s3control.NewFromConfig(cfg).PutPublicAccessBlock(ctx, &s3control.PutPublicAccessBlockInput{
+		AccountId:                      aws.String("000000000000"),
+		PublicAccessBlockConfiguration: &s3ctypes.PublicAccessBlockConfiguration{RestrictPublicBuckets: aws.Bool(true)},
+	})
 	rec := &coverage.Recorder{}
 	snap, err := Collect(ctx, &Options{Factory: NewFactory(&cfg, pathStyle), Regions: []string{"us-east-1"}}, rec)
 	if err != nil {
@@ -59,16 +68,25 @@ func TestIntegrationLocalStack(t *testing.T) {
 	if a.ID != "000000000000" {
 		t.Errorf("account %q", a.ID)
 	}
+	switch {
+	case putErr == nil && (a.PublicAccessBlock == nil || !a.PublicAccessBlock.RestrictPublicBuckets):
+		t.Errorf("the account's Block Public Access was set but not read back: %+v failed=%t", a.PublicAccessBlock, a.PublicAccessBlockFailed)
+	case putErr != nil:
+		t.Logf("this LocalStack does not store an account Block Public Access (%v)", putErr)
+		if a.PublicAccessBlock == nil && !a.PublicAccessBlockFailed {
+			t.Error("the account call left no trace: neither a setting nor a failure")
+		}
+	}
 	role := false
 	for _, r := range a.Auth.RoleDetailList {
-		role = role || (r.RoleName == "clapa-it-app" && len(r.RolePolicyList) == 1)
+		role = role || (r.RoleName == "darb-it-app" && len(r.RolePolicyList) == 1)
 	}
 	if !role {
-		t.Errorf("role clapa-it-app with its inline policy not collected: %+v", a.Auth.RoleDetailList)
+		t.Errorf("role darb-it-app with its inline policy not collected: %+v", a.Auth.RoleDetailList)
 	}
 	var bucket *awsraw.Bucket
 	for _, b := range a.Buckets {
-		if b.Name == "clapa-it-pii" {
+		if b.Name == "darb-it-pii" {
 			bucket = b
 		}
 	}
@@ -86,7 +104,7 @@ func TestIntegrationLocalStack(t *testing.T) {
 	}
 	var secret *awsraw.Secret
 	for _, s := range a.Secrets {
-		if s.Name == "clapa-it/db" {
+		if s.Name == "darb-it/db" {
 			secret = s
 		}
 	}
@@ -95,7 +113,7 @@ func TestIntegrationLocalStack(t *testing.T) {
 	}
 	var param *awsraw.Parameter
 	for _, p := range a.Params {
-		if p.Name == "/clapa-it/db" {
+		if p.Name == "/darb-it/db" {
 			param = p
 		}
 	}
@@ -124,16 +142,16 @@ func setUp(ctx context.Context, t *testing.T, cfg *aws.Config, pathStyle func(*s
 		}
 	}
 	trust := `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com"},"Action":"sts:AssumeRole"}]}`
-	read := `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"s3:GetObject","Resource":"arn:aws:s3:::clapa-it-pii/*"}]}`
+	read := `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"s3:GetObject","Resource":"arn:aws:s3:::darb-it-pii/*"}]}`
 	ic := iam.NewFromConfig(*cfg)
-	must(ic.CreateRole(ctx, &iam.CreateRoleInput{RoleName: aws.String("clapa-it-app"), AssumeRolePolicyDocument: aws.String(trust)}))
-	must(ic.PutRolePolicy(ctx, &iam.PutRolePolicyInput{RoleName: aws.String("clapa-it-app"), PolicyName: aws.String("read"), PolicyDocument: aws.String(read)}))
+	must(ic.CreateRole(ctx, &iam.CreateRoleInput{RoleName: aws.String("darb-it-app"), AssumeRolePolicyDocument: aws.String(trust)}))
+	must(ic.PutRolePolicy(ctx, &iam.PutRolePolicyInput{RoleName: aws.String("darb-it-app"), PolicyName: aws.String("read"), PolicyDocument: aws.String(read)}))
 
 	sc := s3.NewFromConfig(*cfg, pathStyle)
-	must(sc.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: aws.String("clapa-it-pii")}))
-	policy := `{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Principal":"*","Action":"s3:*","Resource":"arn:aws:s3:::clapa-it-pii/*","Condition":{"Bool":{"aws:SecureTransport":"false"}}}]}`
-	must(sc.PutBucketPolicy(ctx, &s3.PutBucketPolicyInput{Bucket: aws.String("clapa-it-pii"), Policy: aws.String(policy)}))
-	must(sc.PutBucketTagging(ctx, &s3.PutBucketTaggingInput{Bucket: aws.String("clapa-it-pii"), Tagging: &s3types.Tagging{
+	must(sc.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: aws.String("darb-it-pii")}))
+	policy := `{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Principal":"*","Action":"s3:*","Resource":"arn:aws:s3:::darb-it-pii/*","Condition":{"Bool":{"aws:SecureTransport":"false"}}}]}`
+	must(sc.PutBucketPolicy(ctx, &s3.PutBucketPolicyInput{Bucket: aws.String("darb-it-pii"), Policy: aws.String(policy)}))
+	must(sc.PutBucketTagging(ctx, &s3.PutBucketTaggingInput{Bucket: aws.String("darb-it-pii"), Tagging: &s3types.Tagging{
 		TagSet: []s3types.Tag{{Key: aws.String("data-classification"), Value: aws.String("pii")}},
 	}}))
 
@@ -147,18 +165,18 @@ func setUp(ctx context.Context, t *testing.T, cfg *aws.Config, pathStyle func(*s
 
 	smc := secretsmanager.NewFromConfig(*cfg)
 	sec, err := smc.CreateSecret(ctx, &secretsmanager.CreateSecretInput{
-		Name: aws.String("clapa-it/db"), KmsKeyId: aws.String(keyID), SecretString: aws.String("dummy"),
+		Name: aws.String("darb-it/db"), KmsKeyId: aws.String(keyID), SecretString: aws.String("dummy"),
 		Tags: []smtypes.Tag{{Key: aws.String("data-classification"), Value: aws.String("credentials")}},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	resPolicy := `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"arn:aws:iam::000000000000:role/clapa-it-app"},"Action":"secretsmanager:GetSecretValue","Resource":"*"}]}`
+	resPolicy := `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"arn:aws:iam::000000000000:role/darb-it-app"},"Action":"secretsmanager:GetSecretValue","Resource":"*"}]}`
 	must(smc.PutResourcePolicy(ctx, &secretsmanager.PutResourcePolicyInput{SecretId: sec.ARN, ResourcePolicy: aws.String(resPolicy)}))
 
 	pc := ssm.NewFromConfig(*cfg)
 	must(pc.PutParameter(ctx, &ssm.PutParameterInput{
-		Name: aws.String("/clapa-it/db"), Type: ssmtypes.ParameterTypeSecureString, Value: aws.String("dummy"), KeyId: aws.String(keyID),
+		Name: aws.String("/darb-it/db"), Type: ssmtypes.ParameterTypeSecureString, Value: aws.String("dummy"), KeyId: aws.String(keyID),
 	}))
 	return keyID
 }

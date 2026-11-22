@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/r3oof-900/clapa/internal/arn"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/arn"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // compare applies the positive comparison of op to request value r and

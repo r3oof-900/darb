@@ -8,7 +8,7 @@
       "name": "prod",
       "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
       "region": "us-east-1",
-      "source": "clapa.yaml (clusters.prod)"
+      "source": "darb.yaml (clusters.prod)"
     }
   ],
   "collected": 15,
@@ -735,22 +735,22 @@
   "policies": [
     {
       "kind": "identity",
-      "policy": "module.readers.aws_iam_role_policy.read[\"etl\"]",
-      "source": "plan.json (module.readers.aws_iam_role_policy.read[\"etl\"])",
-      "statements": [
-        "Allow s3:GetObject on arn:aws:s3:::acme-analytics-public/* (0 conditions)"
-      ],
-      "target": "arn:aws:iam::111122223333:role/reader-etl",
-      "unresolved_statements": 0
-    },
-    {
-      "kind": "identity",
       "policy": "module.readers.aws_iam_role_policy.read[\"ml\"]",
       "source": "plan.json (module.readers.aws_iam_role_policy.read[\"ml\"])",
       "statements": [
         "Allow s3:GetObject on arn:aws:s3:::acme-analytics-public/* (0 conditions)"
       ],
       "target": "arn:aws:iam::111122223333:role/reader-ml",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "identity",
+      "policy": "module.readers.aws_iam_role_policy.read[\"etl\"]",
+      "source": "plan.json (module.readers.aws_iam_role_policy.read[\"etl\"])",
+      "statements": [
+        "Allow s3:GetObject on arn:aws:s3:::acme-analytics-public/* (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/reader-etl",
       "unresolved_statements": 0
     },
     {
@@ -767,15 +767,15 @@
   "principals": [
     {
       "account": "111122223333",
-      "identity": "arn:aws:iam::111122223333:role/reader-etl",
-      "kind": "aws:iam:role",
-      "source": "plan.json (module.readers.aws_iam_role.r[\"etl\"])"
-    },
-    {
-      "account": "111122223333",
       "identity": "arn:aws:iam::111122223333:role/reader-ml",
       "kind": "aws:iam:role",
       "source": "plan.json (module.readers.aws_iam_role.r[\"ml\"])"
+    },
+    {
+      "account": "111122223333",
+      "identity": "arn:aws:iam::111122223333:role/reader-etl",
+      "kind": "aws:iam:role",
+      "source": "plan.json (module.readers.aws_iam_role.r[\"etl\"])"
     },
     {
       "account": "111122223333",
@@ -846,22 +846,22 @@
   "trusts": [
     {
       "kind": "resource",
-      "policy": "module.readers.aws_iam_role.r[\"etl\"].assume_role_policy",
-      "source": "plan.json (module.readers.aws_iam_role.r[\"etl\"])",
-      "statements": [
-        "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (1 conditions)"
-      ],
-      "target": "arn:aws:iam::111122223333:role/reader-etl",
-      "unresolved_statements": 0
-    },
-    {
-      "kind": "resource",
       "policy": "module.readers.aws_iam_role.r[\"ml\"].assume_role_policy",
       "source": "plan.json (module.readers.aws_iam_role.r[\"ml\"])",
       "statements": [
         "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (1 conditions)"
       ],
       "target": "arn:aws:iam::111122223333:role/reader-ml",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "resource",
+      "policy": "module.readers.aws_iam_role.r[\"etl\"].assume_role_policy",
+      "source": "plan.json (module.readers.aws_iam_role.r[\"etl\"])",
+      "statements": [
+        "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (1 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/reader-etl",
       "unresolved_statements": 0
     },
     {

@@ -3,9 +3,9 @@ package access
 import (
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // Built-in group whose members are cluster administrators without any RBAC

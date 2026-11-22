@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/rules"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/rules"
 )
 
 // Fingerprint = sha256(rule ID, rule major version, canonical IDs of entry
@@ -22,13 +22,13 @@ import (
 // fix or changing a weight never resets a suppression or a baseline. File
 // lines are left out too, so moving code keeps suppressions.
 func Fingerprint(rule, major string, entry, jewel model.ID) string {
-	sum := sha256.Sum256([]byte(strings.Join([]string{"clapa/fingerprint/v1", rule, major, string(entry), string(jewel)}, "\x00")))
+	sum := sha256.Sum256([]byte(strings.Join([]string{"darb/fingerprint/v1", rule, major, string(entry), string(jewel)}, "\x00")))
 	return hex.EncodeToString(sum[:])
 }
 
 // PostureFingerprint fingerprints a posture finding.
 func PostureFingerprint(rule, major string, resource model.ID) string {
-	sum := sha256.Sum256([]byte(strings.Join([]string{"clapa/fingerprint/v1", rule, major, string(resource)}, "\x00")))
+	sum := sha256.Sum256([]byte(strings.Join([]string{"darb/fingerprint/v1", rule, major, string(resource)}, "\x00")))
 	return hex.EncodeToString(sum[:])
 }
 
@@ -53,7 +53,7 @@ func Finish(fs []rules.Finding, reg *rules.Registry) []rules.Finding {
 	return out
 }
 
-// Suppression silences one finding until it expires (.clapa-ignore.yaml).
+// Suppression silences one finding until it expires (.darb-ignore.yaml).
 type Suppression struct {
 	Fingerprint string
 	Reason      string

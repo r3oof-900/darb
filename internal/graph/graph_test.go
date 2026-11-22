@@ -3,8 +3,8 @@ package graph
 import (
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // Build orders nodes by canonical ID and edges by (from, kind, to, sub,

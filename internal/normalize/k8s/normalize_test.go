@@ -5,13 +5,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/collect"
-	"github.com/r3oof-900/clapa/internal/collect/k8s/manifests"
-	"github.com/r3oof-900/clapa/internal/collect/k8sraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/normalize"
-	"github.com/r3oof-900/clapa/internal/safeio"
+	"github.com/r3oof-900/darb/internal/collect"
+	"github.com/r3oof-900/darb/internal/collect/k8s/manifests"
+	"github.com/r3oof-900/darb/internal/collect/k8sraw"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/normalize"
+	"github.com/r3oof-900/darb/internal/safeio"
 )
 
 func load(t *testing.T) (*model.Inventory, *coverage.Recorder) {

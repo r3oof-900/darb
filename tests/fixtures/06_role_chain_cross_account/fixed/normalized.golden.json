@@ -8,7 +8,7 @@
       "name": "prod",
       "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
       "region": "us-east-1",
-      "source": "clapa.yaml (clusters.prod)"
+      "source": "darb.yaml (clusters.prod)"
     }
   ],
   "collected": 12,
@@ -43,6 +43,16 @@
       "unresolved_statements": 0
     },
     {
+      "kind": "identity",
+      "policy": "aws_iam_role_policy.payments_api",
+      "source": "terraform/role.tf:6-13 (aws_iam_role_policy.payments_api)",
+      "statements": [
+        "Allow sts:AssumeRole on arn:aws:iam::111122223333:role/reporting (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/payments-api",
+      "unresolved_statements": 0
+    },
+    {
       "default": "kms.default-key-policy",
       "kind": "resource",
       "policy": "aws_kms_key.warehouse.policy",
@@ -51,16 +61,6 @@
         "Allow kms:* on * (0 conditions)"
       ],
       "target": "arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse",
-      "unresolved_statements": 0
-    },
-    {
-      "kind": "identity",
-      "policy": "aws_iam_role_policy.payments_api",
-      "source": "terraform/role.tf:6-13 (aws_iam_role_policy.payments_api)",
-      "statements": [
-        "Allow sts:AssumeRole on arn:aws:iam::111122223333:role/reporting (0 conditions)"
-      ],
-      "target": "arn:aws:iam::111122223333:role/payments-api",
       "unresolved_statements": 0
     }
   ],
@@ -82,19 +82,6 @@
   "resources": [
     {
       "account": "444455556666",
-      "arn": "arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse",
-      "classification": "",
-      "classified_by": "",
-      "defaulted": [
-        "terraform.aws_kms_key.enable_key_rotation"
-      ],
-      "key_rotation": "false",
-      "kind": "aws:kms:key",
-      "region": "us-east-1",
-      "source": "terraform/account_b.tf:21-24 (aws_kms_key.warehouse)"
-    },
-    {
-      "account": "444455556666",
       "arn": "arn:aws:s3:::acme-analytics-warehouse",
       "classification": "pii",
       "classified_by": "tag:DataClass",
@@ -108,6 +95,19 @@
       "region": "us-east-1",
       "restrict_public_buckets": "true",
       "source": "terraform/account_b.tf:26-32 (aws_s3_bucket.warehouse)"
+    },
+    {
+      "account": "444455556666",
+      "arn": "arn:aws:kms:us-east-1:444455556666:key/tf-aws_kms_key.warehouse",
+      "classification": "",
+      "classified_by": "",
+      "defaulted": [
+        "terraform.aws_kms_key.enable_key_rotation"
+      ],
+      "key_rotation": "false",
+      "kind": "aws:kms:key",
+      "region": "us-east-1",
+      "source": "terraform/account_b.tf:21-24 (aws_kms_key.warehouse)"
     }
   ],
   "service_accounts": [

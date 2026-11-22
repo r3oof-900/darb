@@ -5,11 +5,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/eval/condition"
-	"github.com/r3oof-900/clapa/internal/eval/match"
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/eval/condition"
+	"github.com/r3oof-900/darb/internal/eval/match"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // Options configure the access builder.
@@ -17,7 +17,7 @@ type Options struct {
 	Partition string
 	// Jewels are the crown jewels (classified resources).
 	Jewels []*model.Resource
-	// Assume holds context-key assumptions from clapa.yaml (e.g.
+	// Assume holds context-key assumptions from darb.yaml (e.g.
 	// aws:PrincipalOrgID) for principals in the input.
 	Assume map[string][]string
 }
@@ -207,7 +207,7 @@ func (b *builder) session(role *model.Principal) match.RequestPrincipal {
 	name := role.Identity()[strings.LastIndex(role.Identity(), "/")+1:]
 	return match.RequestPrincipal{
 		Kind: match.KindAssumedRole, Account: role.Account(), SourceARN: role.Identity(),
-		ARN: "arn:" + b.opts.Partition + ":sts::" + role.Account() + ":assumed-role/" + name + "/clapa",
+		ARN: "arn:" + b.opts.Partition + ":sts::" + role.Account() + ":assumed-role/" + name + "/darb",
 	}
 }
 

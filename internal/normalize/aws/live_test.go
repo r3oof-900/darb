@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/collect/awsraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/managedpolicies"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/normalize"
+	"github.com/r3oof-900/darb/internal/collect/awsraw"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/managedpolicies"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/normalize"
 )
 
 func build(t *testing.T, a *awsraw.Account) (*model.Inventory, *coverage.Recorder) {
@@ -104,5 +104,32 @@ func TestKeyReferences(t *testing.T) {
 	}
 	if got := n.keyARN("us-east-1", "alias/missing", "alias/aws/ssm"); !model.ContainsUnresolved(got) {
 		t.Errorf("an unknown alias: %q", got)
+	}
+}
+
+// The account's Block Public Access becomes a record: its value when
+// collected, unknown when the call failed, none when not collected.
+func TestAccountBlock(t *testing.T) {
+	for name, c := range map[string]struct {
+		a    awsraw.Account
+		want []model.Tri
+	}{
+		"on":            {awsraw.Account{PublicAccessBlock: &awsraw.PublicAccessBlock{RestrictPublicBuckets: true}}, []model.Tri{model.True}},
+		"none":          {awsraw.Account{PublicAccessBlock: &awsraw.PublicAccessBlock{}}, []model.Tri{model.False}},
+		"failed":        {awsraw.Account{PublicAccessBlockFailed: true}, []model.Tri{model.Unknown}},
+		"not collected": {awsraw.Account{}, nil},
+	} {
+		c.a.ID, c.a.Partition, c.a.Auth = "111122223333", "aws", &awsraw.AuthorizationDetails{}
+		inv, _ := build(t, &c.a)
+		var got []model.Tri
+		for _, b := range inv.AccountBlocks {
+			got = append(got, b.RestrictPublicBuckets)
+			if b.Account != "111122223333" {
+				t.Errorf("%s: account %q", name, b.Account)
+			}
+		}
+		if !slices.Equal(got, c.want) {
+			t.Errorf("%s: %v, want %v", name, got, c.want)
+		}
 	}
 }

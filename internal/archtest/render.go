@@ -148,8 +148,11 @@ func shadowsExtra(prefix string, extra []string) bool {
 // stdSubpackages lists the direct std subpackages of the prefixes that an
 // ExtraStd entry can sit below. TestStdSubpackagesComplete keeps it honest.
 func stdSubpackages(prefix string) []string {
-	if prefix == "net" {
+	switch prefix {
+	case "net":
 		return []string{"net/http", "net/mail", "net/netip", "net/rpc", "net/smtp", "net/textproto", "net/url"}
+	case "log":
+		return []string{"log/slog", "log/syslog"}
 	}
 	return nil
 }

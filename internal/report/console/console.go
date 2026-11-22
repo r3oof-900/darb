@@ -8,7 +8,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/r3oof-900/clapa/pkg/schema"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 // Reporter writes plain text.
@@ -28,7 +28,7 @@ func (p *printer) printf(format string, args ...any) {
 // Write renders r.
 func (Reporter) Write(w io.Writer, r *schema.Report) error {
 	p := &printer{w: w}
-	p.printf("clapa %s (rule catalog %s), threat model: assume compromised = %t, fail on %s\n",
+	p.printf("darb %s (rule catalog %s), threat model: assume compromised = %t, fail on %s\n",
 		r.Tool.Version, r.Tool.RuleCatalog, r.ThreatModel.AssumeCompromised, r.ThreatModel.FailOn)
 	p.printf("%d inputs collected; %d gaps beyond tolerance; graph %d nodes, %d edges\n\n",
 		r.Coverage.Collected, r.Coverage.GapsOverTolerance, r.Graph.Nodes, r.Graph.Edges)
@@ -43,6 +43,10 @@ func (Reporter) Write(w io.Writer, r *schema.Report) error {
 		}
 	}
 	p.printf("confirmed unless denied %d, unconfirmed %d (severities are the worst case of every unknown)\n\n", r.Summary.ConfirmedUnlessDenied, r.Summary.Unconfirmed)
+	if e := r.ExecutiveSummary; e != nil {
+		p.explanation("", e)
+		p.printf("\n")
+	}
 	for i := range r.Findings {
 		finding(p, &r.Findings[i])
 	}
@@ -88,7 +92,7 @@ func (p *printer) triage(r *schema.Report) {
 		p.printf("WARNING: the suppression of %s (owner %s) expired on %s: %s\n", e.Fingerprint, e.Owner, e.Expires, fires)
 	}
 	if len(r.Suppressed) > 0 {
-		p.printf("suppressed %d finding(s) (.clapa-ignore.yaml; listed in the JSON report)\n", len(r.Suppressed))
+		p.printf("suppressed %d finding(s) (.darb-ignore.yaml; listed in the JSON report)\n", len(r.Suppressed))
 	}
 	if b := r.Baseline; b != nil {
 		p.printf("baseline %s: %d new, %d unchanged (not shown), %d resolved\n", b.File, b.New, b.Unchanged, len(b.Resolved))
@@ -121,6 +125,9 @@ func finding(p *printer, f *schema.Finding) {
 		p.resource(f)
 	} else {
 		p.path(f)
+	}
+	if e := f.Explanation; e != nil {
+		p.explanation("    ", e)
 	}
 	if len(f.Chokepoints) > 0 {
 		p.printf("    cheapest fix (cost %d): %s\n", f.CutCost, strings.Join(f.Chokepoints, "; "))
@@ -194,5 +201,15 @@ func (p *printer) path(f *schema.Finding) {
 	}
 	for _, step := range f.Path {
 		p.printf("      %s\n", step)
+	}
+}
+
+// explanation prints an explanation under its label (DESIGN.md §10).
+func (p *printer) explanation(indent string, e *schema.Explanation) {
+	p.printf("%s%s:\n", indent, e.Label())
+	for _, part := range []struct{ name, text string }{{"", e.Summary}, {"the attack: ", e.Attack}, {"the fix: ", e.Fix}} {
+		if part.text != "" {
+			p.printf("%s  %s%s\n", indent, part.name, strings.ReplaceAll(part.text, "\n", "\n"+indent+"  "))
+		}
 	}
 }

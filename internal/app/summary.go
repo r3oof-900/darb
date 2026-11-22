@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/classify"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/classify"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // Summary renders a Loaded inventory as deterministic, indented JSON: the
@@ -37,6 +37,13 @@ func Summary(l *Loaded) ([]byte, error) {
 		}
 		return m
 	})
+	// Phase 7: only when an account's setting is in the input, so other
+	// goldens are unchanged.
+	if len(inv.AccountBlocks) > 0 {
+		s["account_public_access_blocks"] = mapSlice(inv.AccountBlocks, func(a *model.AccountPublicAccessBlock) any {
+			return map[string]any{"account": a.Account, "restrict_public_buckets": a.RestrictPublicBuckets.String(), "source": loc(&a.Source)}
+		})
+	}
 	kubernetesSummary(s, inv, names)
 	s["policies"] = mapSlice(inv.Policies, policySummary(names))
 	s["boundaries"] = mapSlice(inv.Boundaries, policySummary(names))
@@ -158,11 +165,17 @@ func nonNil(ss []string) []string {
 func kubernetesSummary(s map[string]any, inv *model.Inventory, names map[model.ID]string) {
 	s["workloads"] = mapSlice(inv.Workloads, func(w *model.Workload) any {
 		names[w.ID()] = w.Identity()
-		return map[string]any{
+		out := map[string]any{
 			"identity": w.Identity(), "service_account": w.ServiceAccount(),
 			"host_network": w.HostNetwork(), "privileged": w.Privileged(), "automount_token": w.AutomountToken().String(),
 			"defaulted": nonNil(w.Defaulted()), "source": loc(w.Source()),
 		}
+		// Phase 7: only when the pod spec names a Secret, so the goldens of
+		// workloads that name none are unchanged.
+		if refs := w.SecretRefs(); len(refs) > 0 {
+			out["secret_refs"] = refs
+		}
+		return out
 	})
 	s["service_accounts"] = mapSlice(inv.ServiceAccounts, func(sa *model.ServiceAccount) any {
 		return map[string]any{

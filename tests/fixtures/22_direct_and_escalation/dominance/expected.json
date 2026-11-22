@@ -1,10 +1,10 @@
 {
-  "format": "clapa-expected/v1",
+  "format": "darb-expected/v1",
   "derived_from": "Phase 6 review, dominance: role/app decrypts (confirmed) and rewrites its own policy; no role/ops",
   "exit_code": 0,
   "findings": [
     {
-      "rule": "CLAPA-PATH-001",
+      "rule": "DARB-PATH-001",
       "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app",
       "jewel": "arn:aws:s3:::acme-customer-pii",
       "path": [
@@ -63,28 +63,31 @@
       "shared_fix_possible": [
         "arn:aws:iam::111122223333:role/app"
       ],
-      "remediation_status": "complete"
+      "remediation_status": "complete",
+      "fingerprint": "1c88459393d5acbf6c95a9ed102767e9965d52c4754f1546ce70e37664e69d1f"
     },
     {
-      "rule": "CLAPA-POST-006",
+      "rule": "DARB-POST-006",
       "resource": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
       "score": 350,
       "severity": "medium",
       "defaults_used": [
         "terraform.aws_kms_key.enable_key_rotation"
-      ]
+      ],
+      "fingerprint": "6bb528ccb3151468b1bba0323623a3c71ec00f69042729780205b5e3b66949e9"
     },
     {
-      "rule": "CLAPA-POST-007",
+      "rule": "DARB-POST-007",
       "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/apps",
       "score": 245,
       "severity": "low",
-      "defaults_used": []
+      "defaults_used": [],
+      "fingerprint": "86bf50d5ca80fbc6bc4af5637d94bf52b7da9dc9c55316b7221c58456545849d"
     }
   ],
   "absent": [
     {
-      "rule": "CLAPA-PATH-002",
+      "rule": "DARB-PATH-002",
       "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app",
       "jewel": "arn:aws:s3:::acme-customer-pii"
     }

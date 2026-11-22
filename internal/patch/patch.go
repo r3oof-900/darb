@@ -8,8 +8,8 @@ import (
 
 	udiff "github.com/aymanbagabas/go-udiff"
 
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/remediate"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/remediate"
 )
 
 // Source reads the scan's files; paths are slash-separated and relative to
@@ -173,6 +173,8 @@ func (p *patcher) placeAll(inv *model.Inventory, edits []remediate.Edit) ([]*pol
 			err = p.removeHostNetwork(e)
 		case remediate.OpDisableTokenMount:
 			err = p.disableTokenMount(e)
+		case remediate.OpRemoveSecretRef:
+			err = p.removeSecretRef(e)
 		case remediate.OpRemoveExposure:
 			err = p.removeExposure(e)
 		case remediate.OpRestrictPublic:

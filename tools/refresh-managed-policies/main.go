@@ -12,7 +12,7 @@
 //
 // Usage:
 //
-//	go run ./tools/refresh-managed-policies --profile clapa-refresh
+//	go run ./tools/refresh-managed-policies --profile darb-refresh
 //
 // The output is deterministic: the same policies give the same bytes (sorted
 // by ARN, documents compact, one policy per line). Review the diff before
@@ -30,7 +30,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -42,7 +41,7 @@ import (
 
 const (
 	snapshotPath = "internal/managedpolicies/data/managed-policies.json"
-	format       = "clapa-managed-policies/v2"
+	format       = "darb-managed-policies/v2"
 	source       = "IAM ListPolicies (Scope=AWS) and GetPolicyVersion of each policy's DefaultVersionId, refreshed with tools/refresh-managed-policies."
 )
 
@@ -86,15 +85,26 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	data, err := render(policies, time.Now().UTC().Format(time.DateOnly), *partition)
+	h := header{Format: format, Date: time.Now().UTC().Format(time.DateOnly), Partition: *partition, Source: source}
+	n, err := writeSnapshot(filepath.FromSlash(snapshotPath), h, policies)
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.FromSlash(snapshotPath), data, 0o600); err != nil {
-		return fmt.Errorf("writing %s (run from the repository root): %w", snapshotPath, err)
-	}
-	fmt.Fprintf(os.Stderr, "%d policies, %d bytes written to %s\n", len(policies), len(data), snapshotPath)
+	fmt.Fprintf(os.Stderr, "%d policies, %d bytes written to %s\n", len(policies), n, snapshotPath)
 	return nil
+}
+
+// writeSnapshot renders the snapshot and writes it to path; when the
+// rendering fails, nothing is written.
+func writeSnapshot(path string, h header, policies []policy) (int, error) {
+	data, err := renderWith(h, policies)
+	if err != nil {
+		return 0, err
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		return 0, fmt.Errorf("writing %s (run from the repository root): %w", path, err)
+	}
+	return len(data), nil
 }
 
 // collect lists the AWS-owned policies and fetches each default version.
@@ -143,37 +153,129 @@ func decode(encoded string) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-// render writes the snapshot: metadata, then the policies sorted by ARN,
-// one per line. The same policies and date give the same bytes.
+// header is the snapshot's metadata.
+type header struct {
+	Format, Date, Partition, Source string
+}
+
+// snapshotFile and entry are the file's JSON, in its field order.
+type snapshotFile struct {
+	Format       string  `json:"format"`
+	SnapshotDate string  `json:"snapshot_date"`
+	Partition    string  `json:"partition"`
+	PolicyCount  int     `json:"policy_count"`
+	Source       string  `json:"source"`
+	Policies     []entry `json:"policies"`
+}
+
+type entry struct {
+	ARN              string          `json:"arn"`
+	DefaultVersionID string          `json:"default_version_id"`
+	Document         json.RawMessage `json:"document"`
+}
+
+// render writes the snapshot of IAM's policies on a date.
 func render(policies []policy, date, partition string) ([]byte, error) {
+	return renderWith(header{Format: format, Date: date, Partition: partition, Source: source}, policies)
+}
+
+// renderWith writes the snapshot: metadata, then the policies sorted by
+// ARN, one per line. The same header and policies give the same bytes.
+// Each document must be one JSON object on its own; the file is built by
+// encoding/json from structs, never by pasting a document as text, and the
+// layout only adds whitespace outside strings to what json.Marshal wrote.
+func renderWith(h header, policies []policy) ([]byte, error) {
 	ps := slices.Clone(policies)
 	slices.SortFunc(ps, func(a, b policy) int { return strings.Compare(a.ARN, b.ARN) })
-	for i := 1; i < len(ps); i++ {
-		if ps[i].ARN == ps[i-1].ARN {
-			return nil, errors.New("duplicate policy " + ps[i].ARN)
-		}
-	}
-	nl := string(rune(10))
-	q := func(s string) string { b, _ := json.Marshal(s); return string(b) }
-	var b strings.Builder
-	b.WriteString("{" + nl)
-	b.WriteString(`  "format": ` + q(format) + "," + nl)
-	b.WriteString(`  "snapshot_date": ` + q(date) + "," + nl)
-	b.WriteString(`  "partition": ` + q(partition) + "," + nl)
-	b.WriteString(`  "policy_count": ` + strconv.Itoa(len(ps)) + "," + nl)
-	b.WriteString(`  "source": ` + q(source) + "," + nl)
-	b.WriteString(`  "policies": [` + nl)
+	f := snapshotFile{Format: h.Format, SnapshotDate: h.Date, Partition: h.Partition, PolicyCount: len(ps), Source: h.Source, Policies: []entry{}}
 	for i, p := range ps {
-		b.WriteString(`    {"arn": ` + q(p.ARN) + `, "default_version_id": ` + q(p.DefaultVersionID) + `, "document": ` + string(p.Document) + "}")
-		if i < len(ps)-1 {
-			b.WriteString(",")
+		if i > 0 && p.ARN == ps[i-1].ARN {
+			return nil, errors.New("duplicate policy " + p.ARN)
 		}
-		b.WriteString(nl)
+		doc, err := object(p.Document)
+		if err != nil {
+			return nil, fmt.Errorf("policy %s: the document %w", p.ARN, err)
+		}
+		f.Policies = append(f.Policies, entry{ARN: p.ARN, DefaultVersionID: p.DefaultVersionID, Document: doc})
 	}
-	b.WriteString("  ]" + nl + "}" + nl)
-	out := []byte(b.String())
-	if !json.Valid(out) {
-		return nil, errors.New("the rendered snapshot is not valid JSON")
+	var compact bytes.Buffer
+	enc := json.NewEncoder(&compact)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(f); err != nil {
+		return nil, err
+	}
+	marshalled := bytes.TrimSuffix(compact.Bytes(), []byte("\n"))
+	out := layout(marshalled)
+	var check bytes.Buffer
+	if err := json.Compact(&check, out); err != nil || !bytes.Equal(check.Bytes(), marshalled) {
+		return nil, errors.New("internal error: the layout changed the snapshot's JSON")
 	}
 	return out, nil
+}
+
+// object decodes a document into one JSON value, which must be an object:
+// anything after it (`{}}, {"arn": ...`) or any other kind is refused.
+func object(doc []byte) (json.RawMessage, error) {
+	var raw json.RawMessage
+	if err := json.Unmarshal(doc, &raw); err != nil {
+		return nil, fmt.Errorf("is not one JSON value: %w", err)
+	}
+	if trimmed := bytes.TrimSpace(raw); len(trimmed) == 0 || trimmed[0] != '{' {
+		return nil, errors.New("is not a JSON object")
+	}
+	return raw, nil
+}
+
+// layout writes the file's form: the top-level members one per line
+// (indented 2), the policies one per line (indented 4), a space after the
+// colons and commas of each policy entry, documents compact. It reads the
+// output of json.Marshal and adds whitespace only between tokens; strings
+// are copied whole.
+func layout(compact []byte) []byte {
+	afterOpen := map[int]string{1: "\n  ", 2: "\n    "}
+	beforeClose := map[int]string{1: "\n", 2: "\n  "}
+	afterComma := map[int]string{1: "\n  ", 2: "\n    ", 3: " "}
+	afterColon := map[int]string{1: " ", 3: " "}
+	var b bytes.Buffer
+	depth := 0
+	for i := 0; i < len(compact); i++ {
+		c := compact[i]
+		switch c {
+		case '"':
+			end := stringEnd(compact, i)
+			b.Write(compact[i : end+1])
+			i = end
+			continue
+		case '}', ']':
+			b.WriteString(beforeClose[depth])
+			depth--
+		}
+		b.WriteByte(c)
+		switch c {
+		case '{', '[':
+			depth++
+			if next := i + 1; next < len(compact) && compact[next] != '}' && compact[next] != ']' {
+				b.WriteString(afterOpen[depth])
+			}
+		case ',':
+			b.WriteString(afterComma[depth])
+		case ':':
+			b.WriteString(afterColon[depth])
+		}
+	}
+	b.WriteString("\n")
+	return b.Bytes()
+}
+
+// stringEnd is the index of the quote that closes the string opened at i.
+func stringEnd(compact []byte, i int) int {
+	for j := i + 1; j < len(compact); j++ {
+		switch compact[j] {
+		case '\\':
+			j++
+		case '"':
+			return j
+		}
+	}
+	return len(compact) - 1
 }

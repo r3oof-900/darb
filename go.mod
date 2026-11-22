@@ -1,4 +1,4 @@
-module github.com/r3oof-900/clapa
+module github.com/r3oof-900/darb
 
 go 1.26.0
 
@@ -10,6 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/iam v1.64.9
 	github.com/aws/aws-sdk-go-v2/service/kms v1.62.5
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.9
+	github.com/aws/aws-sdk-go-v2/service/s3control v1.79.9
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.50.11
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.82.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.51.9

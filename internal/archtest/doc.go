@@ -3,5 +3,5 @@
 // length limit, and renderers that generate the depguard configuration and the
 // table in docs/DESIGN.md from the same data. See docs/DESIGN.md section 3.2.
 //
-// It is repository tooling and is never linked into the clapa binary.
+// It is repository tooling and is never linked into the darb binary.
 package archtest

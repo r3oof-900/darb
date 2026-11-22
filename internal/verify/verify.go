@@ -6,8 +6,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/remediate"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/remediate"
 )
 
 // Verification (DESIGN.md §9.2), on two levels, both required:

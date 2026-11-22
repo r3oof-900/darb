@@ -9,11 +9,11 @@ import (
 	"strings"
 )
 
-// ReservedText starts every unresolved-value placeholder CLAPA creates
+// ReservedText starts every unresolved-value placeholder darb creates
 // (model.UnresolvedPrefix; TestReservedTextMatchesModel keeps them equal).
 // Only the normalizer may create placeholders: input text containing it is
 // invalid input, rejected with its file:line (docs/DESIGN.md section 4.6).
-const ReservedText = "${clapa:unresolved:"
+const ReservedText = "${darb:unresolved:"
 
 // ErrReservedText is the error for input that contains ReservedText.
 var ErrReservedText = errors.New("input contains the reserved text " + ReservedText + "...}")
@@ -31,7 +31,7 @@ func (e *ReservedTextError) Unwrap() error { return ErrReservedText }
 
 // ContainsReserved reports whether a decoded input string contains the
 // reserved text, also once percent-decoded (IAM returns policy documents
-// URL-encoded, so "%24%7Bclapa..." is the same text).
+// URL-encoded, so "%24%7Bdarb..." is the same text).
 func ContainsReserved(s string) bool {
 	if strings.Contains(s, ReservedText) {
 		return true

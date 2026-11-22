@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // One test per row of the documented defaults (docs/DESIGN.md §4.7): an
@@ -274,7 +274,7 @@ spec:
 		}},
 		{model.DefaultOIDCAudience, func(t *testing.T) {
 			pii := "arn:aws:s3:::acme-customer-pii"
-			f := findingFor(analyzeVariant(t, "01_classic/vulnerable", nil), "CLAPA-PATH-001", pii)
+			f := findingFor(analyzeVariant(t, "01_classic/vulnerable", nil), "DARB-PATH-001", pii)
 			if f == nil || !slices.Contains(f.DefaultsUsed, model.DefaultOIDCAudience) {
 				t.Fatalf("no provider in the input: %+v", f)
 			}
@@ -291,10 +291,10 @@ spec:
 					}
 				}
 			}
-			if other := findingFor(analyzeVariant(t, "01_classic/vulnerable", provider(`"other-audience"`)), "CLAPA-PATH-001", pii); other != nil {
+			if other := findingFor(analyzeVariant(t, "01_classic/vulnerable", provider(`"other-audience"`)), "DARB-PATH-001", pii); other != nil {
 				t.Errorf("the provider does not accept sts.amazonaws.com: %+v", other)
 			}
-			f = findingFor(analyzeVariant(t, "01_classic/vulnerable", provider(`"sts.amazonaws.com"`)), "CLAPA-PATH-001", pii)
+			f = findingFor(analyzeVariant(t, "01_classic/vulnerable", provider(`"sts.amazonaws.com"`)), "DARB-PATH-001", pii)
 			if f == nil || slices.Contains(f.DefaultsUsed, model.DefaultOIDCAudience) {
 				t.Errorf("the provider in the input decides, no default: %+v", f)
 			}

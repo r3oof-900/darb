@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/rules"
+	"github.com/r3oof-900/darb/internal/rules"
 )
 
 // comparePhase6: the fields the Phase 6 review added, where stated.

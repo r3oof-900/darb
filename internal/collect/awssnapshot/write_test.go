@@ -9,10 +9,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/collect"
-	"github.com/r3oof-900/clapa/internal/collect/awsraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/safeio"
+	"github.com/r3oof-900/darb/internal/collect"
+	"github.com/r3oof-900/darb/internal/collect/awsraw"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/safeio"
 )
 
 func ptr[T any](v T) *T { return &v }
@@ -23,6 +23,7 @@ func sample() *awsraw.Snapshot {
 	const acct = "111122223333"
 	return &awsraw.Snapshot{Accounts: []*awsraw.Account{{
 		ID: acct, Partition: "aws",
+		PublicAccessBlock: &awsraw.PublicAccessBlock{RestrictPublicBuckets: true, BlockPublicAcls: true},
 		Auth: &awsraw.AuthorizationDetails{
 			RoleDetailList: []awsraw.RoleDetail{{
 				RoleName: "app", Arn: "arn:aws:iam::" + acct + ":role/app",
@@ -151,5 +152,24 @@ func TestWriteRefusesAnExistingDirectory(t *testing.T) {
 	dir := t.TempDir()
 	if err := Write(dir, sample()); !errors.Is(err, ErrWrite) {
 		t.Fatalf("err %v", err)
+	}
+}
+
+// A failed read of the account's Block Public Access (recorded in the
+// manifest, no file) reads back as failed, never as "off".
+func TestFailedAccountBlockReadsBackFailed(t *testing.T) {
+	root := t.TempDir()
+	snap := &awsraw.Snapshot{Accounts: []*awsraw.Account{{ID: "111122223333", Partition: "aws", Calls: []awsraw.Call{
+		{Service: "s3control", API: "GetPublicAccessBlock", Target: "111122223333", Status: awsraw.StatusAccessDenied, Error: "AccessDenied"},
+	}}}}
+	if err := Write(filepath.Join(root, "bundle"), snap); err != nil {
+		t.Fatal(err)
+	}
+	out, err := Collect(context.Background(), &collect.Input{Root: root, Path: "bundle", Limits: safeio.DefaultLimits()}, &coverage.Recorder{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a := out.Accounts[0]; !a.PublicAccessBlockFailed || a.PublicAccessBlock != nil {
+		t.Fatalf("account %+v", a)
 	}
 }

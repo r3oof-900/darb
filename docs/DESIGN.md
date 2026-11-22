@@ -1,4 +1,6 @@
-# CLAPA — Design
+# darb — Design
+
+> The project was called CLAPA (Cross-Layer Cloud Attack-Path Analyzer) until 2026-11-22, when it was renamed darb.
 
 Cross-Layer Cloud Attack-Path Analyzer. This document records **what** we build,
 **how**, and **why**, for every section of the build specification
@@ -23,7 +25,7 @@ Conventions used in this document:
 
 Single-layer scanners each see one layer. Real breaches chain them:
 internet-facing pod → ServiceAccount → IRSA/Pod Identity → IAM role → `kms:Decrypt`
-on `*` → CMK → PII bucket. CLAPA builds **one graph** of identity and permission flow
+on `*` → CMK → PII bucket. darb builds **one graph** of identity and permission flow
 across Kubernetes and AWS, finds feasible entry → crown-jewel paths, explains each hop
 with evidence, and proposes the minimal **verified** fix.
 
@@ -80,7 +82,7 @@ reporters ← findings + evidence ← remediation verifier ← path engine + rul
 | Patch | `internal/patch` (hclwrite edits, policy rewrite, unified diff) | pure |
 | Report | `internal/report` (+ `console`, `jsonreport`, `sarif`, `htmlreport`, `junit`, `markdown`), `pkg/schema` | pure |
 | Support | `internal/coverage`, `internal/redact`, `internal/config`, `internal/safeio`, `internal/version`, `internal/managedpolicies`, `internal/llm` (+ `pseudonymize`) | mixed |
-| Wiring | `internal/app`, `internal/cli`, `cmd/clapa` | entry |
+| Wiring | `internal/app`, `internal/cli`, `cmd/darb` | entry |
 | Tooling | `internal/archtest`, `tools/archgen`, `tools/refresh-managed-policies` | tooling |
 
 Layers, and what each may use from the standard library:
@@ -96,7 +98,7 @@ Layers, and what each may use from the standard library:
 - **io** — may do I/O. Still forbidden: `os/exec` (one exception, see §4.1),
   `unsafe`, `plugin`, `text/template`, `syscall`, `testing`, cgo.
 - **entry** — wiring only; same std rules as io.
-- **tooling** — repository tooling, never linked into the `clapa` binary.
+- **tooling** — repository tooling, never linked into the `darb` binary.
 
 ### 3.2 Dependency table (authoritative)
 
@@ -125,13 +127,13 @@ generates. Rules for reading the table:
 <!-- BEGIN GENERATED: layer-table (task gen) — DO NOT EDIT -->
 | Package | Layer | May import (module) | May import (external) | Extra std / test-only |
 |---|---|---|---|---|
-| `cmd/clapa` | entry | `internal/cli` | — | — |
+| `cmd/darb` | entry | `internal/cli` | — | — |
 | `internal/access` | core | `internal/model`, `internal/arn`, `internal/eval`, `internal/eval/match`, `internal/eval/condition`, `internal/graph`, `internal/scoring` | — | tests: `internal/iampolicy` |
 | `internal/app` | entry | `internal/config`, `internal/collect/...`, `internal/normalize/...`, `internal/model`, `internal/classify`, `internal/iampolicy`, `internal/eval`, `internal/access`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/rules/catalog`, `internal/scoring`, `internal/findings`, `internal/remediate`, `internal/verify`, `internal/patch`, `internal/report/...`, `internal/llm/...`, `internal/coverage`, `internal/redact`, `internal/safeio`, `internal/version`, `internal/managedpolicies`, `pkg/schema` | `golang.org/x/sync` | tests: `internal/eval/condition`, `internal/eval/match`, `internal/collect/awslive/awsfake` |
 | `internal/archtest` | tooling | — (leaf) | — | — |
 | `internal/arn` | core | — (leaf) | — | — |
 | `internal/classify` | core | `internal/model`, `internal/arn` | — | — |
-| `internal/cli` | entry | `internal/app`, `internal/config`, `internal/rules`, `internal/rules/catalog`, `internal/version`, `internal/redact`, `pkg/schema` | `github.com/spf13/cobra` | std: `os/exec`; tests: `internal/collect/awslive`, `internal/collect/awslive/awsfake`, `internal/collect/k8s/live/k8sfake` |
+| `internal/cli` | entry | `internal/app`, `internal/config`, `internal/rules`, `internal/rules/catalog`, `internal/version`, `internal/redact`, `pkg/schema` | `github.com/spf13/cobra` | std: `os/exec`; tests: `internal/collect/awslive`, `internal/collect/awslive/awsfake`, `internal/collect/k8s/live/k8sfake`, `internal/llm` |
 | `internal/collect` | io | `internal/coverage`, `internal/safeio` | — | std: `net/url`; tests: `internal/model` |
 | `internal/collect/awslive` | io | `internal/collect`, `internal/coverage`, `internal/collect/awsraw` | `github.com/aws/aws-sdk-go-v2`, `github.com/aws/smithy-go`, `golang.org/x/sync` | tests: `internal/collect/awslive/awsfake` |
 | `internal/collect/awslive/awsfake` | io | `internal/collect/awslive` | `github.com/aws/aws-sdk-go-v2`, `github.com/aws/smithy-go` | — |
@@ -152,7 +154,8 @@ generates. Rules for reading the table:
 | `internal/findings` | core | `internal/model`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/scoring` | — | — |
 | `internal/graph` | core | `internal/model`, `internal/eval` | — | — |
 | `internal/iampolicy` | core | `internal/model`, `internal/arn` | — | — |
-| `internal/llm` | pure | `pkg/schema`, `internal/redact` | — | — |
+| `internal/llm` | pure | `pkg/schema`, `internal/redact`, `internal/llm/pseudonymize` | — | — |
+| `internal/llm/claude` | io | `internal/llm` | — | tests: `internal/llm/pseudonymize` |
 | `internal/llm/pseudonymize` | pure | — (leaf) | — | — |
 | `internal/managedpolicies` | pure | — (leaf) | — | — |
 | `internal/model` | core | `internal/arn` | — | — |
@@ -162,7 +165,7 @@ generates. Rules for reading the table:
 | `internal/normalize/terraform` | pure | `internal/model`, `internal/arn`, `internal/normalize`, `internal/coverage`, `internal/iampolicy`, `internal/managedpolicies`, `internal/collect/tfraw` | `github.com/hashicorp/hcl/v2`, `github.com/hashicorp/terraform-json`, `github.com/zclconf/go-cty` | tests: `internal/collect`, `internal/collect/terraform/hclstatic`, `internal/collect/terraform/plan`, `internal/safeio`, `internal/eval`, `internal/eval/match`, `internal/eval/condition` |
 | `internal/patch` | pure | `internal/model`, `internal/iampolicy`, `internal/remediate`, `internal/findings` | `github.com/hashicorp/hcl/v2`, `github.com/zclconf/go-cty`, `github.com/aymanbagabas/go-udiff`, `go.yaml.in/yaml/v3` | — |
 | `internal/paths` | core | `internal/model`, `internal/graph` | — | tests: `internal/eval` |
-| `internal/redact` | pure | — (leaf) | — | — |
+| `internal/redact` | pure | — (leaf) | — | std: `log/slog` |
 | `internal/remediate` | core | `internal/model`, `internal/arn`, `internal/iampolicy`, `internal/eval`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/findings` | — | — |
 | `internal/report` | pure | `pkg/schema`, `internal/model`, `internal/graph`, `internal/paths`, `internal/rules`, `internal/scoring`, `internal/findings`, `internal/coverage`, `internal/version` | — | — |
 | `internal/report/console` | pure | `internal/report`, `pkg/schema` | — | — |
@@ -219,7 +222,7 @@ report); `archtest` remains authoritative regardless.
   operation that may block or run long.
 - Errors: wrapped with `%w`; sentinel errors (`var ErrX = errors.New(...)`) or typed
   errors for anything a caller branches on. No `panic` in library code; `recover`
-  only in `cmd/clapa`, mapped to exit code 4.
+  only in `cmd/darb`, mapped to exit code 4.
 - Canonical model types: unexported fields + constructors (or small value types);
   constructors copy input slices; getters return copies or read-only views;
   collections sorted by canonical ID wherever order can reach output.
@@ -300,7 +303,7 @@ attached managed policy that is not in the snapshot is an explicit coverage gap.
 
 ### 4.2 Kubernetes
 
-Manifests (multi-doc YAML, Helm-rendered and Kustomize-built output — CLAPA never
+Manifests (multi-doc YAML, Helm-rendered and Kustomize-built output — darb never
 runs `helm`/`kustomize`) are decoded with client-go's universal deserializer into
 `k8s.io/api` types, so field semantics match the API server.
 
@@ -338,8 +341,8 @@ Workload identity:
 
 ### 4.3 AWS offline snapshots
 
-`clapa collect-snapshot --out DIR` writes a bundle (format `clapa-snapshot/v1`)
-and `clapa scan --aws-snapshot DIR` reads it. Live collection and the snapshot of
+`darb collect-snapshot --out DIR` writes a bundle (format `darb-snapshot/v1`)
+and `darb scan --aws-snapshot DIR` reads it. Live collection and the snapshot of
 the same account produce the same raw data, gaps and notes
 (`TestWriteThenCollectRoundTrips`, `TestCollectSnapshotThenScanMatchesLive`).
 Files are named after the API call and hold its JSON, as the AWS CLI prints it:
@@ -382,7 +385,10 @@ Collected:
 - STS: identifies the account.
 - IAM: `GetAccountAuthorizationDetails`, every page.
 - S3: every bucket's location, policy, default encryption, Block Public Access
-  and tags, read from a client in the bucket's region.
+  and tags, read from a client in the bucket's region; the account's Block
+  Public Access (`s3control GetPublicAccessBlock`, IAM action
+  `s3:GetAccountPublicAccessBlock`; Phase 7). No configuration is every setting
+  off; a failed call is unknown.
 - KMS, per region: keys and aliases; for each key its metadata and key policy,
   and for customer managed keys their rotation and tags.
 - EKS: clusters (OIDC issuer) and Pod Identity associations.
@@ -420,9 +426,9 @@ Mechanics:
 
 Not collected, and stated in every live or snapshot report:
 
-- account-level S3 Block Public Access. A bucket without its own setting is
-  treated as not blocked, which can report a path the account setting blocks,
-  but never hides one.
+- (since Phase 7, nothing here: the account-level S3 Block Public Access is
+  collected. A snapshot written before Phase 7 has none; each such account gets
+  a `not-modelled` note, and its buckets keep their own setting.)
 
 Tests run against fakes (`awsfake`), against the SDK's own clients over
 in-memory HTTP stubs (pagination, AccessDenied, throttling with retries), and
@@ -454,7 +460,7 @@ Connections:
   `sts:GetCallerIdentity` that signs `x-k8s-aws-id`, renewed before it expires.
   The endpoint, CA and ARN come from `eks:DescribeCluster`.
 - **Credential plugins are refused.** A kubeconfig user that runs an exec (or
-  auth-provider) credential plugin is refused, since CLAPA runs no external
+  auth-provider) credential plugin is refused, since darb runs no external
   commands. The error names the context, says why, and gives the alternatives:
   `--k8s-eks NAME` for EKS, or a kubeconfig with a static token or a client
   certificate otherwise.
@@ -479,19 +485,19 @@ Tests:
 
 | Topic | Decision | Why / source |
 |---|---|---|
-| Unresolved values reach the evaluator | Every value a collector cannot resolve becomes `${clapa:unresolved:<id>}` inside policy documents. The evaluator treats it as **UNKNOWN** in Action, Resource, Principal (including the caller's own identity), condition keys and values, in every policy version | your Phase 3 instruction; never text, never a guess (corpus file 18) |
+| Unresolved values reach the evaluator | Every value a collector cannot resolve becomes `${darb:unresolved:<id>}` inside policy documents. The evaluator treats it as **UNKNOWN** in Action, Resource, Principal (including the caller's own identity), condition keys and values, in every policy version | your Phase 3 instruction; never text, never a guess (corpus file 18) |
 | Policy content not available at all | represented by an unknown Allow **and** an unknown Deny, so it can never produce ALLOW and can never hide a deny | an absent policy is not evidence of "no permissions" |
 | Plan values known only after apply | a plain attribute reference becomes symbolic (`aws_kms_key.pii.arn`); a computed expression becomes `unknown-after-apply` and a gap. Note: `jsonencode(...)` over an unknown value makes the whole attribute unknown in plan JSON; static mode keeps its structure | terraform-json `after_unknown` + configuration references |
 | Plan file positions | plan JSON has no line numbers; plan evidence names the plan file and the resource address. Line-level evidence comes from static mode (Phase 4 may join them) | terraform-json format |
 | Static HCL roots | every directory with `.tf` files is its own root module; `module` calls, `count`/`for_each` and `dynamic` blocks are not expanded and are reported. Only `terraform.tfvars` and `*.auto.tfvars` are loaded, as Terraform does | Terraform › Input variables › "Variable definitions files" |
 | Values AWS generates at apply | only a value **no policy can name literally** (a KMS key ID, the name of a bucket or role created without any name) gets a deterministic pending ID: `…:key/tf-<address>`, `arn:aws:s3:::tf-<address>`; a secret's random suffix is `-tfpend` | needed to evaluate policies before apply |
-| Unknown account, region or name (**corrected after Phase 3 review**) | every unknown ARN segment carries an unresolved placeholder: `${clapa:unresolved:account_of_<root>}`, `…region_of_<root>}`, a name `"${var.env}-pii"` stays `<placeholder>-pii`, a `name_prefix`/`bucket_prefix` becomes `prefix<placeholder>`. The first version used `""` (a literal empty segment) and the pending ID for unresolved names, so `Resource = "arn:aws:s3:::prod-pii/*"` gave a definite IMPLICIT_DENY and a real path was lost silently. Each unknown account/region is still a coverage gap | review finding; nothing turns gaps into UNKNOWN later, so the placeholder itself must carry it |
+| Unknown account, region or name (**corrected after Phase 3 review**) | every unknown ARN segment carries an unresolved placeholder: `${darb:unresolved:account_of_<root>}`, `…region_of_<root>}`, a name `"${var.env}-pii"` stays `<placeholder>-pii`, a `name_prefix`/`bucket_prefix` becomes `prefix<placeholder>`. The first version used `""` (a literal empty segment) and the pending ID for unresolved names, so `Resource = "arn:aws:s3:::prod-pii/*"` gave a definite IMPLICIT_DENY and a real path was lost silently. Each unknown account/region is still a coverage gap | review finding; nothing turns gaps into UNKNOWN later, so the placeholder itself must carry it |
 | Matching a partly unknown request value | `match.Value`: False only when **no** substitution of the unknown parts can match (pattern intersection, `arn.Pattern.Intersects`), True when the pattern matches whatever they are, otherwise UNKNOWN. An unknown account on either side makes same- vs cross-account UNKNOWN; an unresolved request value in a condition is UNKNOWN | evaluator, corpus file 18 |
 | End-to-end proof | `internal/normalize/terraform/unknown_parts_test.go`, from HCL through the normalizer to the evaluator: (a) bucket `"${var.env}-pii"` vs `arn:aws:s3:::prod-pii/*` → UNKNOWN; (b) unknown account vs `arn:aws:kms:us-east-1:111122223333:key/*` → UNKNOWN; (c) unknown account vs a bucket policy naming `arn:aws:iam::111122223333:role/app` → UNKNOWN; (d) with `env` set, or the account set in options: `prod`/`111122223333` → ALLOW, `dev`/`999999999999` → IMPLICIT_DENY | your Phase 3 review |
 | Instance references in a real plan (**found with real Terraform output, Phase 3 review**) | `terraform show -json` records `aws_iam_role.r[each.key].id` only as `["aws_iam_role.r", "each.key"]`: no attribute, no key. `each.key` and `count.index` name the referencing instance's own key, so the reference resolves exactly to `…aws_iam_role.r["etl"]`. `each.value` equals the key when the `for_each` source is a set ("If a set was provided, this is the same as `each.key`", Terraform › The `for_each` Meta-Argument). **The plan cannot show that**: `toset(var.names)` and `{ for n in var.names : n => upper(n) }` are both recorded as `for_each_expression {"references": ["var.names"]}` with the same instance keys, and plan JSON carries no variable types (checked with real output). So the set is verified in the configuration the plan was made from, when given (`plan.Options.ConfigDir`; the fixtures pass their `terraform/`): the `for_each` expression is `toset(...)`, or a variable declared `type = set(...)`; only local module sources are followed, nothing is evaluated, files are read through `safeio` inside the scan root. Any other selector, a map or comprehension, or no configuration: the policy is attached to **every** instance of the resource, each copy with an extra condition on an unresolved key, so every Allow and Deny there is UNKNOWN — never ALLOW for one instance and IMPLICIT_DENY for the others, never dropped — plus a gap that says why. Limitation: the references cannot tell `r[each.key]` from `r[upper(each.key)]`; the plan has no expression text | Terraform 1.17.1 output: scenario 13 (`each.value` over `toset`), `internal/collect/terraform/plan/testdata/for_each_key` and `for_each_map` (a map comprehension: UNKNOWN by design); `TestForEachInstanceReferences`, `TestForEachSetSources`, `TestForEachRoleSelection`, `TestForEachKeyAndValueAgree` (both forms give the same roles and attachments) |
 | Provider-computed attributes | an attribute marked unknown in `after_unknown` that the configuration does not set is computed by the provider (`Reason: computed`). Unset `inline_policy` and `managed_policy_arns` of `aws_iam_role` add nothing ("If this attribute is not configured, Terraform will ignore policy attachments to this resource"); set but unknown (or a `dynamic` block in static mode) gives an unknown policy. Other computed attributes (`arn`, `id`) stay unknown and are gaps; the Phase 5 coverage tolerance must not count gaps that no decision used | AWS provider › `aws_iam_role` (argument reference, `managed_policy_arns`/`inline_policy`); `TestComputedPolicyAttributes` |
 | EKS Pod Identity (**built after the Phase 3 review**) | an association links a service account (cluster, namespace, name) to a role. `access.PodIdentityAssume` evaluates the role's trust policy through the evaluator for **both** `sts:AssumeRole` and `sts:TagSession` by `pods.eks.amazonaws.com`, with the request tags EKS adds: `aws:RequestTag/eks-cluster-arn` (unknown when the cluster ARN is not in the input), `…/eks-cluster-name`, `…/kubernetes-namespace`, `…/kubernetes-service-account` known; `…/kubernetes-pod-name` and `…/kubernetes-pod-uid` unknown; `aws:TagKeys` and `sts:TransitiveTagKeys` = the six keys; every other key (e.g. `aws:SourceAccount`, not documented for Pod Identity) unknown. ALLOW needs AssumeRole ALLOW, TagSession ALLOW unless `disable_session_tags` (default false; unknown in a snapshot that does not record it), and the `eks-pod-identity-agent` add-on in the input — its absence from the input is UNKNOWN, not "missing". `target_role_arn` is recorded; the chain into it is an ordinary role-chain edge (Phase 4). Not modelled: Fargate/Windows nodes (unsupported by Pod Identity), credentials earlier in the SDK chain overriding Pod Identity | EKS User Guide › "EKS Pod Identity", "Create the role" (trust policy), "Grant pods access to AWS resources based on tags" (six transitive session tags); IAM User Guide › "Passing session tags in AWS STS" ("the AssumeRole operation fails" without `sts:TagSession`); EKS API › `CreatePodIdentityAssociation` (`targetRoleArn`, `disableSessionTags`); `internal/access/podidentity_test.go` (16 cases), scenario 17 |
-| Reserved placeholder text in input (**fixed after the Phase 3 review**) | only the normalizer creates `${clapa:unresolved:…}`. Two layers: **(1) rejection at input** — any decoded input string containing the prefix is invalid input, reported as a `parse-error` gap with file:line and treated as an ordinary unknown value: Terraform values, object keys and template literals after HCL decoding (`$$` and backslash-u escapes), templates whose input pieces assemble the prefix around a reference, plan JSON values and keys, JSON escapes inside a policy string (`iampolicy.ErrReservedText`: a document may hold only placeholders its caller wrote as plain text), Kubernetes YAML scalars after YAML decoding (backslash-x and backslash-u escapes; the document is not loaded), snapshot JSON files including policy documents embedded as JSON strings or URL-encoded (up to 3 levels; the file is not loaded), and `clapa.yaml` (configuration error). **(2) registry** — `normalize.Builder.Placeholder` registers each placeholder it hands out; `Build` fails with `ErrUnregisteredPlaceholder` if any inventory string holds another (fail closed) | your Phase 3 review; `internal/app/reserved_test.go` (every channel), `internal/collect/reserved_test.go`, `TestReservedText` (parser), `internal/normalize/placeholders_test.go` (registry, all inventory fields), fuzz `FuzzReservedText` and the `FuzzParse` properties |
+| Reserved placeholder text in input (**fixed after the Phase 3 review**) | only the normalizer creates `${darb:unresolved:…}`. Two layers: **(1) rejection at input** — any decoded input string containing the prefix is invalid input, reported as a `parse-error` gap with file:line and treated as an ordinary unknown value: Terraform values, object keys and template literals after HCL decoding (`$$` and backslash-u escapes), templates whose input pieces assemble the prefix around a reference, plan JSON values and keys, JSON escapes inside a policy string (`iampolicy.ErrReservedText`: a document may hold only placeholders its caller wrote as plain text), Kubernetes YAML scalars after YAML decoding (backslash-x and backslash-u escapes; the document is not loaded), snapshot JSON files including policy documents embedded as JSON strings or URL-encoded (up to 3 levels; the file is not loaded), and `darb.yaml` (configuration error). **(2) registry** — `normalize.Builder.Placeholder` registers each placeholder it hands out; `Build` fails with `ErrUnregisteredPlaceholder` if any inventory string holds another (fail closed) | your Phase 3 review; `internal/app/reserved_test.go` (every channel), `internal/collect/reserved_test.go`, `TestReservedText` (parser), `internal/normalize/placeholders_test.go` (registry, all inventory fields), fuzz `FuzzReservedText` and the `FuzzParse` properties |
 | S3 default encryption | a bucket without an encryption configuration in Terraform is SSE-S3; in a snapshot without `get-bucket-encryption`, it is unknown | S3 User Guide › "Default encryption" (all new objects since January 2023) |
 | KMS key without `policy` | the documented default key policy (account root, `kms:*`) | KMS Developer Guide › "Default key policy" |
 | AWS managed policies | resolved from the vendored snapshot (`internal/managedpolicies`, 3 policies checked against the AWS Managed Policy Reference on 2026-11-20; refresh with `tools/refresh-managed-policies`). Any other managed policy is unknown and a gap. **Known constraint: must be expanded before Phase 6** (section 12.1) | spec §4.1 |
@@ -534,7 +540,7 @@ on 2026-11-20 and has a test in `internal/app/defaults_test.go`
 
 | Setting | Why |
 |---|---|
-| Node IMDS `http_tokens` without launch-template `metadata_options` | the effective value comes from the launch template, then the account default, then the AMI's `imds-support`; without any of them the baseline is "V1 or V2 (token optional)" (EC2 User Guide › Configure instance metadata options), so it depends on inputs CLAPA does not see |
+| Node IMDS `http_tokens` without launch-template `metadata_options` | the effective value comes from the launch template, then the account default, then the AMI's `imds-support`; without any of them the baseline is "V1 or V2 (token optional)" (EC2 User Guide › Configure instance metadata options), so it depends on inputs darb does not see |
 | S3 bucket Block Public Access without `aws_s3_bucket_public_access_block`, for a bucket a plan does **not** create (it already exists), or read statically or from a snapshot | an existing bucket's settings may have been changed after it was created, outside the input; only a bucket the plan creates has the new-bucket default (row above). A fixture that needs the setting states it (the Phase 5 review: declare it rather than raise the gap tolerance) |
 | KMS rotation of a key in a snapshot without `kms:GetKeyRotationStatus` | the API value was not collected; the KMS guide only says automatic rotation "is optional" |
 | `hostNetwork` / `privileged` stated `false` vs omitted | indistinguishable in the typed Kubernetes API and equal in value; neither marks the node as defaulted, since no rule fires on `false` |
@@ -548,7 +554,7 @@ K8sServiceAccount, K8sUser, K8sGroup, AWSService, Anonymous/Public, AccountRoot)
 `TrustRelationship`, `NetworkExposure`, `SourceLocation` (file + line range +
 resource address, or ARN + API call for live data).
 
-**Stable IDs.** `ID = sha256("clapa/v1\x00" + kind + "\x00" + canonicalIdentity)`,
+**Stable IDs.** `ID = sha256("darb/v1\x00" + kind + "\x00" + canonicalIdentity)`,
 hex-encoded (64 chars; reports may abbreviate for display only). Canonical
 identities:
 
@@ -558,21 +564,21 @@ identities:
   (`model.ClusterKey`) is the cluster's **ARN** when its account and region are
   known (`arn:<partition>:eks:<region>:<account>:cluster/<name>`). Otherwise it
   is the name the user gives (`--k8s DIR=CLUSTER`, `--live-k8s CONTEXT=CLUSTER`).
-  Kubernetes input that names no cluster, with none in `clapa.yaml`, uses
+  Kubernetes input that names no cluster, with none in `darb.yaml`, uses
   `default` (`model.DefaultClusterName`).
 - **Every producer uses the same key** (Phase 6), so cross-layer joins hold:
   - Terraform references by `cluster_name`, in the resource's account and
     region;
   - the AWS collectors (`DescribeCluster`, Pod Identity associations);
-  - `clapa.yaml` clusters;
+  - `darb.yaml` clusters;
   - manifests and live clusters.
 - **Two clusters of one name** in two regions or accounts are two clusters:
   their objects never collide and no edge joins them (scenario 18).
 - **Resolving a name.** A Kubernetes input names its cluster by ARN or by name.
-  A name resolves against `clapa.yaml`, Terraform and AWS (in that load order),
+  A name resolves against `darb.yaml`, Terraform and AWS (in that load order),
   and must match one cluster. A name matching several clusters is a
   configuration error (exit 2) that lists their ARNs, never a guess. A name
-  nothing describes is its own key. `clapa.yaml` may keep writing
+  nothing describes is its own key. `darb.yaml` may keep writing
   `k8s:<name>/...` principals: they resolve the same way.
 - Terraform resources with an unknown ARN: `tf:{root-module-digest}/{provider-config}/{address}`;
   the normalizer links them to ARN nodes when the ARN becomes known.
@@ -590,7 +596,8 @@ tagged sensitive). Each crown jewel records **which** of these marked it.
 
 **Entry points**: workloads exposed via `Service` `LoadBalancer`/`NodePort` or
 `Ingress`; plus every workload under the "assume any pod compromised" threat model
-(`--assume-compromised`, default **on**; the report states which model was used).
+(`threat_model.assume_compromised` in `darb.yaml`, default **on**; there is no flag;
+the report states which model was used).
 
 ---
 
@@ -671,7 +678,13 @@ data. Such principals are unresolved → `UNKNOWN`.
 **S3 Block Public Access** (S3 User Guide › "Blocking public access to your Amazon
 S3 storage"): with `RestrictPublicBuckets`, a public bucket policy only grants access
 to AWS service principals and authorised users in the bucket owner's account. Applied
-at account and bucket level. **Flag**: S3 ACLs are not modelled; reported as a gap
+at account and bucket level; the most restrictive combination applies
+(`Inventory.RestrictPublic`: on when either is on; otherwise unknown when either
+is unknown; an account whose setting is not in the input leaves the bucket's).
+Sources: `s3control GetPublicAccessBlock` (live, snapshot file
+`<account>/s3control/get-public-access-block.json`) and Terraform
+`aws_s3_account_public_access_block` (`account_id`, else the provider's account;
+a `restrict_public_buckets` that is not a literal is unknown, a gap). **Flag**: S3 ACLs are not modelled; reported as a gap
 unless Object Ownership is `BucketOwnerEnforced` (ACLs disabled).
 
 **Session policies** are rarely visible in static inputs. When a chain does not show
@@ -712,7 +725,7 @@ kind of UNKNOWN sets the path's **status** and **confidence** only:
 A derived edge (`CAN_READ_PLAINTEXT`) takes the kind of its underlying edges.
 Every unknown is named in the finding's `undecided`, with what resolves it:
 `tools/refresh-managed-policies` for an AWS managed policy missing from the
-snapshot, `assume:` in clapa.yaml for a context key, `--plan` for a value
+snapshot, `assume:` in darb.yaml for a context key, `--plan` for a value
 Terraform resolves, the input to add for a key or a role outside it.
 `--fail-on` counts every status at its (worst-case) severity. Property tests:
 every resolution of a path's unknowns scores at most what is reported, and
@@ -783,7 +796,7 @@ Each item is encoded by corpus cases (file in parentheses).
 | RCP scope | RCPs are applied to every caller except where policies do not match | **Flag:** whether RCPs exempt service principals is not modelled; applying them can only hide access the RCP really blocks |
 | Empty condition value list | `UNKNOWN` | AWS does not document it (06) |
 | Multivalued key without `ForAnyValue`/`ForAllValues` | `UNKNOWN` | IAM › multivalued context keys warns against it; behaviour not pinned (09) |
-| Non-numeric value in a Numeric* comparison (policy or request side); likewise unparsable Date*, Bool, IpAddress and base64 values | `UNKNOWN`, never ALLOW | AWS does not document the result; independently confirmed by the external review case `clapa.indep.numeric-non-number` (07, 99) |
+| Non-numeric value in a Numeric* comparison (policy or request side); likewise unparsable Date*, Bool, IpAddress and base64 values | `UNKNOWN`, never ALLOW | AWS does not document the result; independently confirmed by the external review case `darb.indep.numeric-non-number` (07, 99) |
 | `Principal: "*"` grant + boundary/session policy that does not allow | `UNKNOWN` | the boundary table (§6.1) does not cover the wildcard principal (05) |
 | `{"AWS": "*"}` vs service / web-identity callers | `UNKNOWN` | equivalence with `"*"` is documented for AWS principals and anonymous only |
 | NotPrincipal | caller excluded only if its own ARN **and** account are listed; for a role session the documented list also has the role ARN — session + account without role ARN is `UNKNOWN` | IAM › NotPrincipal › "Specifying NotPrincipal with Deny" (16); the first draft treated partial lists as UNKNOWN, the corpus showed the documentation decides most of them |
@@ -824,17 +837,17 @@ identity: creating a pod as another service account, `pods/exec` into
 another's pod, `impersonate`, `serviceaccounts/token` for another service
 account (RBAC); `iam:PassRole` into compute, rewriting a trust or a policy
 (IAM). A workload using its own credentials, cloud or Kubernetes, is
-`RUNS_AS`; a path with a `CAN_ESCALATE` edge is `CLAPA-PATH-002`, one without
-is `CLAPA-PATH-001`. Minting a token for the account itself
+`RUNS_AS`; a path with a `CAN_ESCALATE` edge is `DARB-PATH-002`, one without
+is `DARB-PATH-001`. Minting a token for the account itself
 (`ASSUMES[minted-self]`, scenario 4b) is not another identity, so scenario 4b
-is `CLAPA-PATH-001`.
+is `DARB-PATH-001`.
 
 **Edge semantics (Phase 4, written before the access builder):**
 
 | Edge | From → to | Exists when | Cost |
 |---|---|---|---|
 | `RUNS_AS` | workload → its service account | always (the cloud identity a pod's credentials carry) | 100 |
-| `RUNS_AS[k8s-token]` | workload → its service account | the service account token is mounted (`automountServiceAccountToken`, §4.7 default `true`): the pod acts in the Kubernetes API as its **own** service account. That is direct access, like `RUNS_AS`, not escalation (Phase 6 review; it was `CAN_ESCALATE[k8s-token]`). The IRSA web-identity token is projected separately and does not need it. After it, a path may use the account's RBAC (§7.4 modes) | 5 (workload, revoke: `automountServiceAccountToken: false` takes away the RBAC rights the path uses, granted on purpose; Phase 6 review, it was narrow, 3). Without an RBAC binding used on the path, the token is on no path: turning it off is hardening (`CLAPA-POST-004`), never a cut |
+| `RUNS_AS[k8s-token]` | workload → its service account | the service account token is mounted (`automountServiceAccountToken`, §4.7 default `true`): the pod acts in the Kubernetes API as its **own** service account. That is direct access, like `RUNS_AS`, not escalation (Phase 6 review; it was `CAN_ESCALATE[k8s-token]`). The IRSA web-identity token is projected separately and does not need it. After it, a path may use the account's RBAC (§7.4 modes) | 5 (workload, revoke: `automountServiceAccountToken: false` takes away the RBAC rights the path uses, granted on purpose; Phase 6 review, it was narrow, 3). Without an RBAC binding used on the path, the token is on no path: turning it off is hardening (`DARB-POST-004`), never a cut |
 | `CAN_ESCALATE[rbac]` | service account → service account | RBAC lets the first `create pods` or `pods/exec`, `create serviceaccounts/token`, or `impersonate serviceaccounts` in a namespace: it can act as any of that namespace's service accounts | 5 |
 | `ASSUMES[irsa]` | service account → role | the service account carries `eks.amazonaws.com/role-arn`, so its pods get a token for its `eks.amazonaws.com/audience`; the role's trust allows `sts:AssumeRoleWithWebIdentity` for its `sub`/`aud`, **and** the OIDC provider accepts the audience: STS requires `aud` to be one of the provider's client IDs (IAM User Guide › "Create an OpenID Connect (OIDC) identity provider"). A provider in the input decides by its `client_id_list`; without one, `sts.amazonaws.com` is accepted as a documented default (§4.7) and any other audience is UNKNOWN. The annotation is not a security boundary: the token works with every role that accepts it | 5 |
 | `ASSUMES[projected]` | workload → role | the pod spec projects a `serviceAccountToken` volume with an audience: the same check as IRSA, with no annotation needed | 5 |
@@ -847,7 +860,9 @@ is `CLAPA-PATH-001`.
 | `MAPS_TO` | IAM principal → Kubernetes user / group | `aws-auth` `mapRoles`/`mapUsers` (a `rolearn` carries no path, so a role matches by account and name) or an EKS access entry (`aws_eks_access_entry`: user name, groups). The subject's RBAC then gives `CAN_ESCALATE[rbac]`; `system:masters` is cluster-admin without a binding. An access policy association gives the principal the policy's rules directly (ClusterAdmin: all; Admin: create pods, impersonate service accounts; Edit: create pods; View, AdminView: read only — EKS User Guide › "Access policy permissions"); another policy is UNKNOWN | 8 |
 | `NODE_ROLE` | workload → node role of its cluster's node groups | IMDS is reachable: `hostNetwork: true` (any token setting, unless `http_endpoint` is disabled), or `http_tokens` optional, or hop limit ≥ 2; precondition, factor 900 when known, 500 when unknown | 3 |
 | `CAN_READ`, `CAN_DECRYPT[for J]`, `CAN_READ_PLAINTEXT` | principal → jewel / key | §7.3 | §9.1 |
-| `CAN_READ_PLAINTEXT[k8s]` | Kubernetes subject (service account, user, group, or an IAM principal by EKS access policy) → Kubernetes Secret | RBAC lets the subject `get`, `list` or `watch` the Secret: core API group, `secrets` or `*`, its namespace (or cluster-wide), and no `resourceNames` or its name. `list` and `watch` return the data too. The API returns the value decoded, so there is no decrypt step. A role that is not in the input makes the edge UNKNOWN. **The path search allows it only after `RUNS_AS[k8s-token]`, a `MAPS_TO` or an RBAC escalation**, never with the cloud identity alone (`paths.allowed`). A read with the pod's own token is direct access: `CLAPA-PATH-001` (scenario 21); its severity comes from the Secret's classification (§5), as for any target | 5 (rbac, revoke) |
+| `CAN_READ_PLAINTEXT[k8s]` | Kubernetes subject (service account, user, group, or an IAM principal by EKS access policy) → Kubernetes Secret | RBAC lets the subject `get`, `list` or `watch` the Secret: core API group, `secrets` or `*`, its namespace (or cluster-wide), and no `resourceNames` or its name. `list` and `watch` return the data too. The API returns the value decoded, so there is no decrypt step. A role that is not in the input makes the edge UNKNOWN. **The path search allows it only after `RUNS_AS[k8s-token]`, a `MAPS_TO` or an RBAC escalation**, never with the cloud identity alone (`paths.allowed`). A read with the pod's own token is direct access: `DARB-PATH-001` (scenario 21); its severity comes from the Secret's classification (§5), as for any target | 5 (rbac, revoke) |
+| `CAN_READ_PLAINTEXT[mount]` | workload → Kubernetes Secret of its namespace (Phase 7) | the pod spec names the Secret: a `secret` volume, a `secret` source of a `projected` volume, or `env[].valueFrom.secretKeyRef` / `envFrom[].secretRef` of any container, init or ephemeral container. The kubelet gives it to the pod with no RBAC check on its service account (Kubernetes › Secrets, "Using Secrets as files from a Pod", "Using Secrets as environment variables"). `imagePullSecrets` go to the kubelet, not the containers, and are not edges | 5 (workload, revoke: stop naming the Secret; the generator removes the volume, its mounts and the env entries) |
+| `CAN_READ_PLAINTEXT[pod-create]` | Kubernetes subject → each Kubernetes Secret of a namespace where it may create pods (Phase 7) | RBAC `create` on `pods` (core group, every name; a cluster-wide grant counts in every namespace): a pod it creates may name any Secret of the namespace (Kubernetes › RBAC Good Practices, "Workload creation"). An RBAC right, so a path reaches it after `RUNS_AS[k8s-token]` (§7.4 modes); `pods/exec` is not counted (it enters an existing pod, whose Secrets are its `[mount]` edges). A grant whose role is not in the input already gives an unknown `[k8s]` read and adds no second edge | 5 (rbac, revoke) |
 
 ### 7.3 Encrypted data access
 
@@ -901,10 +916,15 @@ conditions use the same key.
   (`aws_secretsmanager_secret` and its policy, `aws_ssm_parameter`). A secret's
   ARN suffix is unresolved until apply, so a policy naming one exact secret ARN
   is UNKNOWN for it.
-- **Not modelled**, and listed in every report:
-  - Secrets mounted into pods (volumes, `env`, `envFrom`), and Secrets read
-    through pod creation;
-  - AWS RAM shares of advanced parameters.
+- **Not modelled**, and listed in the report as `not-modelled` notes:
+  - admission policies (Pod Security admission, policy engines) that could
+    reject a pod naming a Secret: `CAN_READ_PLAINTEXT[mount]` and
+    `[pod-create]` (§7.2, Phase 7) assume the pod is admitted (every report);
+  - AWS RAM shares of SSM parameters: only advanced-tier parameters can be
+    shared (Parameter Store › "Working with shared parameters"), so the note
+    appears when the input has a parameter whose tier is `Advanced`,
+    `Intelligent-Tiering` (which may make it advanced) or unknown (Terraform
+    without `tier` takes the region's default), and names each one (Phase 7).
 
 **Decision.** `CAN_DECRYPT` edges are **qualified by the protected resource**: the
 edge `role —CAN_DECRYPT[for bucket Z]→ key K` is evaluated with Z's encryption
@@ -963,7 +983,7 @@ change breaking several cut edges) are only flagged
 Performance target: 50k nodes / 500k edges in < 60 s and < 2 GB.
 **Measured (2026-11-20, i7-10850H, Go 1.27):** 50,000 nodes, 542,000 edges,
 30,000 entries, 1,136,630 (entry, jewel) pairs: 22.5 s, at most 755 MiB
-obtained from the OS (`TestPerformanceTarget`, `CLAPA_PERF=1`; run by
+obtained from the OS (`TestPerformanceTarget`, `DARB_PERF=1`; run by
 `bench.yml` on every pull request). `internal/paths`
 ships `-benchmem` benchmarks with a synthetic graph generator (Phase 4).
 **Flag — CI benchmark noise.** Shared runners are noisy; the bench job runs base and
@@ -986,7 +1006,7 @@ no package-level mutable registry, no `init()` side effects. The catalog version
 a semver bumped when any rule's ID set or version changes (checked by a test).
 Each rule has: stable ID, semver, title, rationale, severity logic, references
 (MITRE ATT&CK technique, CIS control, AWS/K8s doc), at least one passing and one
-failing fixture. `clapa rules list|show`.
+failing fixture. `darb rules list|show`.
 
 **Fingerprint** = `sha256(rule ID, rule major version, canonical IDs of entry and
 jewel)` for a path finding (the posture form is in §8.1). It names the
@@ -1001,8 +1021,8 @@ stays unique (scenario 14 checks distinct fingerprints).
 
 **One finding per rule (Phase 6 review).** Each path rule reports its own
 finding for an (entry, jewel) pair, from the paths of its own class:
-`CLAPA-PATH-001` from the paths without `CAN_ESCALATE`, `CLAPA-PATH-002` from
-those with one, `CLAPA-PATH-003` from the anonymous entry. A pair reached both
+`DARB-PATH-001` from the paths without `CAN_ESCALATE`, `DARB-PATH-002` from
+those with one, `DARB-PATH-003` from the anonymous entry. A pair reached both
 directly and through an escalation is two findings, so adding an input (an
 unknown policy, a new path) never makes a finding disappear or changes its
 fingerprint. Within one finding:
@@ -1030,16 +1050,16 @@ direct access to J, or only a weaker one: then the escalation adds access, or
 certainty. "X reaches J without an escalation" means a path from X to J with
 no `CAN_ESCALATE` edge, under the same search rules (§7.4). Without this rule,
 before the managed-policy snapshot is refreshed, every role with an unknown
-policy would add a `CLAPA-PATH-002` for every target it already reads.
+policy would add a `DARB-PATH-002` for every target it already reads.
 
 - Scenario 6: `analytics-admin` reads the warehouse with AdministratorAccess
-  (confirmed); rewriting its own policies adds nothing: no `CLAPA-PATH-002`.
+  (confirmed); rewriting its own policies adds nothing: no `DARB-PATH-002`.
 - Scenario 19 with ReadOnlyAccess: `payments-api` reads the secret directly
   (`confirmed_unless_denied`); the escalation through the unknown policy is
-  `unconfirmed`, weaker: dominated, no `CLAPA-PATH-002`.
+  `unconfirmed`, weaker: dominated, no `DARB-PATH-002`.
 - Scenario 22: `role/ops` reads nothing itself; its escalation (it rewrites its
-  own policy) is the only way it reaches the data: kept, a `CLAPA-PATH-002`
-  beside `role/app`'s own `CLAPA-PATH-001`. In its dominance variant
+  own policy) is the only way it reaches the data: kept, a `DARB-PATH-002`
+  beside `role/app`'s own `DARB-PATH-001`. In its dominance variant
   `role/app` reads the data itself, confirmed, and could also rewrite its own
   policy: that escalation is dominated.
 
@@ -1047,7 +1067,7 @@ A dominated path is hidden from the report, not removed: it belongs to the
 finding that dominates it for the **cut** and for **verification**. The cut
 of the dominating finding breaks all its paths, the dominated ones included;
 otherwise cutting the direct path alone would make the escalation no longer
-dominated, a new `CLAPA-PATH-002` would appear for the same pair, and the
+dominated, a new `DARB-PATH-002` would appear for the same pair, and the
 fix would not fix the problem. Verification rejects a fix after which any
 finding appears for the same (entry, jewel): in scenario 22's dominance
 variant, cutting `role/app`'s decrypt alone is rejected
@@ -1070,7 +1090,7 @@ never hides a confirmed finding or changes its fingerprint, an unknown Allow
 never lowers its status; no escalation finding has a dominated path;
 applying a finding's cut in memory leaves no new finding for its pair.
 
-**Suppressions** (`.clapa-ignore.yaml`, or `--ignore FILE`; Phase 6):
+**Suppressions** (`.darb-ignore.yaml`, or `--ignore FILE`; Phase 6):
 
 - Keyed by fingerprint, each with a mandatory `reason`, `owner` and `expires`
   (date, inclusive).
@@ -1099,25 +1119,25 @@ per rule only after they are checked against the benchmark text.
 
 | ID | Kind | Fires when | Base / scoring | ATT&CK |
 |---|---|---|---|---|
-| `CLAPA-PATH-001` | path | an entry workload reaches `CAN_READ_PLAINTEXT` on a crown jewel through `RUNS_AS`, `ASSUMES`, `NODE_ROLE`, `MAPS_TO` edges (no escalation) | SCORING.md §1 | T1078.004, T1530 |
-| `CLAPA-PATH-002` | path | as PATH-001, with at least one `CAN_ESCALATE` edge on the path (IAM or Kubernetes escalation) | SCORING.md §1 | T1098, T1548, T1610, T1530 |
-| `CLAPA-PATH-003` | path | the anonymous principal reaches `CAN_READ_PLAINTEXT` on a crown jewel (a resource policy that grants a public principal, with Block Public Access not known to be on) | SCORING.md §1, exposure 1000 | T1530 |
-| `CLAPA-POST-001` | posture | (rule 1.0.1) an IRSA trust policy allows `sts:AssumeRoleWithWebIdentity` for a service account that is not in the input, probed in a namespace of its own and in every namespace of the cluster (a wildcard scoped to one namespace) — decided by the evaluator with a probe subject `system:serviceaccount:clapa-probe:clapa-probe` (catches wildcard `:sub` and `:aud`-only trusts) | high | T1078.004 |
-| `CLAPA-POST-002` | posture | a node group allows IMDSv1 (`http_tokens` known `optional`) | high | T1552.005 |
-| `CLAPA-POST-003` | posture | a container runs `privileged: true` | high | T1611 |
-| `CLAPA-POST-004` | posture | a workload automounts its service account token and that service account has RBAC permissions | medium | T1528 |
-| `CLAPA-POST-005` | posture | a crown-jewel bucket's Block Public Access `restrict_public_buckets` is known off (stated in the input; no default exists, §4.7) | high | T1530 |
-| `CLAPA-POST-006` | posture | a symmetric customer managed KMS key has rotation off (Terraform `enable_key_rotation` false, or unset: documented default `false`, §4.7) | medium | — |
-| `CLAPA-POST-008` | posture | a sensitive action (`kms:Decrypt`, `sts:AssumeRole`, `iam:PassRole`, `s3:GetObject`, `secretsmanager:GetSecretValue`, `ssm:GetParameter`, or a wildcard covering one) is allowed on every resource (`"*"`, `NotResource`, or an ARN whose resource part is `*`, `*/*` or `<type>/*` for a non-S3 type) by an identity policy whose permissions boundary keeps it, or to every principal (`Principal "*"`) by a bucket, key or trust policy; in both cases with no condition or only organization/account conditions. One finding per principal or resource (added in the Phase 5 review: a mitigation leaves the grant, and this keeps it visible) | graded by reachability (rule 1.1.0, catalog 1.2.0): **high** when an entry point reaches the principal holding the grant — a workload directly, IRSA, Pod Identity, `CAN_ESCALATE`, an `ASSUMES` chain; for a grant to every principal, any reached principal, or the anonymous caller when it has no condition — so a mitigated scan of a reachable grant is not clean at `--fail-on high`; **medium** when no path reaches it (real accounts hold intended admin roles: break-glass, platform). The evidence says `reachable_from: [<entries>]` or `reachable_from: none`. 06 fixed: `analytics-admin` medium, exit 0 | T1078.004 |
-| `CLAPA-POST-007` | posture | a namespace has workloads in the input and no NetworkPolicy that selects every pod with an `Ingress` policy type and no ingress rules (default deny) | medium, `confidence: medium` (policies may live outside the input) | — |
+| `DARB-PATH-001` | path | an entry workload reaches `CAN_READ_PLAINTEXT` on a crown jewel through `RUNS_AS`, `ASSUMES`, `NODE_ROLE`, `MAPS_TO` edges (no escalation) | SCORING.md §1 | T1078.004, T1530 |
+| `DARB-PATH-002` | path | as PATH-001, with at least one `CAN_ESCALATE` edge on the path (IAM or Kubernetes escalation) | SCORING.md §1 | T1098, T1548, T1610, T1530 |
+| `DARB-PATH-003` | path | the anonymous principal reaches `CAN_READ_PLAINTEXT` on a crown jewel (a resource policy that grants a public principal, with Block Public Access not known to be on) | SCORING.md §1, exposure 1000 | T1530 |
+| `DARB-POST-001` | posture | (rule 1.0.1) an IRSA trust policy allows `sts:AssumeRoleWithWebIdentity` for a service account that is not in the input, probed in a namespace of its own and in every namespace of the cluster (a wildcard scoped to one namespace) — decided by the evaluator with a probe subject `system:serviceaccount:darb-probe:darb-probe` (catches wildcard `:sub` and `:aud`-only trusts) | high | T1078.004 |
+| `DARB-POST-002` | posture | a node group allows IMDSv1 (`http_tokens` known `optional`) | high | T1552.005 |
+| `DARB-POST-003` | posture | a container runs `privileged: true` | high | T1611 |
+| `DARB-POST-004` | posture | a workload automounts its service account token and that service account has RBAC permissions | medium | T1528 |
+| `DARB-POST-005` | posture | a crown-jewel bucket's Block Public Access `restrict_public_buckets` is known off (stated in the input; no default exists, §4.7) | high | T1530 |
+| `DARB-POST-006` | posture | a symmetric customer managed KMS key has rotation off (Terraform `enable_key_rotation` false, or unset: documented default `false`, §4.7) | medium | — |
+| `DARB-POST-008` | posture | a sensitive action (`kms:Decrypt`, `sts:AssumeRole`, `iam:PassRole`, `s3:GetObject`, `secretsmanager:GetSecretValue`, `ssm:GetParameter`, or a wildcard covering one) is allowed on every resource (`"*"`, `NotResource`, or an ARN whose resource part is `*`, `*/*` or `<type>/*` for a non-S3 type) by an identity policy whose permissions boundary keeps it, or to every principal (`Principal "*"`) by a bucket, key or trust policy; in both cases with no condition or only organization/account conditions. One finding per principal or resource (added in the Phase 5 review: a mitigation leaves the grant, and this keeps it visible) | graded by reachability (rule 1.1.0, catalog 1.2.0): **high** when an entry point reaches the principal holding the grant — a workload directly, IRSA, Pod Identity, `CAN_ESCALATE`, an `ASSUMES` chain; for a grant to every principal, any reached principal, or the anonymous caller when it has no condition — so a mitigated scan of a reachable grant is not clean at `--fail-on high`; **medium** when no path reaches it (real accounts hold intended admin roles: break-glass, platform). The evidence says `reachable_from: [<entries>]` or `reachable_from: none`. 06 fixed: `analytics-admin` medium, exit 0 | T1078.004 |
+| `DARB-POST-007` | posture | a namespace has workloads in the input and no NetworkPolicy that selects every pod with an `Ingress` policy type and no ingress rules (default deny) | medium, `confidence: medium` (policies may live outside the input) | — |
 
 **Decisions (Phase 4 review):**
 
 1. **Posture rules and unstated settings.** A setting the input does not state
    takes its documented deterministic default (§4.7) and the finding's evidence
    says `value_source: default` with the reference; e.g. an unstated
-   `automountServiceAccountToken` is `true`, so CLAPA-POST-004 fires, and an
-   unstated Terraform `enable_key_rotation` is `false`, so CLAPA-POST-006 fires.
+   `automountServiceAccountToken` is `true`, so DARB-POST-004 fires, and an
+   unstated Terraform `enable_key_rotation` is `false`, so DARB-POST-006 fires.
    Only a setting with no deterministic default (IMDS, Block Public Access, a
    snapshot's rotation status) is a coverage gap — never a finding and never
    "compliant".
@@ -1153,7 +1173,7 @@ canonical ID of the resource)`. The anonymous principal is `anonymous`.
 **`--fail-on` default: `high`.** Exit 1 needs a finding at or above it
 (unconfirmed findings count, SCORING.md §1.3).
 
-### 8.2 `expected.json` (format `clapa-expected/v1`)
+### 8.2 `expected.json` (format `darb-expected/v1`)
 
 Written by hand from §13.2 and §13.1 (and, for posture rules, from reading the
 fixture files) **before** the rules run; never generated from tool output. A
@@ -1162,11 +1182,11 @@ the tool.
 
 ```json
 {
-  "format": "clapa-expected/v1",
+  "format": "darb-expected/v1",
   "derived_from": "DESIGN.md §13.2 row 1; §13.1",
   "exit_code": 1,
   "findings": [{
-    "rule": "CLAPA-PATH-001",
+    "rule": "DARB-PATH-001",
     "entry": "k8s:prod/payments/Deployment/api",
     "jewel": "arn:aws:s3:::acme-customer-pii",
     "path": ["RUNS_AS k8s:prod/payments/ServiceAccount/api",
@@ -1177,7 +1197,7 @@ the tool.
     "alternative_fix": ["CAN_READ arn:aws:iam::111122223333:role/payments-api -> arn:aws:s3:::acme-customer-pii"],
     "defaults_used": []
   }],
-  "absent": [{"rule": "CLAPA-PATH-001", "jewel": "arn:aws:s3:::acme-payment-receipts"}],
+  "absent": [{"rule": "DARB-PATH-001", "jewel": "arn:aws:s3:::acme-payment-receipts"}],
   "intended_access": [{"principal": "...", "action": "s3:GetObject", "resource": "...", "status": "verified"}]
 }
 ```
@@ -1214,7 +1234,7 @@ from "fixing" a path by breaking the application's own identity.
 **Uncuttable edges.**
 
 ```yaml
-# clapa.yaml
+# darb.yaml
 remediation:
   uncuttable_edges:
     - kind: ASSUMES
@@ -1280,7 +1300,7 @@ fixes:
   applies it.
 - **`mitigation`** is the Deny above, labelled *"mitigation: blocks this path
   only; the broad grant remains"*. It is verified and can be applied at once;
-  the grant stays a finding (`CLAPA-POST-008`, high), so the scan after it is
+  the grant stays a finding (`DARB-POST-008`, high), so the scan after it is
   not clean.
 
 Order in the output: a verified root-cause fix first (then the mitigation);
@@ -1334,7 +1354,7 @@ the change's reason.
 only through an UNKNOWN Allow is fixed by deciding it, not by deleting
 anything: `fix_kind: resolve`, cost 0, no patch, the resolving command
 named. A cut with one is `remediation_status: partial_pending_resolution`:
-`clapa remediate --write` applies only the known steps; verification checks
+`darb remediate --write` applies only the known steps; verification checks
 them and reports that the paths through the unknown need a rescan once it
 is resolved; the console says *resolve the unknowns listed, then rescan: the
 fix may need more steps once they are known*. AWS managed policies whose
@@ -1372,9 +1392,9 @@ every edge they grant).
 - **UNKNOWN paths are not patched**: the remediation lists what would decide
   them (a context key to assume, a value a plan resolves, a precondition).
 
-### 9.5 `clapa remediate`
+### 9.5 `darb remediate`
 
-`clapa remediate [input flags] FINGERPRINT` shows the plan, both
+`darb remediate [input flags] FINGERPRINT` shows the plan, both
 verifications and the patch, and changes nothing. `--write` applies a fix
 verified on both levels, **narrow fixes only**; a revoke (it removes a grant
 written on purpose) needs `--allow-revoke`, and the console marks it "this
@@ -1387,7 +1407,7 @@ no fix within the constraints, TODO, rejected), 2 usage or `--write` refused,
 
 ---
 
-## 10. LLM integration (Phase 7; interface only now)
+## 10. LLM integration (Phase 7)
 
 Off by default; enabled only with `--llm <provider>` plus an API key. Provider is
 deferred to Phase 7. The generic interface:
@@ -1408,6 +1428,42 @@ Structured output against a JSON schema, timeout, retries, token cap; any failur
 template text plus a note that the fallback happened. Output labelled "AI-generated
 explanation" and HTML-escaped like any other untrusted string.
 
+**Implementation (Phase 7).**
+
+- Packages: `internal/llm` (pure: `Evidence`, `Prepare` = redact then
+  pseudonymise, `Explain` = ask, validate, restore, strip control characters,
+  or fall back to `Template`), `internal/llm/pseudonymize` (reversible tokens
+  `arn-0001`, `account-0001`, …), `internal/llm/claude` (io; the only package
+  that talks to an LLM provider).
+- Provider `anthropic`: one Messages API request over `net/http` (no SDK, so
+  no third-party module: the SDK and its OpenTelemetry, `tidwall/*`,
+  `invopop/jsonschema` and `standard-webhooks` dependencies were removed in
+  Phase 7), `anthropic-version: 2026-10-21`, model
+  `claude-opus-5-5` unless `--llm-model`; structured output with a closed JSON
+  schema (`summary`, `attack`, `fix`); timeout 2 minutes per call, 2 retries
+  (429, 5xx, connection errors; the server's `Retry-After` is honoured, at
+  most 30 s), token cap 4000, replies over 1 MiB refused; a refusal is
+  re-served by the API's default fallback model (`fallbacks: "default"`, beta
+  `server-side-fallback-2026-07-01`); `stop_reason` refusal or max_tokens is a
+  failure; thinking blocks are skipped. The key is sent only as the
+  `x-api-key` header and never appears in an error.
+- CLI: `scan --llm anthropic [--llm-model M] [--llm-redact-identifiers]`
+  explains every attack-path finding and writes `executive_summary`;
+  misconfigurations are explained by their rule's rationale, not sent.
+  `darb explain [scan input flags] [--llm …] FINGERPRINT` explains one
+  finding of any kind (console or json); without `--llm` it prints the
+  template text. The key comes from `ANTHROPIC_API_KEY` only; `--llm` without
+  it is a usage error (exit 2) naming the variable.
+- Report: `finding.explanation` and `executive_summary`
+  (`schemas/report.v1.schema.json` `$defs/explanation`): `ai_generated`,
+  `model`, `note` (why the template was used). Console and HTML head each one
+  with `Explanation.Label()`; the HTML puts it in an `<aside>`, escaped.
+- What the engine reads back: nothing. Removing every explanation from an
+  explained report gives the unexplained report byte for byte
+  (`TestExplainedReportMatchesTheSchema`).
+- Tests use a fake provider (an `httptest` server for the SDK client, a stub
+  `Explainer` for the CLI); no test calls the real API.
+
 ---
 
 ## 11. CLI and output
@@ -1417,9 +1473,9 @@ Commands: `scan`, `explain`, `graph`, `remediate`, `rules list|show`,
 
 **Phase 6 commands and flags.**
 
-- `clapa collect-snapshot --out DIR`: live, read-only, writes a new bundle.
+- `darb collect-snapshot --out DIR`: live, read-only, writes a new bundle.
   Exit 3 when calls failed, and no bundle when nothing was collected.
-- On `clapa scan`:
+- On `darb scan`:
   - `--live-aws` with the AWS flags (`--aws-profile`, `--aws-region`,
     `--aws-assume-role`, `--aws-external-id`, `--aws-concurrency`,
     `--aws-call-timeout`);
@@ -1441,6 +1497,24 @@ result as `WARNING:` lines:
 reports the Go runtime, kubeconfig/AWS config presence, and probes read-only API
 permissions (`sts:GetCallerIdentity`, `iam:SimulatePrincipalPolicy` when allowed).
 
+*Implemented in Phase 7:*
+- `darb doctor` prints one line per check: darb's version and rule catalog,
+  the Go runtime, the managed-policy snapshot (a warning below 1000
+  policies), whether the AWS config and credentials files and the kubeconfig
+  files exist (their contents are never read; `AWS_ACCESS_KEY_ID` and
+  `ANTHROPIC_API_KEY` are reported as set or not, never shown). It calls a
+  cloud only when asked: `--probe-aws` calls `sts:GetCallerIdentity` (the
+  account and caller ARN), `--probe-k8s CONTEXT` asks that API server for its
+  version. Exit 3 when a probe fails.
+- **Not done:** `iam:SimulatePrincipalPolicy`. It is not in the collector's
+  policy (docs/PERMISSIONS.md), and asking for it would widen that policy for a
+  diagnostic; left for review.
+- `darb graph [scan input flags] [--format dot|json]` writes the whole access
+  graph of the inputs (every node and edge, not only those on paths): JSON
+  `darb-graph/v1`, or Graphviz DOT (an edge resting on an UNKNOWN is dashed, a
+  derived read bold). Same input, same bytes; identities are escaped DOT
+  strings.
+
 ### Exit codes
 
 | Code | Meaning |
@@ -1457,16 +1531,36 @@ undermines a *clean* result. The report always states the coverage either way.
 
 **Flag — default tolerance.** Exit 0 requires "coverage complete", so the default
 gap tolerance is **0** for every gap kind, including `Unresolved` Terraform values.
-Users can raise it per gap kind in `clapa.yaml`; the report shows the tolerance used.
+Users can raise it per gap kind in `darb.yaml`; the report shows the tolerance used.
 
 ### Formats
 
 - **JSON** — `schema_version`, published JSON Schema in `schemas/`, validated in
   tests; tool version, rule-catalog version, input digests (sha256), coverage,
   findings, graph stats, timing (behind `--timestamps`, §3.4).
-- **SARIF 2.1.0** — validated against the official schema; `physicalLocation` to
-  TF/K8s lines (`%SRCROOT%`-relative), attack paths as `codeFlows`, our fingerprint
-  in `partialFingerprints`.
+- **SARIF 2.1.0** — `physicalLocation` to TF/K8s lines (`uriBaseId`
+  `%SRCROOT%`, the scan root), attack paths as `codeFlows` (the entry, then one
+  location per hop; Phase 7), our fingerprint in `partialFingerprints`.
+  *Status (Phase 7):* every fixture variant's SARIF report validates against
+  the official OASIS SARIF 2.1.0 schema (errata 01, vendored unchanged in
+  `internal/report/sarif/testdata`, SHA-256 pinned;
+  `TestEverySARIFReportMatchesTheOfficialSchema`).
+- **Markdown** (Phase 7, `--format markdown`, `internal/report/markdown`) — a
+  summary for a pull request comment: the counts by severity, the attack paths
+  most severe first with their recommended fix (the first verified fix with
+  `--fixes`, else the cheapest cut, marked not verified), the
+  misconfigurations, the coverage. At most 60000 bytes (GitHub refuses a
+  comment over 65536 characters); what does not fit is counted in a line
+  "N more findings in the full report". Every name from the input is a code
+  span (pipes escaped, a fence longer than any backtick run), so it cannot
+  link, mention, add markup or split a table.
+- **JUnit XML** (Phase 7, `--format junit`, `internal/report/junit`) — one
+  suite for attack paths, one for misconfigurations; each finding is a
+  `testcase`, with a `failure` when its severity is at or above `--fail-on`
+  (the others pass and carry their details in `system-out`). Every fixture's
+  report validates against the JUnit 10 XSD of `jenkinsci/xunit-plugin`
+  (vendored unchanged with its MIT notice, commit `ae25da50`; the CI job
+  `junit-schema` runs `xmllint --schema`).
 - **HTML** — single file, `html/template`, assets via `embed`, strict CSP
   (`default-src 'none'`, hashed inline script/style), data embedded as escaped JSON;
   test with a resource named `<script>`. Implemented in Phase 7
@@ -1491,7 +1585,7 @@ Users can raise it per gap kind in `clapa.yaml`; the report shows the tolerance 
   `inputs`), the tool and rule-catalog versions, and, with `--timestamps`,
   when it was made (`generated_at`). `scan --fixes` runs the remediation
   of every path finding (the same plans, patches and two-level
-  verification as `clapa remediate`) and puts it in the report
+  verification as `darb remediate`) and puts it in the report
   (`remediation`: each fix's `fix_strategy`, `root-cause` or `mitigation`
   with "blocks this path only; the broad grant remains", its changes,
   `verified_in_memory`, `verified_on_patched_files`, the diff, the order
@@ -1524,7 +1618,15 @@ Users can raise it per gap kind in `clapa.yaml`; the report shows the tolerance 
 
 Logging: `slog`, `--log-format json`, a redacting handler (keys and value patterns
 from `internal/redact`), `--debug` for stack traces, otherwise one-line errors with
-a hint.
+a hint. *Implemented in Phase 7:* `--log-format text|json` and `--debug` are
+global flags, accepted anywhere before `--`. Records go to standard error
+through `redact.Handler` (message, every attribute and group, secret-named
+keys), so a JSON log is redacted on its own, not only by the redacted standard
+error (`TestJSONLogsAreRedacted`, `TestCLIJSONLogs`). Without `--debug` only
+warnings are written (TLS verification off, coverage beyond tolerance, an LLM
+explanation that fell back to the template); `--debug` adds the inputs, every
+coverage gap, the analysis statistics and timing. A recovered panic is one line
+naming it a bug; with `--debug`, the stack trace follows (redacted).
 
 ---
 
@@ -1549,8 +1651,8 @@ MAPS_TO (aws-auth, access entries, access policies), NODE_ROLE, CAN_READ,
 CAN_DECRYPT[for J], CAN_READ_PLAINTEXT), path search and weighted min-cut
 (`internal/paths`), scoring (`internal/scoring`), the ten rules of §8.1
 (`internal/rules/...`), fingerprints, suppressions, baseline and exit code
-(`internal/findings`), the versioned report (`pkg/schema` `clapa-report/v1`)
-with console, JSON and SARIF 2.1.0 writers, the CLI (`clapa scan | rules list |
+(`internal/findings`), the versioned report (`pkg/schema` `darb-report/v1`)
+with console, JSON and SARIF 2.1.0 writers, the CLI (`darb scan | rules list |
 rules show | version`), benchmarks and `bench.yml` (base vs head on one runner,
 `benchstat` for people, `tools/benchgate` for the decision: median > +20% and
 Mann-Whitney p < 0.05).
@@ -1586,21 +1688,21 @@ risk":
 Done: remediation (`internal/remediate`: edits per edge and side,
 `Apply`), two-level verification (`internal/verify`, `app.Remediate`), the
 patcher (`internal/patch`: three Terraform policy forms, attributes, YAML,
-snapshot JSON), `clapa remediate` with the `--write` safety rules, the
+snapshot JSON), `darb remediate` with the `--write` safety rules, the
 `EXPOSED_TO` edge (cost 20, revoke), IMDS fixes by hostNetwork, the
 UNKNOWN "what is missing" output, the patch fuzz target. Every vulnerable
 scenario's fix verifies on both levels except 10 (UNKNOWN) and 13 (module
 input TODO), §9.3.
 
 **Phase 5 review (strategies).** Root-cause and mitigation fixes (§9.2),
-`CLAPA-POST-008` (catalog 1.1.0, pinned by `TestCatalogVersion`), the
+`DARB-POST-008` (catalog 1.1.0, pinned by `TestCatalogVersion`), the
 new-bucket Block Public Access default for plans (§4.7), and scenario 1b.
 Fixtures 01b, 06, 09 and 10 now state Block Public Access for every bucket, so
 no scan of them has a coverage gap. After the first fix, the scan of each
 vulnerable scenario exits 0 only when nothing else is reported at `high`: 01b
-(verified root cause) and 08 do; after a mitigation `CLAPA-POST-008` keeps the
+(verified root cause) and 08 do; after a mitigation `DARB-POST-008` keeps the
 exit at 1 (01, 06, 07, 12, 16, 17), as do the findings the fix is not about
-(`CLAPA-POST-001` in 04, 04b, 05; `CLAPA-POST-002` in 09); 10 is UNKNOWN; 13 is
+(`DARB-POST-001` in 04, 04b, 05; `DARB-POST-002` in 09); 10 is UNKNOWN; 13 is
 a TODO; 14's fix is a policy document for the account; 16 keeps its parse
 gaps by design.
 
@@ -1637,15 +1739,35 @@ Decided while implementing:
 - **Names in the bundle.** Name escaping (`!x` for an upper-case letter) keeps
   two names that differ only in case apart on case-insensitive file systems.
 
+### 12.0d Phase 7 status
+
+- HTML report (merged, PR #2 of the former repository): self-contained, strict CSP, path
+  view, one fix section, print styles, examples in `docs/examples/`.
+- LLM explanations (§10): off by default; `scan --llm anthropic`,
+  `darb explain`; redaction (48 formats), pseudonyms, labelled output; the
+  CLI's standard error is redacted too.
+- Documentation: README, EXTENDING, FAQ. SARIF gained code flows and
+  `%SRCROOT%` locations (§11).
+- Distribution: `.goreleaser.yaml`, `release.yml` (cosign keyless signature of
+  the checksums, an SPDX SBOM per archive, SLSA provenance, draft releases); CI
+  builds a snapshot twice and requires identical archives.
+- §12.1: Secrets through mounts and pod creation (priority 1) and account-level
+  S3 Block Public Access (priority 2) done, each with a hand-derived scenario
+  that the engine matched; the tolerance row was already done (test added);
+  RAM shares (priority 3) left open with the research recorded; the managed-
+  policy refresh is still deferred (not run, as instructed).
+- Not done: `darb graph` and `darb doctor` (§11 lists them; no phase
+  implemented them); SARIF validation against the official schema (§11).
+
 ### 12.1 Known constraints carried between phases
 
 | Constraint | Effect today | Must be resolved by | Plan |
 |---|---|---|---|
 | **AWS managed policy snapshot has 3 policies** (`AdministratorAccess`, `AmazonS3FullAccess`, `AmazonS3ReadOnlyAccess`) — recorded after the Phase 3 review | every other AWS managed policy attached to a role is an unknown Allow + unknown Deny and a `not-modelled` gap: never "no permissions", but paths through such roles are UNKNOWN (confidence low) instead of decided | **before any scan of a real account** (live collectors meet real accounts, where most roles use managed policies). Phase 6 itself is tested on fakes, LocalStack and kind only | `tools/refresh-managed-policies` is **ready and tested** (546ec63): it lists every AWS-owned policy (`iam:ListPolicies`, `Scope=AWS`) and fetches each `DefaultVersionId` (`iam:GetPolicyVersion`), nothing else; `--profile` selects the profile, the SDK reads its credentials; the snapshot (format v2) records the date, partition, count and each default version, sorted, byte-for-byte deterministic. The refresh was **deferred on 2026-11-21**: only a valid profile is missing (the one tried was not found in `C:\Users\<user>\.aws\{config,credentials}`). Run: `go run ./tools/refresh-managed-policies --profile <profile>`, then review the diff and the scenarios whose results change, and commit the snapshot alone. Until then a live or snapshot scan reports every attached managed policy that is not in the snapshot (Phase 6) |
-| **Kubernetes Secrets mounted into pods** (volumes, `env`, `envFrom`), and Secrets read through pod creation — recorded at the Phase 6 review | a workload that mounts a Secret reads it through the kubelet without any RBAC, and whoever may create pods in a namespace can mount its Secrets; neither is an edge, so such reads are missed (listed in every report as `not-modelled`) | **priority 1**: before any scan of a real cluster is trusted for Secrets (it is the most common way pods read Secrets) | a `CAN_READ_PLAINTEXT[mount]` edge from the workload to each Secret its pod spec names, and from `CAN_ESCALATE[rbac]` holders (create pods) to the namespace's Secrets |
-| **S3 account-level Block Public Access** (`s3:GetAccountPublicAccessBlock`) — Phase 6 review | a bucket without its own setting is treated as not blocked: a path the account setting blocks can be reported (a false positive), never hidden | **priority 2**: before live scans are used to decide public exposure | collect the account setting and combine it with the bucket's (the stricter applies) |
-| **AWS RAM shares of advanced SSM parameters** — Phase 6 review | cross-account access is evaluated from the resource policies collected; a RAM share not reflected in them is missed | **priority 3**: before multi-account parameter sharing is in scope | collect RAM resource shares (`ram:ListResources`, `ram:GetResourceShareAssociations`) for parameters |
-| Coverage tolerance counts gaps | plan gaps for provider-computed attributes (`arn`, `id`, …) are recorded; the exit-code tolerance does not exist yet | Phase 5 (exit codes) | count only gaps that a decision used (section 4.6, "Provider-computed attributes") |
+| ~~**Kubernetes Secrets mounted into pods**~~ — **done in Phase 7**: `CAN_READ_PLAINTEXT[mount]` from each workload to each Secret its pod spec names, and `CAN_READ_PLAINTEXT[pod-create]` from each subject that may create pods in the namespace (§7.2); scenario 23 derived by hand before the engine ran, no difference; the mount fix is generated and verified on both levels | admission policies that could reject such a pod are not read (`not-modelled` note) | — | — |
+| ~~**S3 account-level Block Public Access**~~ — **done in Phase 7**: collected (live, snapshot, Terraform) and combined with the bucket's, the most restrictive applies (§6, S3 Block Public Access); variant `12_public_bucket/account_block` derived by hand before the engine ran, no difference | a snapshot written before Phase 7 has no account setting (a `not-modelled` note per account) | — | — |
+| **AWS RAM shares of advanced SSM parameters** — Phase 6 review | cross-account access is evaluated from the resource policies collected; a RAM share not reflected in them is missed | **priority 3**: before multi-account parameter sharing is in scope | collect RAM resource shares (`ram:ListResources`, `ram:GetResourceShareAssociations`) for parameters <br>*Phase 7 research (not implemented):* Parameter Store › "Working with shared parameters" confirms only advanced-tier parameters can be shared; consumers are accounts, OUs or the organization; the RAM permissions are read-only (`AWSRAMDefaultPermissionSSMParameterReadOnly`: `DescribeParameters`, `GetParameter`, `GetParameters`; `...WithHistory` adds `GetParameterHistory`); a `PutResourcePolicy` share must be promoted to a RAM share. Neither that page nor the `GetResourcePolicies` reference says whether a RAM share appears as a resource policy, so modelling it would rest on a guess: left open for review, still listed as `not-modelled` <br>*Phase 7:* the report now names the shareable parameters (advanced, Intelligent-Tiering or unknown tier) in a `not-modelled` note, and gives none when the input has no such parameter; collecting the shares themselves stays open |
+| ~~Coverage tolerance counts gaps~~ — **done** (Phase 5; test added in Phase 7, `TestGapsOverTolerance`): gaps count per kind beyond that kind's tolerance in `darb.yaml` (default 0); a plan attribute the provider computes (`tfraw.ReasonComputed`) is not counted, since an edge that rests on it carries its own UNKNOWN | — | — | — |
 
 Workflows that only make sense once their subject exists (`bench.yml` — Phase 4,
 `integration.yml` — Phase 6, `release.yml` + `.goreleaser.yaml` — Phase 7) are
@@ -1655,10 +1777,10 @@ added in those phases rather than as placeholders.
 
 | # | Work | Why it waits / what done means |
 |---|---|---|
-| 1 | **Report JSON Schema** — **done** (after Phase 5): `schemas/report.v1.schema.json` (draft 2020-12) describes `clapa-report/v1` from `pkg/schema`, every object closed, with the Phase 4/5 meanings (`alternative_fix`, `alternative_fix_detail`, `fix_kind`, `fix`, `other_side_fix`, `shared_fix_possible`). `TestEveryReportMatchesTheSchema` validates the JSON report of every fixture variant and mode; `TestSchemaDescribesTheGoTypes` fails on a field in the Go types and not the schema, or the other way. | — |
-| 2 | **Independent comparison with the previous tool** — **done** (2026-11-21): docs/COMPARISON_PREVIOUS_TOOL.md. Its four samples, scanned by both tools on separate copies outside this repository: no sample grants an S3 read, so CLAPA reports no path where the previous tool reports decrypt as exfiltration; one CLAPA defect found and fixed (`CLAPA-POST-001` missed a wildcard scoped to one namespace; rule 1.0.1). | — |
-| 3 | **Real console output** of scenarios 01, 04b and 10, shown in review as the CLI prints it (not reconstructed). | Done: the three outputs captured from `clapa scan` on the fixtures, after Phase 5's fields are final. |
-| 4 | **`.clapa-ignore.yaml` and `--baseline` in the CLI** — **done** (Phase 6, 92e5612): both wired, with the config errors of §8, expired suppressions re-firing, and tests through the CLI (§8). | — |
+| 1 | **Report JSON Schema** — **done** (after Phase 5): `schemas/report.v1.schema.json` (draft 2020-12) describes `darb-report/v1` from `pkg/schema`, every object closed, with the Phase 4/5 meanings (`alternative_fix`, `alternative_fix_detail`, `fix_kind`, `fix`, `other_side_fix`, `shared_fix_possible`). `TestEveryReportMatchesTheSchema` validates the JSON report of every fixture variant and mode; `TestSchemaDescribesTheGoTypes` fails on a field in the Go types and not the schema, or the other way. | — |
+| 2 | **Independent comparison with the previous tool** — **done** (2026-11-21): docs/COMPARISON_PREVIOUS_TOOL.md. Its four samples, scanned by both tools on separate copies outside this repository: no sample grants an S3 read, so darb reports no path where the previous tool reports decrypt as exfiltration; one darb defect found and fixed (`DARB-POST-001` missed a wildcard scoped to one namespace; rule 1.0.1). | — |
+| 3 | **Real console output** of scenarios 01, 04b and 10, shown in review as the CLI prints it (not reconstructed). | Done: the three outputs captured from `darb scan` on the fixtures, after Phase 5's fields are final. |
+| 4 | **`.darb-ignore.yaml` and `--baseline` in the CLI** — **done** (Phase 6, 92e5612): both wired, with the config errors of §8, expired suppressions re-firing, and tests through the CLI (§8). | — |
 | 5 | **Secrets Manager, SSM SecureString and Kubernetes Secrets as targets** — **done** (Phase 6, d3b6405 then 5bff8d3): collectors, normalizers and read semantics (§7.3, §7.2); scenarios 19–21 with their expected files committed by hand before the engine read them. | — |
 
 ## 13. Test fixtures
@@ -1705,7 +1827,7 @@ Encryption type of every jewel bucket is stated explicitly in the fixture
 | # | Scenario | Read grant in the vulnerable variant | Expected (vulnerable) |
 |---|---|---|---|
 | 1 | IRSA → role → `kms:Decrypt` on `*` → CMK → PII bucket (SSE-KMS) | role policy: `s3:GetObject` on `arn:aws:s3:::<pii>/*` **and** `kms:Decrypt` on `*` | path found (`CAN_READ` + `CAN_DECRYPT` → `CAN_READ_PLAINTEXT`) |
-| 2a | (split in the Phase 4 review) Two buckets, two keys: **A** = legitimate payments bucket (key A), **B** = PII bucket (key B), both SSE-KMS. A has an **S3 Bucket Key**, so S3's KMS encryption context is A's bucket ARN; the role decrypts key A with `StringEquals kms:EncryptionContext:aws:s3:arn = arn:aws:s3:::A`. `clapa.yaml` declares A as `intended_access` | read + decrypt on A only | **no path to B**; intended access to A **verified** |
+| 2a | (split in the Phase 4 review) Two buckets, two keys: **A** = legitimate payments bucket (key A), **B** = PII bucket (key B), both SSE-KMS. A has an **S3 Bucket Key**, so S3's KMS encryption context is A's bucket ARN; the role decrypts key A with `StringEquals kms:EncryptionContext:aws:s3:arn = arn:aws:s3:::A`. `darb.yaml` declares A as `intended_access` | read + decrypt on A only | **no path to B**; intended access to A **verified** |
 | 2b | As 2a, **without** a Bucket Key (stated `bucket_key_enabled = false`): the context is the object ARN, and the grant uses `StringLike … = arn:aws:s3:::A/*` | read + decrypt on A only | no path to B; intended access to A **verified** |
 | 2c | Negative case: no Bucket Key, but the grant uses `StringEquals` on A's bucket ARN, which S3 never sends without a Bucket Key | none that works | no path to B; the declared intended access is **not satisfied**, an explicit result of the report (fixed: the `StringLike` form of 2b) |
 | 3 | Role has `s3:GetObject` on PII bucket B (SSE-KMS, key K) and `kms:Decrypt` on K with `kms:EncryptionContext:aws:s3:arn` = a **different** bucket's ARN | `s3:GetObject` on `B/*` is present on purpose, so the encryption context is the only deciding factor | **no path to B** (`CAN_READ` yes, `CAN_DECRYPT[for B]` no) |
@@ -1728,8 +1850,9 @@ Encryption type of every jewel bucket is stated explicitly in the fixture
 | 18 | (Phase 6) Two EKS clusters named `prod` in one account, eu-west-1 and us-east-1; each has `apps/app` bound by IRSA to its own role (`app-eu`, `app-us`), each reading its region's SSE-S3 PII bucket | each role: `s3:GetObject` on its own bucket | two paths with distinct fingerprints; no edge between the clusters (`no_edges`); no coverage gap (exit 0) |
 | 19 | (Phase 6) Scenario 1 with a **Secrets Manager** secret (`DataClass: secret`) under a customer managed key | `secretsmanager:GetSecretValue` on the secret's ARN + `kms:Decrypt` on `*` | path, 810 critical; cut: the broad decrypt |
 | 20 | (Phase 6) Scenario 1 with an **SSM SecureString** parameter under a customer managed key | `ssm:GetParameter` on the parameter's ARN + `kms:Decrypt` on `*` | path, 810 critical; cut: the broad decrypt |
-| 21 | (Phase 6) A **Kubernetes Secret** (`DataClass: secret`); `payments/ci` may `get secrets` in `payments`, its token mounted by default | RBAC `get secrets` | `CLAPA-PATH-001` (its own token, then the RBAC read: direct access, §7.2), 360 medium; cut: the token mount (revoke, 5), alternative the RBAC read (5) |
-| 22 | (Phase 6 review) One pair, two findings: `apps/app` → `role/app` reads the PII bucket, its decrypt conditioned on an unresolved variable; `role/app` may assume `role/ops`, which may rewrite its own policy. Variants: `fixed` (role/ops lists only), `dominance` (role/app decrypts unconditionally and rewrites its own policy; no role/ops) | `s3:GetObject`, `kms:Decrypt` (conditioned), `sts:AssumeRole` on role/ops; role/ops `iam:PutRolePolicy` on itself | vulnerable: `CLAPA-PATH-001` (unconfirmed, 291 medium, cut: resolve the variable) and `CLAPA-PATH-002` (confirmed, 235 low); fixed: the direct finding only; dominance: one `CLAPA-PATH-001` whose cut breaks the dominated escalation too (decrypt 1 + escalation 4) |
+| 21 | (Phase 6) A **Kubernetes Secret** (`DataClass: secret`); `payments/ci` may `get secrets` in `payments`, its token mounted by default | RBAC `get secrets` | `DARB-PATH-001` (its own token, then the RBAC read: direct access, §7.2), 360 medium; cut: the token mount (revoke, 5), alternative the RBAC read (5) |
+| 23 | (Phase 7) The same Secret read **without an RBAC read**: `payments/api` names it in an env var and a volume (token not mounted); `payments/ci` may `create pods` in `payments`, its token mounted by default | `CAN_READ_PLAINTEXT[mount]`; `CAN_READ_PLAINTEXT[pod-create]` | `DARB-PATH-001` api, 400 medium, cut the mount (workload, revoke, 5), no alternative; `DARB-PATH-001` ci-runner, 360 medium, cut the token mount (5), alternative the pod-creation grant (rbac, 5); fixed: api names a non-jewel Secret, ci may only read pods |
+| 22 | (Phase 6 review) One pair, two findings: `apps/app` → `role/app` reads the PII bucket, its decrypt conditioned on an unresolved variable; `role/app` may assume `role/ops`, which may rewrite its own policy. Variants: `fixed` (role/ops lists only), `dominance` (role/app decrypts unconditionally and rewrites its own policy; no role/ops) | `s3:GetObject`, `kms:Decrypt` (conditioned), `sts:AssumeRole` on role/ops; role/ops `iam:PutRolePolicy` on itself | vulnerable: `DARB-PATH-001` (unconfirmed, 291 medium, cut: resolve the variable) and `DARB-PATH-002` (confirmed, 235 low); fixed: the direct finding only; dominance: one `DARB-PATH-001` whose cut breaks the dominated escalation too (decrypt 1 + escalation 4) |
 
 Fixed variants remove exactly the cause the scenario tests (e.g. scenario 1 scopes
 `s3:GetObject` and `kms:Decrypt` to the workload's legitimate bucket and key, with an
@@ -1756,6 +1879,39 @@ Dependabot needs no GitHub App installation and covers `gomod` and
   developer machine may not — `task test:norace` exists for that case and is never
   used by CI).
 - Fuzz targets run ≥ 5 minutes each in a scheduled/nightly job, not on every PR.
+
+### 15.1 Criteria and their status (end of Phase 7)
+
+The build specification's §15 text is not in this repository; the criteria
+below are those this document records (the section named for each). Status as
+of 2026-11-22, with the evidence that shows it. CI evidence is the full run on
+`r3oof-900/darb#1` at 3126b3a (14 of 14 checks passed).
+
+| # | Criterion | Recorded in | Status | Evidence |
+|---|---|---|---|---|
+| 1 | CI green on the two latest Go releases, Linux, macOS and Windows | §15 | met | six `test` jobs (1.26.x, 1.27.x × 3 OS) |
+| 2 | Tests run with `-race` in CI | §15, §6.4 | met | `ci.yml` "Test (race)"; `task test:norace` only for machines without cgo |
+| 3 | Every fuzz target ≥ 5 minutes, nightly | §15 | configured, not yet observed | `fuzz.yml` (9 targets, schedule 03:17); `fuzz-smoke` passes on every PR; no nightly run yet on the new repository |
+| 4 | ≥ 95% branch coverage (gobco) on the core | §6.4, §12 | met | `branch-coverage` job (`task cover:branch`) |
+| 5 | Evaluator: ≥ 150 cases, properties | §12 | met | 294 cases in `internal/eval/testdata/eval`; property tests |
+| 6 | Every scenario matches its hand-derived `expected.json` | §8.2, §13 | met | 60 expected files, 155 fingerprints computed in `expected_source.py`; `open_mismatches.txt`: no difference open |
+| 7 | 50k nodes / 500k edges in < 60 s and < 2 GB | §7.4 | met | `bench` job, "Performance target" step (`DARB_PERF=1`) |
+| 8 | Every vulnerable scenario's patch, applied and rescanned, removes its path | §9.3 | met, with three documented exceptions | `TestEveryVulnerableScenarioIsFixed`: 25 findings fixed; 10 (UNKNOWN: what is missing, no patch), 13 (module input: a TODO), 22 direct (pending resolution) |
+| 9 | Same input, byte-identical output | §3.4 | met | goldens scanned twice; `TestExampleReports`; `release-snapshot` builds twice, identical archives |
+| 10 | JSON report validated against its schema | §11 | met | `TestEveryReportMatchesTheSchema`, `TestSchemaDescribesTheGoTypes` |
+| 11 | SARIF validated against the official schema | §11 | met | `TestEverySARIFReportMatchesTheOfficialSchema` (OASIS 2.1.0, pinned) |
+| 11b | JUnit report validated against a known JUnit schema; Markdown bounded for a PR comment | §11 | met | `junit-schema` CI job (`xmllint`, JUnit 10 XSD), `TestJUnitAndMarkdownReports`, `internal/report/markdown` tests |
+| 11c | Logging: `slog`, `--log-format json`, redacted, `--debug` stack traces | §11 | met | `TestJSONLogsAreRedacted`, `TestCLIJSONLogs`, `TestCrash` |
+| 12 | HTML: strict CSP, untrusted names inert | §11 | met | `internal/report/htmlreport` tests (hostile names, CSP hashes) |
+| 13 | Live collection read-only, permissions documented exactly | §4.4, §4.5 | met | `TestClientInterfacesAreReadOnly`, `TestPermissionsDocument`, `TestK8sPermissionsDocument` |
+| 14 | Live collectors tested on fakes, LocalStack and kind only | §12 (Phase 6) | met | `localstack` and `kind` jobs; no test reaches a cloud API |
+| 15 | No secret in logs, errors or LLM evidence | §10, THREAT_MODEL | met | `internal/redact` tests, `TestStderrIsRedacted`, `TestRequestCarriesOnlyPreparedEvidence` |
+| 16 | LLM off by default, labelled, never deciding | §10 | met | `TestScanLLM`, `TestExplainedReportMatchesTheSchema` |
+| 17 | Releases: reproducible, SBOM, signed, provenance | §12, THREAT_MODEL | partly observed | `release-snapshot` (reproducible archives, SBOMs); cosign signing and provenance run only on a `v*` tag: no release yet |
+| 18 | Commands of §11 | §11 | met, one item open | scan, explain, graph, remediate, rules, collect-snapshot, doctor, version; `doctor` does not call `iam:SimulatePrincipalPolicy` (§11) |
+| 19 | Dependencies ≥ 2 weeks old, actions pinned by SHA, no known vulnerability | §12, CONTRIBUTING | met | `security` job (depage, govulncheck, gitleaks); 85 requirements |
+| 20 | AWS managed-policy snapshot complete before a real-account scan | §12.1 | **not met** (deferred) | 3 policies vendored; `tools/refresh-managed-policies` ready, not run as instructed; `darb doctor` warns |
+| 21 | Known constraints of §12.1 | §12.1 | 2 of 3 done | Secrets mounts and pod creation, account Block Public Access done; RAM shares named, not collected |
 
 ## Appendix A — Toolchain pinned in Phase 1 (verified 2026-11-20)
 

@@ -4,7 +4,7 @@ name: bench
 # so the base and the head run on the same runner in the same job, 10
 # samples each; benchstat shows the comparison and tools/benchgate fails on
 # a statistically significant (p < 0.05) slowdown of more than 20%. The
-# 50k-node / 500k-edge target runs once on the head (CLAPA_PERF=1) and fails
+# 50k-node / 500k-edge target runs once on the head (DARB_PERF=1) and fails
 # above 60 s or 2 GB.
 
 on:
@@ -61,5 +61,5 @@ jobs:
           fi
       - name: Performance target (50k nodes, 500k edges)
         env:
-          CLAPA_PERF: "1"
+          DARB_PERF: "1"
         run: go test -count=1 -run TestPerformanceTarget -v -timeout 15m ./internal/paths/

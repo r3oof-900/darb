@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/collect/tfraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/managedpolicies"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/normalize"
+	"github.com/r3oof-900/darb/internal/collect/tfraw"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/managedpolicies"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/normalize"
 )
 
 // Name identifies this normalizer in coverage gaps.
@@ -20,7 +20,7 @@ type Options struct {
 	Region    string // default region when the provider does not set one
 	Partition string // "aws" unless stated
 	// OIDCIssuers maps cluster keys (model.ClusterKey) to IRSA issuer URLs
-	// (from clapa.yaml).
+	// (from darb.yaml).
 	OIDCIssuers map[string]string
 }
 
@@ -95,7 +95,7 @@ func (n *norm) account(r *tfraw.Resource) string {
 	if n.opts.Account != "" {
 		return n.opts.Account
 	}
-	n.gap(coverage.KindUnresolved, r, "account unknown: set terraform.account in clapa.yaml or allowed_account_ids on the provider")
+	n.gap(coverage.KindUnresolved, r, "account unknown: set terraform.account in darb.yaml or allowed_account_ids on the provider")
 	return n.placeholder("account_of_" + r.Root)
 }
 
@@ -106,7 +106,7 @@ func (n *norm) region(r *tfraw.Resource) string {
 	if n.opts.Region != "" {
 		return n.opts.Region
 	}
-	n.gap(coverage.KindUnresolved, r, "region unknown: set terraform.region in clapa.yaml or region on the provider")
+	n.gap(coverage.KindUnresolved, r, "region unknown: set terraform.region in darb.yaml or region on the provider")
 	return n.placeholder("region_of_" + r.Root)
 }
 
@@ -147,7 +147,7 @@ func (n *norm) arnOf(r *tfraw.Resource) string {
 		url, _ := n.str(r.Root, attr(r, "url"))
 		return fmt.Sprintf("arn:%s:iam::%s:oidc-provider/%s", p, n.account(r), strings.TrimPrefix(url, "https://"))
 	}
-	return "arn:clapa:terraform:::" + r.Root + "/" + r.Address
+	return "arn:darb:terraform:::" + r.Root + "/" + r.Address
 }
 
 // nameOf returns the resource's name attribute ("bucket" for S3). A name

@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/collect/awsraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/managedpolicies"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/collect/awsraw"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/managedpolicies"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 const apiAuthDetails = "iam:GetAccountAuthorizationDetails"
@@ -84,6 +84,19 @@ func (n *norm) keys() {
 		n.b.AddResource(key)
 		raw, _ := json.Marshal(k.Policy)
 		n.b.AddPolicy(&model.AttachedPolicy{Target: key.ID(), Doc: n.parse(raw, k.Metadata.Arn+"#key-policy", model.PolicyResource, &loc)})
+	}
+}
+
+// accountBlock: the account's S3 Block Public Access, when collected; a
+// failed call is unknown, never "off".
+func (n *norm) accountBlock() {
+	a := n.acct
+	loc := apiLoc(a.ID, "s3:GetAccountPublicAccessBlock") // the account, not an ARN: S3 Block Public Access has none
+	switch {
+	case a.PublicAccessBlockFailed:
+		n.b.AddAccountBlock(&model.AccountPublicAccessBlock{Account: a.ID, RestrictPublicBuckets: model.Unknown, Source: loc})
+	case a.PublicAccessBlock != nil:
+		n.b.AddAccountBlock(&model.AccountPublicAccessBlock{Account: a.ID, RestrictPublicBuckets: model.TriOf(a.PublicAccessBlock.RestrictPublicBuckets), Source: loc})
 	}
 }
 

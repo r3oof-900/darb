@@ -1,15 +1,15 @@
 {
-  "format": "clapa-expected/v1",
+  "format": "darb-expected/v1",
   "derived_from": "13.2 row 13 (static mode): the module's var.bucket is not resolved statically, so the fixed roles' bucket is as unknown as the vulnerable ones'",
   "exit_code": 3,
   "findings": [
     {
-      "rule": "CLAPA-PATH-001",
+      "rule": "DARB-PATH-001",
       "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/CronJob/etl",
       "jewel": "arn:aws:s3:::acme-customer-pii",
       "path": [
         "RUNS_AS k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/etl",
-        "ASSUMES arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
+        "ASSUMES arn:aws:iam::111122223333:role/reader-${darb:unresolved:each.value}",
         "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
       ],
       "confirmed": false,
@@ -17,7 +17,7 @@
       "score": 291,
       "severity": "medium",
       "chokepoints": [
-        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/etl -> arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}"
+        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/etl -> arn:aws:iam::111122223333:role/reader-${darb:unresolved:each.value}"
       ],
       "alternative_fix": [],
       "defaults_used": [
@@ -26,7 +26,7 @@
       ],
       "fix": [
         {
-          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/etl -> arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
+          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/etl -> arn:aws:iam::111122223333:role/reader-${darb:unresolved:each.value}",
           "side": "trust",
           "fix_kind": "resolve",
           "cost": 0,
@@ -38,15 +38,16 @@
       "status": "unconfirmed",
       "also_fixes": [],
       "uncuttable": [],
-      "remediation_status": "partial_pending_resolution"
+      "remediation_status": "partial_pending_resolution",
+      "fingerprint": "12aff434e93794605533e5ccf4e71bd3a4effef0b9db35eb83b157a5d7d0a1f2"
     },
     {
-      "rule": "CLAPA-PATH-001",
+      "rule": "DARB-PATH-001",
       "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/CronJob/bi",
       "jewel": "arn:aws:s3:::acme-customer-pii",
       "path": [
         "RUNS_AS k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/bi",
-        "ASSUMES arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
+        "ASSUMES arn:aws:iam::111122223333:role/reader-${darb:unresolved:each.value}",
         "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
       ],
       "confirmed": false,
@@ -54,7 +55,7 @@
       "score": 291,
       "severity": "medium",
       "chokepoints": [
-        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/bi -> arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}"
+        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/bi -> arn:aws:iam::111122223333:role/reader-${darb:unresolved:each.value}"
       ],
       "alternative_fix": [],
       "defaults_used": [
@@ -63,7 +64,7 @@
       ],
       "fix": [
         {
-          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/bi -> arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
+          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/bi -> arn:aws:iam::111122223333:role/reader-${darb:unresolved:each.value}",
           "side": "trust",
           "fix_kind": "resolve",
           "cost": 0,
@@ -75,15 +76,16 @@
       "status": "unconfirmed",
       "also_fixes": [],
       "uncuttable": [],
-      "remediation_status": "partial_pending_resolution"
+      "remediation_status": "partial_pending_resolution",
+      "fingerprint": "ecd9b8018f226ef71028e4b5336c4d462f772e681b261840cbd95087bd966421"
     },
     {
-      "rule": "CLAPA-PATH-001",
+      "rule": "DARB-PATH-001",
       "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/CronJob/ml",
       "jewel": "arn:aws:s3:::acme-customer-pii",
       "path": [
         "RUNS_AS k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/ml",
-        "ASSUMES arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
+        "ASSUMES arn:aws:iam::111122223333:role/reader-${darb:unresolved:each.value}",
         "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
       ],
       "confirmed": false,
@@ -91,7 +93,7 @@
       "score": 291,
       "severity": "medium",
       "chokepoints": [
-        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/ml -> arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}"
+        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/ml -> arn:aws:iam::111122223333:role/reader-${darb:unresolved:each.value}"
       ],
       "alternative_fix": [],
       "defaults_used": [
@@ -100,7 +102,7 @@
       ],
       "fix": [
         {
-          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/ml -> arn:aws:iam::111122223333:role/reader-${clapa:unresolved:each.value}",
+          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/analytics/ServiceAccount/ml -> arn:aws:iam::111122223333:role/reader-${darb:unresolved:each.value}",
           "side": "trust",
           "fix_kind": "resolve",
           "cost": 0,
@@ -112,14 +114,16 @@
       "status": "unconfirmed",
       "also_fixes": [],
       "uncuttable": [],
-      "remediation_status": "partial_pending_resolution"
+      "remediation_status": "partial_pending_resolution",
+      "fingerprint": "8f9d80fb035c034b90bbaa3207bd77f8b76f29c3b40275f0351cce0b8d1ef59f"
     },
     {
-      "rule": "CLAPA-POST-007",
+      "rule": "DARB-POST-007",
       "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/analytics",
       "score": 245,
       "severity": "low",
-      "defaults_used": []
+      "defaults_used": [],
+      "fingerprint": "df7b113507c09e56eb19c0e1f186d2046d67f84c02ca64b736480db249578fec"
     }
   ],
   "absent": [],

@@ -3,7 +3,7 @@ package paths
 import (
 	"slices"
 
-	"github.com/r3oof-900/clapa/internal/graph"
+	"github.com/r3oof-900/darb/internal/graph"
 )
 
 // Breaks reports whether no path of the selection is left once the broken edges are gone

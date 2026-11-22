@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 func FuzzParse(f *testing.F) {
@@ -18,9 +18,9 @@ func FuzzParse(f *testing.F) {
 	}
 	bs := string(rune(0x5c)) // a backslash, so the escapes stay escapes in this file
 	for _, s := range []string{
-		`{"Statement":[{"Effect":"Allow","Action":"${clapa:unresolved:x}","Resource":"*"}]}`,
-		`{"Statement":[{"Effect":"Allow","Action":"` + bs + `u0024{clapa:unresolved:x}","Resource":"*"}]}`,
-		`{"Statement":[{"Effect":"Deny","Action":"*","Resource":"*","Condition":{"Null":{"$` + bs + `u007bclapa:unresolved:k}":"true"}}}]}`,
+		`{"Statement":[{"Effect":"Allow","Action":"${darb:unresolved:x}","Resource":"*"}]}`,
+		`{"Statement":[{"Effect":"Allow","Action":"` + bs + `u0024{darb:unresolved:x}","Resource":"*"}]}`,
+		`{"Statement":[{"Effect":"Deny","Action":"*","Resource":"*","Condition":{"Null":{"$` + bs + `u007bdarb:unresolved:k}":"true"}}}]}`,
 	} {
 		f.Add([]byte(s), uint8(0))
 	}

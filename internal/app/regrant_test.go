@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/graph"
+	"github.com/r3oof-900/darb/internal/graph"
 )
 
 // The re-grant rule (SCORING.md §4): after a principal that can give itself
@@ -63,7 +63,7 @@ func TestRegrantRemovesIdentitySide(t *testing.T) {
 	if read := edgeBetween(t, a.AccessGraph, graph.CanRead, apiRole, piiBucket); len(read.Fixes) != 0 {
 		t.Fatalf("PutBucketPolicy: the read must have no fix, got %+v", read.Fixes)
 	}
-	f := findingFor(a, "CLAPA-PATH-001", piiBucket)
+	f := findingFor(a, "DARB-PATH-001", piiBucket)
 	if f == nil || len(f.Fix) != 1 || !strings.HasPrefix(f.Fix[0].Edge, "CAN_DECRYPT") || f.Fix[0].Side != graph.SideIdentity {
 		t.Fatalf("PutBucketPolicy: the cut must be the decrypt's identity side: %+v", f)
 	}
@@ -82,7 +82,7 @@ func TestRegrantRemovesIdentitySide(t *testing.T) {
 			t.Errorf("after a re-granting role no fix counts: %s %+v", g.Describe(graph.EdgeID(i)), e.Fixes)
 		}
 	}
-	f = findingFor(a, "CLAPA-PATH-001", piiBucket)
+	f = findingFor(a, "DARB-PATH-001", piiBucket)
 	if f == nil || len(f.Chokepoints) != 1 || f.Chokepoints[0] != "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api -> "+apiRole {
 		t.Fatalf("PutBucketPolicy + CreateGrant: the cut must be the hop into the role: %+v", f)
 	}
@@ -99,7 +99,7 @@ func TestCutAfterSelfModifyingRoleDetaches(t *testing.T) {
 		appendConfig(t, dir, "remediation:", "  uncuttable_edges:",
 			"    - {kind: ASSUMES, from: \""+apiRole+"\", to: \""+admin+"\", reason: test}")
 	})
-	f := findingFor(a, "CLAPA-PATH-001", "arn:aws:s3:::acme-analytics-warehouse")
+	f := findingFor(a, "DARB-PATH-001", "arn:aws:s3:::acme-analytics-warehouse")
 	if f == nil || len(f.Chokepoints) == 0 {
 		t.Fatalf("a cut must exist: %+v", f)
 	}
@@ -120,10 +120,10 @@ func TestCutAfterSelfModifyingRoleDetaches(t *testing.T) {
 	}
 }
 
-// appendConfig adds YAML lines to the end of the copy's clapa.yaml.
+// appendConfig adds YAML lines to the end of the copy's darb.yaml.
 func appendConfig(t *testing.T, dir string, lines ...string) {
 	t.Helper()
-	file := filepath.Join(dir, "clapa.yaml")
+	file := filepath.Join(dir, "darb.yaml")
 	data, err := os.ReadFile(file) //nolint:gosec // G304: inside the test's temp copy.
 	if err != nil {
 		t.Fatal(err)
@@ -139,7 +139,7 @@ func appendConfig(t *testing.T, dir string, lines ...string) {
 // is cut, not even the cheapest (the broad decrypt, narrow, cost 1); the
 // finding reports no fix within the constraints.
 func TestIntendedAccessIsNeverCut(t *testing.T) {
-	base := findingFor(analyzeVariant(t, "01_classic/vulnerable", nil), "CLAPA-PATH-001", piiBucket)
+	base := findingFor(analyzeVariant(t, "01_classic/vulnerable", nil), "DARB-PATH-001", piiBucket)
 	if base == nil || base.NoFix || base.CutCost != 1 {
 		t.Fatalf("baseline: the decrypt is cut at cost 1: %+v", base)
 	}
@@ -147,7 +147,7 @@ func TestIntendedAccessIsNeverCut(t *testing.T) {
 		appendConfig(t, dir, "intended_access:", "  - principal: \"k8s:prod/payments/Deployment/api\"",
 			"    action: \"s3:GetObject\"", "    resource: \""+piiBucket+"/*\"")
 	})
-	f := findingFor(a, "CLAPA-PATH-001", piiBucket)
+	f := findingFor(a, "DARB-PATH-001", piiBucket)
 	if f == nil || !f.NoFix || len(f.Chokepoints) != 0 || len(f.Fix) != 0 {
 		t.Fatalf("an intended path must have no cut: %+v", f)
 	}

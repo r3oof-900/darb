@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/remediate"
-	"github.com/r3oof-900/clapa/internal/rules"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/remediate"
+	"github.com/r3oof-900/darb/internal/rules"
 )
 
 // Phase 5 (DESIGN.md §9): every fix is verified in memory and on files.
@@ -149,9 +149,10 @@ func TestEveryVulnerableScenarioIsFixed(t *testing.T) {
 			}
 		}
 	}
-	// 01, 01b, 04 (2), 04b, 05 (2), 06, 07, 08 (2), 09, 12, 14 (2), 16, 17, 18 (2), 19, 20, 21, 22 (PATH-002).
-	if fixed != 23 {
-		t.Fatalf("%d findings fixed, want 23", fixed)
+	// 01, 01b, 04 (2), 04b, 05 (2), 06, 07, 08 (2), 09, 12, 14 (2), 16, 17, 18 (2), 19, 20, 21, 22 (PATH-002),
+	// 23 (2: the mount, removed from the pod spec; the pod creation, by the token mount).
+	if fixed != 25 {
+		t.Fatalf("%d findings fixed, want 25", fixed)
 	}
 }
 
@@ -168,7 +169,7 @@ func TestScenario9HopLimit(t *testing.T) {
 		}}}
 	}
 	in, l, a := scanFixture(t, "09_hostnetwork_imds/vulnerable", nil)
-	f := findingFor(a, "CLAPA-PATH-001", exports)
+	f := findingFor(a, "DARB-PATH-001", exports)
 	r, err := verifyPlan(t.Context(), in, l, a, hopLimit(l, f))
 	if err != nil {
 		t.Fatal(err)
@@ -188,7 +189,7 @@ func TestScenario9HopLimit(t *testing.T) {
 	in, l, a = scanFixture(t, "09_hostnetwork_imds/vulnerable", func(dir string) {
 		replaceIn(t, filepath.Join(dir, "k8s", "monitor.yaml"), "      hostNetwork: true"+lf, "")
 	})
-	f = findingFor(a, "CLAPA-PATH-001", exports)
+	f = findingFor(a, "DARB-PATH-001", exports)
 	if f == nil {
 		t.Fatal("without hostNetwork the pod still reaches IMDS (IMDSv1, hop limit 2)")
 	}
@@ -224,7 +225,7 @@ func nodeRoleEdge(t *testing.T, a *Analysis, f *rules.Finding) *graph.Edge {
 // narrows the key policy's Principal "*" grant: a Deny for the role.
 func TestScenario10Decided(t *testing.T) {
 	in, l, a := scanFixture(t, "10_kms_principal_org_id/vulnerable", nil)
-	f := findingFor(a, "CLAPA-PATH-001", piiBucket)
+	f := findingFor(a, "DARB-PATH-001", piiBucket)
 	r, err := Remediate(t.Context(), in, l, a, f.Fingerprint)
 	if err != nil {
 		t.Fatal(err)
@@ -235,7 +236,7 @@ func TestScenario10Decided(t *testing.T) {
 	in, l, a = scanFixture(t, "10_kms_principal_org_id/vulnerable", func(dir string) {
 		appendConfig(t, dir, "assume:", `  "aws:PrincipalOrgID": ["o-a1b2c3d4e5"]`)
 	})
-	f = findingFor(a, "CLAPA-PATH-001", piiBucket)
+	f = findingFor(a, "DARB-PATH-001", piiBucket)
 	if f == nil || !f.Confirmed || f.Fix[0].Side != graph.SideResource || f.Fix[0].Kind != graph.FixNarrow {
 		t.Fatalf("decided: %+v", f)
 	}
@@ -255,7 +256,7 @@ func TestExposureRemediation(t *testing.T) {
 		appendConfig(t, dir, "threat_model:", "  assume_compromised: false", "intended_access:",
 			`  - principal: "k8s:prod/payments/Deployment/api"`, `    action: "s3:GetObject"`, `    resource: "`+piiBucket+`/*"`)
 	})
-	f := findingFor(a, "CLAPA-PATH-001", piiBucket)
+	f := findingFor(a, "DARB-PATH-001", piiBucket)
 	r, err := Remediate(t.Context(), in, l, a, f.Fingerprint)
 	if err != nil {
 		t.Fatal(err)
@@ -271,15 +272,15 @@ func TestExposureRemediation(t *testing.T) {
 func TestMitigationLeavesTheBroadGrant(t *testing.T) {
 	broad := func(a *Analysis) string {
 		for i := range a.Findings {
-			if a.Findings[i].Rule == "CLAPA-POST-008" && a.Findings[i].Resource == apiRole {
+			if a.Findings[i].Rule == "DARB-POST-008" && a.Findings[i].Resource == apiRole {
 				return a.Findings[i].Fingerprint
 			}
 		}
-		t.Fatal("no CLAPA-POST-008 for the role")
+		t.Fatal("no DARB-POST-008 for the role")
 		return ""
 	}
 	in, l, a := scanFixture(t, "01_classic/vulnerable", nil)
-	r, err := Remediate(t.Context(), in, l, a, findingFor(a, "CLAPA-PATH-001", piiBucket).Fingerprint)
+	r, err := Remediate(t.Context(), in, l, a, findingFor(a, "DARB-PATH-001", piiBucket).Fingerprint)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -292,7 +293,7 @@ func TestMitigationLeavesTheBroadGrant(t *testing.T) {
 	}
 
 	in, l, a = scanFixture(t, "01b_classic_intended/vulnerable", nil)
-	r, err = Remediate(t.Context(), in, l, a, findingFor(a, "CLAPA-PATH-001", piiBucket).Fingerprint)
+	r, err = Remediate(t.Context(), in, l, a, findingFor(a, "DARB-PATH-001", piiBucket).Fingerprint)
 	if err != nil {
 		t.Fatal(err)
 	}

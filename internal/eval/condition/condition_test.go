@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/arn"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/arn"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // stubExpander treats "${absent}" as a reference to an absent key and

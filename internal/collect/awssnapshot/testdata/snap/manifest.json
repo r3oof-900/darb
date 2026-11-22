@@ -1,4 +1,4 @@
-{"format": "clapa-snapshot/v1",
+{"format": "darb-snapshot/v1",
  "accounts": [{"id": "111122223333", "partition": "aws"}],
  "calls": [
   {"account": "111122223333", "service": "iam", "region": "", "api": "GetAccountAuthorizationDetails", "target": "", "status": "ok"},

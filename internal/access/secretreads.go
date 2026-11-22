@@ -3,9 +3,9 @@ package access
 import (
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // Secrets Manager secrets and SSM parameters (DESIGN.md 7.3): CAN_READ is

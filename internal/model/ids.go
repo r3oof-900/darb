@@ -36,13 +36,13 @@ const (
 )
 
 // ID is a node's stable identifier: the lowercase hex SHA-256 of
-// "clapa/v1", the kind and the canonical identity, separated by NUL bytes.
+// "darb/v1", the kind and the canonical identity, separated by NUL bytes.
 // Canonical identities are full ARNs (with partition and account) or
 // "k8s:{cluster}/{namespace}/{kind}/{name}", so IDs never collide across
 // accounts or clusters. See docs/DESIGN.md section 5.
 type ID string
 
-const idDomain = "clapa/v1"
+const idDomain = "darb/v1"
 
 // NewID derives the ID of a node from its kind and canonical identity.
 func NewID(kind NodeKind, canonical string) ID {

@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/clapa/internal/config"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/safeio"
+	"github.com/r3oof-900/darb/internal/config"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/safeio"
 )
 
 // Reserved placeholder text written into input files (docs/DESIGN.md
@@ -23,7 +23,7 @@ import (
 // escapes below into the characters they stand for.
 const bs = string(rune(0x5c))
 
-const forged = "${clapa:unresolved:forged}"
+const forged = "${darb:unresolved:forged}"
 
 const roleHCL = `resource "aws_iam_role" "app" {
   name               = "app"
@@ -100,9 +100,9 @@ func TestReservedTextInTerraform(t *testing.T) {
 		{"HCL $$ escape", roleHCL + policy("$$"+forged[1:]), 7},
 		{"HCL backslash-u escape", roleHCL + policy(bs+"u0024"+forged[1:]), 7},
 		{"assembled by a template", roleHCL + `resource "aws_s3_bucket" "b" {
-  bucket = "pa:unresolved:"
+  bucket = "rb:unresolved:"
 }
-` + policy("$${cla${aws_s3_bucket.b.bucket}forged}"), 10},
+` + policy("$${da${aws_s3_bucket.b.bucket}forged}"), 10},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -119,7 +119,7 @@ func TestReservedTextInTerraform(t *testing.T) {
 func TestReservedTextInPlan(t *testing.T) {
 	// The policy string carries a JSON escape that only parsing the policy
 	// reveals; the bucket tag carries the text in a key.
-	escaped := `{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Action\":\"s3:*\",\"Resource\":\"` + bs + bs + `u0024{clapa:unresolved:forged}\"}]}`
+	escaped := `{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Action\":\"s3:*\",\"Resource\":\"` + bs + bs + `u0024{darb:unresolved:forged}\"}]}`
 	planJSON := `{"format_version": "1.2", "terraform_version": "1.17.1", "planned_values": {"root_module": {"resources": [
   {"address": "aws_iam_role.app", "mode": "managed", "type": "aws_iam_role", "name": "app", "provider_name": "registry.terraform.io/hashicorp/aws",
    "values": {"name": "app", "assume_role_policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"}},
@@ -147,8 +147,8 @@ func TestReservedTextInManifests(t *testing.T) {
 	}
 	for name, annotation := range map[string]string{
 		"plain":               `"` + forged + `"`,
-		"YAML escape":         `"` + bs + `x24{clapa:unresolved:forged}"`,
-		"YAML unicode escape": `"` + bs + `u0024{clapa:unresolved:forged}"`,
+		"YAML escape":         `"` + bs + `x24{darb:unresolved:forged}"`,
+		"YAML unicode escape": `"` + bs + `u0024{darb:unresolved:forged}"`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			l := loadTree(t, map[string]string{"k8s/sa.yaml": sa(annotation)}, func(in *Inputs) {
@@ -164,9 +164,9 @@ func TestReservedTextInManifests(t *testing.T) {
 }
 
 func TestReservedTextInSnapshot(t *testing.T) {
-	inner := `{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":\"*\",\"Action\":\"s3:*\",\"Resource\":\"` + bs + bs + `u0024{clapa:unresolved:forged}\"}]}`
+	inner := `{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Deny\",\"Principal\":\"*\",\"Action\":\"s3:*\",\"Resource\":\"` + bs + bs + `u0024{darb:unresolved:forged}\"}]}`
 	l := loadTree(t, map[string]string{
-		"snap/manifest.json":                              `{"format": "clapa-snapshot/v1", "accounts": [{"id": "111122223333", "partition": "aws"}], "calls": []}`,
+		"snap/manifest.json":                              `{"format": "darb-snapshot/v1", "accounts": [{"id": "111122223333", "partition": "aws"}], "calls": []}`,
 		"snap/111122223333/s3/b/get-bucket-location.json": `{"LocationConstraint": "us-east-1"}`,
 		"snap/111122223333/s3/b/get-bucket-policy.json":   "{\n  \"Policy\": \"" + inner + "\"\n}",
 	}, func(in *Inputs) { in.AWSSnapshots = []string{"snap"} })
@@ -176,7 +176,7 @@ func TestReservedTextInSnapshot(t *testing.T) {
 
 func TestReservedTextInConfig(t *testing.T) {
 	_, err := config.Parse([]byte("version: 1\nterraform: {account: \"111122223333\", region: us-east-1}\nclusters:\n  - {name: prod, oidc_issuer: \"" + forged + "\"}\n"))
-	if !errors.Is(err, config.ErrInvalid) || !strings.Contains(err.Error(), "clapa.yaml:4") {
-		t.Errorf("clapa.yaml: %v", err)
+	if !errors.Is(err, config.ErrInvalid) || !strings.Contains(err.Error(), "darb.yaml:4") {
+		t.Errorf("darb.yaml: %v", err)
 	}
 }

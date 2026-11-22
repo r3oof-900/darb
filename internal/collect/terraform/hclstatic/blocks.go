@@ -6,8 +6,8 @@ import (
 
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 
-	"github.com/r3oof-900/clapa/internal/collect/tfraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
+	"github.com/r3oof-900/darb/internal/collect/tfraw"
+	"github.com/r3oof-900/darb/internal/coverage"
 )
 
 // metaArgs are Terraform meta-arguments, not resource attributes.

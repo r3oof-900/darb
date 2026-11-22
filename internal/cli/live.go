@@ -6,11 +6,12 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/r3oof-900/clapa/internal/app"
+	"github.com/r3oof-900/darb/internal/app"
 )
 
 // Env holds what the commands connect to. Run uses the real AWS SDK; tests
@@ -20,6 +21,44 @@ type Env struct {
 	K8s app.K8sConnector
 	// Now is the clock of --timestamps (tests fix it); nil: the wall clock.
 	Now func() time.Time
+	// Getenv reads the environment (the LLM API key); nil: os.Getenv.
+	Getenv func(string) string
+	// Explainer makes the --llm provider (tests pass a fake); nil:
+	// app.NewExplainer.
+	Explainer func(app.LLMOptions) (app.Explainer, error)
+	// Exists says whether a file exists (darb doctor); nil: os.Stat.
+	Exists func(string) bool
+
+	log *slog.Logger // set by RunWith from --log-format and --debug
+}
+
+// logger is the command's logger (a discarding one outside RunWith).
+func (e *Env) logger() *slog.Logger {
+	if e == nil || e.log == nil {
+		return slog.New(slog.DiscardHandler)
+	}
+	return e.log
+}
+
+func (e *Env) exists(p string) bool {
+	if e == nil || e.Exists == nil {
+		return app.DefaultExists(p)
+	}
+	return e.Exists(p)
+}
+
+func (e *Env) getenv(k string) string {
+	if e == nil || e.Getenv == nil {
+		return os.Getenv(k)
+	}
+	return e.Getenv(k)
+}
+
+func (e *Env) explainer(o app.LLMOptions) (app.Explainer, error) {
+	if e == nil || e.Explainer == nil {
+		return app.NewExplainer(o)
+	}
+	return e.Explainer(o)
 }
 
 func (e *Env) now() time.Time {
@@ -76,8 +115,8 @@ func (a *awsFlags) options(ctx context.Context, env *Env) (*app.AWSLive, error) 
 
 var errUsage = errors.New("usage")
 
-// collectSnapshot: `clapa collect-snapshot --out DIR [AWS flags]` collects
-// live, read-only, and writes a clapa-snapshot/v1 bundle to DIR (a new
+// collectSnapshot: `darb collect-snapshot --out DIR [AWS flags]` collects
+// live, read-only, and writes a darb-snapshot/v1 bundle to DIR (a new
 // directory), which `scan --aws-snapshot DIR` reads offline.
 //
 // Exit codes: 0 every call succeeded; 3 the bundle was written but some
@@ -91,21 +130,21 @@ func collectSnapshot(ctx context.Context, args []string, stdout, stderr io.Write
 	fs.StringVar(&out, "out", "", "directory to create for the bundle (must not exist)")
 	a.on(fs, false)
 	if err := fs.Parse(args); err != nil || fs.NArg() > 0 || out == "" {
-		_, _ = fmt.Fprintln(stderr, "usage: clapa collect-snapshot --out DIR [--aws-profile P] [--aws-region R]... [--aws-assume-role ARN]...")
+		_, _ = fmt.Fprintln(stderr, "usage: darb collect-snapshot --out DIR [--aws-profile P] [--aws-region R]... [--aws-assume-role ARN]...")
 		return ExitUsage
 	}
 	if _, err := os.Lstat(out); err == nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", out, "exists; collect-snapshot writes a new directory")
+		_, _ = fmt.Fprintln(stderr, "darb:", out, "exists; collect-snapshot writes a new directory")
 		return ExitUsage
 	}
 	opts, err := a.options(ctx, env)
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		return ExitUsage
 	}
 	res, err := app.CollectSnapshot(ctx, opts, out)
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "clapa:", err)
+		_, _ = fmt.Fprintln(stderr, "darb:", err)
 		printFailed(stderr, res)
 		return ExitIncomplete
 	}

@@ -6,10 +6,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 
-	"github.com/r3oof-900/clapa/internal/collect/k8sraw"
-	"github.com/r3oof-900/clapa/internal/coverage"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/normalize"
+	"github.com/r3oof-900/darb/internal/collect/k8sraw"
+	"github.com/r3oof-900/darb/internal/coverage"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/normalize"
 )
 
 // Name identifies this normalizer in coverage gaps.
@@ -129,7 +129,7 @@ func (n *norm) addWorkload(o *k8sraw.Object, spec *corev1.PodSpec, labels map[st
 	w := model.NewWorkload(&model.WorkloadInput{
 		Cluster: n.cluster, Namespace: o.Namespace, Kind: o.Kind, Name: o.Name, ServiceAccount: sa,
 		HostNetwork: spec.HostNetwork, Privileged: privileged(spec), AutomountToken: automount, Defaulted: defaulted,
-		ProjectedAudiences: projectedAudiences(spec), Source: loc(o),
+		ProjectedAudiences: projectedAudiences(spec), SecretRefs: secretRefs(spec), Source: loc(o),
 	})
 	n.b.AddWorkload(w)
 	n.workloads = append(n.workloads, &workload{node: w, labels: labels, spec: spec})
@@ -165,6 +165,60 @@ func projectedAudiences(spec *corev1.PodSpec) []string {
 			if t := src.ServiceAccountToken; t != nil && t.Audience != "" {
 				out = append(out, t.Audience)
 			}
+		}
+	}
+	return out
+}
+
+// secretRefs: the Secrets a pod spec names: secret volumes, secret sources
+// of projected volumes, and env valueFrom.secretKeyRef and envFrom
+// secretRef of every container, init and ephemeral container (Kubernetes
+// docs, Secrets: "Using Secrets as files from a Pod", "Using Secrets as
+// environment variables"). imagePullSecrets go to the kubelet, not to the
+// containers, and are not counted.
+func secretRefs(spec *corev1.PodSpec) []string {
+	out := volumeSecrets(spec.Volumes)
+	for i := range spec.InitContainers {
+		out = append(out, envSecrets(spec.InitContainers[i].Env, spec.InitContainers[i].EnvFrom)...)
+	}
+	for i := range spec.Containers {
+		out = append(out, envSecrets(spec.Containers[i].Env, spec.Containers[i].EnvFrom)...)
+	}
+	for i := range spec.EphemeralContainers {
+		out = append(out, envSecrets(spec.EphemeralContainers[i].Env, spec.EphemeralContainers[i].EnvFrom)...)
+	}
+	return out
+}
+
+func volumeSecrets(vs []corev1.Volume) []string {
+	var out []string
+	for i := range vs {
+		v := &vs[i]
+		if v.Secret != nil && v.Secret.SecretName != "" {
+			out = append(out, v.Secret.SecretName)
+		}
+		if v.Projected == nil {
+			continue
+		}
+		for _, src := range v.Projected.Sources {
+			if src.Secret != nil && src.Secret.Name != "" {
+				out = append(out, src.Secret.Name)
+			}
+		}
+	}
+	return out
+}
+
+func envSecrets(env []corev1.EnvVar, from []corev1.EnvFromSource) []string {
+	var out []string
+	for i := range env {
+		if r := env[i].ValueFrom; r != nil && r.SecretKeyRef != nil && r.SecretKeyRef.Name != "" {
+			out = append(out, r.SecretKeyRef.Name)
+		}
+	}
+	for i := range from {
+		if r := from[i].SecretRef; r != nil && r.Name != "" {
+			out = append(out, r.Name)
 		}
 	}
 	return out

@@ -4,10 +4,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
-	"github.com/r3oof-900/clapa/internal/scoring"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/scoring"
 )
 
 // k8sSecretReads adds CAN_READ_PLAINTEXT[k8s] to a Kubernetes Secret from
@@ -45,6 +45,60 @@ func (b *builder) k8sSecretReads(j *model.Resource) {
 			}}
 		})
 	}
+	b.mounts(j, cluster, ns, name)
+}
+
+// mounts adds the reads of a Secret that need no RBAC read of it (DESIGN.md
+// 7.2): CAN_READ_PLAINTEXT[mount] from each workload of its namespace whose
+// pod spec names it (the kubelet gives it to the pod), and
+// CAN_READ_PLAINTEXT[pod-create] from each subject that may create pods in
+// its namespace (a pod it creates may name any Secret of the namespace).
+// A grant whose role is not in the input already gives an unknown [k8s]
+// read; it adds no second unknown edge.
+func (b *builder) mounts(j *model.Resource, cluster, ns, name string) {
+	for _, w := range b.inv.Workloads {
+		if w.Cluster() != cluster || w.Namespace() != ns || !slices.Contains(w.SecretRefs(), name) {
+			continue
+		}
+		b.g.Node(w.ID(), model.KindK8sWorkload, w.Identity())
+		spec := "pod spec " + w.Source().String()
+		b.edge(w.ID(), j.ID(), graph.CanReadPlaintext, graph.SubMount, &eval.Decision{Verdict: eval.Allow}, func(e *graph.Edge) {
+			e.Evidence = []string{spec + " names Secret " + name}
+			e.Fixes = []graph.Fix{{
+				Side: graph.SideWorkload, Kind: graph.FixRevoke, Policy: spec,
+				Cost: scoring.FixCost(graph.CanReadPlaintext, graph.SubMount, graph.SideWorkload, graph.FixRevoke),
+			}}
+		})
+	}
+	for _, g := range b.inv.RBAC {
+		if g.Cluster != cluster || g.Namespace != "" && g.Namespace != ns || g.Unresolved != "" || !createsPods(g.Rules) {
+			continue
+		}
+		from, known := b.rbacSubject(g)
+		if !known {
+			continue
+		}
+		b.edge(from, j.ID(), graph.CanReadPlaintext, graph.SubPodCreate, &eval.Decision{Verdict: eval.Allow}, func(e *graph.Edge) {
+			e.Evidence = []string{"RBAC " + g.Source.String() + " may create pods in " + ns}
+			e.Fixes = []graph.Fix{{
+				Side: graph.SideRBAC, Kind: graph.FixRevoke, Policy: "RBAC " + g.Source.String(),
+				Cost: scoring.FixCost(graph.CanReadPlaintext, graph.SubPodCreate, graph.SideRBAC, graph.FixRevoke),
+			}}
+		})
+	}
+}
+
+// createsPods: create on pods (core API group, every name), wildcards
+// included. pods/exec is not counted: it runs in an existing pod, whose
+// Secrets are those its spec names.
+func createsPods(rules []model.RBACRule) bool {
+	has := func(list []string, v string) bool { return slices.Contains(list, v) || slices.Contains(list, "*") }
+	for _, r := range rules {
+		if has(r.APIGroups, "") && len(r.ResourceNames) == 0 && has(r.Resources, "pods") && has(r.Verbs, "create") {
+			return true
+		}
+	}
+	return false
 }
 
 // rbacSubject is the node of a grant's subject: a service account in the

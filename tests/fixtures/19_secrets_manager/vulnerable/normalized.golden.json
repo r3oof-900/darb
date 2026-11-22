@@ -8,7 +8,7 @@
       "name": "prod",
       "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
       "region": "us-east-1",
-      "source": "clapa.yaml (clusters.prod)"
+      "source": "darb.yaml (clusters.prod)"
     }
   ],
   "collected": 5,
@@ -33,6 +33,16 @@
   "pod_identity": [],
   "policies": [
     {
+      "kind": "resource",
+      "policy": "arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555#key-policy",
+      "source": "arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555 via kms:GetKeyPolicy",
+      "statements": [
+        "Allow kms:* on * (0 conditions)"
+      ],
+      "target": "arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555",
+      "unresolved_statements": 0
+    },
+    {
       "kind": "identity",
       "policy": "arn:aws:iam::111122223333:role/payments-api#inline/app",
       "source": "arn:aws:iam::111122223333:role/payments-api via iam:GetAccountAuthorizationDetails",
@@ -41,16 +51,6 @@
         "Allow kms:Decrypt on * (0 conditions)"
       ],
       "target": "arn:aws:iam::111122223333:role/payments-api",
-      "unresolved_statements": 0
-    },
-    {
-      "kind": "resource",
-      "policy": "arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555#key-policy",
-      "source": "arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555 via kms:GetKeyPolicy",
-      "statements": [
-        "Allow kms:* on * (0 conditions)"
-      ],
-      "target": "arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555",
       "unresolved_statements": 0
     }
   ],
@@ -66,16 +66,6 @@
   "resources": [
     {
       "account": "111122223333",
-      "arn": "arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa",
-      "classification": "secret",
-      "classified_by": "tag:DataClass",
-      "defaulted": [],
-      "kind": "aws:secretsmanager:secret",
-      "region": "us-east-1",
-      "source": "arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa via secretsmanager:ListSecrets"
-    },
-    {
-      "account": "111122223333",
       "arn": "arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555",
       "classification": "",
       "classified_by": "",
@@ -84,6 +74,16 @@
       "kind": "aws:kms:key",
       "region": "us-east-1",
       "source": "arn:aws:kms:us-east-1:111122223333:key/11111111-2222-3333-4444-555555555555 via kms:GetKeyPolicy"
+    },
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa",
+      "classification": "secret",
+      "classified_by": "tag:DataClass",
+      "defaulted": [],
+      "kind": "aws:secretsmanager:secret",
+      "region": "us-east-1",
+      "source": "arn:aws:secretsmanager:us-east-1:111122223333:secret:prod/db-aaaaaa via secretsmanager:ListSecrets"
     }
   ],
   "service_accounts": [

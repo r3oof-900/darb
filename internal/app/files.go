@@ -8,15 +8,15 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/r3oof-900/clapa/internal/config"
-	"github.com/r3oof-900/clapa/internal/safeio"
+	"github.com/r3oof-900/darb/internal/config"
+	"github.com/r3oof-900/darb/internal/safeio"
 )
 
-// LoadConfig reads clapa.yaml from the scan root (rel "" or a missing
+// LoadConfig reads darb.yaml from the scan root (rel "" or a missing
 // default file gives the default configuration).
 func LoadConfig(root, rel string, required bool) (*config.Config, error) {
 	if rel == "" {
-		rel = "clapa.yaml"
+		rel = "darb.yaml"
 	}
 	data, err := safeio.ReadFile(root, rel, safeio.DefaultLimits())
 	switch {

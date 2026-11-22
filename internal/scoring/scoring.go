@@ -4,9 +4,9 @@ import (
 	"math/bits"
 	"strings"
 
-	"github.com/r3oof-900/clapa/internal/eval"
-	"github.com/r3oof-900/clapa/internal/graph"
-	"github.com/r3oof-900/clapa/internal/model"
+	"github.com/r3oof-900/darb/internal/eval"
+	"github.com/r3oof-900/darb/internal/graph"
+	"github.com/r3oof-900/darb/internal/model"
 )
 
 // Integer fixed point in per-mille (docs/SCORING.md): a ⊗ b = a * b / 1000,
@@ -216,6 +216,8 @@ func workloadCost(kind graph.Kind, sub, fixKind string) int64 {
 		return 3
 	case kind == graph.NodeRole:
 		return 5 // remove hostNetwork
+	case kind == graph.CanReadPlaintext && sub == graph.SubMount:
+		return 5 // stop naming the Secret in the pod spec: it removes what the pod was written to use
 	}
 	return 100 // change the workload's identity
 }

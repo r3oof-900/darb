@@ -1,7 +1,7 @@
-# CLAPA — Risk scoring and remediation cut costs
+# darb — Risk scoring and remediation cut costs
 
 This is the complete, transparent formula. Every finding prints each factor below
-next to its score. **This is not CVSS** and is never labelled as such; CLAPA does
+next to its score. **This is not CVSS** and is never labelled as such; darb does
 not compute CVSS 4.0 vectors.
 
 All arithmetic is **integer fixed point in per-mille** (0–1000), with floor
@@ -26,9 +26,9 @@ impact     = min(1000, classification ⊗ blast_radius)
 
 **Which factors may lower a score (Phase 6 review).** Any factor that input
 content can lower must take its worst case; fixed per-rule factors may weight
-the score. Input can be written to make CLAPA unsure (an unknown policy, an
+the score. Input can be written to make darb unsure (an unknown policy, an
 unresolved value, a key outside the input), so doubt that comes from the input
-never lowers a score. A rule's own confidence (for example `CLAPA-POST-007`,
+never lowers a score. A rule's own confidence (for example `DARB-POST-007`,
 `confidence: medium`, DESIGN.md §8.1: "policies may live outside the input")
 is fixed in the rule's metadata, no input content changes it, and it weights
 the posture score (§2); decided at the Phase 6 review.
@@ -37,7 +37,7 @@ the posture score (§2); decided at the Phase 6 review.
 UNKNOWN that gives the attacker the most access: an UNKNOWN edge counts as
 allowed, an UNKNOWN precondition as satisfied. Doubt lowers the **confidence**
 and sets the **status** (DESIGN.md §6.2), never the score: otherwise anyone
-could hide a critical path in CI by attaching a managed policy CLAPA does not
+could hide a critical path in CI by attaching a managed policy darb does not
 know. `confidence` is still reported per finding, and as the factor
 `confidence` (the weight of the confidence level: `high` 1000, `medium` 700,
 `low` 400) for reading, but it is **not** multiplied into the score.
@@ -135,9 +135,11 @@ or turning off something specific):
 | `NODE_ROLE`, pod without hostNetwork (require IMDSv2, hop limit 1) | node | narrow | **3** |
 | `NODE_ROLE`, hostNetwork pod (turn the node group's metadata endpoint off) | node | revoke | **5** |
 | `NODE_ROLE`, hostNetwork pod on a node that already keeps pods out (remove hostNetwork) | workload | revoke | **5** |
-| `RUNS_AS[k8s-token]`: the pod's own Kubernetes token, when an RBAC binding of its service account is used on the path (`automountServiceAccountToken: false` takes away rights granted on purpose). With no binding used, the token is on no path: turning it off is hardening (`CLAPA-POST-004`), not a cut | workload | revoke | **5** |
+| `RUNS_AS[k8s-token]`: the pod's own Kubernetes token, when an RBAC binding of its service account is used on the path (`automountServiceAccountToken: false` takes away rights granted on purpose). With no binding used, the token is on no path: turning it off is hardening (`DARB-POST-004`), not a cut | workload | revoke | **5** |
 | `CAN_ESCALATE` via K8s RBAC (remove/limit the binding) | rbac | revoke | **5** |
 | `CAN_READ_PLAINTEXT[k8s]` (RBAC `get`/`list`/`watch` on a Kubernetes Secret; remove/limit the rule) | rbac | revoke | **5** |
+| `CAN_READ_PLAINTEXT[mount]` (the pod spec names the Secret; stop naming it: the pod loses what it was written to use; Phase 7) | workload | revoke | **5** |
+| `CAN_READ_PLAINTEXT[pod-create]` (RBAC `create pods` in the Secret's namespace; remove/limit the rule; Phase 7) | rbac | revoke | **5** |
 | `MAPS_TO` (`aws-auth` / access entry) | mapping | revoke | **8** |
 | `RUNS_AS` (change the workload's identity) | workload | revoke | **100** |
 | `PROTECTS` | none | structural fact, not a permission | **∞** |
@@ -172,7 +174,7 @@ an edge grants only through an UNKNOWN Allow (a managed policy not in the
 snapshot, a key or role not in the input, a condition on an unresolved key or
 value), that side's fix is `fix_kind: resolve`, **cost 0**, with no patch:
 it names the command that decides it (`tools/refresh-managed-policies`;
-`assume: {...}` in `clapa.yaml`; `-var-file` or `--plan`; scanning the
+`assume: {...}` in `darb.yaml`; `-var-file` or `--plan`; scanning the
 missing key or role). Where a side mixes known and unknown grants, the known
 ones get their usual fix and the unknown one a resolve step (scenario 19 with
 ReadOnlyAccess: narrow the inline `kms:Decrypt`, 1, and resolve
@@ -348,7 +350,7 @@ Rules:
   that realises a declared entry is uncuttable, whatever its cost (tested:
   scenario 1 with its read declared intended has no fix).
 - **Uncuttable** (`∞`): `PROTECTS`; every edge with no side left (§4.2); every
-  edge listed in `remediation.uncuttable_edges` in `clapa.yaml`; and the
+  edge listed in `remediation.uncuttable_edges` in `darb.yaml`; and the
   intended-access edges above.
 - Costs can be overridden per edge kind (`remediation.cut_costs`, integers ≥ 1);
   an override replaces the edge's cheapest side cost for every edge of that
