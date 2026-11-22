@@ -226,7 +226,7 @@ func (e *Explanation) Label() string {
 	if e.AIGenerated {
 		return "AI-generated explanation (" + e.Model + "; it does not change the verdict, the score or the fix)"
 	}
-	return "Explanation (template text: " + e.Note + ")"
+	return "Template explanation, not AI-generated (" + e.Note + ")"
 }
 
 // FixStep is one change that breaks one edge.

@@ -1494,9 +1494,12 @@ Users can raise it per gap kind in `clapa.yaml`; the report shows the tolerance 
 - **JSON** — `schema_version`, published JSON Schema in `schemas/`, validated in
   tests; tool version, rule-catalog version, input digests (sha256), coverage,
   findings, graph stats, timing (behind `--timestamps`, §3.4).
-- **SARIF 2.1.0** — validated against the official schema; `physicalLocation` to
-  TF/K8s lines (`%SRCROOT%`-relative), attack paths as `codeFlows`, our fingerprint
-  in `partialFingerprints`.
+- **SARIF 2.1.0** — `physicalLocation` to TF/K8s lines (`uriBaseId`
+  `%SRCROOT%`, the scan root), attack paths as `codeFlows` (the entry, then one
+  location per hop; Phase 7), our fingerprint in `partialFingerprints`.
+  *Status:* the structure is tested (`internal/report/sarif`); validation
+  against the official OASIS schema needs the schema vendored into testdata and
+  is not done yet.
 - **HTML** — single file, `html/template`, assets via `embed`, strict CSP
   (`default-src 'none'`, hashed inline script/style), data embedded as escaped JSON;
   test with a resource named `<script>`. Implemented in Phase 7

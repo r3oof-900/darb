@@ -35,7 +35,7 @@ func TestExplanationsAreLabelledText(t *testing.T) {
 	if len(asides) != 2 {
 		t.Fatalf("%d explanations shown, want the summary and one finding", len(asides))
 	}
-	if !strings.Contains(asides[0], "Explanation (template text: "+scriptName+")") || !strings.Contains(asides[0], endOfData) {
+	if !strings.Contains(asides[0], "Template explanation, not AI-generated ("+scriptName+")") || !strings.Contains(asides[0], endOfData) {
 		t.Errorf("summary: %q", asides[0])
 	}
 	if !strings.Contains(asides[1], "AI-generated explanation ("+templateText+"; it does not change the verdict") ||

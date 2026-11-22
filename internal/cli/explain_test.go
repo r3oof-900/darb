@@ -154,7 +154,7 @@ func TestExplainCommand(t *testing.T) {
 	fp := pathFingerprint(t, scan01)
 	args := append(append([]string{"explain"}, scan01...), fp[:12])
 	code, out, errOut, _ := runLLM(t, &fakeLLM{}, "", args...)
-	if code != ExitOK || !strings.Contains(out, "Explanation (template text: no LLM provider") || !strings.Contains(out, "The fix: The cheapest fix:") {
+	if code != ExitOK || !strings.Contains(out, "Template explanation, not AI-generated (no LLM provider enabled (--llm))") || !strings.Contains(out, "The fix: The cheapest fix:") {
 		t.Fatalf("template: %d %q %q", code, out, errOut)
 	}
 	code, out, _, _ = runLLM(t, &fakeLLM{}, testKey, append(args[:len(args)-1:len(args)-1], "--llm", "anthropic", "--format", "json", fp)...)
@@ -166,7 +166,7 @@ func TestExplainCommand(t *testing.T) {
 		t.Fatalf("provider: %d %v %q", code, err, out)
 	}
 	code, out, _, _ = runLLM(t, &fakeLLM{fail: true}, testKey, append(args[:len(args)-1:len(args)-1], "--llm", "anthropic", fp)...)
-	if code != ExitOK || !strings.Contains(out, "the LLM explanation failed (context deadline exceeded)") {
+	if code != ExitOK || !strings.Contains(out, "the LLM explanation failed: context deadline exceeded") {
 		t.Fatalf("failure: %d %q", code, out)
 	}
 	if code, _, _, _ := runLLM(t, &fakeLLM{}, "", "explain", "--root", fixtures+"01_classic/vulnerable", "--terraform", "terraform", "nope"); code != ExitUsage {

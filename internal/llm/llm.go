@@ -141,7 +141,7 @@ func Prepare(req ExplainRequest, m *pseudonymize.Mapping) ExplainRequest {
 func Explain(ctx context.Context, p Explainer, req ExplainRequest, m *pseudonymize.Mapping) Explanation {
 	if p == nil {
 		t := Template(req)
-		t.Note = "no LLM provider enabled (--llm): template text"
+		t.Note = "no LLM provider enabled (--llm)"
 		return t
 	}
 	got, err := p.Explain(ctx, Prepare(req, m))
@@ -150,7 +150,7 @@ func Explain(ctx context.Context, p Explainer, req ExplainRequest, m *pseudonymi
 	}
 	if err != nil {
 		t := Template(req)
-		t.Note = "the LLM explanation failed (" + redact.Redact(err.Error()) + "): template text"
+		t.Note = "the LLM explanation failed: " + redact.Redact(err.Error())
 		return t
 	}
 	restore := func(s string) string {
