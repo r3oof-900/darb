@@ -4,7 +4,8 @@ Done on 2026-11-22, at the end of Phase 7, on branch `phase7-llm`. Every claim
 below was checked against the code or the binary, not against other documents.
 "Fixed" means changed in this branch, with a test where one applies; "corrected"
 means the document was wrong and now says what the code does; "open" is left
-for review.
+for review. Findings 4 and 6 were fixed after the audit, in the same pull
+request.
 
 ## Method
 
@@ -28,9 +29,9 @@ for review.
 | 1 | Each command takes the flags its usage lists | `remediate`, `explain`, `graph` and `doctor` parsed shared flags they then ignored (`remediate --output`, `explain --baseline`, `graph --ignore`, `doctor --aws-assume-role`, …), so a user could believe a setting applied | **fixed**: such a flag is a usage error naming it (`TestUnusedFlagsAreRefused`) |
 | 2 | DESIGN.md §4.1, THREAT_MODEL: the terraform binary is found on PATH "or an explicit `--terraform-bin`" | the plan reader had the option; no CLI flag reached it | **fixed**: `--terraform-bin` on every command that reads inputs (`TestTerraformBinFlag`) |
 | 3 | a recovered panic: "re-run with `--debug` for a stack trace" | there is no `--debug` | **fixed**: the message says it is a bug to report |
-| 4 | DESIGN.md §15 (logging): `slog`, `--log-format json`, `--debug` | the redacting `slog` handler exists and standard error is redacted; darb writes no structured log; neither flag exists | **corrected** (status note); structured logging itself **open** |
+| 4 | DESIGN.md §15 (logging): `slog`, `--log-format json`, `--debug` | the redacting `slog` handler existed and standard error was redacted; darb wrote no structured log; neither flag existed | **fixed** after the audit: `--log-format text\|json` and `--debug` (global), redacted records, stack traces with `--debug` (`TestJSONLogsAreRedacted`, `TestCLIJSONLogs`, `TestCrash`) |
 | 5 | DESIGN.md §5: entry points "(`--assume-compromised`, default on)" | a `darb.yaml` setting, `threat_model.assume_compromised`; no flag | **corrected** |
-| 6 | `internal/report/junit` and `internal/report/markdown`: "Implemented in Phase 7" | both packages are empty; no format writes JUnit or Markdown | **corrected** (the comments say so); implement or remove: **open** |
+| 6 | `internal/report/junit` and `internal/report/markdown`: "Implemented in Phase 7" | both packages were empty; no format wrote JUnit or Markdown | **fixed** after the audit: `--format markdown` (PR comment, size-bounded) and `--format junit` (validated against the JUnit 10 XSD in CI) |
 | 7 | `darb.yaml` keys | `crown_jewels` (`tag_keys`, `tag_values`, `explicit`), `threat_model.assume_compromised` and `clusters[].oidc_issuer` were documented nowhere; `--config` was in no document | **fixed**: [docs/CONFIG.md](CONFIG.md), every key with its checks; its example is parsed by darb |
 | 8 | DESIGN.md §11: `doctor` probes `iam:SimulatePrincipalPolicy` "when allowed" | not called: it is outside the read-only policy of docs/PERMISSIONS.md | **open** (recorded in §11) |
 | 9 | integration tests cover every live call | LocalStack ran without `s3control`, so the account Block Public Access call always failed (correctly recorded as unknown, never read back) | **fixed**: service enabled; the test sets the account setting and requires it read back |
@@ -62,8 +63,6 @@ schema (now validated).
 
 ## Open for review
 
-- Structured logging (`--log-format`, `--debug`) — #4.
-- JUnit and Markdown reports: implement or remove the empty packages — #6.
 - `doctor` and `iam:SimulatePrincipalPolicy` — #8.
 - Not part of this audit's fixes, recorded in DESIGN.md §12.1 and §15.1: the
   managed-policy snapshot (3 policies), RAM shares (named, not collected).

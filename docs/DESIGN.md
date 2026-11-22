@@ -1545,6 +1545,22 @@ Users can raise it per gap kind in `darb.yaml`; the report shows the tolerance u
   the official OASIS SARIF 2.1.0 schema (errata 01, vendored unchanged in
   `internal/report/sarif/testdata`, SHA-256 pinned;
   `TestEverySARIFReportMatchesTheOfficialSchema`).
+- **Markdown** (Phase 7, `--format markdown`, `internal/report/markdown`) — a
+  summary for a pull request comment: the counts by severity, the attack paths
+  most severe first with their recommended fix (the first verified fix with
+  `--fixes`, else the cheapest cut, marked not verified), the
+  misconfigurations, the coverage. At most 60000 bytes (GitHub refuses a
+  comment over 65536 characters); what does not fit is counted in a line
+  "N more findings in the full report". Every name from the input is a code
+  span (pipes escaped, a fence longer than any backtick run), so it cannot
+  link, mention, add markup or split a table.
+- **JUnit XML** (Phase 7, `--format junit`, `internal/report/junit`) — one
+  suite for attack paths, one for misconfigurations; each finding is a
+  `testcase`, with a `failure` when its severity is at or above `--fail-on`
+  (the others pass and carry their details in `system-out`). Every fixture's
+  report validates against the JUnit 10 XSD of `jenkinsci/xunit-plugin`
+  (vendored unchanged with its MIT notice, commit `ae25da50`; the CI job
+  `junit-schema` runs `xmllint --schema`).
 - **HTML** — single file, `html/template`, assets via `embed`, strict CSP
   (`default-src 'none'`, hashed inline script/style), data embedded as escaped JSON;
   test with a resource named `<script>`. Implemented in Phase 7
@@ -1602,10 +1618,15 @@ Users can raise it per gap kind in `darb.yaml`; the report shows the tolerance u
 
 Logging: `slog`, `--log-format json`, a redacting handler (keys and value patterns
 from `internal/redact`), `--debug` for stack traces, otherwise one-line errors with
-a hint. *Status (Phase 7 audit):* the redacting `slog` handler exists
-(`redact.Handler`) and everything written to standard error is redacted, but darb
-writes no structured log: `--log-format` and `--debug` do not exist. Errors are
-one line; a recovered panic says it is a bug to report (docs/AUDIT_DOCS_VS_CODE.md).
+a hint. *Implemented in Phase 7:* `--log-format text|json` and `--debug` are
+global flags, accepted anywhere before `--`. Records go to standard error
+through `redact.Handler` (message, every attribute and group, secret-named
+keys), so a JSON log is redacted on its own, not only by the redacted standard
+error (`TestJSONLogsAreRedacted`, `TestCLIJSONLogs`). Without `--debug` only
+warnings are written (TLS verification off, coverage beyond tolerance, an LLM
+explanation that fell back to the template); `--debug` adds the inputs, every
+coverage gap, the analysis statistics and timing. A recovered panic is one line
+naming it a bug; with `--debug`, the stack trace follows (redacted).
 
 ---
 
@@ -1879,6 +1900,8 @@ of 2026-11-22, with the evidence that shows it. CI evidence is the full run on
 | 9 | Same input, byte-identical output | §3.4 | met | goldens scanned twice; `TestExampleReports`; `release-snapshot` builds twice, identical archives |
 | 10 | JSON report validated against its schema | §11 | met | `TestEveryReportMatchesTheSchema`, `TestSchemaDescribesTheGoTypes` |
 | 11 | SARIF validated against the official schema | §11 | met | `TestEverySARIFReportMatchesTheOfficialSchema` (OASIS 2.1.0, pinned) |
+| 11b | JUnit report validated against a known JUnit schema; Markdown bounded for a PR comment | §11 | met | `junit-schema` CI job (`xmllint`, JUnit 10 XSD), `TestJUnitAndMarkdownReports`, `internal/report/markdown` tests |
+| 11c | Logging: `slog`, `--log-format json`, redacted, `--debug` stack traces | §11 | met | `TestJSONLogsAreRedacted`, `TestCLIJSONLogs`, `TestCrash` |
 | 12 | HTML: strict CSP, untrusted names inert | §11 | met | `internal/report/htmlreport` tests (hostile names, CSP hashes) |
 | 13 | Live collection read-only, permissions documented exactly | §4.4, §4.5 | met | `TestClientInterfacesAreReadOnly`, `TestPermissionsDocument`, `TestK8sPermissionsDocument` |
 | 14 | Live collectors tested on fakes, LocalStack and kind only | §12 (Phase 6) | met | `localstack` and `kind` jobs; no test reaches a cloud API |
