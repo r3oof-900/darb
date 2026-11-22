@@ -1057,8 +1057,6 @@ linters:
           allow:
             - "$gostd"
             - "github.com/r3oof-900/darb/internal/llm$"
-            - "github.com/anthropics/anthropic-sdk-go/v2$"
-            - "github.com/anthropics/anthropic-sdk-go/v2/"
           deny:
             - pkg: "os/exec"
               desc: "forbidden in the io layer (docs/DESIGN.md section 3)"

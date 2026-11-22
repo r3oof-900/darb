@@ -53,7 +53,7 @@ it is enforced; "Phase N" means the control lands in that phase.
 | Reports leaking via world-readable files | output files created with mode `0600` (Phase 4) |
 | Evidence sent to an LLM | off by default (`--llm anthropic`); the key is read from `ANTHROPIC_API_KEY` only (never a flag, never printed or reported); structured fields of the report only (`llm.Evidence`: rule, severity, score, status, entry, jewel, path, undecided, cheapest fix, defaults), never a file of the input; every string through the secret redactor (48 formats, false-positive corpus); `--llm-redact-identifiers` replaces account IDs, ARNs and names by tokens restored locally, one mapping per report; misconfigurations are never sent, only path findings and the summary. Residual risk: without `--llm-redact-identifiers`, resource names and account IDs reach the provider |
 | Unexpected network egress | the tool talks only to the cloud APIs being read and the explicitly enabled LLM provider; no telemetry, no update checks |
-| Supply chain of the LLM SDK | `anthropic-sdk-go/v2` v2.7.0 is imported by `internal/llm/claude` only (layer table, depguard); it brings OpenTelemetry API packages, `tidwall/*` JSON helpers, `invopop/jsonschema` and `standard-webhooks` as indirect modules, all checked by `tools/depage` (≥ 2 weeks old). They are linked into the binary even when `--llm` is off |
+| Supply chain of the LLM provider | no SDK: `internal/llm/claude` speaks the Messages API over `net/http` (standard library only). The Anthropic SDK and its 15 indirect modules (OpenTelemetry, `tidwall/*`, `invopop/jsonschema`, `standard-webhooks`, a release-candidate `yaml/v4`) were removed in Phase 7, so nothing extra is linked into the binary for `--llm` |
 
 ### Denial of service
 | Threat | Control |

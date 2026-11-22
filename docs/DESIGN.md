@@ -155,7 +155,7 @@ generates. Rules for reading the table:
 | `internal/graph` | core | `internal/model`, `internal/eval` | — | — |
 | `internal/iampolicy` | core | `internal/model`, `internal/arn` | — | — |
 | `internal/llm` | pure | `pkg/schema`, `internal/redact`, `internal/llm/pseudonymize` | — | — |
-| `internal/llm/claude` | io | `internal/llm` | `github.com/anthropics/anthropic-sdk-go/v2` | tests: `internal/llm/pseudonymize` |
+| `internal/llm/claude` | io | `internal/llm` | — | tests: `internal/llm/pseudonymize` |
 | `internal/llm/pseudonymize` | pure | — (leaf) | — | — |
 | `internal/managedpolicies` | pure | — (leaf) | — | — |
 | `internal/model` | core | `internal/arn` | — | — |
@@ -1433,12 +1433,19 @@ explanation" and HTML-escaped like any other untrusted string.
   pseudonymise, `Explain` = ask, validate, restore, strip control characters,
   or fall back to `Template`), `internal/llm/pseudonymize` (reversible tokens
   `arn-0001`, `account-0001`, …), `internal/llm/claude` (io; the only package
-  that imports the provider SDK).
-- Provider `anthropic`: `anthropic-sdk-go/v2` v2.7.0, Messages API, model
+  that talks to an LLM provider).
+- Provider `anthropic`: one Messages API request over `net/http` (no SDK, so
+  no third-party module: the SDK and its OpenTelemetry, `tidwall/*`,
+  `invopop/jsonschema` and `standard-webhooks` dependencies were removed in
+  Phase 7), `anthropic-version: 2026-10-21`, model
   `claude-opus-5-5` unless `--llm-model`; structured output with a closed JSON
   schema (`summary`, `attack`, `fix`); timeout 2 minutes per call, 2 retries
-  (429, 5xx, connection errors), token cap 4000; a refusal is re-served by the
-  API's default fallback model; `stop_reason` refusal or max_tokens is a failure.
+  (429, 5xx, connection errors; the server's `Retry-After` is honoured, at
+  most 30 s), token cap 4000, replies over 1 MiB refused; a refusal is
+  re-served by the API's default fallback model (`fallbacks: "default"`, beta
+  `server-side-fallback-2026-07-01`); `stop_reason` refusal or max_tokens is a
+  failure; thinking blocks are skipped. The key is sent only as the
+  `x-api-key` header and never appears in an error.
 - CLI: `scan --llm anthropic [--llm-model M] [--llm-redact-identifiers]`
   explains every attack-path finding and writes `executive_summary`;
   misconfigurations are explained by their rule's rationale, not sent.

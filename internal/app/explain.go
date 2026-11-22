@@ -39,7 +39,7 @@ func NewExplainer(o LLMOptions) (Explainer, error) {
 		if o.APIKey == "" {
 			return nil, fmt.Errorf("--llm anthropic needs the API key in %s", LLMKeyVariable)
 		}
-		c, err := claude.New(claude.Options{APIKey: o.APIKey, Model: o.Model})
+		c, err := claude.New(&claude.Options{APIKey: o.APIKey, Model: o.Model})
 		if err != nil {
 			return nil, err
 		}

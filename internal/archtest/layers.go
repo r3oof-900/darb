@@ -59,7 +59,6 @@ const (
 	extYAMLv3    = "go.yaml.in/yaml/v3"
 	extXMod      = "golang.org/x/mod"
 	extXNetHTML  = "golang.org/x/net/html" // tests of the HTML report parse its output
-	extAnthropic = "github.com/anthropics/anthropic-sdk-go/v2"
 )
 
 // coreModel is the set of core packages most rule-layer packages build on.
@@ -179,7 +178,7 @@ func pureRules() []*Rule {
 		{Package: "internal/report/markdown", Layer: LayerPure, Internal: []string{"internal/report", "pkg/schema"}},
 		{Package: "internal/llm", Layer: LayerPure, Internal: []string{"pkg/schema", "internal/redact", "internal/llm/pseudonymize"}},
 		// The only package that sends anything to an LLM provider (--llm).
-		{Package: "internal/llm/claude", Layer: LayerIO, Internal: []string{"internal/llm"}, External: []string{extAnthropic}, TestInternal: []string{"internal/llm/pseudonymize"}},
+		{Package: "internal/llm/claude", Layer: LayerIO, Internal: []string{"internal/llm"}, TestInternal: []string{"internal/llm/pseudonymize"}},
 		{Package: "internal/llm/pseudonymize", Layer: LayerPure},
 	}
 }

@@ -58,7 +58,7 @@ func ok(text string) func(int32) (int, string, string) {
 
 func client(t *testing.T, url string, timeout time.Duration, retries int) *Client {
 	t.Helper()
-	c, err := New(Options{APIKey: "test-key-not-a-secret", BaseURL: url, Timeout: timeout, MaxRetries: retries}) //nolint:gosec // G101: a placeholder for the local fake API.
+	c, err := New(&Options{APIKey: "test-key-not-a-secret", BaseURL: url, Timeout: timeout, MaxRetries: retries}) //nolint:gosec // G101: a placeholder for the local fake API.
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,81 @@ func TestRetries(t *testing.T) {
 
 // No key, no client: nothing is sent.
 func TestNoKey(t *testing.T) {
-	if _, err := New(Options{}); !errors.Is(err, ErrNoKey) {
+	if _, err := New(&Options{}); !errors.Is(err, ErrNoKey) {
 		t.Fatalf("got %v", err)
+	}
+}
+
+// The request carries the API version, the key as a header (and nowhere
+// else) and a JSON body to /v1/messages.
+func TestRequestHeaders(t *testing.T) {
+	f := &fake{reply: ok(`{"summary":"ok","attack":"","fix":""}`)}
+	c := client(t, f.server(t).URL, 10*time.Second, -1)
+	if got := llm.Explain(t.Context(), c, request(), nil); !got.AIGenerated {
+		t.Fatalf("%+v", got)
+	}
+	h := f.header
+	if h.Get("X-Api-Key") != "test-key-not-a-secret" || h.Get("Anthropic-Version") != "2026-10-21" || h.Get("Content-Type") != "application/json" {
+		t.Errorf("headers %v", h)
+	}
+	if strings.Contains(string(f.body), "test-key-not-a-secret") {
+		t.Error("the key is in the body")
+	}
+}
+
+// A client error is not retried; 429 is, after the server's Retry-After.
+func TestRetryPolicy(t *testing.T) {
+	bad := &fake{reply: func(int32) (int, string, string) { return http.StatusBadRequest, "", "" }}
+	if got := llm.Explain(t.Context(), client(t, bad.server(t).URL, 10*time.Second, 2), request(), nil); got.AIGenerated || bad.calls.Load() != 1 {
+		t.Fatalf("400 retried: %d calls", bad.calls.Load())
+	}
+	var first time.Time
+	limited := &fake{}
+	limited.reply = func(n int32) (int, string, string) {
+		if n == 1 {
+			first = time.Now()
+			return http.StatusTooManyRequests, "", ""
+		}
+		return http.StatusOK, "end_turn", `{"summary":"ok","attack":"","fix":""}`
+	}
+	s := limited.server(t)
+	s.Config.Handler = retryAfterOne(s.Config.Handler)
+	start := time.Now()
+	got := llm.Explain(t.Context(), client(t, s.URL, 10*time.Second, 2), request(), nil)
+	if !got.AIGenerated || limited.calls.Load() != 2 || time.Since(start) < time.Second || first.IsZero() {
+		t.Fatalf("429: %d calls in %v, %+v", limited.calls.Load(), time.Since(start), got)
+	}
+}
+
+func retryAfterOne(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Retry-After", "1")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// Thinking blocks are skipped; a reply over the size bound is refused; an
+// unreachable API is an error without the key.
+func TestReplies(t *testing.T) {
+	thinking := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"content":[{"type":"thinking","thinking":"..."},{"type":"text","text":"{\"summary\":\"s\",\"attack\":\"\",\"fix\":\"\"}"}],"stop_reason":"end_turn"}`)
+	}))
+	t.Cleanup(thinking.Close)
+	if got := llm.Explain(t.Context(), client(t, thinking.URL, 10*time.Second, -1), request(), nil); !got.AIGenerated || got.Summary != "s" {
+		t.Errorf("thinking: %+v", got)
+	}
+	huge := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"content":[{"type":"text","text":"` + strings.Repeat("x", maxResponse) + `"}]}`))
+	}))
+	t.Cleanup(huge.Close)
+	if got := llm.Explain(t.Context(), client(t, huge.URL, 10*time.Second, -1), request(), nil); got.AIGenerated || !strings.Contains(got.Note, "larger than") {
+		t.Errorf("huge: %+v", got)
+	}
+	gone := httptest.NewServer(http.NotFoundHandler())
+	url := gone.URL
+	gone.Close()
+	got := llm.Explain(t.Context(), client(t, url, 10*time.Second, -1), request(), nil)
+	if got.AIGenerated || !strings.Contains(got.Note, "did not reach the API") || strings.Contains(got.Note, "test-key") {
+		t.Errorf("unreachable: %+v", got)
 	}
 }
