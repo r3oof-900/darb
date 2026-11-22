@@ -1489,6 +1489,24 @@ result as `WARNING:` lines:
 reports the Go runtime, kubeconfig/AWS config presence, and probes read-only API
 permissions (`sts:GetCallerIdentity`, `iam:SimulatePrincipalPolicy` when allowed).
 
+*Implemented in Phase 7:*
+- `darb doctor` prints one line per check: darb's version and rule catalog,
+  the Go runtime, the managed-policy snapshot (a warning below 1000
+  policies), whether the AWS config and credentials files and the kubeconfig
+  files exist (their contents are never read; `AWS_ACCESS_KEY_ID` and
+  `ANTHROPIC_API_KEY` are reported as set or not, never shown). It calls a
+  cloud only when asked: `--probe-aws` calls `sts:GetCallerIdentity` (the
+  account and caller ARN), `--probe-k8s CONTEXT` asks that API server for its
+  version. Exit 3 when a probe fails.
+- **Not done:** `iam:SimulatePrincipalPolicy`. It is not in the collector's
+  policy (docs/PERMISSIONS.md), and asking for it would widen that policy for a
+  diagnostic; left for review.
+- `darb graph [scan input flags] [--format dot|json]` writes the whole access
+  graph of the inputs (every node and edge, not only those on paths): JSON
+  `darb-graph/v1`, or Graphviz DOT (an edge resting on an UNKNOWN is dashed, a
+  derived read bold). Same input, same bytes; identities are escaped DOT
+  strings.
+
 ### Exit codes
 
 | Code | Meaning |

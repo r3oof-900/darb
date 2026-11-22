@@ -25,6 +25,15 @@ type Env struct {
 	// Explainer makes the --llm provider (tests pass a fake); nil:
 	// app.NewExplainer.
 	Explainer func(app.LLMOptions) (app.Explainer, error)
+	// Exists says whether a file exists (darb doctor); nil: os.Stat.
+	Exists func(string) bool
+}
+
+func (e *Env) exists(p string) bool {
+	if e == nil || e.Exists == nil {
+		return app.DefaultExists(p)
+	}
+	return e.Exists(p)
 }
 
 func (e *Env) getenv(k string) string {

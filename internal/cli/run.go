@@ -30,6 +30,8 @@ const usage = `usage:
   darb remediate [scan input flags] [--write [--allow-revoke] [--force]] FINGERPRINT
   darb explain [scan input flags] [--llm anthropic [--llm-model M] [--llm-redact-identifiers]] FINGERPRINT
              (the API key of --llm is read from ANTHROPIC_API_KEY only)
+  darb graph [scan input flags] [--format dot|json] [--output FILE]
+  darb doctor [--probe-aws [--aws-profile P] [--aws-region R]] [--probe-k8s CONTEXT [--kubeconfig FILE]]
   darb rules list
   darb rules show RULE-ID
   darb version
@@ -57,6 +59,10 @@ func RunWith(ctx context.Context, args []string, stdout, stderr io.Writer, env *
 		return remediateCmd(ctx, args[1:], stdout, stderr)
 	case "explain":
 		return explainCmd(ctx, args[1:], stdout, stderr, env)
+	case "graph":
+		return graphCmd(ctx, args[1:], stdout, stderr, env)
+	case "doctor":
+		return doctorCmd(ctx, args[1:], stdout, stderr, env)
 	case "rules":
 		return rulesCmd(args[1:], stdout, stderr)
 	case "version":

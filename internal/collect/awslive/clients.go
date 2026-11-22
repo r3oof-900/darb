@@ -3,6 +3,8 @@ package awslive
 import (
 	"context"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
@@ -98,4 +100,14 @@ type Factory interface {
 type Target struct {
 	RoleARN    string
 	ExternalID string
+}
+
+// CallerIdentity is sts:GetCallerIdentity: the account and ARN of the
+// credentials (darb doctor --probe-aws).
+func CallerIdentity(ctx context.Context, c *Clients) (account, arn string, err error) {
+	out, err := c.STS.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
+	if err != nil {
+		return "", "", err
+	}
+	return aws.ToString(out.Account), aws.ToString(out.Arn), nil
 }
