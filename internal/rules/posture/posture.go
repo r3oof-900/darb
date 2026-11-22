@@ -259,6 +259,11 @@ func automount(in *rules.Input) []hit {
 func publicAccessOff(in *rules.Input) []hit {
 	var out []hit
 	for _, j := range in.Jewels {
+		// Posture rules are about classified data: an unclassified bucket
+		// is a jewel for paths only (SCORING.md §1.2).
+		if class, _ := j.Classification(); class == model.ClassUnclassified {
+			continue
+		}
 		if j.Kind() == model.KindS3Bucket && in.Inventory.RestrictPublic(j) == model.False {
 			ev := []string{"restrict_public_buckets = false at " + j.Source().String()}
 			for _, a := range in.Inventory.AccountBlocks {

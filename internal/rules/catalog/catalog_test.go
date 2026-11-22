@@ -20,6 +20,14 @@ var pinned = map[string][]string{
 		"DARB-POST-001@1.0.1", "DARB-POST-002@1.0.0", "DARB-POST-003@1.0.0", "DARB-POST-004@1.0.0",
 		"DARB-POST-005@1.0.0", "DARB-POST-006@1.0.0", "DARB-POST-007@1.0.0", "DARB-POST-008@1.1.0",
 	},
+	// 2.1.0 (after v0.1.0-rc.1): the path rules also reach data stores no
+	// rule classifies (classification unclassified); fingerprints are
+	// unchanged, so the rules' minor versions move.
+	"2.1.0": {
+		"DARB-PATH-001@1.1.0", "DARB-PATH-002@1.1.0", "DARB-PATH-003@1.1.0",
+		"DARB-POST-001@1.0.1", "DARB-POST-002@1.0.0", "DARB-POST-003@1.0.0", "DARB-POST-004@1.0.0",
+		"DARB-POST-005@1.0.0", "DARB-POST-006@1.0.0", "DARB-POST-007@1.0.0", "DARB-POST-008@1.1.0",
+	},
 }
 
 func TestCatalogVersion(t *testing.T) {

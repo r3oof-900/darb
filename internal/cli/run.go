@@ -18,7 +18,7 @@ import (
 )
 
 const usage = `usage:
-  darb scan [--root DIR] [--config FILE] [--plan FILE[=TFDIR]]... [--terraform DIR]...
+  darb scan [PATHS...] [--root DIR] [--config FILE] [--plan FILE[=TFDIR]]... [--terraform DIR]...
              [--k8s DIR[=CLUSTER]]... [--aws-snapshot DIR]... [--live-aws [AWS flags]]
              [--live-k8s CONTEXT[=CLUSTER]]... [--k8s-eks NAME]... [--kubeconfig FILE] [--insecure]
              [--format console|json|sarif|html|markdown|junit] [--output FILE] [--fail-on critical|high|medium|low|info]
@@ -30,7 +30,7 @@ const usage = `usage:
   darb remediate [scan input flags] [--write [--allow-revoke] [--force]] FINGERPRINT
   darb explain [scan input flags] [--llm anthropic [--llm-model M] [--llm-redact-identifiers]] FINGERPRINT
              (the API key of --llm is read from ANTHROPIC_API_KEY only)
-  darb graph [scan input flags] [--format dot|json] [--output FILE]
+  darb graph [PATHS...] [scan input flags] [--format dot|json] [--output FILE]
   darb doctor [--probe-aws [--aws-profile P] [--aws-region R]] [--probe-k8s CONTEXT [--kubeconfig FILE]]
   darb rules list
   darb rules show RULE-ID
@@ -44,9 +44,41 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) ExitCode 
 	return RunWith(ctx, args, stdout, stderr, DefaultEnv())
 }
 
-// RunWith is Run with the connections of env.
+// RunWith is Run with the connections of env. A usage error (exit 2) always
+// says something: if a command wrote nothing to standard error, a hint is
+// written.
 func RunWith(ctx context.Context, args []string, stdout, stderr io.Writer, env *Env) ExitCode {
-	stderr = redacting{stderr}
+	w := &counting{w: redacting{stderr}}
+	code := dispatch(ctx, args, stdout, w, env)
+	usageHint(w, code, args)
+	return code
+}
+
+// usageHint writes a hint when a command exits 2 having written nothing.
+func usageHint(w *counting, code ExitCode, args []string) {
+	if code != ExitUsage || w.n > 0 {
+		return
+	}
+	cmd := "darb"
+	if len(args) > 0 {
+		cmd += " " + args[0]
+	}
+	_, _ = fmt.Fprintf(w, "darb: usage error (run %s -h for the usage)\n", cmd)
+}
+
+// counting counts what is written through it.
+type counting struct {
+	w io.Writer
+	n int
+}
+
+func (c *counting) Write(p []byte) (int, error) {
+	n, err := c.w.Write(p)
+	c.n += n
+	return n, err
+}
+
+func dispatch(ctx context.Context, args []string, stdout, stderr io.Writer, env *Env) ExitCode {
 	args, g, err := splitGlobals(args)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, "darb:", err)
@@ -110,8 +142,9 @@ func parseScan(args []string, stderr io.Writer) (*scanFlags, bool) {
 	fset.BoolVar(&f.fixes, "fixes", false, "remediate every path finding: strategies, patches and both verifications in the report (slower)")
 	fset.BoolVar(&f.timestamps, "timestamps", false, "state when the report was generated (otherwise two scans of the same input are identical)")
 	f.llm.on(fset)
-	if err := fset.Parse(args); err != nil || fset.NArg() > 0 {
-		return nil, false
+	paths, err := parseInterspersed(fset, args)
+	if err != nil {
+		return nil, false // flag has printed the error and the usage
 	}
 	if !slices.Contains([]string{"critical", "high", "medium", "low", "info"}, f.failOn) || !slices.Contains(app.Formats(), f.format) {
 		_, _ = fmt.Fprintf(stderr, "darb: invalid --fail-on %q or --format %q\n", f.failOn, f.format)
@@ -119,6 +152,9 @@ func parseScan(args []string, stderr io.Writer) (*scanFlags, bool) {
 	}
 	if err := f.llm.check(); err != nil {
 		_, _ = fmt.Fprintln(stderr, "darb:", err)
+		return nil, false
+	}
+	if !addPaths(f, paths, rootGiven(fset), stderr) {
 		return nil, false
 	}
 	return f, true

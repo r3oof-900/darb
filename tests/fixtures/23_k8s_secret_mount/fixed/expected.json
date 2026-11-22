@@ -1,7 +1,39 @@
 {
   "format": "darb-expected/v1",
-  "derived_from": "DESIGN.md 12.1 priority 1, fixed: no jewel named, no pod creation",
+  "derived_from": "DESIGN.md 12.1 priority 1, fixed: no classified jewel named, no pod creation",
   "findings": [
+    {
+      "rule": "DARB-PATH-001",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
+      "jewel": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/api-config",
+      "path": [
+        "CAN_READ_PLAINTEXT[mount] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/api-config"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 160,
+      "severity": "low",
+      "chokepoints": [
+        "CAN_READ_PLAINTEXT[mount] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/api-config"
+      ],
+      "alternative_fix": [],
+      "defaults_used": [],
+      "fix": [
+        {
+          "edge": "CAN_READ_PLAINTEXT[mount] k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api -> k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/api-config",
+          "side": "workload",
+          "fix_kind": "revoke",
+          "cost": 5
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": [],
+      "status": "confirmed",
+      "also_fixes": [],
+      "uncuttable": [],
+      "remediation_status": "complete",
+      "fingerprint": "31e6b7fb50970ebd2ff3f444204dffc379149ad2c35166ea7736db2814dee2b2"
+    },
     {
       "rule": "DARB-POST-004",
       "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/ci-runner",
@@ -25,6 +57,16 @@
     {
       "rule": "DARB-PATH-001",
       "jewel": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/db-credentials"
+    }
+  ],
+  "notes": [
+    {
+      "subject": "Unclassified data stores",
+      "contains": [
+        "1 data store has no classification; treated as `unclassified`",
+        "tag them or list them in `crown_jewels.explicit`",
+        "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/api-config"
+      ]
     }
   ],
   "intended_access": [],

@@ -148,8 +148,70 @@ E = {}
 E["01_classic/vulnerable"] = {"derived_from": "13.2 row 1; 13.1",
                               "findings": [classic(),
                                            no_default_deny(NS_PAYMENTS)]}
-E["01_classic/fixed"] = {"derived_from": "13.2 row 1 fixed: reads only the receipts bucket, decrypt scoped by encryption context",
-                         "findings": [rotation_off(RECEIPTS_KEY), no_default_deny(NS_PAYMENTS)], "absent": ABSENT_PII}
+
+# Unclassified data stores (DESIGN.md 5, SCORING.md 1.2; added after
+# v0.1.0-rc.1). A bucket, a Secrets Manager secret, an SSM SecureString
+# parameter or a Kubernetes Secret with no classification is a crown jewel
+# of classification `unclassified`, value 400 (as internal). Blast radius
+# counts classified jewels only, so a path to it has blast radius 1000
+# when the entry reaches no classified jewel; posture rules do not apply
+# to it; a declared intended_access pair is not reported. The scan states
+# the stores in one coverage note; crown_jewels.unclassified: ignore drops
+# them and says so.
+RECEIPTS = "arn:aws:s3:::acme-payment-receipts"
+UNCLASSIFIED = "Unclassified data stores"
+
+
+def unclassified_note(*names):
+    return {"subject": UNCLASSIFIED, "contains": [
+        f"{len(names)} data store{'s have' if len(names) > 1 else ' has'} no classification; treated as `unclassified`",
+        "tag them or list them in `crown_jewels.explicit`", *names]}
+
+
+def ignored_note(*names):
+    return {"subject": UNCLASSIFIED, "contains": [
+        f"{len(names)} data store{'s have' if len(names) > 1 else ' has'} no classification and "
+        f"{'were' if len(names) > 1 else 'was'} not scanned (`crown_jewels.unclassified: ignore`)", *names]}
+
+
+# Scenario 1 fixed, and 17 fixed: api (public LoadBalancer, 1000) reads the
+# receipts bucket, which has no classification: RUNS_AS, ASSUMES,
+# CAN_READ_PLAINTEXT, 3 edges (810): likelihood 810; impact unclassified
+# 400 x blast radius 1000 (no classified jewel reached) = 400; 810 x 400 =
+# 324, medium. The receipts bucket's encryption configuration does not state
+# bucket_key_enabled, so the Bucket Key setting is unknown (normalize/
+# terraform) and S3's encryption context is either the bucket ARN (with a
+# Bucket Key) or the object ARN (without): the role's DecryptReceipts grants
+# kms:Decrypt only under StringEquals kms:EncryptionContext:aws:s3:arn = the
+# bucket ARN, so it allows under the first and not the second (scenarios
+# 2a and 2c). The decrypt needs an unknown allow: unconfirmed, confidence
+# low, worst case 324; undecided names the Bucket Key setting and how to
+# state it (DESIGN.md 6.2: every unknown is named with what resolves it).
+# Cut (SCORING.md 4.1): the decrypt's identity side is DecryptReceipts,
+# explicit (Action kms:Decrypt, a context condition naming the bucket's
+# ARN): revoke, 3; aws_kms_key.receipts has no policy, so the AWS default
+# key policy applies (Principal: the account root, kms:*): broad, narrow,
+# key policy, 2. The decrypt costs 2. The read is s3:GetObject on
+# "<receipts ARN>/*", explicit: revoke, identity, 3, and the bucket has no
+# policy. The derived read is cut at the decrypt (2 < 3), key policy side;
+# the other side is the identity revoke. The alternative sharing no edge is
+# the read (3), cheaper than the trust (IRSA, :sub exact: revoke, 7; Pod
+# Identity, Principal pods.eks.amazonaws.com exact: revoke, 7).
+def receipts_path(defaults):
+    cut, alt = decrypt_cut(ROLE, RECEIPTS_KEY, RECEIPTS)
+    return path_finding("DARB-PATH-001", API, RECEIPTS,
+                        [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {RECEIPTS}"],
+                        324, "medium", cut, alt, confirmed=False, confidence="low", defaults=defaults,
+                        undecided=["Bucket Key", "bucket_key_enabled"],
+                        fix=[step(cut[0], "resource", "narrow", 2)],
+                        other_side=[step(cut[0], "identity", "revoke", 3)],
+                        alternative_detail=[step(alt[0], "identity", "revoke", 3)])
+
+
+E["01_classic/fixed"] = {"derived_from": "13.2 row 1 fixed: reads only the receipts bucket, decrypt scoped by encryption context; "
+                                         "the receipts bucket has no classification",
+                         "findings": [receipts_path(IRSA_DEFAULTS), rotation_off(RECEIPTS_KEY), no_default_deny(NS_PAYMENTS)],
+                         "absent": ABSENT_PII, "notes": [unclassified_note(RECEIPTS)]}
 
 # 2 - split in the Phase 4 review into 2a, 2b, 2c. Read + decrypt on A
 # only; A is intended access; nothing reaches B. The decrypt grant must use
@@ -169,7 +231,10 @@ for name, (why, vulnerable, fixed) in SCENARIO2.items():
         E[f"{name}/{v}"] = {
             "derived_from": why + ("" if v == "vulnerable" else " (fixed)"),
             "findings": [rotation_off(RECEIPTS_KEY), no_default_deny(NS_PAYMENTS)],
-            "absent": ABSENT_PII, "intended_access": intended(status)}
+            # The receipts bucket has no classification; api, its only
+            # reader, reads it as declared: not reported.
+            "absent": ABSENT_PII + [{"rule": "DARB-PATH-001", "jewel": RECEIPTS}],
+            "intended_access": intended(status), "notes": [unclassified_note(RECEIPTS)]}
 
 # 3 - decrypt on B's key only with another bucket's encryption context: no path.
 for v in ("vulnerable", "fixed"):
@@ -553,8 +618,8 @@ E["16_malformed_inputs/fixed"] = {"derived_from": "13.2 row 16 fixed: valid file
 # 17 - scenario 1 through EKS Pod Identity.
 E["17_pod_identity_classic/vulnerable"] = {"derived_from": "13.2 row 17", "findings": [classic(defaults=POD_IDENTITY_DEFAULTS), no_default_deny(NS_PAYMENTS)]}
 E["17_pod_identity_classic/fixed"] = {"derived_from": "13.2 row 17 fixed (as scenario 1 fixed)",
-                                      "findings": [rotation_off(RECEIPTS_KEY), no_default_deny(NS_PAYMENTS)],
-                                      "absent": ABSENT_PII}
+                                      "findings": [receipts_path(POD_IDENTITY_DEFAULTS), rotation_off(RECEIPTS_KEY), no_default_deny(NS_PAYMENTS)],
+                                      "absent": ABSENT_PII, "notes": [unclassified_note(RECEIPTS)]}
 
 
 # DARB-POST-008 (Phase 5 review): a broad grant of a sensitive action.
@@ -710,9 +775,67 @@ E["23_k8s_secret_mount/vulnerable"] = {"derived_from": "DESIGN.md 12.1 priority 
                  other_side=[], alternative_detail=[step(POD_CREATE_EDGE, "rbac", "revoke", 5)]),
     posture("DARB-POST-004", CI, 350, "medium", [AUTOMOUNT_DEFAULT]),
     no_default_deny(NS_PAYMENTS)]}
-E["23_k8s_secret_mount/fixed"] = {"derived_from": "DESIGN.md 12.1 priority 1, fixed: no jewel named, no pod creation",
-                                  "findings": [posture("DARB-POST-004", CI, 350, "medium", [AUTOMOUNT_DEFAULT]), no_default_deny(NS_PAYMENTS)],
-                                  "absent": [{"rule": "DARB-PATH-001", "jewel": DB_SECRET}]}
+# Fixed, with unclassified stores: api-config has no classification, so it
+# is a jewel of classification unclassified. api (not exposed: 400) names
+# it: one edge, CAN_READ_PLAINTEXT[mount]: likelihood 400; impact 400 x
+# blast radius 1000 = 400; 400 x 400 = 160, low. Cut as in the vulnerable
+# variant: stop naming it, workload, revoke, 5; one edge, no alternative.
+# ci's Role may only get and list pods: it reaches neither Secret.
+API_CONFIG = f"k8s:{PROD}/payments/Secret/api-config"
+CONFIG_MOUNT = f"CAN_READ_PLAINTEXT[mount] {API_W} -> {API_CONFIG}"
+E["23_k8s_secret_mount/fixed"] = {"derived_from": "DESIGN.md 12.1 priority 1, fixed: no classified jewel named, no pod creation",
+                                  "findings": [
+                                      path_finding("DARB-PATH-001", API_W, API_CONFIG, [f"CAN_READ_PLAINTEXT[mount] {API_CONFIG}"],
+                                                   160, "low", [CONFIG_MOUNT], [], fix=[step(CONFIG_MOUNT, "workload", "revoke", 5)],
+                                                   other_side=[], alternative_detail=[]),
+                                      posture("DARB-POST-004", CI, 350, "medium", [AUTOMOUNT_DEFAULT]), no_default_deny(NS_PAYMENTS)],
+                                  "absent": [{"rule": "DARB-PATH-001", "jewel": DB_SECRET}],
+                                  "notes": [unclassified_note(API_CONFIG)]}
+
+# 24 - an untagged bucket (added after v0.1.0-rc.1). records/exporter (no
+# Service: not exposed, 400) runs as records/exporter, whose IRSA role
+# records-exporter (trust: :sub and :aud exact) has s3:GetObject on
+# "arn:aws:s3:::patient-records-vault/*". The bucket has no tags, no
+# policy and no encryption configuration (SSE-S3 by documented default):
+# unclassified. Its public access block turns everything off: with no
+# bucket policy nothing grants public access (ACLs are not modelled yet, a
+# note), so it adds no edge. RUNS_AS, ASSUMES,
+# CAN_READ_PLAINTEXT: 3 edges (810): 400 x 810 = 324; impact 400 x blast
+# radius 1000 = 400; 324 x 400 = 129 (rounded down), low. Cut: the read,
+# explicit: revoke, identity, 3; no bucket policy, no key: no other side.
+# Alternative: the IRSA trust, :sub exact: revoke, trust, 7 (RUNS_AS is
+# never offered). Posture rules do not apply to an unclassified bucket:
+# no DARB-POST-005, although restrict_public_buckets is false (it would
+# fire on a classified bucket); DARB-POST-007 on records. The coverage note names the bucket.
+# fixed: the exporter only writes to the vault (s3:PutObject): no read, no
+# path; the bucket is still unclassified, so the note stays.
+# ignore: the vulnerable input with crown_jewels.unclassified: ignore in
+# darb.yaml: the bucket is no jewel, no path, and the note says the
+# store was not scanned.
+VAULT = "arn:aws:s3:::patient-records-vault"
+EXPORTER = f"k8s:{PROD}/records/Deployment/exporter"
+SA_EXPORTER = f"k8s:{PROD}/records/ServiceAccount/exporter"
+EXPORTER_ROLE = f"arn:aws:iam::{ACCT}:role/records-exporter"
+NS_RECORDS = f"k8s:{PROD}//Namespace/records"
+VAULT_READ = f"CAN_READ {EXPORTER_ROLE} -> {VAULT}"
+EXPORTER_TRUST = f"ASSUMES {SA_EXPORTER} -> {EXPORTER_ROLE}"
+E["24_unclassified_bucket/vulnerable"] = {"derived_from": "after v0.1.0-rc.1: a data store without classification is a crown jewel, unclassified", "findings": [
+    path_finding("DARB-PATH-001", EXPORTER, VAULT,
+                 [f"RUNS_AS {SA_EXPORTER}", f"ASSUMES {EXPORTER_ROLE}", f"CAN_READ_PLAINTEXT {VAULT}"],
+                 129, "low", [VAULT_READ], [EXPORTER_TRUST], defaults=IRSA_DEFAULTS + [S3_DEFAULT],
+                 fix=[step(VAULT_READ, "identity", "revoke", 3)], other_side=[],
+                 alternative_detail=[step(EXPORTER_TRUST, "trust", "revoke", 7)]),
+    no_default_deny(NS_RECORDS)],
+    "absent": [{"rule": "DARB-POST-005", "resource": VAULT}],
+    "notes": [unclassified_note(VAULT)]}
+E["24_unclassified_bucket/fixed"] = {"derived_from": "after v0.1.0-rc.1, fixed: the exporter only writes to the bucket",
+                                     "findings": [no_default_deny(NS_RECORDS)],
+                                     "absent": [{"rule": "DARB-PATH-001", "jewel": VAULT}],
+                                     "notes": [unclassified_note(VAULT)]}
+E["24_unclassified_bucket/ignore"] = {"derived_from": "after v0.1.0-rc.1: the vulnerable input with crown_jewels.unclassified: ignore",
+                                      "findings": [no_default_deny(NS_RECORDS)],
+                                      "absent": [{"rule": "DARB-PATH-001", "jewel": VAULT}],
+                                      "notes": [ignored_note(VAULT)]}
 
 # Phase 6 review, item 2 - 01_classic/key_outside_input: scenario 1 with the
 # PII bucket encrypted by a key that is not in the input (aws_kms_key.pii
@@ -927,11 +1050,14 @@ with_remediation("10_kms_principal_org_id/vulnerable", "DARB-PATH-001", PII, {"m
 # fixed). The fixed variant is that root-cause fix applied.
 E["01b_classic_intended/vulnerable"] = {"derived_from": "Phase 5 review: scenario 1 with intended_access declared",
     "findings": [classic(), rotation_off(RECEIPTS_KEY), no_default_deny(NS_PAYMENTS), broad_grant(ROLE)],
-    "intended_access": intended("verified")}
+    # api reads the unclassified receipts bucket as declared: not reported.
+    "absent": [{"rule": "DARB-PATH-001", "jewel": RECEIPTS}],
+    "intended_access": intended("verified"), "notes": [unclassified_note(RECEIPTS)]}
 with_remediation("01b_classic_intended/vulnerable", "DARB-PATH-001", PII, {"order": ["root-cause", "mitigation"], "verified": [True, True]})
 E["01b_classic_intended/fixed"] = {"derived_from": "Phase 5 review: the root-cause fix of 1b applied (kms:Decrypt on the receipts key only)",
     "findings": [rotation_off(RECEIPTS_KEY), no_default_deny(NS_PAYMENTS)],
-    "absent": ABSENT_PII, "intended_access": intended("verified")}
+    "absent": ABSENT_PII + [{"rule": "DARB-PATH-001", "jewel": RECEIPTS}],
+    "intended_access": intended("verified"), "notes": [unclassified_note(RECEIPTS)]}
 
 
 # Fingerprints (DESIGN.md 5 "Stable IDs", 8 "Fingerprint", 8.1 "Posture

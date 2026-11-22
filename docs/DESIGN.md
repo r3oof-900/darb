@@ -592,7 +592,35 @@ MVP: error, and advise scanning one source of truth per account. A future
 **Crown jewels** come from (a) classification tags (configurable keys and values,
 default `DataClass ∈ {pii, pci, phi, secret}`), (b) explicit config entries, or
 (c) the default heuristic (KMS keys, buckets, secrets and SecureString parameters
-tagged sensitive). Each crown jewel records **which** of these marked it.
+tagged sensitive), or (d) none of these: a **data store** (an S3 bucket, a
+Secrets Manager secret, an SSM parameter that is a SecureString or whose type is
+unknown, a Kubernetes Secret) that nothing classifies is a crown jewel of
+classification **`unclassified`** (`classified_by: default:unclassified`).
+Each crown jewel records **which** of these marked it.
+
+*Unclassified data stores (decided after v0.1.0-rc.1).* A store nobody tagged
+may hold anything, and a scan that drops it silently looks clean when it is
+not: v0.1.0-rc.1 reported nothing for a role reading an untagged bucket. So:
+
+- it is a jewel for **paths** (`DARB-PATH-001/002/003`, public reads included),
+  with value 400 (SCORING.md §1.2), and the finding says
+  `jewel_classification: unclassified`; posture rules (`DARB-POST-005`) stay
+  on classified jewels;
+- blast radius counts classified jewels only: an unclassified store raises no
+  other finding's score;
+- a KMS key is never one: it protects data and holds none (rule 2 below);
+- every report names the stores in one coverage note
+  (`unclassified-data-stores`, printed by the console): *N data stores have no
+  classification; treated as `unclassified`: tag them or list them in
+  `crown_jewels.explicit`*, with their names;
+- `crown_jewels.unclassified: ignore` turns this off: the stores are no jewels,
+  and the note says they were not scanned (scenario 24, variant `ignore`).
+
+A declared `intended_access` pair (a workload reading a whole bucket,
+`<bucket ARN>/*`) is not reported, whatever the bucket's classification: it is
+what the user said the workload does. Its edges stay uncuttable for every other
+finding (SCORING.md §4), and a declaration of part of a bucket (a prefix)
+leaves the pair reported, since the path reads more than was declared.
 
 **Entry points**: workloads exposed via `Service` `LoadBalancer`/`NodePort` or
 `Ingress`; plus every workload under the "assume any pod compromised" threat model
@@ -733,7 +761,11 @@ A derived edge (`CAN_READ_PLAINTEXT`) takes the kind of its underlying edges.
 Every unknown is named in the finding's `undecided`, with what resolves it:
 `tools/refresh-managed-policies` for an AWS managed policy missing from the
 snapshot, `assume:` in darb.yaml for a context key, `--plan` for a value
-Terraform resolves, the input to add for a key or a role outside it.
+Terraform resolves, the input to add for a key or a role outside it, and
+`bucket_key_enabled` for a bucket whose Bucket Key setting is not stated when
+a decrypt grant holds under one of the two encryption contexts S3 may send and
+not the other (§9.1; 1 fixed, found after v0.1.0-rc.1: that unknown was named
+nowhere).
 `--fail-on` counts every status at its (worst-case) severity. Property tests:
 every resolution of a path's unknowns scores at most what is reported, and
 adding an unknown policy to a principal never lowers a severity
@@ -1475,6 +1507,19 @@ explanation" and HTML-escaped like any other untrusted string.
 
 ## 11. CLI and output
 
+**Paths (Phase 7).** `darb scan [PATHS...]` and `darb graph [PATHS...]` take
+directories as well as flags: under each, every top-most directory holding
+`.tf` files is a `--terraform` input, every top-most directory holding a
+Kubernetes manifest (a YAML or JSON document with `apiVersion` and `kind`) a
+`--k8s` input, and every directory with a `darb-snapshot/v1` manifest an
+`--aws-snapshot` input; hidden directories are skipped, as the readers skip
+them. With one path and no `--root`, the path is the root, so its `darb.yaml` is
+read. A path that is a file, does not exist, or holds none of these is a usage
+error naming it. Flags may follow the paths. `TestScanPathsEqualExplicitFlags`:
+`darb scan DIR` gives the report of the explicit flags byte for byte. Every
+usage error prints a message (`TestEveryUsageErrorSaysSomething`); a command
+that exits 2 without one gets a hint.
+
 Commands: `scan`, `explain`, `graph`, `remediate`, `rules list|show`,
 `collect-snapshot`, `doctor`, `version` (spec §11.1).
 
@@ -1884,11 +1929,20 @@ Encryption type of every jewel bucket is stated explicitly in the fixture
 | 21 | (Phase 6) A **Kubernetes Secret** (`DataClass: secret`); `payments/ci` may `get secrets` in `payments`, its token mounted by default | RBAC `get secrets` | `DARB-PATH-001` (its own token, then the RBAC read: direct access, §7.2), 360 medium; cut: the token mount (revoke, 5), alternative the RBAC read (5) |
 | 23 | (Phase 7) The same Secret read **without an RBAC read**: `payments/api` names it in an env var and a volume (token not mounted); `payments/ci` may `create pods` in `payments`, its token mounted by default | `CAN_READ_PLAINTEXT[mount]`; `CAN_READ_PLAINTEXT[pod-create]` | `DARB-PATH-001` api, 400 medium, cut the mount (workload, revoke, 5), no alternative; `DARB-PATH-001` ci-runner, 360 medium, cut the token mount (5), alternative the pod-creation grant (rbac, 5); fixed: api names a non-jewel Secret, ci may only read pods |
 | 22 | (Phase 6 review) One pair, two findings: `apps/app` → `role/app` reads the PII bucket, its decrypt conditioned on an unresolved variable; `role/app` may assume `role/ops`, which may rewrite its own policy. Variants: `fixed` (role/ops lists only), `dominance` (role/app decrypts unconditionally and rewrites its own policy; no role/ops) | `s3:GetObject`, `kms:Decrypt` (conditioned), `sts:AssumeRole` on role/ops; role/ops `iam:PutRolePolicy` on itself | vulnerable: `DARB-PATH-001` (unconfirmed, 291 medium, cut: resolve the variable) and `DARB-PATH-002` (confirmed, 235 low); fixed: the direct finding only; dominance: one `DARB-PATH-001` whose cut breaks the dominated escalation too (decrypt 1 + escalation 4) |
+| 24 | (after v0.1.0-rc.1) An **untagged bucket**: `records/exporter` (not exposed) runs as an IRSA role with `s3:GetObject` on `patient-records-vault/*`; the bucket has no tags, no policy, SSE-S3 by default, Block Public Access off. Variants: `fixed` (the role only writes), `ignore` (`crown_jewels.unclassified: ignore`) | `s3:GetObject` | `DARB-PATH-001` with `jewel_classification: unclassified`, 129 low; cut the read (identity, revoke, 3), alternative the IRSA trust (7); no `DARB-POST-005` (posture rules skip unclassified stores); the coverage note names the bucket; `ignore`: no path, the note says the store was not scanned |
 
 Fixed variants remove exactly the cause the scenario tests (e.g. scenario 1 scopes
 `s3:GetObject` and `kms:Decrypt` to the workload's legitimate bucket and key, with an
 encryption-context condition, so nothing reaches the PII bucket; scenario 4 pins
 `:sub`), and their `expected.json` must show the targeted path gone.
+
+Since unclassified data stores are jewels (§5, after v0.1.0-rc.1), three fixed
+variants report a path to a store nobody tagged, derived by hand before the
+engine changed: 1 fixed and 17 fixed, api to the receipts bucket, unconfirmed
+(its Bucket Key setting is not stated, and the decrypt grant holds only under
+the bucket-ARN context), 324 medium, cut the key policy (narrow, 2); 23 fixed,
+api to the `api-config` Secret it mounts, 160 low. Scenarios 1b and 2a–2c read
+the receipts bucket only as declared (`intended_access`): nothing is reported.
 
 ## 14. Security of the tool itself
 
@@ -1925,9 +1979,9 @@ of 2026-11-22, with the evidence that shows it. CI evidence is the full run on
 | 3 | Every fuzz target ≥ 5 minutes, nightly | §15 | configured, not yet observed | `fuzz.yml` (9 targets, schedule 03:17); `fuzz-smoke` passes on every PR; no nightly run yet on the new repository |
 | 4 | ≥ 95% branch coverage (gobco) on the core | §6.4, §12 | met | `branch-coverage` job (`task cover:branch`) |
 | 5 | Evaluator: ≥ 150 cases, properties | §12 | met | 294 cases in `internal/eval/testdata/eval`; property tests |
-| 6 | Every scenario matches its hand-derived `expected.json` | §8.2, §13 | met | 60 expected files, 155 fingerprints computed in `expected_source.py`; `open_mismatches.txt`: no difference open |
+| 6 | Every scenario matches its hand-derived `expected.json` | §8.2, §13 | met | 63 expected files, 162 fingerprints computed in `expected_source.py`; `open_mismatches.txt`: no difference open (the unclassified-store expectations were committed before the engine change, ce45d0f) |
 | 7 | 50k nodes / 500k edges in < 60 s and < 2 GB | §7.4 | met | `bench` job, "Performance target" step (`DARB_PERF=1`) |
-| 8 | Every vulnerable scenario's patch, applied and rescanned, removes its path | §9.3 | met, with three documented exceptions | `TestEveryVulnerableScenarioIsFixed`: 25 findings fixed; 10 (UNKNOWN: what is missing, no patch), 13 (module input: a TODO), 22 direct (pending resolution) |
+| 8 | Every vulnerable scenario's patch, applied and rescanned, removes its path | §9.3 | met, with three documented exceptions | `TestEveryVulnerableScenarioIsFixed`: 26 findings fixed; 10 (UNKNOWN: what is missing, no patch), 13 (module input: a TODO), 22 direct (pending resolution) |
 | 9 | Same input, byte-identical output | §3.4 | met | goldens scanned twice; `TestExampleReports`; `release-snapshot` builds twice, identical archives |
 | 10 | JSON report validated against its schema | §11 | met | `TestEveryReportMatchesTheSchema`, `TestSchemaDescribesTheGoTypes` |
 | 11 | SARIF validated against the official schema | §11 | met | `TestEverySARIFReportMatchesTheOfficialSchema` (OASIS 2.1.0, pinned) |
@@ -1939,7 +1993,7 @@ of 2026-11-22, with the evidence that shows it. CI evidence is the full run on
 | 14 | Live collectors tested on fakes, LocalStack and kind only | §12 (Phase 6) | met | `localstack` and `kind` jobs; no test reaches a cloud API |
 | 15 | No secret in logs, errors or LLM evidence | §10, THREAT_MODEL | met | `internal/redact` tests, `TestStderrIsRedacted`, `TestRequestCarriesOnlyPreparedEvidence` |
 | 16 | LLM off by default, labelled, never deciding | §10 | met | `TestScanLLM`, `TestExplainedReportMatchesTheSchema` |
-| 17 | Releases: reproducible, SBOM, signed, provenance | §12, THREAT_MODEL | partly observed | `release-snapshot` (reproducible archives, SBOMs); cosign signing and provenance run only on a `v*` tag: no release yet |
+| 17 | Releases: reproducible, SBOM, signed, provenance | §12, THREAT_MODEL | met (v0.1.0-rc.1) | `release-snapshot` (reproducible archives, SBOMs). Release `v0.1.0-rc.1` (tag at be240da, 12 artifacts), checked on 2026-11-22 from the published files: `sha256sum -c checksums.txt` 12/12 OK; `cosign verify-blob` (cosign 3.1.4, the README command) on `checksums.txt` with its `checksums.txt.sigstore.json`: verified, identity `release.yml` at the tag, issuer `token.actions.githubusercontent.com`; `gh attestation verify --repo r3oof-900/darb --signer-workflow r3oof-900/darb/.github/workflows/release.yml`: 13 of 13 files pass (SLSA provenance v1, source digest be240da, trigger push). Negatives fail as they should: a modified file (no attestation for its digest), another signer workflow (`ci.yml`), another repository, a modified `checksums.txt` (invalid signature), another identity or issuer. The Windows binary reports `0.1.0-rc.1 (commit be240da…)`, built with `-trimpath`, `vcs.modified=false`; scenario 1 scanned with it gives the fingerprints of its `expected.json` |
 | 18 | Commands of §11 | §11 | met, one item open | scan, explain, graph, remediate, rules, collect-snapshot, doctor, version; `doctor` does not call `iam:SimulatePrincipalPolicy` (§11) |
 | 19 | Dependencies ≥ 2 weeks old, actions pinned by SHA, no known vulnerability | §12, CONTRIBUTING | met | `security` job (depage, govulncheck, gitleaks); 85 requirements |
 | 20 | AWS managed-policy snapshot complete before a real-account scan | §12.1 | **not met** (deferred) | 3 policies vendored; `tools/refresh-managed-policies` ready, not run as instructed; `darb doctor` warns |

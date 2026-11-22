@@ -1,0 +1,108 @@
+{
+  "addons": [],
+  "boundaries": [],
+  "clusters": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "name": "prod",
+      "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
+      "region": "us-east-1",
+      "source": "darb.yaml (clusters.prod)"
+    }
+  ],
+  "collected": 8,
+  "entry_points": [
+    {
+      "public": "unknown",
+      "reason": "assume-compromised",
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/records/Deployment/exporter"
+    }
+  ],
+  "exposures": [],
+  "gaps": [],
+  "mappings": [],
+  "network_policies": [],
+  "node_groups": [],
+  "pod_identity": [],
+  "policies": [
+    {
+      "kind": "identity",
+      "policy": "aws_iam_role_policy.exporter",
+      "source": "terraform/role.tf:6-15 (aws_iam_role_policy.exporter)",
+      "statements": [
+        "Allow s3:PutObject on arn:aws:s3:::patient-records-vault/* (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/records-exporter",
+      "unresolved_statements": 0
+    }
+  ],
+  "principals": [
+    {
+      "account": "111122223333",
+      "identity": "arn:aws:iam::111122223333:role/records-exporter",
+      "kind": "aws:iam:role",
+      "source": "terraform/role.tf:1-4 (aws_iam_role.exporter)"
+    }
+  ],
+  "rbac": [],
+  "resources": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:s3:::patient-records-vault",
+      "classification": "unclassified",
+      "classified_by": "default:unclassified",
+      "defaulted": [
+        "s3.default-encryption"
+      ],
+      "encryption": {
+        "Type": "AES256",
+        "KeyARN": "",
+        "BucketKey": "unknown"
+      },
+      "kind": "aws:s3:bucket",
+      "region": "us-east-1",
+      "restrict_public_buckets": "false",
+      "source": "terraform/vault.tf:4-6 (aws_s3_bucket.vault)"
+    }
+  ],
+  "service_accounts": [
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
+      "role_arn": "arn:aws:iam::111122223333:role/records-exporter",
+      "source": "k8s/records.yaml:6 (ServiceAccount/records/exporter)",
+      "subject": "system:serviceaccount:records:exporter"
+    }
+  ],
+  "trusts": [
+    {
+      "kind": "resource",
+      "policy": "aws_iam_role.exporter.assume_role_policy",
+      "source": "terraform/role.tf:1-4 (aws_iam_role.exporter)",
+      "statements": [
+        "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (2 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/records-exporter",
+      "unresolved_statements": 0
+    }
+  ],
+  "workloads": [
+    {
+      "automount_token": "true",
+      "defaulted": [
+        "k8s.automountServiceAccountToken"
+      ],
+      "host_network": false,
+      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/records/Deployment/exporter",
+      "privileged": false,
+      "service_account": "exporter",
+      "source": "k8s/records.yaml:15 (Deployment/records/exporter)"
+    }
+  ]
+}

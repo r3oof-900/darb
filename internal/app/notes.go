@@ -5,7 +5,10 @@ import (
 	"strings"
 
 	"github.com/r3oof-900/darb/internal/access"
+	"github.com/r3oof-900/darb/internal/classify"
+	"github.com/r3oof-900/darb/internal/config"
 	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/pkg/schema"
 )
 
 // notModelled lists what the engine does not analyse yet (DESIGN.md §12.0).
@@ -126,4 +129,37 @@ func ramNote(inv *model.Inventory) (access.Note, bool) {
 		Detail: "cross-account access is evaluated from the resource policies collected; a share through AWS RAM is not collected, " +
 			"so another account it grants read access to is not seen. Only advanced-tier parameters can be shared: " + list,
 	}, true
+}
+
+// NoteUnclassified is the subject of the note that names the data stores
+// no rule classifies (DESIGN.md §5, crown jewels).
+const NoteUnclassified = "Unclassified data stores"
+
+// unclassifiedNotes: the data stores that nothing classified. By default
+// they are jewels of classification unclassified, and the note says how to
+// classify them; with crown_jewels.unclassified: ignore they are no jewels,
+// and the note says they were not scanned.
+func unclassifiedNotes(inv *model.Inventory, cfg *config.Config) []access.Note {
+	ignore := cfg.CrownJewels.IgnoreUnclassified()
+	var count int
+	list := named(inv, func(r *model.Resource) (string, bool) {
+		class, _ := r.Classification()
+		ok := classify.DataStore(r) && (class == classify.Unclassified || ignore && class == "")
+		if ok {
+			count++
+		}
+		return r.ARN(), ok
+	})
+	if count == 0 {
+		return nil
+	}
+	stores, has := "1 data store has", "was"
+	if count > 1 {
+		stores, has = fmt.Sprintf("%d data stores have", count), "were"
+	}
+	detail := stores + " no classification; treated as `unclassified`: tag them or list them in `crown_jewels.explicit`: " + list
+	if ignore {
+		detail = stores + " no classification and " + has + " not scanned (`crown_jewels.unclassified: ignore`): " + list
+	}
+	return []access.Note{{Kind: schema.NoteUnclassified, Subject: NoteUnclassified, Detail: detail}}
 }

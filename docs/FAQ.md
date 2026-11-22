@@ -27,6 +27,18 @@ the report lists the coverage it rests on (inputs, gaps, `not-modelled`
 notes). With nothing collected, the console says so and the exit code is 3.
 Exit 0 also requires coverage within tolerance (default: no gap).
 
+### Why is a bucket nobody tagged reported?
+
+A data store (an S3 bucket, a Secrets Manager secret, a SecureString
+parameter, a Kubernetes Secret) that no tag or `crown_jewels.explicit` entry
+classifies may hold anything, so darb does not drop it: it is a crown jewel of
+classification `unclassified`, valued 400 like `internal` (a path to one is at
+most medium), not counted in blast radius, with no posture rules. The report
+names every such store in one note: tag them, or list them in
+`crown_jewels.explicit`. To scan classified data only, set
+`crown_jewels.unclassified: ignore`; the note then says which stores were not
+scanned. A workload's read declared in `intended_access` is not reported.
+
 ### Why exit code 3 when there are no findings?
 
 The scan is incomplete: a coverage gap above the tolerance in `darb.yaml`

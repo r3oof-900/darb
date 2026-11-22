@@ -237,6 +237,7 @@
         "undecided": {"description": "For an unconfirmed path: what would decide it (a context key to assume, a value a plan resolves, a precondition to state).", "type": "array", "items": {"type": "string"}},
         "entry": {"description": "Path findings: the entry point's canonical identity.", "type": "string"},
         "jewel": {"description": "Path findings: the crown jewel.", "type": "string"},
+        "jewel_classification": {"description": "Path findings: the jewel's classification; unclassified for a data store no rule classifies.", "type": "string"},
         "resource": {"description": "Posture findings: the resource.", "type": "string"},
         "path": {"type": "array", "items": {"type": "string"}},
         "paths_found": {"type": "integer", "minimum": 0},

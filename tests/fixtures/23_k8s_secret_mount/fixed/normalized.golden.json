@@ -60,8 +60,8 @@
     {
       "account": "",
       "arn": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Secret/api-config",
-      "classification": "",
-      "classified_by": "",
+      "classification": "unclassified",
+      "classified_by": "default:unclassified",
       "defaulted": [],
       "kind": "k8s:secret",
       "region": "",

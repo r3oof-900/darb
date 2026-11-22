@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/r3oof-900/darb/internal/access"
 	"github.com/r3oof-900/darb/internal/model"
 	"github.com/r3oof-900/darb/internal/rules"
 )
@@ -32,6 +33,14 @@ type expectedFile struct {
 	Absent         []expectedFinding  `json:"absent"`
 	IntendedAccess []expectedIntended `json:"intended_access"`
 	NoEdges        []expectedNoEdge   `json:"no_edges"`
+	// Notes: notes the report must carry, each by subject with texts its
+	// detail must contain (the unclassified data stores note names them).
+	Notes []expectedNote `json:"notes"`
+}
+
+type expectedNote struct {
+	Subject  string   `json:"subject"`
+	Contains []string `json:"contains"`
 }
 
 type expectedFinding struct {
@@ -282,6 +291,13 @@ func compareExpected(t *testing.T, exp *expectedFile, a *Analysis) []string {
 			if matches(&exp.Absent[i], &a.Findings[j]) {
 				out = append(out, "must be absent: "+describe(&exp.Absent[i]))
 			}
+		}
+	}
+	for _, n := range exp.Notes {
+		if !slices.ContainsFunc(a.Notes, func(got access.Note) bool {
+			return got.Subject == n.Subject && !slices.ContainsFunc(n.Contains, func(s string) bool { return !strings.Contains(got.Detail, s) })
+		}) {
+			out = append(out, fmt.Sprintf("missing note %q containing %q", n.Subject, n.Contains))
 		}
 	}
 	for _, ia := range exp.IntendedAccess {

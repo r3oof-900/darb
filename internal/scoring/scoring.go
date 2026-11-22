@@ -83,7 +83,7 @@ func Classification(class string) int {
 		return 900
 	case "confidential":
 		return 700
-	case "internal":
+	case "internal", "unclassified":
 		return 400
 	}
 	return 600 // tagged sensitive (default heuristic)

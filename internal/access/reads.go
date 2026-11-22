@@ -177,7 +177,9 @@ func publicAccess(v eval.Verdict, restrict model.Tri) eval.Verdict {
 // decrypt evaluates kms:Decrypt by S3 for this bucket. The encryption context
 // aws:s3:arn is the bucket ARN with an S3 Bucket Key and the object ARN
 // without (S3 User Guide › "Encryption context"); when the Bucket Key setting
-// is unknown, both are tried and the result is definite only if they agree.
+// is unknown, both are tried and the result is definite only if they agree;
+// when they do not, the edge is UNKNOWN and names the setting
+// (BucketKeyElement).
 func (b *builder) decrypt(role *model.Principal, principal match.RequestPrincipal, j *model.Resource) (eval.Verdict, graph.EdgeID, bool) {
 	enc := j.Encryption()
 	if enc.KeyARN == "" {
@@ -205,6 +207,12 @@ func (b *builder) decrypt(role *model.Principal, principal match.RequestPrincipa
 			result = &d
 		} else if result.Verdict != d.Verdict {
 			result.Verdict = both(either(result.Verdict, d.Verdict), eval.Unknown)
+			// The two contexts decide differently: the Bucket Key setting is
+			// what is undecided (DESIGN.md §6.2: every unknown is named).
+			result.Unresolved = append(result.Unresolved, eval.Unresolved{
+				PolicyID: j.ARN(), Element: BucketKeyElement, Key: "bucket_key_enabled",
+				Reason: "kms:Decrypt is granted under one encryption context S3 may send and not under the other",
+			})
 		}
 	}
 	if !grants(result.Verdict) {
@@ -259,3 +267,7 @@ func nonNil(fs []graph.Fix) []graph.Fix {
 	}
 	return fs
 }
+
+// BucketKeyElement marks an UNKNOWN decrypt whose result depends on the
+// bucket's S3 Bucket Key setting, which the input does not state.
+const BucketKeyElement = "BucketKey"

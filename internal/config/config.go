@@ -49,7 +49,20 @@ type CrownJewels struct {
 	TagKeys   []string        `json:"tag_keys"`
 	TagValues []string        `json:"tag_values"`
 	Explicit  []ExplicitJewel `json:"explicit"`
+	// Unclassified: what a data store none of the above classifies is:
+	// "include" (the default), a crown jewel of classification
+	// unclassified; "ignore", no jewel, which the report states.
+	Unclassified string `json:"unclassified"`
 }
+
+// Values of crown_jewels.unclassified.
+const (
+	UnclassifiedInclude = "include"
+	UnclassifiedIgnore  = "ignore"
+)
+
+// IgnoreUnclassified reports whether crown_jewels.unclassified is ignore.
+func (c *CrownJewels) IgnoreUnclassified() bool { return c.Unclassified == UnclassifiedIgnore }
 
 // ExplicitJewel marks one resource by ARN.
 type ExplicitJewel struct {
@@ -127,6 +140,9 @@ func (c *Config) validate() error {
 	}
 	if c.Terraform.Account != "" && !arn.IsAccountID(c.Terraform.Account) {
 		add("terraform.account %q is not a 12-digit account ID", c.Terraform.Account)
+	}
+	if u := c.CrownJewels.Unclassified; u != "" && u != UnclassifiedInclude && u != UnclassifiedIgnore {
+		add("crown_jewels.unclassified must be %s or %s, got %q", UnclassifiedInclude, UnclassifiedIgnore, u)
 	}
 	c.validateClusters(add)
 	c.validateAccess(add)

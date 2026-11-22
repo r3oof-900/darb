@@ -95,7 +95,7 @@ func finding(f *rules.Finding) schema.Finding {
 			Confidence: f.Factors.Confidence, Likelihood: f.Factors.Likelihood, Classification: f.Factors.Classification,
 			BlastRadius: f.Factors.BlastRadius, Impact: f.Factors.Impact,
 		},
-		Entry: f.Entry, Jewel: f.Jewel, Resource: f.Resource, Path: f.Path, PathsFound: f.Paths, PathsTruncated: f.Truncated,
+		Entry: f.Entry, Jewel: f.Jewel, JewelClassification: f.JewelClassification, Resource: f.Resource, Path: f.Path, PathsFound: f.Paths, PathsTruncated: f.Truncated,
 		Chokepoints: f.Chokepoints, CutCost: f.CutCost, NoFix: f.NoFix, AlternativeFix: f.Alternative, Fix: steps(f.Fix), OtherSideFix: steps(f.OtherSideFix), AlternativeFixDetail: steps(f.AlternativeDetail), SharedFixPossible: f.SharedFix,
 		DefaultsUsed: []schema.Default{}, Evidence: f.Evidence, Fingerprint: f.Fingerprint, Location: location(&f.Location),
 		WorstCasePath: f.WorstCasePath, RemediationStatus: f.RemediationStatus,

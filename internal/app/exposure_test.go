@@ -41,14 +41,16 @@ func TestExposedToIsCuttable(t *testing.T) {
 		t.Fatalf("the exposure is the cut, revoke, 20: %+v", f)
 	}
 
-	// With assume-compromised (the default) the pod is the entry: the
-	// exposure is never on a path, so intended access leaves no fix.
+	// With assume-compromised (the default) the pod is the entry, and the
+	// pair is the declared access itself: not reported, whatever the
+	// jewel's classification (decided after v0.1.0-rc.1; it was a finding
+	// with no fix).
 	a = analyzeVariant(t, "01_classic/vulnerable", func(dir string) {
 		appendConfig(t, dir, "intended_access:", "  - principal: \"k8s:prod/payments/Deployment/api\"",
 			"    action: \"s3:GetObject\"", "    resource: \""+piiBucket+"/*\"")
 	})
-	if f = findingFor(a, "DARB-PATH-001", piiBucket); f == nil || !f.NoFix {
-		t.Fatalf("assume-compromised: no fix: %+v", f)
+	if f = findingFor(a, "DARB-PATH-001", piiBucket); f != nil {
+		t.Fatalf("assume-compromised: the declared pair is reported: %+v", f)
 	}
 }
 

@@ -65,6 +65,11 @@ func missingOf(u *Unknown) string {
 		return fmt.Sprintf("set `assume: {%q: [...]}` in darb.yaml: %s conditions on %s, whose value is not in the input (%s)",
 			u.Key, u.Policy, u.Key, u.Reason)
 	}
+	if u.Element == "BucketKey" { // access.BucketKeyElement
+		return fmt.Sprintf("the S3 Bucket Key setting of %s is not in the input, and it decides the KMS encryption context "+
+			"(the bucket ARN with a Bucket Key, the object ARN without): state bucket_key_enabled in its "+
+			"aws_s3_bucket_server_side_encryption_configuration, or scan a snapshot of its account (%s)", u.Policy, u.Reason)
+	}
 	if key, ok := strings.CutSuffix(u.Policy, "#key-policy-not-in-input"); ok {
 		return fmt.Sprintf("the KMS key %s is not in the input, so its key policy is unknown: "+
 			"scan the key's Terraform or plan, or a snapshot of its account", key)

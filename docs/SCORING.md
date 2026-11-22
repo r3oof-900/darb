@@ -46,8 +46,20 @@ know. `confidence` is still reported per finding, and as the factor
 
 | Factor | Value (per-mille) | Source |
 |---|---|---|
-| **classification** — crown jewel | `secret`, `pci`, `phi` 1000; `pii` 900; `confidential` 700; default heuristic "tagged sensitive" 600; `internal` 400 | crown-jewel marking (configurable map) |
-| **blast_radius** | `1000 + 100 × floor(log2(N))`, capped at `1500`, where `N` = number of distinct crown jewels reachable from the same entry point | path engine reachability |
+| **classification** — crown jewel | `secret`, `pci`, `phi` 1000; `pii` 900; `confidential` 700; default heuristic "tagged sensitive" 600; `internal` 400; `unclassified` 400 | crown-jewel marking (configurable map) |
+| **blast_radius** | `1000 + 100 × floor(log2(N))`, capped at `1500`, where `N` = number of distinct **classified** crown jewels reachable from the same entry point (`unclassified` ones are not counted; `N = 0` gives 1000) | path engine reachability |
+
+**`unclassified` (decided after v0.1.0-rc.1).** A data store that nothing
+classifies (DESIGN.md §5) is a jewel of classification `unclassified`, valued
+like `internal`, 400: below every class that names sensitive data, since
+nothing says it holds any, and above nothing, since nothing says it does not.
+A workload reading one is at most medium (exposure 1000, one edge: 1000 × 400
+= 400), so the default `--fail-on high` does not fail on it alone; the
+coverage note names every such store, so the fix is to classify it. It is
+not counted in blast radius, and posture rules do not apply to it. Scenario
+24: an untagged bucket read through IRSA by a workload that is not exposed:
+400 × 810 = 324; 324 × 400 = 129, low. `crown_jewels.unclassified: ignore`
+drops these jewels and the report says so.
 
 ### 1.3 Severity bands
 

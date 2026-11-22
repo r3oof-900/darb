@@ -92,6 +92,12 @@
       "fingerprint": "e81515b217b99141d89ed1cf5b3528e18f5e8891a35b669a764993427a35bd67"
     }
   ],
+  "absent": [
+    {
+      "rule": "DARB-PATH-001",
+      "jewel": "arn:aws:s3:::acme-payment-receipts"
+    }
+  ],
   "intended_access": [
     {
       "principal": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
@@ -100,6 +106,15 @@
       "status": "verified"
     }
   ],
-  "absent": [],
+  "notes": [
+    {
+      "subject": "Unclassified data stores",
+      "contains": [
+        "1 data store has no classification; treated as `unclassified`",
+        "tag them or list them in `crown_jewels.explicit`",
+        "arn:aws:s3:::acme-payment-receipts"
+      ]
+    }
+  ],
   "no_edges": []
 }
