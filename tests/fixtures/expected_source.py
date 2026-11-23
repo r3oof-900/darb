@@ -85,7 +85,11 @@ def step(edge, side, kind, cost, policy=None, resolve=None):
 
 
 ADMIN_ACCESS = "arn:aws:iam::aws:policy/AdministratorAccess"
-READ_ONLY = "arn:aws:iam::aws:policy/ReadOnlyAccess"
+# An AWS managed policy ARN that is not in the vendored snapshot (a test
+# guards that), standing for one AWS published after the snapshot was taken.
+# Until the 2026-11-23 refresh the variant used ReadOnlyAccess, which the
+# snapshot now holds.
+NOT_IN_SNAPSHOT = "arn:aws:iam::aws:policy/DarbExampleNotInSnapshot"
 
 
 def posture(rule, resource, score, severity, defaults=None):
@@ -864,8 +868,8 @@ E["01_classic/key_outside_input"] = {"derived_from": "Phase 6 review, item 2: a 
     broad_grant(ROLE), no_default_deny(NS_PAYMENTS)]}
 
 # Phase 6 review, item 1 - 19_secrets_manager/unknown_managed_policy:
-# scenario 19 with the AWS managed policy ReadOnlyAccess attached to
-# payments-api; it is not in the vendored snapshot, so its document is an
+# scenario 19 with an AWS managed policy attached to payments-api that is
+# not in the vendored snapshot (NOT_IN_SNAPSHOT), so its document is an
 # unknown Allow and an unknown Deny. The read and the decrypt are still
 # granted by the role's inline policy and the key policy: their only
 # unknown is a possible Deny: confirmed_unless_denied, confidence medium.
@@ -875,13 +879,13 @@ E["01_classic/key_outside_input"] = {"derived_from": "Phase 6 review, item 2: a 
 # the key policy (kms:PutKeyPolicy) and the secret's resource policy
 # (secretsmanager:PutResourcePolicy): the key policy side is lost
 # (SCORING.md 4.2). Rounds 5-6: the role's own edges keep their identity
-# side. ReadOnlyAccess is not in the snapshot: its share of any grant is
+# side. The policy is not in the snapshot: its share of any grant is
 # an unknown Allow, so it is resolved (0, tools/refresh-managed-policies),
 # never detached (round 7). The decrypt's identity side is the inline
-# kms:Decrypt on "*" (broad, narrow, 1) plus ReadOnlyAccess (resolve, 0);
+# kms:Decrypt on "*" (broad, narrow, 1) plus the policy (resolve, 0);
 # the read's is the inline GetSecretValue on the exact ARN (revoke, 3) plus
 # the resolve; CAN_ESCALATE[iam:modify-policy] to "role with any
-# permission" rests on ReadOnlyAccess alone (resolve, 0). Cuts:
+# permission" rests on that policy alone (resolve, 0). Cuts:
 # {decrypt, escalate} = 1 + 0 = 1; {read, escalate} = 3; the IRSA trust
 # (:sub exact, revoke) 7. The cut is the first, pending resolution; the
 # alternative sharing no edge with it is the trust ({read, escalate} shares
@@ -894,10 +898,10 @@ E["19_secrets_manager/unknown_managed_policy"] = {
         path_finding("DARB-PATH-001", API, SECRET, [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {SECRET}"],
                      810, "critical", [UNKNOWN_DECRYPT, UNKNOWN_ESCALATE], [TRUST_EDGE], confirmed=False,
                      status="confirmed_unless_denied", confidence="medium",
-                     defaults=IRSA_DEFAULTS, undecided=["ReadOnlyAccess", "tools/refresh-managed-policies"],
+                     defaults=IRSA_DEFAULTS, undecided=["DarbExampleNotInSnapshot", "tools/refresh-managed-policies"],
                      fix=[step(UNKNOWN_DECRYPT, "identity", "narrow", 1),
-                          step(UNKNOWN_DECRYPT, "identity", "resolve", 0, READ_ONLY, "tools/refresh-managed-policies"),
-                          step(UNKNOWN_ESCALATE, "identity", "resolve", 0, READ_ONLY, "tools/refresh-managed-policies")],
+                          step(UNKNOWN_DECRYPT, "identity", "resolve", 0, NOT_IN_SNAPSHOT, "tools/refresh-managed-policies"),
+                          step(UNKNOWN_ESCALATE, "identity", "resolve", 0, NOT_IN_SNAPSHOT, "tools/refresh-managed-policies")],
                      other_side=[], alternative_detail=[step(TRUST_EDGE, "trust", "revoke", 7)]),
         # Phase 6 review, dominance (DESIGN.md 8): the unknown policy may let
         # payments-api rewrite its own policies (an unconfirmed escalation),
