@@ -1916,7 +1916,7 @@ anywhere else in the documents belongs here first.
 | Limit | Match | Can it hide a real path? | Scenario |
 |---|---|---|---|
 | KMS grants that AWS services create at runtime are not visible in IaC (a Terraform scan has its `aws_kms_grant` resources only) | `note: KMS grants` | **yes**: a grant can give `kms:Decrypt` to a principal the key policy does not name; the note names the keys | `25_kms_grant/vulnerable` |
-| KMS grants of a key whose `ListGrants` failed, or in a snapshot that predates it | `note: KMS grants` | **yes**, as above; a failed call is also a gap | `19_secrets_manager/vulnerable` |
+| KMS grants of a key whose `ListGrants` failed, in a snapshot that predates it, or of a key that is not in the input (a bucket's key from another region or account) | `note: KMS grants` | **yes**, as above; a failed call is also a gap, and a key outside the input has a gap for its unknown key policy | `19_secrets_manager/vulnerable` |
 | Object ACLs of a bucket with ACLs enabled (Object Ownership `ObjectWriter`, `BucketOwnerPreferred`, or none on an older bucket) are not collected | `gap: object ACLs are not collected` | **yes**: an object ACL's `READ` reads the data, for anyone or another account; the `S3 ACLs` note names the bucket | `26_s3_acl/vulnerable` |
 | Object Ownership of a Terraform bucket the plan does not create, with no `aws_s3_bucket_ownership_controls` (or a snapshot that predates it: the note only) | `gap: Object Ownership of this bucket is not in the input` | **yes**, as above: ACLs may be enabled | `22_direct_and_escalation/dominance` |
 | The buckets whose ACLs are enabled or may be | `note: S3 ACLs` | **yes**: each one's object ACLs are not collected | `26_s3_acl/vulnerable` |
@@ -1932,7 +1932,8 @@ collected (`kms:ListGrants`, `aws_kms_grant`) and evaluated (§6, KMS grants),
 and Object Ownership is collected (`s3:GetBucketOwnershipControls`,
 `aws_s3_bucket_ownership_controls`), so the notes remain only where something
 is really unknown: grants AWS services create at runtime in a Terraform scan,
-grants not collected, and buckets whose ACLs are enabled or may be. A key whose
+grants not collected (or of a key outside the input), and buckets whose ACLs
+are enabled or may be. A key whose
 grants were listed, and a bucket with ACLs disabled, are not named.
 
 ### 12.2 Deferred work (recorded at the Phase 4 approval; after Phase 5)
