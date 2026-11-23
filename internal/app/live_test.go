@@ -40,7 +40,7 @@ func notesOf(kind string, notes []access.Note) []access.Note {
 	return out
 }
 
-// The fake account's role has ReadOnlyAccess attached, which is not in the
+// The fake account's role has DarbExampleNotInSnapshot attached, which is not in the
 // vendored managed-policy snapshot: the report says so, with the count and
 // the name, and the console prints the warning.
 func TestLiveScanReportsMissingManagedPolicies(t *testing.T) {
@@ -55,12 +55,12 @@ func TestLiveScanReportsMissingManagedPolicies(t *testing.T) {
 	mp := notesOf(NoteManagedPolicies, l.Notes)
 	if len(mp) != 1 || mp[0].Subject != "1 AWS managed policies" ||
 		!strings.HasPrefix(mp[0].Detail, "managed policy snapshot is incomplete: run tools/refresh-managed-policies.") ||
-		!strings.HasSuffix(mp[0].Detail, ": ReadOnlyAccess") {
+		!strings.HasSuffix(mp[0].Detail, ": DarbExampleNotInSnapshot") {
 		t.Fatalf("notes %+v", l.Notes)
 	}
 	gapped := false
 	for _, g := range l.Gaps {
-		gapped = gapped || (g.Kind == coverage.KindNotModelled && g.Address == "arn:aws:iam::aws:policy/ReadOnlyAccess")
+		gapped = gapped || (g.Kind == coverage.KindNotModelled && g.Address == "arn:aws:iam::aws:policy/DarbExampleNotInSnapshot")
 	}
 	if !gapped {
 		t.Fatalf("the unknown policy is also a gap: %+v", l.Gaps)
@@ -74,7 +74,7 @@ func TestLiveScanReportsMissingManagedPolicies(t *testing.T) {
 		t.Fatal(werr)
 	}
 	if !strings.Contains(console.String(), "WARNING: managed policy snapshot is incomplete: run tools/refresh-managed-policies") ||
-		!strings.Contains(console.String(), "ReadOnlyAccess") {
+		!strings.Contains(console.String(), "DarbExampleNotInSnapshot") {
 		t.Fatalf("console:\n%s", console.String())
 	}
 	if werr := Write(&js, "json", Report(a, in.Config, DefaultFailOn)); werr != nil {

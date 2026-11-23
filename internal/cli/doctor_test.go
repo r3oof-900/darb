@@ -50,7 +50,7 @@ func TestDoctorOffline(t *testing.T) {
 	}
 	code, out := runDoctor(t, e)
 	for _, want := range []string{
-		"[ok     ] darb: ", "[ok     ] go runtime: go", "[warn   ] managed-policy snapshot: 3 AWS managed policies",
+		"[ok     ] darb: ", "[ok     ] go runtime: go", "[ok     ] managed-policy snapshot: ",
 		"config file present; credentials file absent; AWS_PROFILE=audit; AWS_ACCESS_KEY_ID set (value not shown) (contents not read)",
 		"[absent ] kubeconfig: /k/a absent; /k/b absent", "[ok     ] LLM key: ANTHROPIC_API_KEY set (value not shown)",
 		"[skipped] AWS probe", "[skipped] Kubernetes probe",

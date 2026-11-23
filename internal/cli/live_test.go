@@ -46,7 +46,7 @@ func runEnv(t *testing.T, e *fakeEnv, args ...string) (code ExitCode, stdout, st
 func TestScanLiveAWS(t *testing.T) {
 	e := &fakeEnv{fake: &awsfake.Factory{}}
 	code, out, errOut := runEnv(t, e, "scan", "--root", t.TempDir(), "--live-aws", "--aws-profile", "audit", "--aws-region", "eu-west-1", "--aws-region", "us-east-1")
-	// ReadOnlyAccess is not in the managed policy snapshot: a gap, so 3.
+	// DarbExampleNotInSnapshot is not in the managed policy snapshot: a gap, so 3.
 	if code != ExitIncomplete || !strings.Contains(out, "WARNING: managed policy snapshot is incomplete: run tools/refresh-managed-policies") {
 		t.Fatalf("exit %d\n%s\n%s", code, out, errOut)
 	}

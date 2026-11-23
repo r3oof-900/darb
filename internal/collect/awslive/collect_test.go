@@ -38,7 +38,7 @@ func TestCollectEverything(t *testing.T) {
 		t.Fatalf("account %q partition %q", a.ID, a.Partition)
 	}
 	// IAM: both pages.
-	if len(a.Auth.RoleDetailList) != 1 || len(a.Auth.Policies) != 1 || a.Auth.RoleDetailList[0].AttachedManagedPolicies[0].PolicyArn != "arn:aws:iam::aws:policy/ReadOnlyAccess" {
+	if len(a.Auth.RoleDetailList) != 1 || len(a.Auth.Policies) != 1 || a.Auth.RoleDetailList[0].AttachedManagedPolicies[0].PolicyArn != "arn:aws:iam::aws:policy/DarbExampleNotInSnapshot" {
 		t.Fatalf("auth %+v", a.Auth)
 	}
 	if string(a.Auth.RoleDetailList[0].AssumeRolePolicyDocument) != `"%7B%22Version%22%3A%222012-10-17%22%2C%22Statement%22%3A%5B%5D%7D"` {

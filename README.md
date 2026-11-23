@@ -15,9 +15,9 @@ Principles: no number without evidence; anything that cannot be evaluated is
 > **Status: under development, before 1.0.** One pre-release is published,
 > [v0.1.0-rc.1](https://github.com/r3oof-900/darb/releases/tag/v0.1.0-rc.1).
 > Not yet tested against a real AWS account or cluster: only fixtures, fakes,
-> LocalStack and kind. **The bundled AWS managed-policy snapshot is incomplete**
-> (3 policies): every other attached AWS managed policy is reported as UNKNOWN,
-> so paths through such roles are unconfirmed rather than decided. Read
+> LocalStack and kind. The bundled AWS managed-policy snapshot holds every AWS
+> managed policy at its default version as of 2026-11-23 (1622 policies); one
+> published later is reported as UNKNOWN until the snapshot is refreshed. Read
 > [Known limits](#known-limits) before trusting a scan of a real account.
 
 ## Install
@@ -144,9 +144,11 @@ every explanation is labelled "AI-generated explanation". Details:
 Recorded in [DESIGN.md §12.1](docs/DESIGN.md#121-known-constraints-carried-between-phases).
 The most important before a real scan:
 
-- **AWS managed policies**: the bundled snapshot has 3 policies until it is
-  refreshed with `tools/refresh-managed-policies`; any other attached managed
-  policy is UNKNOWN (reported, never treated as "no permissions").
+- **AWS managed policies**: the bundled snapshot is IAM's list of 2026-11-23
+  (1622 policies, each at its default version). A policy published or
+  changed later is not in it: an attached one is UNKNOWN (reported, never
+  treated as "no permissions") until `tools/refresh-managed-policies` runs
+  again; a changed one is read at its 2026-11-23 version.
 - AWS RAM shares of advanced SSM parameters are not collected: a parameter
   shared only through RAM is not seen as shared. The report names every
   parameter of the input that can be shared (a `not-modelled` note).
