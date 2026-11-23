@@ -26,15 +26,21 @@ type Grant struct {
 // so Denies elsewhere still apply. Its constraints become exact
 // conditions (KMS API Reference › GrantConstraints):
 //
-//   - EncryptionContextEquals, "an exact, case-sensitive match": every
-//     pair, as StringEquals on kms:EncryptionContext:<key>, and no other
-//     key, as ForAllValues:StringEquals on kms:EncryptionContextKeys;
+//   - EncryptionContextEquals: every pair, as StringEquals on
+//     kms:EncryptionContext:<key>, and no other key, as
+//     ForAllValues:StringEqualsIgnoreCase on kms:EncryptionContextKeys;
 //   - EncryptionContextSubset, the request "can also have additional
 //     encryption context pairs": every pair only.
 //
-// Condition keys are case-insensitive and StringEquals compares values
-// with case, as the constraint does ("the key in each key-value pair is not
-// case sensitive, but the value is case sensitive").
+// Case: "in a grant constraint, the key in each key-value pair is not case
+// sensitive, but the value is case sensitive" (GrantConstraints). The
+// Developer Guide (Creating a grant) says instead that "the keys and values
+// in each pair cannot vary"; the case-insensitive key allows more, so it is
+// the worst case, and the one used. A condition key name is matched
+// without case ("The key name is not case sensitive", AWS KMS condition
+// keys › kms:EncryptionContext:context-key); the key list needs
+// StringEqualsIgnoreCase, StringEquals being "case sensitive" there; the
+// values keep StringEquals.
 func GrantPolicy(g *Grant) string {
 	principal := map[string]string{"AWS": g.Grantee}
 	if !strings.Contains(g.Grantee, ":") {
@@ -55,7 +61,7 @@ func GrantPolicy(g *Grant) string {
 			keys = append(keys, k)
 		}
 		slices.Sort(keys)
-		cond["ForAllValues:StringEquals"] = map[string]any{"kms:EncryptionContextKeys": keys}
+		cond["ForAllValues:StringEqualsIgnoreCase"] = map[string]any{"kms:EncryptionContextKeys": keys}
 	}
 	if len(pairs) > 0 {
 		eq := map[string]string{}

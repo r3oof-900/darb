@@ -114,15 +114,29 @@ func TestCrossAccountGrant(t *testing.T) {
 	if f != nil && (f.Confirmed || !strings.Contains(strings.Join(f.Undecided, " "), "aws_kms_grant.reader")) {
 		t.Fatalf("an unconfirmed finding names the grant: %+v", f.Undecided)
 	}
-	if e := decryptEdge(t, analyze(`, { Effect = "Allow", Action = "kms:Decrypt", Resource = "*" }`, "")); e == nil || e.Verdict != eval.Allow {
-		t.Fatalf("with an IAM allow in the grantee's account: %+v", e)
+	if got := decryptEdge(t, analyze(`, { Effect = "Allow", Action = "kms:Decrypt", Resource = "*" }`, "")); got == nil || got.Verdict != eval.Allow {
+		t.Fatalf("with an IAM allow in the grantee's account: %+v", got)
 	}
 	deny := `, { Effect = "Deny", Principal = { AWS = "arn:aws:iam::444455556666:role/reader" }, Action = "kms:Decrypt", Resource = "*" }`
-	if e := decryptEdge(t, analyze(`, { Effect = "Allow", Action = "kms:Decrypt", Resource = "*" }`, deny)); e != nil {
-		t.Fatalf("a Deny in the key policy refuses the grant: %+v", e)
+	if got := decryptEdge(t, analyze(`, { Effect = "Allow", Action = "kms:Decrypt", Resource = "*" }`, deny)); got != nil {
+		t.Fatalf("a Deny in the key policy refuses the grant: %+v", got)
 	}
-	if e := decryptEdge(t, analyze("", deny)); e != nil {
-		t.Fatalf("a Deny in the key policy refuses the cross-account grant too: %+v", e)
+	if got := decryptEdge(t, analyze("", deny)); got != nil {
+		t.Fatalf("a Deny in the key policy refuses the cross-account grant too: %+v", got)
+	}
+	// An explicit Deny in the grantee's own identity policy: no edge, no path.
+	a := analyze(`, { Effect = "Deny", Action = "kms:Decrypt", Resource = "*" }`, "")
+	if got := decryptEdge(t, a); got != nil {
+		t.Fatalf("a Deny in the grantee's identity policy refuses the grant: %+v", got)
+	}
+	if f := findingFor(a, "DARB-PATH-001", "arn:aws:s3:::acme-customer-pii"); f != nil {
+		t.Fatalf("no path: %+v", f)
+	}
+	// The decrypt's only side is the grant (the grantee's identity
+	// policies grant nothing): resource, revoke.
+	e = decryptEdge(t, analyze("", ""))
+	if len(e.Fixes) != 1 || e.Fixes[0].Side != graph.SideResource || e.Fixes[0].Kind != graph.FixRevoke {
+		t.Fatalf("fixes of the cross-account grant: %+v", e.Fixes)
 	}
 }
 
@@ -180,6 +194,15 @@ func TestGrantConstraints(t *testing.T) {
 		return eval.Evaluate(req, &eval.PolicySet{Resource: []*model.PolicyDocument{doc}, ResourcePolicyRequired: true}).Verdict
 	}
 	const a, b = "arn:aws:s3:::a", "arn:aws:s3:::b"
+	dept := func(eq bool) *normalize.Grant {
+		g := &normalize.Grant{Grantee: role, Operations: []string{"Decrypt"}}
+		if eq {
+			g.Equals = map[string]string{"department": "x"}
+		} else {
+			g.Subset = map[string]string{"department": "x"}
+		}
+		return g
+	}
 	equals := &normalize.Grant{Grantee: role, Operations: []string{"Decrypt"}, Equals: map[string]string{"aws:s3:arn": a}}
 	subset := &normalize.Grant{Grantee: role, Operations: []string{"Decrypt"}, Subset: map[string]string{"aws:s3:arn": a}}
 	for _, c := range []struct {
@@ -197,6 +220,11 @@ func TestGrantConstraints(t *testing.T) {
 		{"subset, other value", subset, map[string]string{"aws:s3:arn": b}, false},
 		{"no constraint", &normalize.Grant{Grantee: role, Operations: []string{"Decrypt"}}, map[string]string{"aws:s3:arn": b}, true},
 		{"another operation", &normalize.Grant{Grantee: role, Operations: []string{"Encrypt"}}, map[string]string{}, false},
+		// Keys without case, values with case (GrantConstraints).
+		{"equals, key case differs", dept(true), map[string]string{"Department": "x"}, true},
+		{"equals, value case differs", dept(true), map[string]string{"department": "X"}, false},
+		{"subset, key case differs", dept(false), map[string]string{"Department": "x", "other": "y"}, true},
+		{"subset, value case differs", dept(false), map[string]string{"department": "X"}, false},
 	} {
 		if got := decide(c.g, c.ctx); (got == eval.Allow) != c.allow {
 			t.Errorf("%s: %s", c.name, got)

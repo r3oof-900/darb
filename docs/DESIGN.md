@@ -707,18 +707,61 @@ policy" (› Determining access); no principal has access "unless that
 permission is provided explicitly and never denied" (› Controlling access).
 So each grant is a **resource-side Allow** of its operations to its grantee,
 attached to the key (`normalize.GrantPolicy`, ID `<key>#grant/<id>`): in the
-key's account it allows alone, and every explicit Deny still applies. Its
-constraints are exact conditions (KMS API Reference › GrantConstraints):
-`EncryptionContextEquals`, "an exact, case-sensitive match", is `StringEquals`
-on each pair plus `ForAllValues:StringEquals` on `kms:EncryptionContextKeys`;
-`EncryptionContextSubset` is `StringEquals` on each pair. A grant cannot be
-edited, only revoked or retired: its side is always a revoke (resource, 4;
-SCORING.md §4.1), and the fix names the grant (`aws kms revoke-grant`, or
-delete the `aws_kms_grant`). Across accounts the documentation does not
-settle whether a grant needs an IAM allow in the grantee's account too (the
-cross-account page says both "you must change both" and "or use grants"):
-the decision is UNKNOWN there, unless an explicit Deny refuses it, and
-`undecided` names the grant. Still not visible: grants AWS services create at
+key's account it allows alone, and every explicit Deny still applies: a
+Deny "takes precedence over any key policy or IAM policy with an `Allow`
+effect, and it takes precedence over all grants for this KMS key and its
+principals" (AWS KMS condition keys › kms:EncryptionAlgorithm, a key-policy
+Deny), and "No AWS principal has any permissions to a KMS key unless that
+permission is provided explicitly and never denied" (Controlling access).
+Its constraints are conditions (KMS API Reference › GrantConstraints):
+`EncryptionContextEquals` is `StringEquals` on each pair plus
+`ForAllValues:StringEqualsIgnoreCase` on `kms:EncryptionContextKeys` (no
+other key); `EncryptionContextSubset` is `StringEquals` on each pair. Case:
+the API Reference says "However, in a grant constraint, the key in each
+key-value pair is not case sensitive, but the value is case sensitive."
+(GrantConstraints, the Important note); the Developer Guide says
+`EncryptionContextEquals` "requires that the encryption context pairs in the
+request are an exact, case-sensitive match for the encryption context pairs
+in the grant constraint. The pairs can appear in any order, but the keys and
+values in each pair cannot vary." (Creating a grant › Encryption context
+constraints). The two conflict on keys; a key that ignores case allows more,
+so it is the worst case, and the one used (review of darb#4; a condition key
+name is matched without case, "The key name is not case sensitive", AWS KMS
+condition keys › kms:EncryptionContext:context-key, so only the key list
+needs `StringEqualsIgnoreCase`). A grant cannot be edited, only revoked or
+retired: its side is always a revoke (resource, 4; SCORING.md §4.1), and the
+fix names the grant (`aws kms revoke-grant`, or delete the `aws_kms_grant`).
+
+*Across accounts* (review of darb#4, scenario 27). What the documentation
+says, verbatim:
+
+- "Cross-account access requires permission in the key policy of the KMS key
+  and in an IAM policy in the external user's account." and "Neither the key
+  policy nor the IAM policy alone is sufficient—you must change both."
+  (Allowing users in other accounts to use a KMS key)
+- "The key policy in the account that owns the KMS key sets the valid range
+  for permissions. But, users and roles in the external account cannot use
+  the KMS key until you attach IAM policies that delegate those permissions,
+  or use grants to manage access to the KMS key. The IAM policies are set in
+  the external account." (same page, Step 2: Add IAM policies in the external
+  account)
+- "The grantee principal can be in the same account as the KMS key or a
+  different account." and "The grantee principal can use the permissions that
+  the grant gives them without specifying the grant, just as they would if the
+  permissions came from a key policy or IAM policy." (Grants in AWS KMS)
+
+No page says that a grantee needs no IAM permission, in its own account or
+across accounts, and none says that it does when the access comes from a
+grant: the first sentence speaks of key-policy access, the Step 2 sentence
+names grants as the alternative to the IAM policies. So a grant to a
+principal of another account whose identity policies do not allow the
+operation is **UNKNOWN**, not allowed and not denied: the path is reported
+unconfirmed at its worst-case score, `undecided` names the grant, and the
+decrypt's only side is the grant (the grantee's identity policies grant
+nothing). An explicit Deny anywhere, the grantee's identity policy included,
+refuses it (scenario 27 fixed; `TestCrossAccountGrant`).
+
+Still not visible: grants AWS services create at
 runtime, in a Terraform scan (one note for the scan, naming its keys); a key
 whose `ListGrants` failed (a gap, and the note); a snapshot that predates the
 file (the note). History: Phase 7 found that a promised coverage gap had never
@@ -1975,6 +2018,7 @@ Encryption type of every jewel bucket is stated explicitly in the fixture
 | 24 | (after v0.1.0-rc.1) An **untagged bucket**: `records/exporter` (not exposed) runs as an IRSA role with `s3:GetObject` on `patient-records-vault/*`; the bucket has no tags, no policy, SSE-S3 by default, Block Public Access off. Variants: `fixed` (the role only writes), `ignore` (`crown_jewels.unclassified: ignore`) | `s3:GetObject` | `DARB-PATH-001` with `jewel_classification: unclassified`, 129 low; cut the read (identity, revoke, 3), alternative the IRSA trust (7); no `DARB-POST-005` (posture rules skip unclassified stores); the coverage note names the bucket; `ignore`: no path, the note says the store was not scanned |
 | 25 | (after v0.1.0-rc.1) Scenario 1 with the PII key's policy naming only `role/key-admin` (no account root, so no IAM policy can let anyone use the key), payments-api reading the PII objects with no kms permission, and an `aws_kms_grant` giving it `Decrypt`; fixed: the grant's `EncryptionContextEquals` names another bucket | grant `Decrypt` | `DARB-PATH-001`, 729 critical, cut the read (identity, revoke, 3), alternative the grant (resource, revoke, 4); fixed: no path; both: the runtime-grants note names the key |
 | 26 | (after v0.1.0-rc.1) A PII bucket with Object Ownership `ObjectWriter` and a `public-read` bucket ACL; Block Public Access blocks public policies but not public ACLs; no bucket policy; fixed: `BucketOwnerEnforced` | bucket ACL `READ` to AllUsers (lists objects) | no `DARB-PATH-003` (a bucket ACL does not read the data), one `not-modelled` gap for the object ACLs naming the public bucket ACL, the `S3 ACLs` note, exit 3; fixed: no gap, no note, exit 0 |
+| 27 | (review of darb#4) The PII bucket and key in account A, the key policy naming only `role/key-admin`; `role/reader` in account B (the cluster's IRSA role) may read the objects (its identity policy and the bucket policy) and has no kms permission; an `aws_kms_grant` gives it `Decrypt`; fixed: reader's identity policy denies `kms:Decrypt` | grant `Decrypt` across accounts | `DARB-PATH-001` unconfirmed (the documentation does not settle a cross-account grant without an IAM allow), worst case 729 critical, `undecided` names the grant; cut the read (identity, revoke, 3; other side the bucket policy, 4), alternative the grant (4); fixed: no path |
 
 Fixed variants remove exactly the cause the scenario tests (e.g. scenario 1 scopes
 `s3:GetObject` and `kms:Decrypt` to the workload's legitimate bucket and key, with an
@@ -2024,9 +2068,9 @@ of 2026-11-22, with the evidence that shows it. CI evidence is the full run on
 | 3 | Every fuzz target ≥ 5 minutes, nightly | §15 | configured, not yet observed | `fuzz.yml` (9 targets, schedule 03:17); `fuzz-smoke` passes on every PR; no nightly run yet on the new repository |
 | 4 | ≥ 95% branch coverage (gobco) on the core | §6.4, §12 | met | `branch-coverage` job (`task cover:branch`) |
 | 5 | Evaluator: ≥ 150 cases, properties | §12 | met | 294 cases in `internal/eval/testdata/eval`; property tests |
-| 6 | Every scenario matches its hand-derived `expected.json` | §8.2, §13 | met | 67 expected files, 165 fingerprints computed in `expected_source.py`; `open_mismatches.txt`: no difference open (the unclassified-store expectations were committed before the engine change, ce45d0f; the grants and ACL ones too, 47a694e) |
+| 6 | Every scenario matches its hand-derived `expected.json` | §8.2, §13 | met | 69 expected files, 168 fingerprints computed in `expected_source.py`; `open_mismatches.txt`: no difference open (the unclassified-store expectations were committed before the engine change, ce45d0f; the grants and ACL ones too, 47a694e, and the cross-account grant, c1e6806) |
 | 7 | 50k nodes / 500k edges in < 60 s and < 2 GB | §7.4 | met | `bench` job, "Performance target" step (`DARB_PERF=1`) |
-| 8 | Every vulnerable scenario's patch, applied and rescanned, removes its path | §9.3 | met, with three documented exceptions | `TestEveryVulnerableScenarioIsFixed`: 27 findings fixed; 10 (UNKNOWN: what is missing, no patch), 13 (module input: a TODO), 22 direct (pending resolution) |
+| 8 | Every vulnerable scenario's patch, applied and rescanned, removes its path | §9.3 | met, with three documented exceptions | `TestEveryVulnerableScenarioIsFixed`: 28 findings fixed; 10 (UNKNOWN: what is missing, no patch), 13 (module input: a TODO), 22 direct (pending resolution) |
 | 9 | Same input, byte-identical output | §3.4 | met | goldens scanned twice; `TestExampleReports`; `release-snapshot` builds twice, identical archives |
 | 10 | JSON report validated against its schema | §11 | met | `TestEveryReportMatchesTheSchema`, `TestSchemaDescribesTheGoTypes` |
 | 11 | SARIF validated against the official schema | §11 | met | `TestEverySARIFReportMatchesTheOfficialSchema` (OASIS 2.1.0, pinned) |

@@ -215,9 +215,13 @@ func (b *builder) decrypt(role *model.Principal, principal match.RequestPrincipa
 			})
 		}
 	}
+	fixReq := req
 	if !grants(result.Verdict) {
-		if u, ok := crossAccountGrant(req, set); ok {
-			result.Verdict, result.Unresolved = eval.Unknown, append(result.Unresolved, u)
+		if u, same, ok := crossAccountGrant(req, set); ok {
+			// The sides are those of the grant's own decision: the
+			// grantee's identity policies, which grant nothing here, are no
+			// fix (a Deny there would be, but that is a new statement).
+			result.Verdict, result.Unresolved, fixReq = eval.Unknown, append(result.Unresolved, u), same
 		}
 	}
 	if !grants(result.Verdict) {
@@ -227,7 +231,7 @@ func (b *builder) decrypt(role *model.Principal, principal match.RequestPrincipa
 	rewrite := b.rewriter(role, key.ARN(), key.Account(), b.policies[key.ID()], true, "kms:PutKeyPolicy", "kms:CreateGrant")
 	e := b.edge(role.ID(), key.ID(), graph.CanDecrypt, "", result, func(e *graph.Edge) {
 		e.For = b.node(j.ID())
-		e.Fixes = nonNil(b.policyFixes(graph.CanDecrypt, req, set, role, key.ARN(), "key policy",
+		e.Fixes = nonNil(b.policyFixes(graph.CanDecrypt, fixReq, set, role, key.ARN(), "key policy",
 			&grantTarget{action: "kms:Decrypt", principal: identityOf(role), context: j.ARN()}, rewrite))
 	})
 	return result.Verdict, e, true
@@ -291,9 +295,9 @@ const KMSGrantElement = "KMSGrant"
 // accounts. So, decided after v0.1.0-rc.1, the decision is UNKNOWN when it
 // is not granting, the principal is in another account, a grant would
 // allow it in the key's own account, and no explicit Deny refuses it.
-func crossAccountGrant(req *eval.Request, set *eval.PolicySet) (eval.Unresolved, bool) {
+func crossAccountGrant(req *eval.Request, set *eval.PolicySet) (eval.Unresolved, *eval.Request, bool) {
 	if req == nil || req.Principal.Account == "" || req.Principal.Account == req.ResourceAccount {
-		return eval.Unresolved{}, false
+		return eval.Unresolved{}, nil, false
 	}
 	var grantDocs []*model.PolicyDocument
 	for _, d := range set.Resource {
@@ -302,17 +306,17 @@ func crossAccountGrant(req *eval.Request, set *eval.PolicySet) (eval.Unresolved,
 		}
 	}
 	if len(grantDocs) == 0 {
-		return eval.Unresolved{}, false
+		return eval.Unresolved{}, nil, false
 	}
 	same := *req
 	same.ResourceAccount = req.Principal.Account
 	onlyGrants := *set
 	onlyGrants.Resource = grantDocs
 	if !grants(eval.Evaluate(&same, &onlyGrants).Verdict) || eval.Evaluate(&same, set).Verdict == eval.Deny {
-		return eval.Unresolved{}, false
+		return eval.Unresolved{}, nil, false
 	}
 	return eval.Unresolved{
 		PolicyID: grantDocs[0].ID(), Element: KMSGrantElement, Key: req.Principal.ARN,
 		Reason: "a KMS grant to a principal of another account, which has no IAM policy allowing it there",
-	}, true
+	}, &same, true
 }
