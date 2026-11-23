@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3control"
 
 	"github.com/r3oof-900/darb/internal/collect/awsraw"
@@ -101,7 +102,7 @@ func (a *account) bucket(ctx context.Context, home *Clients, b *awsraw.Bucket) e
 		c = a.o.Factory.Clients(a.target, b.Region)
 	}
 	for _, step := range []func(context.Context, *Clients, *awsraw.Bucket) error{
-		a.bucketPolicy, a.bucketEncryption, a.bucketPublicAccessBlock, a.bucketTags,
+		a.bucketPolicy, a.bucketEncryption, a.bucketPublicAccessBlock, a.bucketTags, a.bucketOwnership,
 	} {
 		if err := step(ctx, c, b); done(err) {
 			return err
@@ -225,6 +226,48 @@ func (a *account) bucketTags(ctx context.Context, c *Clients, b *awsraw.Bucket) 
 		b.Tags = []awsraw.Tag{}
 		for _, t := range out.TagSet {
 			b.Tags = append(b.Tags, awsraw.Tag{Key: aws.ToString(t.Key), Value: aws.ToString(t.Value)})
+		}
+		return nil
+	})
+}
+
+// bucketOwnership reads Object Ownership (s3:GetBucketOwnershipControls).
+// A bucket with none (OwnershipControlsNotFoundError) predates the setting
+// and has ACLs enabled. With ACLs enabled the bucket ACL is read too
+// (s3:GetBucketAcl), as evidence: a bucket ACL only lists objects (S3 User
+// Guide › Access control list (ACL) overview).
+func (a *account) bucketOwnership(ctx context.Context, c *Clients, b *awsraw.Bucket) error {
+	err := a.call(ctx, "s3", b.Region, "GetBucketOwnershipControls", b.Name, func(ctx context.Context) error {
+		out, err := c.S3.GetBucketOwnershipControls(ctx, &s3.GetBucketOwnershipControlsInput{Bucket: &b.Name})
+		switch {
+		case isCode(err, "OwnershipControlsNotFoundError"):
+			b.Ownership = aws.String("")
+			return nil
+		case err != nil:
+			return err
+		}
+		own := ""
+		if out.OwnershipControls != nil && len(out.OwnershipControls.Rules) > 0 {
+			own = string(out.OwnershipControls.Rules[0].ObjectOwnership)
+		}
+		b.Ownership = &own
+		return nil
+	})
+	if done(err) || b.Ownership == nil || *b.Ownership == string(s3types.ObjectOwnershipBucketOwnerEnforced) {
+		return err
+	}
+	return a.call(ctx, "s3", b.Region, "GetBucketAcl", b.Name, func(ctx context.Context) error {
+		out, err := c.S3.GetBucketAcl(ctx, &s3.GetBucketAclInput{Bucket: &b.Name})
+		if err != nil {
+			return err
+		}
+		b.ACL = []awsraw.ACLGrant{}
+		for _, g := range out.Grants {
+			grant := awsraw.ACLGrant{Permission: string(g.Permission)}
+			if g.Grantee != nil {
+				grant.Grantee = awsraw.ACLGrantee{Type: string(g.Grantee.Type), ID: aws.ToString(g.Grantee.ID), URI: aws.ToString(g.Grantee.URI)}
+			}
+			b.ACL = append(b.ACL, grant)
 		}
 		return nil
 	})

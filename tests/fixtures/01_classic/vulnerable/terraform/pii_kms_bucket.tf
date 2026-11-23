@@ -30,3 +30,12 @@ resource "aws_s3_bucket_public_access_block" "customer_pii" {
   ignore_public_acls      = true
   restrict_public_buckets = true
 }
+
+# Object Ownership stated (ACLs disabled), as Block Public Access is: a
+# bucket read statically has no default for either (DESIGN.md 4.7).
+resource "aws_s3_bucket_ownership_controls" "customer_pii" {
+  bucket = aws_s3_bucket.customer_pii.id
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
+}

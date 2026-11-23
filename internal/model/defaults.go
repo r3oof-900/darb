@@ -26,6 +26,7 @@ const (
 	DefaultNetPolTypes       = "k8s.networkPolicy.policyTypes"
 	DefaultOIDCAudience      = "eks.irsa.oidc-provider-audience"
 	DefaultS3NewBucketBPA    = "s3.block-public-access.new-bucket"
+	DefaultS3NewBucketACLs   = "s3.object-ownership.new-bucket"
 	DefaultAWSManagedKeyRot  = "kms.aws-managed-key.rotation"
 	DefaultSecretsManagedKey = "secretsmanager.aws-managed-key"
 	DefaultSSMManagedKey     = "ssm.aws-managed-key"
@@ -114,6 +115,16 @@ func awsDefaults() []DocumentedDefault {
 			"all four settings on (restrict_public_buckets = true)",
 			"https://aws.amazon.com/blogs/aws/heads-up-amazon-s3-security-changes-are-coming-in-april-of-2023/",
 			"newly created buckets [...] will by default have S3 Block Public Access enabled",
+		},
+		{
+			// Only for a bucket a plan creates, as above. Read on 2026-11-22;
+			// the What's New post of 2022-12-13 says the April 2023 defaults
+			// "apply to all new buckets regardless of how they are created,
+			// including AWS CLI, APIs, SDKs, and AWS CloudFormation".
+			DefaultS3NewBucketACLs, "S3 Object Ownership of a bucket a Terraform plan creates, with no aws_s3_bucket_ownership_controls",
+			"BucketOwnerEnforced (ACLs disabled)",
+			"https://docs.aws.amazon.com/AmazonS3/latest/userguide/about-object-ownership.html",
+			"For newly created buckets, ACLs are disabled by default.",
 		},
 		{
 			// Read on 2026-11-21. The account cannot change it, so it is

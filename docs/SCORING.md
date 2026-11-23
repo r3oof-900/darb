@@ -132,6 +132,14 @@ A policy side's fix is one of two kinds (decided in the fourth Phase 4 review):
   the target and the principal on purpose, so breaking the edge means deleting
   that grant, which may break a function. It costs the side's price **+ 2**.
 
+**KMS grants (after v0.1.0-rc.1).** A grant is part of the key's resource
+side (DESIGN.md §6, KMS grants). It cannot be edited, only revoked or retired
+(the KMS API has no UpdateGrant), so a side with a grant is a **revoke**
+whatever the grant names: resource, 4. The fix names the grant: delete the
+`aws_kms_grant`, or `aws kms revoke-grant`; the generator writes that step and
+no patch. Scenario 25: the read (identity, revoke, 3) is cheaper and is cut;
+the grant is the alternative.
+
 | Edge | Side | narrow | revoke |
 |---|---|---|---|
 | `CAN_READ`, `CAN_DECRYPT`, `ASSUMES` (role -> role) | **identity** | **1** | **3** |

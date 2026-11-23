@@ -21,7 +21,20 @@
   "collected": 4,
   "entry_points": [],
   "exposures": [],
-  "gaps": [],
+  "gaps": [
+    {
+      "Kind": "unresolved",
+      "Source": "normalize-terraform",
+      "File": "terraform/bucket.tf",
+      "Line": 2,
+      "Address": "aws_s3_bucket.marketing_leads",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "Object Ownership of this bucket is not in the input (no aws_s3_bucket_ownership_controls); ACLs may be enabled, and object ACLs are not collected"
+    }
+  ],
   "mappings": [],
   "network_policies": [],
   "node_groups": [],

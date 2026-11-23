@@ -46,6 +46,18 @@
     {
       "Kind": "unresolved",
       "Source": "normalize-terraform",
+      "File": "terraform/main.tf",
+      "Line": 7,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "Object Ownership of this bucket is not in the input (no aws_s3_bucket_ownership_controls); ACLs may be enabled, and object ACLs are not collected"
+    },
+    {
+      "Kind": "unresolved",
+      "Source": "normalize-terraform",
       "File": "terraform/modules/readers/main.tf",
       "Line": 23,
       "Address": "aws_iam_role_policy.read[*]",

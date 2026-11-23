@@ -60,34 +60,50 @@ func named(inv *model.Inventory, keep func(*model.Resource) (string, bool)) stri
 	return list
 }
 
-// kmsGrantsNote: KMS grants are not collected yet (DESIGN.md §6, KMS). A
-// grant can give kms:Decrypt to a principal the key policy does not name,
-// so a path through a key can be missed; the note names the keys.
+// kmsGrantsNote: the keys whose grants are not all in the input (DESIGN.md
+// §6, KMS grants). A grant can give kms:Decrypt to a principal the key
+// policy does not name, so a path through such a key can be missed. Keys
+// read from Terraform have their aws_kms_grant resources, not the grants
+// AWS services create at runtime; keys whose ListGrants failed (a gap too),
+// whose snapshot predates it, or that are not in the input have none. A key whose grants were listed
+// is not named.
 func kmsGrantsNote(inv *model.Inventory) (access.Note, bool) {
-	list := named(inv, func(r *model.Resource) (string, bool) { return r.ARN(), r.Kind() == model.KindKMSKey })
-	if list == "" {
+	key := func(state string) func(*model.Resource) (string, bool) {
+		return func(r *model.Resource) (string, bool) {
+			return r.ARN(), r.Kind() == model.KindKMSKey && r.Grants() == state
+		}
+	}
+	var parts []string
+	if list := named(inv, key(model.GrantsTerraform)); list != "" {
+		parts = append(parts, "KMS grants created at runtime by AWS services are not visible in IaC: a grant can give kms:Decrypt "+
+			"to a principal the key policy does not name, so a path through one of these keys can be missed: "+list)
+	}
+	if list := named(inv, key(model.GrantsNotCollected)); list != "" {
+		parts = append(parts, "the grants of these keys were not collected (ListGrants failed, the snapshot predates it, or the key is not in the input), "+
+			"so a path through one of them can be missed: "+list)
+	}
+	if len(parts) == 0 {
 		return access.Note{}, false
 	}
-	return access.Note{
-		Kind: "not-modelled", Subject: NoteKMSGrants,
-		Detail: "KMS grants are not collected: a grant can give kms:Decrypt to a principal the key policy does not name, " +
-			"so a path through one of these keys can be missed: " + list,
-	}, true
+	return access.Note{Kind: "not-modelled", Subject: NoteKMSGrants, Detail: strings.Join(parts, "; ")}, true
 }
 
-// s3ACLNote: bucket and object ACLs are not evaluated yet (DESIGN.md §6,
-// S3 Block Public Access). An ACL can grant read access to another account
-// or to everyone, so a path to a bucket can be missed; the note names the
-// buckets.
+// s3ACLNote: the buckets whose ACLs may affect access (DESIGN.md §6, S3
+// ACLs): ACLs enabled, or Object Ownership not in the input. Object ACLs
+// are not collected, and one can give anyone or another account read
+// access to the data; each such bucket also has a gap. A bucket with ACLs
+// disabled (BucketOwnerEnforced) is not named.
 func s3ACLNote(inv *model.Inventory) (access.Note, bool) {
-	list := named(inv, func(r *model.Resource) (string, bool) { return r.ARN(), r.Kind() == model.KindS3Bucket })
+	list := named(inv, func(r *model.Resource) (string, bool) {
+		return r.ARN(), r.Kind() == model.KindS3Bucket && r.S3().ACLs != model.False
+	})
 	if list == "" {
 		return access.Note{}, false
 	}
 	return access.Note{
 		Kind: "not-modelled", Subject: NoteS3ACLs,
-		Detail: "bucket and object ACLs are not evaluated: an ACL can grant read access to another account or to everyone, " +
-			"so a path to one of these buckets can be missed: " + list,
+		Detail: "object ACLs are not collected where ACLs are enabled or may be: an object ACL can grant read access to another account " +
+			"or to everyone, so a path to one of these buckets can be missed: " + list,
 	}, true
 }
 

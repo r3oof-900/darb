@@ -70,6 +70,10 @@ func missingOf(u *Unknown) string {
 			"(the bucket ARN with a Bucket Key, the object ARN without): state bucket_key_enabled in its "+
 			"aws_s3_bucket_server_side_encryption_configuration, or scan a snapshot of its account (%s)", u.Policy, u.Reason)
 	}
+	if u.Element == "KMSGrant" { // access.KMSGrantElement
+		return fmt.Sprintf("%s gives %s, of another account, the operation; the KMS documentation does not say whether "+
+			"a grant needs an IAM allow in the grantee's account too: decide it, or revoke the grant (%s)", u.Policy, u.Key, u.Reason)
+	}
 	if key, ok := strings.CutSuffix(u.Policy, "#key-policy-not-in-input"); ok {
 		return fmt.Sprintf("the KMS key %s is not in the input, so its key policy is unknown: "+
 			"scan the key's Terraform or plan, or a snapshot of its account", key)

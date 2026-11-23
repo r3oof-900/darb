@@ -313,3 +313,47 @@ func (c control) GetPublicAccessBlock(ctx context.Context, in *s3control.GetPubl
 		RestrictPublicBuckets: aws.Bool(false), BlockPublicPolicy: aws.Bool(true),
 	}}, nil
 }
+
+// ListGrants: k1 has one grant, to role/app for Decrypt under the data
+// bucket's encryption context; aws1 has none.
+func (f *fake) ListGrants(ctx context.Context, in *kms.ListGrantsInput, _ ...func(*kms.Options)) (*kms.ListGrantsOutput, error) {
+	if err := f.do(ctx, "ListGrants", *in.KeyId); err != nil {
+		return nil, err
+	}
+	if *in.KeyId != "k1" {
+		return &kms.ListGrantsOutput{}, nil
+	}
+	return &kms.ListGrantsOutput{Grants: []kmstypes.GrantListEntry{{
+		GrantId: aws.String("g1"), KeyId: aws.String(f.arn("kms", "key/k1")), Name: aws.String("app-decrypt"),
+		GranteePrincipal: aws.String("arn:aws:iam::111122223333:role/app"),
+		Operations:       []kmstypes.GrantOperation{kmstypes.GrantOperationDecrypt},
+		Constraints:      &kmstypes.GrantConstraints{EncryptionContextSubset: map[string]string{"aws:s3:arn": "arn:aws:s3:::data"}},
+	}}}, nil
+}
+
+// GetBucketOwnershipControls: logs predates the setting (no ownership
+// controls: ACLs enabled); every other bucket is BucketOwnerEnforced.
+func (f *fake) GetBucketOwnershipControls(ctx context.Context, in *s3.GetBucketOwnershipControlsInput, _ ...func(*s3.Options)) (*s3.GetBucketOwnershipControlsOutput, error) {
+	if err := f.do(ctx, "GetBucketOwnershipControls", *in.Bucket); err != nil {
+		return nil, err
+	}
+	if *in.Bucket == "logs" {
+		return nil, &smithy.GenericAPIError{Code: "OwnershipControlsNotFoundError"}
+	}
+	return &s3.GetBucketOwnershipControlsOutput{OwnershipControls: &s3types.OwnershipControls{Rules: []s3types.OwnershipControlsRule{
+		{ObjectOwnership: s3types.ObjectOwnershipBucketOwnerEnforced},
+	}}}, nil
+}
+
+// GetBucketAcl: the owner's FULL_CONTROL and the log delivery group's WRITE.
+//
+//nolint:revive // var-naming: the SDK names the method GetBucketAcl.
+func (f *fake) GetBucketAcl(ctx context.Context, in *s3.GetBucketAclInput, _ ...func(*s3.Options)) (*s3.GetBucketAclOutput, error) {
+	if err := f.do(ctx, "GetBucketAcl", *in.Bucket); err != nil {
+		return nil, err
+	}
+	return &s3.GetBucketAclOutput{Grants: []s3types.Grant{
+		{Grantee: &s3types.Grantee{Type: s3types.TypeCanonicalUser, ID: aws.String("owner")}, Permission: s3types.PermissionFullControl},
+		{Grantee: &s3types.Grantee{Type: s3types.TypeGroup, URI: aws.String("http://acs.amazonaws.com/groups/s3/LogDelivery")}, Permission: s3types.PermissionWrite},
+	}}, nil
+}

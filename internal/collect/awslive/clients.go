@@ -38,6 +38,8 @@ type S3API interface {
 	GetBucketEncryption(ctx context.Context, in *s3.GetBucketEncryptionInput, opts ...func(*s3.Options)) (*s3.GetBucketEncryptionOutput, error)
 	GetPublicAccessBlock(ctx context.Context, in *s3.GetPublicAccessBlockInput, opts ...func(*s3.Options)) (*s3.GetPublicAccessBlockOutput, error)
 	GetBucketTagging(ctx context.Context, in *s3.GetBucketTaggingInput, opts ...func(*s3.Options)) (*s3.GetBucketTaggingOutput, error)
+	GetBucketOwnershipControls(ctx context.Context, in *s3.GetBucketOwnershipControlsInput, opts ...func(*s3.Options)) (*s3.GetBucketOwnershipControlsOutput, error)
+	GetBucketAcl(ctx context.Context, in *s3.GetBucketAclInput, opts ...func(*s3.Options)) (*s3.GetBucketAclOutput, error)
 }
 
 // S3ControlAPI reads the account's S3 Block Public Access.
@@ -45,11 +47,12 @@ type S3ControlAPI interface {
 	GetPublicAccessBlock(ctx context.Context, in *s3control.GetPublicAccessBlockInput, opts ...func(*s3control.Options)) (*s3control.GetPublicAccessBlockOutput, error)
 }
 
-// KMSAPI reads keys, their policies, rotation, tags and aliases.
+// KMSAPI reads keys, their policies, grants, rotation, tags and aliases.
 type KMSAPI interface {
 	kms.ListKeysAPIClient
 	kms.ListAliasesAPIClient
 	kms.ListResourceTagsAPIClient
+	kms.ListGrantsAPIClient
 	DescribeKey(ctx context.Context, in *kms.DescribeKeyInput, opts ...func(*kms.Options)) (*kms.DescribeKeyOutput, error)
 	GetKeyPolicy(ctx context.Context, in *kms.GetKeyPolicyInput, opts ...func(*kms.Options)) (*kms.GetKeyPolicyOutput, error)
 	GetKeyRotationStatus(ctx context.Context, in *kms.GetKeyRotationStatusInput, opts ...func(*kms.Options)) (*kms.GetKeyRotationStatusOutput, error)

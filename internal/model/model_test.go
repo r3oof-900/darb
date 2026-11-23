@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -333,8 +334,13 @@ func TestRemediationCopies(t *testing.T) {
 	}
 	r := NewResource(&ResourceInput{Kind: KindS3Bucket, ARN: "arn:aws:s3:::b", Source: src})
 	before := r.S3()
-	if c := r.WithS3(S3Settings{RestrictPublicBuckets: True}); c.S3().RestrictPublicBuckets != True || r.S3() != before || c.ID() != r.ID() {
+	if c := r.WithS3(S3Settings{RestrictPublicBuckets: True}); c.S3().RestrictPublicBuckets != True || !reflect.DeepEqual(r.S3(), before) || c.ID() != r.ID() {
 		t.Error("WithS3")
+	}
+	acl := NewResource(&ResourceInput{Kind: KindS3Bucket, ARN: "arn:aws:s3:::a", S3: S3Settings{PublicACL: []string{"AllUsers READ"}}, Source: src})
+	acl.S3().PublicACL[0] = "changed"
+	if acl.S3().PublicACL[0] != "AllUsers READ" {
+		t.Error("S3 settings are shared with the caller")
 	}
 }
 

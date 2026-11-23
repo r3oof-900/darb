@@ -1,7 +1,7 @@
 {
   "format": "darb-expected/v1",
   "derived_from": "Phase 6 review, dominance: role/app decrypts (confirmed) and rewrites its own policy; no role/ops",
-  "exit_code": 0,
+  "exit_code": 3,
   "findings": [
     {
       "rule": "DARB-PATH-001",
@@ -90,6 +90,14 @@
       "rule": "DARB-PATH-002",
       "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/apps/Deployment/app",
       "jewel": "arn:aws:s3:::acme-customer-pii"
+    }
+  ],
+  "gaps": [
+    {
+      "kind": "unresolved",
+      "contains": [
+        "Object Ownership of this bucket is not in the input"
+      ]
     }
   ],
   "intended_access": [],

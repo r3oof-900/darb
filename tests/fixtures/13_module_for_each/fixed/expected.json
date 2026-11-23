@@ -17,6 +17,12 @@
       "jewel": "arn:aws:s3:::acme-customer-pii"
     }
   ],
+  "gaps_absent": [
+    "Object Ownership of this bucket is not in the input"
+  ],
+  "notes_absent": [
+    "S3 ACLs"
+  ],
   "intended_access": [],
   "no_edges": []
 }

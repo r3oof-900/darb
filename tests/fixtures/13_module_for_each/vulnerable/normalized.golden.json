@@ -792,7 +792,8 @@
       "classification": "pii",
       "classified_by": "tag:DataClass",
       "defaulted": [
-        "s3.block-public-access.new-bucket"
+        "s3.block-public-access.new-bucket",
+        "s3.object-ownership.new-bucket"
       ],
       "encryption": {
         "Type": "AES256",

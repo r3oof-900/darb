@@ -1,0 +1,36 @@
+{
+  "format": "darb-expected/v1",
+  "derived_from": "phase 2 fixed: the grant is constrained to another bucket's encryption context",
+  "exit_code": 0,
+  "findings": [
+    {
+      "rule": "DARB-POST-007",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/payments",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": [],
+      "fingerprint": "fe1ae67f98c056f873685d2df3e72ae5def9ae84ccea894079e4f039a7565639"
+    }
+  ],
+  "absent": [
+    {
+      "rule": "DARB-PATH-001",
+      "jewel": "arn:aws:s3:::acme-customer-pii"
+    },
+    {
+      "rule": "DARB-PATH-002",
+      "jewel": "arn:aws:s3:::acme-customer-pii"
+    }
+  ],
+  "notes": [
+    {
+      "subject": "KMS grants",
+      "contains": [
+        "created at runtime by AWS services are not visible in IaC",
+        "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii"
+      ]
+    }
+  ],
+  "intended_access": [],
+  "no_edges": []
+}

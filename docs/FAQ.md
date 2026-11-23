@@ -55,10 +55,16 @@ never hide one. Every scan with AWS data says so in a `not-modelled` note.
 
 Yes, through what it does not collect yet:
 
-- **KMS grants.** A grant can give `kms:Decrypt` to a principal that the key
-  policy does not name, so a path through such a key can be missed.
-- **S3 ACLs.** An ACL can grant read access to another account or to
-  everyone, so a path to such a bucket can be missed.
+- **KMS grants it cannot see.** Grants are collected and evaluated, but a
+  Terraform scan does not see the grants AWS services create at runtime, and a
+  key whose `ListGrants` failed has none in the input. A grant can give
+  `kms:Decrypt` to a principal that the key policy does not name; the note
+  names these keys.
+- **S3 object ACLs.** With ACLs enabled, an object's ACL can give anyone or
+  another account read access to it; darb does not read objects, so each such
+  bucket gets a coverage gap. A bucket ACL is not a read: its `READ` only
+  lists objects. A bucket with `BucketOwnerEnforced` has ACLs disabled and
+  nothing to miss.
 - **AWS RAM shares of SSM parameters.** A share can give another account read
   access that the parameter's resource policies do not show.
 

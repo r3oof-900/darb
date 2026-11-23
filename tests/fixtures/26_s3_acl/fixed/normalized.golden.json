@@ -1,0 +1,48 @@
+{
+  "addons": [],
+  "boundaries": [],
+  "clusters": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "name": "prod",
+      "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
+      "region": "us-east-1",
+      "source": "darb.yaml (clusters.prod)"
+    }
+  ],
+  "collected": 3,
+  "entry_points": [],
+  "exposures": [],
+  "gaps": [],
+  "mappings": [],
+  "network_policies": [],
+  "node_groups": [],
+  "pod_identity": [],
+  "policies": [],
+  "principals": [],
+  "rbac": [],
+  "resources": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:s3:::acme-partner-exports",
+      "classification": "pii",
+      "classified_by": "tag:DataClass",
+      "defaulted": [
+        "s3.default-encryption"
+      ],
+      "encryption": {
+        "Type": "AES256",
+        "KeyARN": "",
+        "BucketKey": "unknown"
+      },
+      "kind": "aws:s3:bucket",
+      "region": "us-east-1",
+      "restrict_public_buckets": "true",
+      "source": "terraform/exports.tf:2-7 (aws_s3_bucket.exports)"
+    }
+  ],
+  "service_accounts": [],
+  "trusts": [],
+  "workloads": []
+}

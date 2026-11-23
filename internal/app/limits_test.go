@@ -156,7 +156,9 @@ func TestResourceNotes(t *testing.T) {
 				s3 = n.Detail
 			}
 		}
-		if !strings.Contains(kms, "key/tf-aws_kms_key.pii") || !strings.Contains(s3, "arn:aws:s3:::acme-customer-pii") ||
+		// Terraform keys: the runtime-grants note names the key. The bucket
+		// states BucketOwnerEnforced (ACLs disabled): no S3 ACLs note.
+		if !strings.Contains(kms, "key/tf-aws_kms_key.pii") || s3 != "" ||
 			!strings.Contains(kms, "can be missed") || r.ExitCode != 1 {
 			t.Errorf("notes kms=%q s3=%q exit %d", kms, s3, r.ExitCode)
 		}

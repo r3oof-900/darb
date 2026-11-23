@@ -174,3 +174,64 @@ func TestLiveScanNothingCollected(t *testing.T) {
 		t.Fatalf("err %v", err)
 	}
 }
+
+// Phase 2 of the limits: a live scan lists every key's grants and reads
+// every bucket's Object Ownership. A key whose grants were listed is not
+// named in the KMS grants note; a failed ListGrants is a gap and names the
+// key. logs has no ownership controls (ACLs enabled): a gap and the S3 ACLs
+// note; pii is BucketOwnerEnforced: neither.
+func TestLiveScanGrantsAndOwnership(t *testing.T) {
+	analyze := func(f *awsfake.Factory) *Analysis {
+		in := liveInputs(t, f)
+		l, err := Load(context.Background(), in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		a, err := Analyze(l, in.Config, DefaultFailOn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return a
+	}
+	note := func(a *Analysis, subject string) string {
+		for _, n := range a.Notes {
+			if n.Subject == subject {
+				return n.Detail
+			}
+		}
+		return ""
+	}
+	gaps := func(a *Analysis, text string) []string {
+		var out []string
+		for _, g := range a.Gaps {
+			if strings.Contains(g.Detail, text) {
+				out = append(out, g.Address)
+			}
+		}
+		return out
+	}
+	const k1 = "arn:aws:kms:eu-west-1:111122223333:key/k1"
+	a := analyze(&awsfake.Factory{})
+	// The logs bucket (us-east-1) names a key k1 there, which is not in the
+	// input: its grants are unknown. The collected k1 is not named.
+	if kms := note(a, NoteKMSGrants); strings.Contains(kms, k1) || !strings.Contains(kms, "arn:aws:kms:us-east-1:111122223333:key/k1") {
+		t.Errorf("grants listed, still named: %q", kms)
+	}
+	if s3 := note(a, NoteS3ACLs); !strings.Contains(s3, "arn:aws:s3:::logs") || strings.Contains(s3, "arn:aws:s3:::pii") {
+		t.Errorf("S3 ACLs note: %q", s3)
+	}
+	if g := gaps(a, "ACLs are enabled (no ownership controls on an existing bucket)"); !reflect.DeepEqual(g, []string{"arn:aws:s3:::logs"}) {
+		t.Errorf("ACL gaps: %v", g)
+	}
+	a = analyze(&awsfake.Factory{Fail: map[string]error{"ListGrants k1": awsfake.Denied("AccessDeniedException")}})
+	if kms := note(a, NoteKMSGrants); !strings.Contains(kms, k1) || strings.Contains(kms, "key/aws1") {
+		t.Errorf("failed ListGrants: %q", kms)
+	}
+	denied := false
+	for _, g := range a.Gaps {
+		denied = denied || g.Kind == coverage.KindAccessDenied && g.API == "ListGrants" && g.Address == "k1"
+	}
+	if !denied {
+		t.Errorf("no access-denied gap for ListGrants k1: %+v", a.Gaps)
+	}
+}

@@ -57,11 +57,25 @@ type ResourceInput struct {
 	// Tier: SSM parameters: "Standard", "Advanced" or "Intelligent-Tiering";
 	// "" when not known (Terraform without tier takes the region's default).
 	Tier string
+	// Grants: KMS keys: how far the key's grants are known (GrantsListed,
+	// GrantsTerraform, or GrantsNotCollected).
+	Grants string
 	// Defaulted lists the settings that took a documented default
 	// (DocumentedDefaults keys).
 	Defaulted []string
 	Source    SourceLocation
 }
+
+// How far a KMS key's grants are known.
+const (
+	// GrantsNotCollected: ListGrants failed, or the snapshot predates it.
+	GrantsNotCollected = ""
+	// GrantsListed: every grant is in the input (ListGrants).
+	GrantsListed = "listed"
+	// GrantsTerraform: the aws_kms_grant resources are; grants that AWS
+	// services create at runtime are not visible in IaC.
+	GrantsTerraform = "terraform"
+)
 
 // Resource is a protected AWS or Kubernetes resource.
 type Resource struct {
@@ -77,6 +91,7 @@ type Resource struct {
 	s3             S3Settings
 	tier           string
 	keyRotation    Tri
+	grants         string
 	defaulted      []string
 	source         SourceLocation
 }
@@ -91,7 +106,7 @@ func NewResource(in *ResourceInput) *Resource {
 	return &Resource{
 		id: NewID(in.Kind, in.ARN), kind: in.Kind, arn: in.ARN, account: in.Account, region: in.Region,
 		tags: tags, classification: in.Classification, classifiedBy: in.ClassifiedBy,
-		encryption: in.Encryption, s3: in.S3, keyRotation: in.KeyRotation, tier: in.Tier, defaulted: sortedSet(in.Defaulted), source: in.Source,
+		encryption: in.Encryption, s3: in.S3.clone(), keyRotation: in.KeyRotation, tier: in.Tier, grants: in.Grants, defaulted: sortedSet(in.Defaulted), source: in.Source,
 	}
 }
 
@@ -101,6 +116,9 @@ func sortedSet(ss []string) []string {
 	slices.Sort(out)
 	return slices.Compact(out)
 }
+
+// Grants reports how far a KMS key's grants are known.
+func (r *Resource) Grants() string { return r.grants }
 
 // KeyRotation reports a KMS key's automatic rotation.
 func (r *Resource) KeyRotation() Tri { return r.keyRotation }
@@ -143,7 +161,13 @@ func (r *Resource) Classification() (class, by string) { return r.classification
 func (r *Resource) Encryption() Encryption { return r.encryption }
 
 // S3 returns S3-specific settings.
-func (r *Resource) S3() S3Settings { return r.s3 }
+func (r *Resource) S3() S3Settings { return r.s3.clone() }
+
+// clone copies the settings, so a caller cannot change a Resource's.
+func (s S3Settings) clone() S3Settings {
+	s.PublicACL = slices.Clone(s.PublicACL)
+	return s
+}
 
 // WithClassification returns a copy of r marked as a crown jewel.
 func (r *Resource) WithClassification(class, by string) *Resource {
@@ -160,7 +184,7 @@ func (r *Resource) Source() *SourceLocation { s := r.source; return &s }
 func (r *Resource) WithS3(s S3Settings) *Resource {
 	c := *r
 	c.tags, c.defaulted = slices.Clone(r.tags), slices.Clone(r.defaulted)
-	c.s3 = s
+	c.s3 = s.clone()
 	return &c
 }
 

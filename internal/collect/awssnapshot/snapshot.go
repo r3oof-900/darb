@@ -29,8 +29,9 @@ var ErrFormat = errors.New("awssnapshot: not a " + Format + " bundle")
 //
 //	manifest.json
 //	<account>/iam/get-account-authorization-details.json
-//	<account>/s3/<bucket>/{get-bucket-policy,get-bucket-encryption,get-public-access-block,get-bucket-tagging,get-bucket-location}.json
-//	<account>/<region>/kms/<key-id>/{describe-key,get-key-policy,get-key-rotation-status}.json
+//	<account>/s3/<bucket>/{get-bucket-policy,get-bucket-encryption,get-public-access-block,get-bucket-tagging,get-bucket-location,
+//	                       get-bucket-ownership-controls,get-bucket-acl}.json
+//	<account>/<region>/kms/<key-id>/{describe-key,get-key-policy,get-key-rotation-status,list-resource-tags,list-grants}.json
 //	<account>/<region>/eks/<cluster>/describe-cluster.json
 //	<account>/<region>/eks/<cluster>/pod-identity/<association-id>.json
 type manifest struct {

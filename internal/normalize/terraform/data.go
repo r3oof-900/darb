@@ -8,6 +8,7 @@ import (
 	"github.com/r3oof-900/darb/internal/collect/tfraw"
 	"github.com/r3oof-900/darb/internal/coverage"
 	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/normalize"
 )
 
 // bucketFacts accumulates what separate Terraform resources say about one bucket.
@@ -18,6 +19,11 @@ type bucketFacts struct {
 	encDefault   bool // no encryption configuration: the documented SSE-S3 default
 	restrict     model.Tri
 	restrictSeen bool
+	// ownership: aws_s3_bucket_ownership_controls (ownershipSeen), and the
+	// public grants of aws_s3_bucket_acl.
+	ownership     string
+	ownershipSeen bool
+	publicACL     []string
 }
 
 // data normalizes S3 buckets (+ policy, encryption, public access block),
@@ -37,11 +43,12 @@ func (n *norm) data(rs []*tfraw.Resource) {
 		"aws_kms_key": n.kmsKey, "aws_eks_cluster": n.cluster, "aws_eks_pod_identity_association": n.podIdentity,
 		"aws_eks_addon": n.addon, "aws_iam_openid_connect_provider": n.oidcProvider,
 		"aws_eks_access_entry": n.accessEntry, "aws_eks_access_policy_association": n.accessPolicy,
-		"aws_s3_account_public_access_block": n.accountBlock,
+		"aws_s3_account_public_access_block": n.accountBlock, "aws_kms_grant": n.kmsGrant,
 	}
 	for _, r := range rs {
 		switch r.Type {
-		case "aws_s3_bucket_policy", "aws_s3_bucket_server_side_encryption_configuration", "aws_s3_bucket_public_access_block":
+		case "aws_s3_bucket_policy", "aws_s3_bucket_server_side_encryption_configuration", "aws_s3_bucket_public_access_block",
+			"aws_s3_bucket_ownership_controls", "aws_s3_bucket_acl":
 			n.bucketPart(r, buckets)
 		case "aws_launch_template":
 			templates[r.Root+"|"+r.Address] = r
@@ -90,7 +97,43 @@ func (n *norm) bucketPart(r *tfraw.Resource, buckets map[string]*bucketFacts) {
 		if v, ok := r.Attrs.Get("restrict_public_buckets"); ok && v.Kind == tfraw.KBool {
 			f.restrict = model.TriOf(v.Bool)
 		}
+	case "aws_s3_bucket_ownership_controls", "aws_s3_bucket_acl":
+		n.aclPart(r, f)
 	}
+}
+
+// aclPart: Object Ownership (aws_s3_bucket_ownership_controls) and the
+// public grants of the bucket ACL (aws_s3_bucket_acl).
+func (n *norm) aclPart(r *tfraw.Resource, f *bucketFacts) {
+	if r.Type == "aws_s3_bucket_acl" {
+		f.publicACL = append(f.publicACL, n.publicGrants(r)...)
+		return
+	}
+	f.ownershipSeen = true
+	for _, rule := range r.Attrs.Blocks("rule") {
+		f.ownership, _ = n.str(r.Root, valueOf(rule, "object_ownership"))
+	}
+}
+
+// publicGrants: the public grants of an aws_s3_bucket_acl, from its canned
+// acl or its access_control_policy grants (AWS provider › aws_s3_bucket_acl).
+func (n *norm) publicGrants(r *tfraw.Resource) []string {
+	if acl, ok := n.str(r.Root, attr(r, "acl")); ok {
+		return normalize.CannedPublicGrants(acl)
+	}
+	var out []string
+	for _, p := range r.Attrs.Blocks("access_control_policy") {
+		for _, g := range p.Blocks("grant") {
+			perm, _ := n.str(r.Root, valueOf(g, "permission"))
+			for _, who := range g.Blocks("grantee") {
+				uri, _ := n.str(r.Root, valueOf(who, "uri"))
+				if s, ok := normalize.PublicGrant(uri, perm); ok {
+					out = append(out, s)
+				}
+			}
+		}
+	}
+	return out
 }
 
 func (n *norm) bucketOf(r *tfraw.Resource, buckets map[string]*bucketFacts) *bucketFacts {
@@ -134,9 +177,28 @@ func (n *norm) addBuckets(buckets map[string]*bucketFacts) {
 			// bucket's, read statically) can be changed outside this input.
 			n.gap(coverage.KindUnresolved, r, "Block Public Access of this bucket is not in the input (no aws_s3_bucket_public_access_block); unknown")
 		}
+		s3 := model.S3Settings{RestrictPublicBuckets: f.restrict, ACLs: model.Unknown, Ownership: f.ownership, PublicACL: f.publicACL}
+		switch {
+		case f.ownershipSeen:
+			s3.ACLs = normalize.ACLsOf(f.ownership)
+			if s3.ACLs == model.Unknown {
+				n.gap(coverage.KindUnresolved, r, "object_ownership of this bucket is not known statically; ACLs may be enabled")
+			}
+		case r.Action == "create":
+			// A bucket the plan creates has ACLs disabled (DESIGN.md §4.7).
+			s3.ACLs = model.False
+			defaulted = append(defaulted, model.DefaultS3NewBucketACLs)
+		default:
+			// A bucket read statically, or one the plan does not create, may be
+			// older than the April 2023 default (or imported): unknown.
+			n.gap(coverage.KindUnresolved, r, normalize.OwnershipUnknown)
+		}
+		if d, ok := normalize.ACLGap(&s3); ok {
+			n.gap(coverage.KindNotModelled, r, d)
+		}
 		res := model.NewResource(&model.ResourceInput{
 			Kind: model.KindS3Bucket, ARN: n.arnOf(r), Account: n.account(r), Region: n.region(r), Tags: tags(r),
-			Encryption: f.enc, S3: model.S3Settings{RestrictPublicBuckets: f.restrict}, Defaulted: defaulted, Source: s,
+			Encryption: f.enc, S3: s3, Defaulted: defaulted, Source: s,
 		})
 		n.b.AddResource(res)
 		for _, d := range f.policies {
@@ -192,7 +254,7 @@ func (n *norm) kmsKey(r *tfraw.Resource) {
 	}
 	key := model.NewResource(&model.ResourceInput{
 		Kind: model.KindKMSKey, ARN: n.arnOf(r), Account: n.account(r), Region: n.region(r), Tags: tags(r),
-		KeyRotation: rotation, Defaulted: defaulted, Source: s,
+		KeyRotation: rotation, Grants: model.GrantsTerraform, Defaulted: defaulted, Source: s,
 	})
 	n.b.AddResource(key)
 	text, ok := n.policyText(r.Root, attr(r, "policy"))

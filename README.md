@@ -150,10 +150,14 @@ The most important before a real scan:
 - AWS RAM shares of advanced SSM parameters are not collected: a parameter
   shared only through RAM is not seen as shared. The report names every
   parameter of the input that can be shared (a `not-modelled` note).
-- **KMS grants are not collected, and S3 ACLs are not evaluated: either can
-  hide a real path.** A grant can give `kms:Decrypt` to a principal the key
-  policy does not name; an ACL can grant read to another account or to everyone.
-  Every report with KMS keys or buckets names them in a `not-modelled` note.
+- **KMS grants and S3 object ACLs can still hide a real path where darb cannot
+  see them.** Grants are collected (`kms:ListGrants`, `aws_kms_grant`) and
+  evaluated; what is left: grants AWS services create at runtime, which a
+  Terraform scan cannot see, and keys whose grants could not be listed. A
+  bucket ACL only lists objects, so it is never a read; object ACLs can grant
+  read to anyone or another account, and darb does not read them: a bucket with
+  ACLs enabled (or not known to be disabled) gets a coverage gap. The report
+  names those keys and buckets in `not-modelled` notes.
 - AWS Organizations SCPs and RCPs are not collected: they only restrict access,
   so without them darb may report a path that one of them blocks, never hide
   one (a `not-modelled` note on every scan with AWS data).

@@ -1060,6 +1060,175 @@ E["01b_classic_intended/fixed"] = {"derived_from": "Phase 5 review: the root-cau
     "intended_access": intended("verified"), "notes": [unclassified_note(RECEIPTS)]}
 
 
+# Phase 2 of the limits (after v0.1.0-rc.1): KMS grants and S3 ACLs,
+# derived by hand before the engine changed. Sources:
+# - KMS Developer Guide, Grants in AWS KMS: grants are "considered along
+#   with key policies and IAM policies", "can allow access to a KMS key, but
+#   not deny access"; Determining access: grants are "an alternative to the
+#   key policy"; Controlling access: no principal has access "unless that
+#   permission is provided explicitly and never denied". Decided after
+#   v0.1.0-rc.1: a grant is a resource-side Allow of its operations to its
+#   grantee; in the key's account it allows alone, and explicit Denies still
+#   apply.
+# - KMS API Reference, GrantConstraints: EncryptionContextEquals is "an
+#   exact, case-sensitive match", EncryptionContextSubset lets the request
+#   "also have additional encryption context pairs"; not both at once.
+# - A grant cannot be edited (the API has no UpdateGrant): its only fix is
+#   to revoke or retire it, or delete the aws_kms_grant, so its side is a
+#   revoke whatever it names (resource side, 4; SCORING.md 4.1).
+# - S3 User Guide, Access control list (ACL) overview: a bucket ACL's READ
+#   "Allows grantee to list the objects in the bucket" (s3:ListBucket); an
+#   object's READ "Allows grantee to read the object data" (s3:GetObject).
+#   Decided after v0.1.0-rc.1: a bucket ACL is never a read of the data;
+#   with ACLs enabled, object ACLs (read per object only) are not collected:
+#   one gap per bucket, and the S3 ACLs note names it.
+# - S3 User Guide, Object Ownership: BucketOwnerEnforced: "ACLs are
+#   disabled ... ACLs no longer affect permissions to data". AWS What's New
+#   (2022-12-13): from April 2023 S3 disables ACLs for all new buckets
+#   "regardless of how they are created". A bucket the plan creates: ACLs
+#   disabled (documented default); any other Terraform bucket without
+#   aws_s3_bucket_ownership_controls: unknown, one gap.
+# - Terraform: KMS grants created at runtime by AWS services are not in the
+#   configuration: one note for the scan, naming its keys.
+KMS_RUNTIME = "created at runtime by AWS services are not visible in IaC"
+OWNERSHIP_UNKNOWN = "Object Ownership of this bucket is not in the input"
+
+
+def kms_runtime_note(*keys):
+    return {"subject": "KMS grants", "contains": [KMS_RUNTIME, *keys]}
+
+
+# 25 - the PII key's policy names only role/key-admin (no account-root
+# statement, so IAM policies cannot let anyone use the key); payments-api
+# has s3:GetObject on the PII objects and no kms permission; aws_kms_grant
+# gives payments-api Decrypt with no constraint. Scenario 1's shape: api
+# public (1000), RUNS_AS, ASSUMES, CAN_READ_PLAINTEXT, 3 edges (810);
+# confirmed (the grant allows in the key's own account); impact pii 900 x
+# 1000: 729, critical. Cut: the decrypt has no identity side (without
+# payments-api's identity policies the grant still allows), and its
+# resource side is the grant: revoke, 4. The read is explicit: revoke,
+# identity, 3; the bucket has no policy. The derived read is cut at the
+# read (3 < 4); the alternative sharing no edge is the decrypt (the grant,
+# 4), cheaper than the IRSA trust (7). DARB-POST-007 on payments; rotation
+# is on. Ownership BucketOwnerEnforced and Block Public Access are stated:
+# no gap. The scan has Terraform keys: the runtime grants note.
+GRANT_DECRYPT = f"CAN_DECRYPT[for {PII}] {ROLE} -> {PII_KEY}"
+GRANT_READ = f"CAN_READ {ROLE} -> {PII}"
+E["25_kms_grant/vulnerable"] = {"derived_from": "phase 2: a KMS grant the key policy does not show", "exit_code": 1, "findings": [
+    path_finding("DARB-PATH-001", API, PII, [f"RUNS_AS {SA_API}", f"ASSUMES {ROLE}", f"CAN_READ_PLAINTEXT {PII}"],
+                 729, "critical", [GRANT_READ], [GRANT_DECRYPT], defaults=IRSA_DEFAULTS,
+                 fix=[step(GRANT_READ, "identity", "revoke", 3)], other_side=[],
+                 alternative_detail=[step(GRANT_DECRYPT, "resource", "revoke", 4)]),
+    no_default_deny(NS_PAYMENTS)],
+    "notes": [kms_runtime_note(PII_KEY)], "gaps_absent": [OWNERSHIP_UNKNOWN]}
+# fixed: the grant's EncryptionContextEquals is {aws:s3:arn: the receipts
+# bucket}. S3 sends aws:s3:arn = the PII bucket's ARN (Bucket Key on) or an
+# object's ARN (off; the setting is not stated, so both are tried): neither
+# equals it, so the grant does not apply and nothing else allows: no
+# decrypt, no path. The exit code is 0: DARB-POST-007 is low and there is
+# no gap.
+E["25_kms_grant/fixed"] = {"derived_from": "phase 2 fixed: the grant is constrained to another bucket's encryption context",
+                           "exit_code": 0, "findings": [no_default_deny(NS_PAYMENTS)],
+                           "absent": ABSENT_PII, "notes": [kms_runtime_note(PII_KEY)]}
+
+# 27 - a grant to a role of another account (review of darb#4). The PII
+# bucket and key are in 111122223333; the key policy names only
+# role/key-admin; the bucket policy lets role/reader of 444455556666 read
+# the objects, and reader's identity policy has s3:GetObject on them, no kms
+# permission; aws_kms_grant gives reader Decrypt. The cluster is in
+# 444455556666: api (public LoadBalancer, 1000) runs as payments/api, whose
+# IRSA role is reader (trust: :sub and :aud exact).
+# What the KMS documentation says, read for this review (DESIGN.md 6, KMS
+# grants): "Cross-account access requires permission in the key policy of
+# the KMS key and in an IAM policy in the external user's account" and
+# "Neither the key policy nor the IAM policy alone is sufficient" (Allowing
+# users in other accounts to use a KMS key); the same page, Step 2: users of
+# the external account "cannot use the KMS key until you attach IAM policies
+# that delegate those permissions, or use grants to manage access to the KMS
+# key"; Grants in AWS KMS: the grantee "can be in the same account as the
+# KMS key or a different account" and uses the permissions "just as they
+# would if the permissions came from a key policy or IAM policy". No page
+# says that a grant alone is enough across accounts, and none says it is
+# not: the decrypt is UNKNOWN. The path needs that unknown allow:
+# unconfirmed, confidence low, worst case 1000 x 810 = 810; 810 x 900 = 729,
+# critical; undecided names the grant and the other account.
+# Cut: the cross-account read needs both sides: reader's identity
+# statement (explicit: revoke, 3) and the bucket policy naming reader
+# exactly (explicit: revoke, 4): the read costs 3. The decrypt rests only on
+# the grant: removing reader's identity policies changes nothing (they
+# grant no kms action), so its one side is the grant: resource, revoke, 4.
+# The derived read is cut at the read (3 < 4), identity side; its other
+# side is the bucket policy (4). The alternative sharing no edge is the
+# decrypt (the grant, 4), cheaper than the IRSA trust (7).
+# DARB-POST-007 on payments (cluster in 444455556666). The scan has a
+# Terraform key: the runtime grants note. Block Public Access and Object
+# Ownership are stated: no gap. Exit 1 (critical).
+ACCT_B = "444455556666"
+PROD_B = f"arn:aws:eks:us-east-1:{ACCT_B}:cluster/prod"
+API_B = f"k8s:{PROD_B}/payments/Deployment/api"
+SA_API_B = f"k8s:{PROD_B}/payments/ServiceAccount/api"
+NS_PAYMENTS_B = f"k8s:{PROD_B}//Namespace/payments"
+READER_B = f"arn:aws:iam::{ACCT_B}:role/reader"
+XREAD = f"CAN_READ {READER_B} -> {PII}"
+XDECRYPT = f"CAN_DECRYPT[for {PII}] {READER_B} -> {PII_KEY}"
+E["27_kms_grant_cross_account/vulnerable"] = {
+    "derived_from": "review of darb#4: a KMS grant to a role of another account with no kms permission of its own", "exit_code": 1,
+    "findings": [
+        path_finding("DARB-PATH-001", API_B, PII, [f"RUNS_AS {SA_API_B}", f"ASSUMES {READER_B}", f"CAN_READ_PLAINTEXT {PII}"],
+                     729, "critical", [XREAD], [XDECRYPT], confirmed=False, confidence="low", defaults=IRSA_DEFAULTS,
+                     undecided=["aws_kms_grant.reader", "another account"],
+                     fix=[step(XREAD, "identity", "revoke", 3)], other_side=[step(XREAD, "resource", "revoke", 4)],
+                     alternative_detail=[step(XDECRYPT, "resource", "revoke", 4)]),
+        no_default_deny(NS_PAYMENTS_B)],
+    "notes": [kms_runtime_note(PII_KEY)], "gaps_absent": [OWNERSHIP_UNKNOWN]}
+# fixed: reader's identity policy also has an explicit Deny of kms:Decrypt
+# on account A's keys. A grant "can allow access to a KMS key, but not deny
+# access" (Grants in AWS KMS), and no principal has access unless it is
+# "provided explicitly and never denied" (Controlling access): the Deny
+# refuses the decrypt whatever the grant does. No decrypt, no path; exit 0.
+E["27_kms_grant_cross_account/fixed"] = {
+    "derived_from": "review of darb#4, fixed: the grantee's identity policy denies kms:Decrypt", "exit_code": 0,
+    "findings": [no_default_deny(NS_PAYMENTS_B)],
+    "absent": ABSENT_PII, "notes": [kms_runtime_note(PII_KEY)]}
+
+# 26 - acme-partner-exports (pii): Object Ownership ObjectWriter (ACLs
+# enabled) and a public-read bucket ACL (AllUsers READ); Block Public Access
+# blocks and restricts public policies but neither blocks nor ignores public
+# ACLs; no bucket policy; SSE-S3 by default. The bucket ACL's READ only
+# lists objects: no read of the data, no CAN_READ edge, no DARB-PATH-003.
+# restrict_public_buckets is true: no DARB-POST-005. The object ACLs are not
+# collected and may grant anyone read: one not-modelled gap naming the
+# bucket, which also says the bucket ACL lets anyone list it; the S3 ACLs
+# note names it. No finding, a gap over tolerance: exit 3.
+EXPORTS_26 = "arn:aws:s3:::acme-partner-exports"
+E["26_s3_acl/vulnerable"] = {"derived_from": "phase 2: ACLs enabled and a public-read bucket ACL", "exit_code": 3, "findings": [],
+                             "absent": [{"rule": "DARB-PATH-003", "jewel": EXPORTS_26}, {"rule": "DARB-POST-005", "resource": EXPORTS_26}],
+                             "gaps": [{"kind": "not-modelled", "contains": ["ACLs are enabled (Object Ownership ObjectWriter)",
+                                                                            "object ACLs are not collected", "AllUsers"]}],
+                             "notes": [{"subject": "S3 ACLs", "contains": [EXPORTS_26]}]}
+# fixed: BucketOwnerEnforced, no ACL resource, Block Public Access on: no
+# gap, no S3 ACLs note, no finding: exit 0.
+E["26_s3_acl/fixed"] = {"derived_from": "phase 2 fixed: ACLs disabled (BucketOwnerEnforced)", "exit_code": 0, "findings": [],
+                        "absent": [{"rule": "DARB-PATH-003", "jewel": EXPORTS_26}],
+                        "gaps_absent": ["ACLs are enabled", OWNERSHIP_UNKNOWN], "notes_absent": ["S3 ACLs"]}
+
+# 13 - scenario 4 of phase 2 (a bucket the plan creates, no ownership
+# setting): the plan creates aws_s3_bucket.customer_pii with no
+# aws_s3_bucket_ownership_controls: ACLs disabled by the documented
+# default, no ownership gap, and the bucket is not named in an S3 ACLs
+# note. Static mode cannot tell a new bucket from an imported one: one
+# ownership gap (the exit code was 3 already).
+for v in ("vulnerable", "fixed"):
+    E[f"13_module_for_each/{v}"]["gaps_absent"] = [OWNERSHIP_UNKNOWN]
+    E[f"13_module_for_each/{v}"]["notes_absent"] = ["S3 ACLs"]
+    STATIC[f"13_module_for_each/{v}"]["gaps"] = [{"kind": "unresolved", "contains": [OWNERSHIP_UNKNOWN]}]
+
+# 22 dominance: its PII bucket (static Terraform) has no
+# aws_s3_bucket_ownership_controls: one ownership gap over tolerance; no
+# finding reaches --fail-on high, so the exit code is 3 (it was 0).
+E["22_direct_and_escalation/dominance"]["exit_code"] = 3
+E["22_direct_and_escalation/dominance"]["gaps"] = [{"kind": "unresolved", "contains": [OWNERSHIP_UNKNOWN]}]
+
 # Fingerprints (DESIGN.md 5 "Stable IDs", 8 "Fingerprint", 8.1 "Posture
 # finding identities"), written from the documents, not from the engine:
 # a node ID is sha256("darb/v1" NUL kind NUL canonical identity); a path

@@ -530,6 +530,7 @@ on 2026-11-20 and has a test in `internal/app/defaults_test.go`
 | `kms.default-key-policy` | KMS key created without a key policy | default key policy (account root, `kms:*`) | KMS Developer Guide: "AWS KMS applies a very simple default key policy." — https://docs.aws.amazon.com/kms/latest/developerguide/key-policy-default.html |
 | `s3.default-encryption` | S3 bucket without a default encryption configuration | SSE-S3 (`AES256`) | S3 User Guide: SSE-S3 is "the base level of encryption for every bucket"; "Starting January 5, 2023, all new object uploads to Amazon S3 are automatically encrypted" — https://docs.aws.amazon.com/AmazonS3/latest/userguide/default-bucket-encryption.html |
 | `s3.block-public-access.new-bucket` | S3 Block Public Access of a bucket a **Terraform plan creates** (`resource_changes` action `create`) with no `aws_s3_bucket_public_access_block` | all four settings on (`restrict_public_buckets = true`) | AWS News Blog › "Heads-Up: Amazon S3 Security Changes Are Coming in April of 2023" (13 Dec 2022; its update of 27 Apr 2023 says the change is in effect for all new buckets in all Regions): newly created buckets "[…] will by default have S3 Block Public Access enabled", including those created with the S3 API, the CLI, the SDKs or CloudFormation (Terraform creates buckets through the S3 API) — https://aws.amazon.com/blogs/aws/heads-up-amazon-s3-security-changes-are-coming-in-april-of-2023/ . The S3 User Guide states the default without a date: "By default, all four Block Public Access settings are enabled." (Creating a general purpose bucket › Using the S3 console) — https://docs.aws.amazon.com/AmazonS3/latest/userguide/create-bucket-overview.html . The User Guide pages read on 2026-11-21 do not state the April 2023 date; its FAQ page (create-bucket-faq.html) now redirects to the S3 welcome page. |
+| `s3.object-ownership.new-bucket` | S3 Object Ownership of a bucket a **Terraform plan creates** with no `aws_s3_bucket_ownership_controls` (after v0.1.0-rc.1) | `BucketOwnerEnforced`: ACLs disabled | S3 User Guide › Controlling ownership of objects and disabling ACLs for your bucket: "For newly created buckets, ACLs are disabled by default." — https://docs.aws.amazon.com/AmazonS3/latest/userguide/about-object-ownership.html . AWS What's New (13 Dec 2022): from April 2023 S3 disables ACLs for all new buckets, and the defaults "apply to all new buckets regardless of how they are created, including AWS CLI, APIs, SDKs, and AWS CloudFormation" — https://aws.amazon.com/about-aws/whats-new/2022/12/amazon-s3-automatically-enable-block-public-access-disable-access-control-lists-buckets-april-2023/ . One User Guide page (Setting Object Ownership on an existing bucket… › new bucket) still says a bucket created with the AWS CLI without the setting is `ObjectWriter`; the What's New post and the Object Ownership page say otherwise, and a plan creates the bucket through the S3 API. |
 | `eks.pod-identity.disableSessionTags` | Pod Identity association `disableSessionTags` | `false` | EKS API › CreatePodIdentityAssociation — https://docs.aws.amazon.com/eks/latest/APIReference/API_CreatePodIdentityAssociation.html |
 | `kms.aws-managed-key.rotation` | rotation of an AWS managed KMS key (`KeyManager: AWS`), not collected | `true` (every year) | KMS Developer Guide › "Rotate AWS KMS keys": "AWS KMS automatically rotates AWS managed keys every year"; "You cannot enable or disable key rotation for AWS managed keys." — https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html (read 2026-11-21) |
 | `secretsmanager.aws-managed-key` | a secret encrypted with the AWS managed key `aws/secretsmanager` | principals of the secret's account may decrypt through Secrets Manager; no other account | Secrets Manager User Guide › "Secret encryption and decryption": the key policy allows use "only when Secrets Manager makes the request on the user's behalf" (`kms:ViaService`, `kms:CallerAccount`); "AWS managed keys do not support cross-account access" — https://docs.aws.amazon.com/secretsmanager/latest/userguide/security-encryption.html (read 2026-11-21) |
@@ -542,6 +543,7 @@ on 2026-11-20 and has a test in `internal/app/defaults_test.go`
 |---|---|
 | Node IMDS `http_tokens` without launch-template `metadata_options` | the effective value comes from the launch template, then the account default, then the AMI's `imds-support`; without any of them the baseline is "V1 or V2 (token optional)" (EC2 User Guide › Configure instance metadata options), so it depends on inputs darb does not see |
 | S3 bucket Block Public Access without `aws_s3_bucket_public_access_block`, for a bucket a plan does **not** create (it already exists), or read statically or from a snapshot | an existing bucket's settings may have been changed after it was created, outside the input; only a bucket the plan creates has the new-bucket default (row above). A fixture that needs the setting states it (the Phase 5 review: declare it rather than raise the gap tolerance) |
+| S3 Object Ownership without `aws_s3_bucket_ownership_controls`, for a bucket a plan does **not** create, or read statically | the bucket may predate the April 2023 default, or have been imported, with ACLs enabled: unknown, a gap (after v0.1.0-rc.1). A snapshot that predates `get-bucket-ownership-controls.json` leaves it unknown with the `S3 ACLs` note only, as with the account Block Public Access of Phase 7 |
 | KMS rotation of a key in a snapshot without `kms:GetKeyRotationStatus` | the API value was not collected; the KMS guide only says automatic rotation "is optional" |
 | `hostNetwork` / `privileged` stated `false` vs omitted | indistinguishable in the typed Kubernetes API and equal in value; neither marks the node as defaulted, since no rule fires on `false` |
 
@@ -694,14 +696,76 @@ the resource side (resource policy, the resource's RCPs) must **both** allow.
 **KMS** (AWS KMS Developer Guide › "Key policies in AWS KMS" › "Default key policy"):
 the key policy must allow, either directly or by naming the account root, which
 enables IAM policies to grant access. An IAM policy alone never grants access to a
-key whose policy does not delegate. KMS **grants** are not in the MVP input list.
-**Flag**: unmodelled grants can only *add* access, so their absence can hide a
-real path. *Correction (Phase 7):* this flag promised a coverage gap ("KMS grants
-not evaluated"); none was recorded, so a scan could look complete while grants
-were unknown. Every report with KMS keys now carries a `not-modelled` note
-naming them (§12.3). A gap on every key would make every scan end with exit
-code 3, so the plan is to collect grants (`kms:ListGrants`, `aws_kms_grant`) and
-keep a gap only where a key's grants could not be read.
+key whose policy does not delegate.
+
+**KMS grants** (after v0.1.0-rc.1). Sources: `kms:ListGrants` per key (live;
+snapshot file `<account>/<region>/kms/<key>/list-grants.json`) and Terraform
+`aws_kms_grant`. Grants are "considered along with key policies and IAM
+policies" and "can allow access to a KMS key, but not deny access" (KMS
+Developer Guide › Grants in AWS KMS); they are "an alternative to the key
+policy" (› Determining access); no principal has access "unless that
+permission is provided explicitly and never denied" (› Controlling access).
+So each grant is a **resource-side Allow** of its operations to its grantee,
+attached to the key (`normalize.GrantPolicy`, ID `<key>#grant/<id>`): in the
+key's account it allows alone, and every explicit Deny still applies: a
+Deny "takes precedence over any key policy or IAM policy with an `Allow`
+effect, and it takes precedence over all grants for this KMS key and its
+principals" (AWS KMS condition keys › kms:EncryptionAlgorithm, a key-policy
+Deny), and "No AWS principal has any permissions to a KMS key unless that
+permission is provided explicitly and never denied" (Controlling access).
+Its constraints are conditions (KMS API Reference › GrantConstraints):
+`EncryptionContextEquals` is `StringEquals` on each pair plus
+`ForAllValues:StringEqualsIgnoreCase` on `kms:EncryptionContextKeys` (no
+other key); `EncryptionContextSubset` is `StringEquals` on each pair. Case:
+the API Reference says "However, in a grant constraint, the key in each
+key-value pair is not case sensitive, but the value is case sensitive."
+(GrantConstraints, the Important note); the Developer Guide says
+`EncryptionContextEquals` "requires that the encryption context pairs in the
+request are an exact, case-sensitive match for the encryption context pairs
+in the grant constraint. The pairs can appear in any order, but the keys and
+values in each pair cannot vary." (Creating a grant › Encryption context
+constraints). The two conflict on keys; a key that ignores case allows more,
+so it is the worst case, and the one used (review of darb#4; a condition key
+name is matched without case, "The key name is not case sensitive", AWS KMS
+condition keys › kms:EncryptionContext:context-key, so only the key list
+needs `StringEqualsIgnoreCase`). A grant cannot be edited, only revoked or
+retired: its side is always a revoke (resource, 4; SCORING.md §4.1), and the
+fix names the grant (`aws kms revoke-grant`, or delete the `aws_kms_grant`).
+
+*Across accounts* (review of darb#4, scenario 27). What the documentation
+says, verbatim:
+
+- "Cross-account access requires permission in the key policy of the KMS key
+  and in an IAM policy in the external user's account." and "Neither the key
+  policy nor the IAM policy alone is sufficient—you must change both."
+  (Allowing users in other accounts to use a KMS key)
+- "The key policy in the account that owns the KMS key sets the valid range
+  for permissions. But, users and roles in the external account cannot use
+  the KMS key until you attach IAM policies that delegate those permissions,
+  or use grants to manage access to the KMS key. The IAM policies are set in
+  the external account." (same page, Step 2: Add IAM policies in the external
+  account)
+- "The grantee principal can be in the same account as the KMS key or a
+  different account." and "The grantee principal can use the permissions that
+  the grant gives them without specifying the grant, just as they would if the
+  permissions came from a key policy or IAM policy." (Grants in AWS KMS)
+
+No page says that a grantee needs no IAM permission, in its own account or
+across accounts, and none says that it does when the access comes from a
+grant: the first sentence speaks of key-policy access, the Step 2 sentence
+names grants as the alternative to the IAM policies. So a grant to a
+principal of another account whose identity policies do not allow the
+operation is **UNKNOWN**, not allowed and not denied: the path is reported
+unconfirmed at its worst-case score, `undecided` names the grant, and the
+decrypt's only side is the grant (the grantee's identity policies grant
+nothing). An explicit Deny anywhere, the grantee's identity policy included,
+refuses it (scenario 27 fixed; `TestCrossAccountGrant`).
+
+Still not visible: grants AWS services create at
+runtime, in a Terraform scan (one note for the scan, naming its keys); a key
+whose `ListGrants` failed (a gap, and the note); a snapshot that predates the
+file (the note). History: Phase 7 found that a promised coverage gap had never
+been recorded and added the note; this replaces it where grants are known.
 
 **Role trust policies** are resource-based policies on the role and follow the same
 table for `sts:AssumeRole*`. **Flag**: AWS stores role principals by unique ID; a
@@ -717,10 +781,25 @@ is unknown; an account whose setting is not in the input leaves the bucket's).
 Sources: `s3control GetPublicAccessBlock` (live, snapshot file
 `<account>/s3control/get-public-access-block.json`) and Terraform
 `aws_s3_account_public_access_block` (`account_id`, else the provider's account;
-a `restrict_public_buckets` that is not a literal is unknown, a gap). **Flag** (*corrected in Phase 7*: no gap was recorded; every report with buckets
-now carries a `not-modelled` note naming them, §12.3; ACLs can hide a real path,
-since they grant access): S3 ACLs are not modelled; reported as a gap
-unless Object Ownership is `BucketOwnerEnforced` (ACLs disabled).
+a `restrict_public_buckets` that is not a literal is unknown, a gap).
+
+**S3 ACLs** (after v0.1.0-rc.1). A bucket ACL's `READ` "Allows grantee to list
+the objects in the bucket" (`s3:ListBucket`); an object's `READ` "Allows grantee
+to read the object data" (`s3:GetObject`) (S3 User Guide › Access control list
+(ACL) overview). So a bucket ACL never reads the data and is not an edge; a
+public one (AllUsers or AuthenticatedUsers) is named as evidence in the gap
+below. Object ACLs matter only while ACLs are enabled: with Object Ownership
+`BucketOwnerEnforced` "ACLs are disabled ... ACLs no longer affect permissions to
+data" (› Controlling ownership of objects); `BucketOwnerPreferred` and
+`ObjectWriter` keep them, and a bucket with no ownership controls predates the
+setting (S3 API Reference › GetBucketOwnershipControls). Sources:
+`s3:GetBucketOwnershipControls` (and `s3:GetBucketAcl` when ACLs are enabled;
+snapshot files `get-bucket-ownership-controls.json`, `get-bucket-acl.json`),
+Terraform `aws_s3_bucket_ownership_controls` and `aws_s3_bucket_acl`. A bucket a
+plan creates has ACLs disabled (the April 2023 default, §4.7); any other
+Terraform bucket without ownership controls is unknown, a gap. With ACLs enabled
+the object ACLs, read one object at a time, are not collected: a `not-modelled`
+gap per bucket, and the `S3 ACLs` note names it (§12.3).
 
 **Session policies** are rarely visible in static inputs. When a chain does not show
 one, we assume none; this is listed in the finding's assumptions.
@@ -1836,8 +1915,11 @@ anywhere else in the documents belongs here first.
 
 | Limit | Match | Can it hide a real path? | Scenario |
 |---|---|---|---|
-| KMS grants are not collected | `note: KMS grants` | **yes**: a grant can give `kms:Decrypt` to a principal the key policy does not name; the note names the keys | `01_classic/vulnerable` |
-| S3 bucket and object ACLs are not evaluated | `note: S3 ACLs` | **yes**: an ACL can grant read to another account or to everyone; the note names the buckets | `01_classic/vulnerable` |
+| KMS grants that AWS services create at runtime are not visible in IaC (a Terraform scan has its `aws_kms_grant` resources only) | `note: KMS grants` | **yes**: a grant can give `kms:Decrypt` to a principal the key policy does not name; the note names the keys | `25_kms_grant/vulnerable` |
+| KMS grants of a key whose `ListGrants` failed, or in a snapshot that predates it | `note: KMS grants` | **yes**, as above; a failed call is also a gap | `19_secrets_manager/vulnerable` |
+| Object ACLs of a bucket with ACLs enabled (Object Ownership `ObjectWriter`, `BucketOwnerPreferred`, or none on an older bucket) are not collected | `gap: object ACLs are not collected` | **yes**: an object ACL's `READ` reads the data, for anyone or another account; the `S3 ACLs` note names the bucket | `26_s3_acl/vulnerable` |
+| Object Ownership of a Terraform bucket the plan does not create, with no `aws_s3_bucket_ownership_controls` (or a snapshot that predates it: the note only) | `gap: Object Ownership of this bucket is not in the input` | **yes**, as above: ACLs may be enabled | `22_direct_and_escalation/dominance` |
+| The buckets whose ACLs are enabled or may be | `note: S3 ACLs` | **yes**: each one's object ACLs are not collected | `26_s3_acl/vulnerable` |
 | AWS RAM shares of SSM parameters are not collected | `note: AWS RAM shares of SSM parameters` | **yes**: a share grants another account read; the note names the parameters that can be shared (advanced, Intelligent-Tiering or unknown tier) | `inline:ssm-parameter-without-tier` |
 | AWS Organizations SCPs and RCPs are not collected | `note: AWS Organizations SCPs and RCPs` | no: they only restrict, so a reported path may be one they block | `01_classic/vulnerable` |
 | Kubernetes admission policies are not read | `note: Kubernetes Secrets through admission` | no: admission only rejects pods | `21_k8s_secret/vulnerable` |
@@ -1845,9 +1927,13 @@ anywhere else in the documents belongs here first.
 | An AWS managed policy missing from the vendored snapshot | `gap: managed policy document not available` | no: its grants are UNKNOWN, so paths through it are reported as unconfirmed, never dropped | `19_secrets_manager/unknown_managed_policy` |
 
 These notes do not change the exit code; a coverage gap counts against the
-tolerance (§11). Collecting KMS grants and S3 ACLs, so that a gap remains only
-where something is really unknown (a failed `ListGrants`, ACLs enabled on a
-bucket), is the next step before `v0.1.0`.
+tolerance (§11). *After v0.1.0-rc.1 (phase 2 of the limits):* KMS grants are
+collected (`kms:ListGrants`, `aws_kms_grant`) and evaluated (§6, KMS grants),
+and Object Ownership is collected (`s3:GetBucketOwnershipControls`,
+`aws_s3_bucket_ownership_controls`), so the notes remain only where something
+is really unknown: grants AWS services create at runtime in a Terraform scan,
+grants not collected, and buckets whose ACLs are enabled or may be. A key whose
+grants were listed, and a bucket with ACLs disabled, are not named.
 
 ### 12.2 Deferred work (recorded at the Phase 4 approval; after Phase 5)
 
@@ -1930,6 +2016,9 @@ Encryption type of every jewel bucket is stated explicitly in the fixture
 | 23 | (Phase 7) The same Secret read **without an RBAC read**: `payments/api` names it in an env var and a volume (token not mounted); `payments/ci` may `create pods` in `payments`, its token mounted by default | `CAN_READ_PLAINTEXT[mount]`; `CAN_READ_PLAINTEXT[pod-create]` | `DARB-PATH-001` api, 400 medium, cut the mount (workload, revoke, 5), no alternative; `DARB-PATH-001` ci-runner, 360 medium, cut the token mount (5), alternative the pod-creation grant (rbac, 5); fixed: api names a non-jewel Secret, ci may only read pods |
 | 22 | (Phase 6 review) One pair, two findings: `apps/app` → `role/app` reads the PII bucket, its decrypt conditioned on an unresolved variable; `role/app` may assume `role/ops`, which may rewrite its own policy. Variants: `fixed` (role/ops lists only), `dominance` (role/app decrypts unconditionally and rewrites its own policy; no role/ops) | `s3:GetObject`, `kms:Decrypt` (conditioned), `sts:AssumeRole` on role/ops; role/ops `iam:PutRolePolicy` on itself | vulnerable: `DARB-PATH-001` (unconfirmed, 291 medium, cut: resolve the variable) and `DARB-PATH-002` (confirmed, 235 low); fixed: the direct finding only; dominance: one `DARB-PATH-001` whose cut breaks the dominated escalation too (decrypt 1 + escalation 4) |
 | 24 | (after v0.1.0-rc.1) An **untagged bucket**: `records/exporter` (not exposed) runs as an IRSA role with `s3:GetObject` on `patient-records-vault/*`; the bucket has no tags, no policy, SSE-S3 by default, Block Public Access off. Variants: `fixed` (the role only writes), `ignore` (`crown_jewels.unclassified: ignore`) | `s3:GetObject` | `DARB-PATH-001` with `jewel_classification: unclassified`, 129 low; cut the read (identity, revoke, 3), alternative the IRSA trust (7); no `DARB-POST-005` (posture rules skip unclassified stores); the coverage note names the bucket; `ignore`: no path, the note says the store was not scanned |
+| 25 | (after v0.1.0-rc.1) Scenario 1 with the PII key's policy naming only `role/key-admin` (no account root, so no IAM policy can let anyone use the key), payments-api reading the PII objects with no kms permission, and an `aws_kms_grant` giving it `Decrypt`; fixed: the grant's `EncryptionContextEquals` names another bucket | grant `Decrypt` | `DARB-PATH-001`, 729 critical, cut the read (identity, revoke, 3), alternative the grant (resource, revoke, 4); fixed: no path; both: the runtime-grants note names the key |
+| 26 | (after v0.1.0-rc.1) A PII bucket with Object Ownership `ObjectWriter` and a `public-read` bucket ACL; Block Public Access blocks public policies but not public ACLs; no bucket policy; fixed: `BucketOwnerEnforced` | bucket ACL `READ` to AllUsers (lists objects) | no `DARB-PATH-003` (a bucket ACL does not read the data), one `not-modelled` gap for the object ACLs naming the public bucket ACL, the `S3 ACLs` note, exit 3; fixed: no gap, no note, exit 0 |
+| 27 | (review of darb#4) The PII bucket and key in account A, the key policy naming only `role/key-admin`; `role/reader` in account B (the cluster's IRSA role) may read the objects (its identity policy and the bucket policy) and has no kms permission; an `aws_kms_grant` gives it `Decrypt`; fixed: reader's identity policy denies `kms:Decrypt` | grant `Decrypt` across accounts | `DARB-PATH-001` unconfirmed (the documentation does not settle a cross-account grant without an IAM allow), worst case 729 critical, `undecided` names the grant; cut the read (identity, revoke, 3; other side the bucket policy, 4), alternative the grant (4); fixed: no path |
 
 Fixed variants remove exactly the cause the scenario tests (e.g. scenario 1 scopes
 `s3:GetObject` and `kms:Decrypt` to the workload's legitimate bucket and key, with an
@@ -1979,15 +2068,15 @@ of 2026-11-22, with the evidence that shows it. CI evidence is the full run on
 | 3 | Every fuzz target ≥ 5 minutes, nightly | §15 | configured, not yet observed | `fuzz.yml` (9 targets, schedule 03:17); `fuzz-smoke` passes on every PR; no nightly run yet on the new repository |
 | 4 | ≥ 95% branch coverage (gobco) on the core | §6.4, §12 | met | `branch-coverage` job (`task cover:branch`) |
 | 5 | Evaluator: ≥ 150 cases, properties | §12 | met | 294 cases in `internal/eval/testdata/eval`; property tests |
-| 6 | Every scenario matches its hand-derived `expected.json` | §8.2, §13 | met | 63 expected files, 162 fingerprints computed in `expected_source.py`; `open_mismatches.txt`: no difference open (the unclassified-store expectations were committed before the engine change, ce45d0f) |
+| 6 | Every scenario matches its hand-derived `expected.json` | §8.2, §13 | met | 69 expected files, 168 fingerprints computed in `expected_source.py`; `open_mismatches.txt`: no difference open (the unclassified-store expectations were committed before the engine change, ce45d0f; the grants and ACL ones too, 47a694e, and the cross-account grant, c1e6806) |
 | 7 | 50k nodes / 500k edges in < 60 s and < 2 GB | §7.4 | met | `bench` job, "Performance target" step (`DARB_PERF=1`) |
-| 8 | Every vulnerable scenario's patch, applied and rescanned, removes its path | §9.3 | met, with three documented exceptions | `TestEveryVulnerableScenarioIsFixed`: 26 findings fixed; 10 (UNKNOWN: what is missing, no patch), 13 (module input: a TODO), 22 direct (pending resolution) |
+| 8 | Every vulnerable scenario's patch, applied and rescanned, removes its path | §9.3 | met, with three documented exceptions | `TestEveryVulnerableScenarioIsFixed`: 28 findings fixed; 10 (UNKNOWN: what is missing, no patch), 13 (module input: a TODO), 22 direct (pending resolution) |
 | 9 | Same input, byte-identical output | §3.4 | met | goldens scanned twice; `TestExampleReports`; `release-snapshot` builds twice, identical archives |
 | 10 | JSON report validated against its schema | §11 | met | `TestEveryReportMatchesTheSchema`, `TestSchemaDescribesTheGoTypes` |
 | 11 | SARIF validated against the official schema | §11 | met | `TestEverySARIFReportMatchesTheOfficialSchema` (OASIS 2.1.0, pinned) |
 | 11b | JUnit report validated against a known JUnit schema; Markdown bounded for a PR comment | §11 | met | `junit-schema` CI job (`xmllint`, JUnit 10 XSD), `TestJUnitAndMarkdownReports`, `internal/report/markdown` tests |
 | 11c | Logging: `slog`, `--log-format json`, redacted, `--debug` stack traces | §11 | met | `TestJSONLogsAreRedacted`, `TestCLIJSONLogs`, `TestCrash` |
-| 11d | Every limit the documents state is in the report, and says whether it can hide a path | §12.3 | met; KMS grants and S3 ACLs are stated, not yet collected | `TestStatedLimits`, `TestResourceNotes` |
+| 11d | Every limit the documents state is in the report, and says whether it can hide a path | §12.3 | met; KMS grants and Object Ownership are collected (after v0.1.0-rc.1), what remains unknown is stated | `TestStatedLimits`, `TestResourceNotes` |
 | 12 | HTML: strict CSP, untrusted names inert | §11 | met | `internal/report/htmlreport` tests (hostile names, CSP hashes) |
 | 13 | Live collection read-only, permissions documented exactly | §4.4, §4.5 | met | `TestClientInterfacesAreReadOnly`, `TestPermissionsDocument`, `TestK8sPermissionsDocument` |
 | 14 | Live collectors tested on fakes, LocalStack and kind only | §12 (Phase 6) | met | `localstack` and `kind` jobs; no test reaches a cloud API |

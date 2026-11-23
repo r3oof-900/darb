@@ -149,6 +149,12 @@
       "fingerprint": "df7b113507c09e56eb19c0e1f186d2046d67f84c02ca64b736480db249578fec"
     }
   ],
+  "gaps_absent": [
+    "Object Ownership of this bucket is not in the input"
+  ],
+  "notes_absent": [
+    "S3 ACLs"
+  ],
   "absent": [],
   "intended_access": [],
   "no_edges": []

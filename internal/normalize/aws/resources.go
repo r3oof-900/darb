@@ -8,6 +8,7 @@ import (
 	"github.com/r3oof-900/darb/internal/coverage"
 	"github.com/r3oof-900/darb/internal/managedpolicies"
 	"github.com/r3oof-900/darb/internal/model"
+	"github.com/r3oof-900/darb/internal/normalize"
 )
 
 const apiAuthDetails = "iam:GetAccountAuthorizationDetails"
@@ -77,13 +78,34 @@ func (n *norm) keys() {
 		case k.RotationEnabled == nil:
 			n.gap(coverage.KindUnresolved, k.Metadata.Arn, "key rotation status was not collected (kms:GetKeyRotationStatus); unknown")
 		}
+		grants := model.GrantsNotCollected
+		if k.Grants != nil {
+			grants = model.GrantsListed
+		}
 		key := model.NewResource(&model.ResourceInput{
 			Kind: model.KindKMSKey, ARN: k.Metadata.Arn, Account: n.acct.ID, Region: k.Region, Tags: tagMap(k.Tags),
-			KeyRotation: rotation, Defaulted: defaulted, Source: loc,
+			KeyRotation: rotation, Grants: grants, Defaulted: defaulted, Source: loc,
 		})
 		n.b.AddResource(key)
 		raw, _ := json.Marshal(k.Policy)
 		n.b.AddPolicy(&model.AttachedPolicy{Target: key.ID(), Doc: n.parse(raw, k.Metadata.Arn+"#key-policy", model.PolicyResource, &loc)})
+		n.grants(key, k)
+	}
+}
+
+// grants: each listed grant is a resource policy of its key
+// (normalize.GrantPolicy). A grant whose grantee is a service principal
+// (an AWS service using the key on the account's behalf) is kept too: it
+// never starts a path from a workload.
+func (n *norm) grants(key *model.Resource, k *awsraw.Key) {
+	gloc := apiLoc(k.Metadata.Arn, "kms:ListGrants")
+	for _, g := range k.Grants {
+		grant := &normalize.Grant{ID: g.GrantID, Grantee: g.GranteePrincipal, Operations: g.Operations}
+		if c := g.Constraints; c != nil {
+			grant.Equals, grant.Subset = c.EncryptionContextEquals, c.EncryptionContextSubset
+		}
+		raw, _ := json.Marshal(normalize.GrantPolicy(grant))
+		n.b.AddPolicy(&model.AttachedPolicy{Target: key.ID(), Doc: n.parse(raw, normalize.GrantDocID(k.Metadata.Arn, g.GrantID), model.PolicyResource, &gloc)})
 	}
 }
 
@@ -115,9 +137,11 @@ func (n *norm) buckets() {
 		if b.PublicAccessBlock != nil {
 			restrict = model.TriOf(b.PublicAccessBlock.RestrictPublicBuckets)
 		}
+		s3 := n.ownership(b, arn)
+		s3.RestrictPublicBuckets = restrict
 		res := model.NewResource(&model.ResourceInput{
 			Kind: model.KindS3Bucket, ARN: arn, Account: n.acct.ID, Region: b.Region, Tags: tagMap(b.Tags),
-			Encryption: enc, S3: model.S3Settings{RestrictPublicBuckets: restrict}, Source: loc,
+			Encryption: enc, S3: s3, Source: loc,
 		})
 		n.b.AddResource(res)
 		switch {
@@ -159,4 +183,29 @@ func optionalTri(b *bool) model.Tri {
 		return model.Unknown
 	}
 	return model.TriOf(*b)
+}
+
+// ownership: Object Ownership and the public grants of the bucket ACL. Not
+// collected (a snapshot that predates it): unknown, named in the S3 ACLs
+// note; a failed call is a gap of its own. A bucket with no ownership
+// controls predates the setting: ACLs enabled. With ACLs enabled, the
+// object ACLs are not collected: a gap.
+func (n *norm) ownership(b *awsraw.Bucket, arn string) model.S3Settings {
+	s := model.S3Settings{ACLs: model.Unknown}
+	if b.Ownership == nil {
+		return s
+	}
+	s.Ownership, s.ACLs = *b.Ownership, normalize.ACLsOf(*b.Ownership)
+	if *b.Ownership == "" {
+		s.ACLs = model.True
+	}
+	for _, g := range b.ACL {
+		if p, ok := normalize.PublicGrant(g.Grantee.URI, g.Permission); ok {
+			s.PublicACL = append(s.PublicACL, p)
+		}
+	}
+	if d, ok := normalize.ACLGap(&s); ok {
+		n.gap(coverage.KindNotModelled, arn, d)
+	}
+	return s
 }

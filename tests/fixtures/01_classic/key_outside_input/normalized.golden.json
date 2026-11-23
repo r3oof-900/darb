@@ -38,6 +38,18 @@
       "Account": "",
       "API": "",
       "Detail": "the KMS key that encrypts arn:aws:s3:::acme-customer-pii is not in the input: its key policy is unknown (scan the key's Terraform or plan, or a snapshot of its account)"
+    },
+    {
+      "Kind": "unresolved",
+      "Source": "normalize-terraform",
+      "File": "terraform/pii_kms_bucket.tf",
+      "Line": 2,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "Object Ownership of this bucket is not in the input (no aws_s3_bucket_ownership_controls); ACLs may be enabled, and object ACLs are not collected"
     }
   ],
   "mappings": [],

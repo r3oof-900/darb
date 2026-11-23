@@ -211,6 +211,10 @@ func (x *context) decrypt() {
 		return
 	}
 	t := &target{action: "kms:Decrypt", principal: role, context: bucket}
+	if x.fix.Side == graph.SideResource && model.IsGrantDoc(x.fix.Policy) {
+		x.grant(key)
+		return
+	}
 	if x.fix.Side == graph.SideIdentity {
 		x.policySide(t, &model.StatementInput{Action: []string{"kms:Decrypt"}, Resource: []string{key}, Conditions: []model.Condition{cond}},
 			"deny kms:Decrypt of "+key+" for "+bucket+"'s data to "+role)
@@ -218,6 +222,26 @@ func (x *context) decrypt() {
 	}
 	x.policySide(t, &model.StatementInput{Principal: awsPrincipal(role), Action: []string{"kms:Decrypt"}, Resource: []string{"*"}, Conditions: []model.Condition{cond}},
 		"deny kms:Decrypt for "+bucket+"'s data to "+role+" in the key policy")
+}
+
+// grant: a KMS grant cannot be edited, only revoked or retired (KMS
+// Developer Guide › Retiring and revoking grants): no patch, the change to
+// make by hand. A grant from Terraform is its aws_kms_grant resource.
+func (x *context) grant(key string) {
+	var steps []string
+	for _, id := range strings.Split(x.fix.Policy, ", ") {
+		_, g, ok := strings.Cut(id, model.GrantDocMarker)
+		switch {
+		case !ok:
+			steps = append(steps, "change the key policy of "+key)
+		case strings.HasPrefix(g, "aws_kms_grant.") || strings.Contains(g, ".aws_kms_grant."):
+			steps = append(steps, "delete the Terraform resource "+g+" (destroying it revokes the grant)")
+		default:
+			steps = append(steps, "revoke the grant: aws kms revoke-grant --key-id "+key+" --grant-id "+g)
+		}
+	}
+	x.todo("%s", strings.Join(steps, "; "))
+	x.change.Why = "the grant gives " + x.from() + " kms:Decrypt; a grant cannot be edited, only revoked"
 }
 
 // context: the kms:EncryptionContext:aws:s3:arn condition for the bucket:
