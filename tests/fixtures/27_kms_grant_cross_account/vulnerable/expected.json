@@ -1,0 +1,87 @@
+{
+  "format": "darb-expected/v1",
+  "derived_from": "review of darb#4: a KMS grant to a role of another account with no kms permission of its own",
+  "exit_code": 1,
+  "findings": [
+    {
+      "rule": "DARB-PATH-001",
+      "entry": "k8s:arn:aws:eks:us-east-1:444455556666:cluster/prod/payments/Deployment/api",
+      "jewel": "arn:aws:s3:::acme-customer-pii",
+      "path": [
+        "RUNS_AS k8s:arn:aws:eks:us-east-1:444455556666:cluster/prod/payments/ServiceAccount/api",
+        "ASSUMES arn:aws:iam::444455556666:role/reader",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
+      ],
+      "confirmed": false,
+      "confidence": "low",
+      "score": 729,
+      "severity": "critical",
+      "chokepoints": [
+        "CAN_READ arn:aws:iam::444455556666:role/reader -> arn:aws:s3:::acme-customer-pii"
+      ],
+      "alternative_fix": [
+        "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::444455556666:role/reader -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii"
+      ],
+      "defaults_used": [
+        "eks.irsa.audience",
+        "eks.irsa.oidc-provider-audience"
+      ],
+      "fix": [
+        {
+          "edge": "CAN_READ arn:aws:iam::444455556666:role/reader -> arn:aws:s3:::acme-customer-pii",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 3
+        }
+      ],
+      "other_side_fix": [
+        {
+          "edge": "CAN_READ arn:aws:iam::444455556666:role/reader -> arn:aws:s3:::acme-customer-pii",
+          "side": "resource",
+          "fix_kind": "revoke",
+          "cost": 4
+        }
+      ],
+      "alternative_fix_detail": [
+        {
+          "edge": "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::444455556666:role/reader -> arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+          "side": "resource",
+          "fix_kind": "revoke",
+          "cost": 4
+        }
+      ],
+      "status": "unconfirmed",
+      "undecided": [
+        "aws_kms_grant.reader",
+        "another account"
+      ],
+      "also_fixes": [],
+      "uncuttable": [],
+      "remediation_status": "complete",
+      "fingerprint": "ef837c87ed47560637b37eb6813d8000565e77c0230e5ba0f5ae946e9d7ea1e5"
+    },
+    {
+      "rule": "DARB-POST-007",
+      "resource": "k8s:arn:aws:eks:us-east-1:444455556666:cluster/prod//Namespace/payments",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": [],
+      "fingerprint": "a0b2139b1a02971de7065ab8a55ede38fe29ef2f6f98515e85c1cb7bddfdcc65"
+    }
+  ],
+  "notes": [
+    {
+      "subject": "KMS grants",
+      "contains": [
+        "created at runtime by AWS services are not visible in IaC",
+        "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii"
+      ]
+    }
+  ],
+  "gaps_absent": [
+    "Object Ownership of this bucket is not in the input"
+  ],
+  "absent": [],
+  "intended_access": [],
+  "no_edges": []
+}

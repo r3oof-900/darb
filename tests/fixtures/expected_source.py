@@ -1131,6 +1131,66 @@ E["25_kms_grant/fixed"] = {"derived_from": "phase 2 fixed: the grant is constrai
                            "exit_code": 0, "findings": [no_default_deny(NS_PAYMENTS)],
                            "absent": ABSENT_PII, "notes": [kms_runtime_note(PII_KEY)]}
 
+# 27 - a grant to a role of another account (review of darb#4). The PII
+# bucket and key are in 111122223333; the key policy names only
+# role/key-admin; the bucket policy lets role/reader of 444455556666 read
+# the objects, and reader's identity policy has s3:GetObject on them, no kms
+# permission; aws_kms_grant gives reader Decrypt. The cluster is in
+# 444455556666: api (public LoadBalancer, 1000) runs as payments/api, whose
+# IRSA role is reader (trust: :sub and :aud exact).
+# What the KMS documentation says, read for this review (DESIGN.md 6, KMS
+# grants): "Cross-account access requires permission in the key policy of
+# the KMS key and in an IAM policy in the external user's account" and
+# "Neither the key policy nor the IAM policy alone is sufficient" (Allowing
+# users in other accounts to use a KMS key); the same page, Step 2: users of
+# the external account "cannot use the KMS key until you attach IAM policies
+# that delegate those permissions, or use grants to manage access to the KMS
+# key"; Grants in AWS KMS: the grantee "can be in the same account as the
+# KMS key or a different account" and uses the permissions "just as they
+# would if the permissions came from a key policy or IAM policy". No page
+# says that a grant alone is enough across accounts, and none says it is
+# not: the decrypt is UNKNOWN. The path needs that unknown allow:
+# unconfirmed, confidence low, worst case 1000 x 810 = 810; 810 x 900 = 729,
+# critical; undecided names the grant and the other account.
+# Cut: the cross-account read needs both sides: reader's identity
+# statement (explicit: revoke, 3) and the bucket policy naming reader
+# exactly (explicit: revoke, 4): the read costs 3. The decrypt rests only on
+# the grant: removing reader's identity policies changes nothing (they
+# grant no kms action), so its one side is the grant: resource, revoke, 4.
+# The derived read is cut at the read (3 < 4), identity side; its other
+# side is the bucket policy (4). The alternative sharing no edge is the
+# decrypt (the grant, 4), cheaper than the IRSA trust (7).
+# DARB-POST-007 on payments (cluster in 444455556666). The scan has a
+# Terraform key: the runtime grants note. Block Public Access and Object
+# Ownership are stated: no gap. Exit 1 (critical).
+ACCT_B = "444455556666"
+PROD_B = f"arn:aws:eks:us-east-1:{ACCT_B}:cluster/prod"
+API_B = f"k8s:{PROD_B}/payments/Deployment/api"
+SA_API_B = f"k8s:{PROD_B}/payments/ServiceAccount/api"
+NS_PAYMENTS_B = f"k8s:{PROD_B}//Namespace/payments"
+READER_B = f"arn:aws:iam::{ACCT_B}:role/reader"
+XREAD = f"CAN_READ {READER_B} -> {PII}"
+XDECRYPT = f"CAN_DECRYPT[for {PII}] {READER_B} -> {PII_KEY}"
+E["27_kms_grant_cross_account/vulnerable"] = {
+    "derived_from": "review of darb#4: a KMS grant to a role of another account with no kms permission of its own", "exit_code": 1,
+    "findings": [
+        path_finding("DARB-PATH-001", API_B, PII, [f"RUNS_AS {SA_API_B}", f"ASSUMES {READER_B}", f"CAN_READ_PLAINTEXT {PII}"],
+                     729, "critical", [XREAD], [XDECRYPT], confirmed=False, confidence="low", defaults=IRSA_DEFAULTS,
+                     undecided=["aws_kms_grant.reader", "another account"],
+                     fix=[step(XREAD, "identity", "revoke", 3)], other_side=[step(XREAD, "resource", "revoke", 4)],
+                     alternative_detail=[step(XDECRYPT, "resource", "revoke", 4)]),
+        no_default_deny(NS_PAYMENTS_B)],
+    "notes": [kms_runtime_note(PII_KEY)], "gaps_absent": [OWNERSHIP_UNKNOWN]}
+# fixed: reader's identity policy also has an explicit Deny of kms:Decrypt
+# on account A's keys. A grant "can allow access to a KMS key, but not deny
+# access" (Grants in AWS KMS), and no principal has access unless it is
+# "provided explicitly and never denied" (Controlling access): the Deny
+# refuses the decrypt whatever the grant does. No decrypt, no path; exit 0.
+E["27_kms_grant_cross_account/fixed"] = {
+    "derived_from": "review of darb#4, fixed: the grantee's identity policy denies kms:Decrypt", "exit_code": 0,
+    "findings": [no_default_deny(NS_PAYMENTS_B)],
+    "absent": ABSENT_PII, "notes": [kms_runtime_note(PII_KEY)]}
+
 # 26 - acme-partner-exports (pii): Object Ownership ObjectWriter (ACLs
 # enabled) and a public-read bucket ACL (AllUsers READ); Block Public Access
 # blocks and restricts public policies but neither blocks nor ignores public
