@@ -151,9 +151,9 @@ func TestEveryVulnerableScenarioIsFixed(t *testing.T) {
 	}
 	// 01, 01b, 04 (2), 04b, 05 (2), 06, 07, 08 (2), 09, 12, 14 (2), 16, 17, 18 (2), 19, 20, 21, 22 (PATH-002),
 	// 23 (2: the mount, removed from the pod spec; the pod creation, by the token mount),
-	// 24 (the read of the unclassified bucket).
-	if fixed != 26 {
-		t.Fatalf("%d findings fixed, want 26", fixed)
+	// 24 (the read of the unclassified bucket), 25 (the read; the grant is the alternative).
+	if fixed != 27 {
+		t.Fatalf("%d findings fixed, want 27", fixed)
 	}
 }
 

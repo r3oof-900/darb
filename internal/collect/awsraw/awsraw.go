@@ -122,6 +122,25 @@ type Key struct {
 	Policy          string // the key policy JSON (get-key-policy "Policy")
 	RotationEnabled *bool
 	Tags            []Tag
+	// Grants: kms list-grants; nil when not collected (ListGrants failed,
+	// or a snapshot that predates it), empty when the key has none.
+	Grants []Grant
+}
+
+// Grant is one KMS grant (kms list-grants, GrantListEntry).
+type Grant struct {
+	GrantID           string            `json:"GrantId"`
+	Name              string            `json:"Name,omitempty"`
+	GranteePrincipal  string            `json:"GranteePrincipal"`
+	RetiringPrincipal string            `json:"RetiringPrincipal,omitempty"`
+	Operations        []string          `json:"Operations"`
+	Constraints       *GrantConstraints `json:"Constraints,omitempty"`
+}
+
+// GrantConstraints are a grant's encryption-context constraints.
+type GrantConstraints struct {
+	EncryptionContextEquals map[string]string `json:"EncryptionContextEquals,omitempty"`
+	EncryptionContextSubset map[string]string `json:"EncryptionContextSubset,omitempty"`
 }
 
 // KeyMetadata is describe-key's KeyMetadata.
@@ -151,6 +170,27 @@ type Bucket struct {
 	Encryption        *Encryption
 	PublicAccessBlock *PublicAccessBlock
 	Tags              []Tag
+	// Ownership: get-bucket-ownership-controls' ObjectOwnership; "" when
+	// the bucket has none (OwnershipControlsNotFoundError: a bucket created
+	// before the setting existed, ACLs enabled); nil when not collected.
+	Ownership *string
+	// ACL: get-bucket-acl's grants, read only when ACLs are enabled; nil
+	// when not collected.
+	ACL []ACLGrant
+}
+
+// ACLGrant is one grant of a bucket ACL (get-bucket-acl).
+type ACLGrant struct {
+	Grantee    ACLGrantee `json:"Grantee"`
+	Permission string     `json:"Permission"`
+}
+
+// ACLGrantee is an ACL grantee: Type CanonicalUser (ID), Group (URI) or
+// AmazonCustomerByEmail.
+type ACLGrantee struct {
+	Type string `json:"Type"`
+	ID   string `json:"ID,omitempty"`
+	URI  string `json:"URI,omitempty"`
 }
 
 // Encryption is the default encryption rule (get-bucket-encryption).

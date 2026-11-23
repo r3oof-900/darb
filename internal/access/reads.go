@@ -216,6 +216,11 @@ func (b *builder) decrypt(role *model.Principal, principal match.RequestPrincipa
 		}
 	}
 	if !grants(result.Verdict) {
+		if u, ok := crossAccountGrant(req, set); ok {
+			result.Verdict, result.Unresolved = eval.Unknown, append(result.Unresolved, u)
+		}
+	}
+	if !grants(result.Verdict) {
 		return result.Verdict, 0, false
 	}
 	b.g.Node(key.ID(), key.Kind(), key.ARN())
@@ -271,3 +276,43 @@ func nonNil(fs []graph.Fix) []graph.Fix {
 // BucketKeyElement marks an UNKNOWN decrypt whose result depends on the
 // bucket's S3 Bucket Key setting, which the input does not state.
 const BucketKeyElement = "BucketKey"
+
+// KMSGrantElement marks an UNKNOWN decrypt that rests on a KMS grant to a
+// principal of another account with no IAM allow in its own account.
+const KMSGrantElement = "KMSGrant"
+
+// crossAccountGrant: a grant to a principal of another account. Cross-
+// account use of a key "requires permission in the key policy of the KMS
+// key and in an IAM policy in the external user's account", yet the same
+// page says external users cannot use the key "until you attach IAM
+// policies that delegate those permissions, or use grants" (KMS Developer
+// Guide › Allowing users in other accounts to use a KMS key): the
+// documentation does not settle whether a grant alone suffices across
+// accounts. So, decided after v0.1.0-rc.1, the decision is UNKNOWN when it
+// is not granting, the principal is in another account, a grant would
+// allow it in the key's own account, and no explicit Deny refuses it.
+func crossAccountGrant(req *eval.Request, set *eval.PolicySet) (eval.Unresolved, bool) {
+	if req == nil || req.Principal.Account == "" || req.Principal.Account == req.ResourceAccount {
+		return eval.Unresolved{}, false
+	}
+	var grantDocs []*model.PolicyDocument
+	for _, d := range set.Resource {
+		if model.IsGrantDoc(d.ID()) {
+			grantDocs = append(grantDocs, d)
+		}
+	}
+	if len(grantDocs) == 0 {
+		return eval.Unresolved{}, false
+	}
+	same := *req
+	same.ResourceAccount = req.Principal.Account
+	onlyGrants := *set
+	onlyGrants.Resource = grantDocs
+	if !grants(eval.Evaluate(&same, &onlyGrants).Verdict) || eval.Evaluate(&same, set).Verdict == eval.Deny {
+		return eval.Unresolved{}, false
+	}
+	return eval.Unresolved{
+		PolicyID: grantDocs[0].ID(), Element: KMSGrantElement, Key: req.Principal.ARN,
+		Reason: "a KMS grant to a principal of another account, which has no IAM policy allowing it there",
+	}, true
+}

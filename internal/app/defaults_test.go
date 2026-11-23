@@ -231,6 +231,30 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "kms" {
 				t.Errorf("one gap, for the existing bucket: %d", gaps)
 			}
 		}},
+		{model.DefaultS3NewBucketACLs, func(t *testing.T) {
+			// The same plan: the created bucket has ACLs disabled (the
+			// April 2023 default); the existing one's Object Ownership is
+			// unknown, a coverage gap, as is any bucket read statically.
+			l := loadTree(t, map[string]string{"plan.json": bpaPlan}, func(in *Inputs) {
+				in.TerraformPlans = []PlanInput{{Path: "plan.json"}}
+			})
+			for _, r := range l.Inventory.Resources {
+				defaulted := slices.Contains(r.Defaulted(), model.DefaultS3NewBucketACLs)
+				want := map[string]model.Tri{"arn:aws:s3:::created": model.False, "arn:aws:s3:::existing": model.Unknown}[r.ARN()]
+				if r.S3().ACLs != want || defaulted != (want == model.False) {
+					t.Errorf("%s: ACLs %s, defaulted %v", r.ARN(), r.S3().ACLs, r.Defaulted())
+				}
+			}
+			gaps := 0
+			for i := range l.Gaps {
+				if strings.Contains(l.Gaps[i].Detail, "Object Ownership of this bucket is not in the input") {
+					gaps++
+				}
+			}
+			if gaps != 1 {
+				t.Errorf("one gap, for the existing bucket: %d", gaps)
+			}
+		}},
 		{model.DefaultPodIdentitySTags, func(t *testing.T) {
 			inv := loadTree(t, map[string]string{"terraform/p.tf": `
 resource "aws_eks_pod_identity_association" "a" {

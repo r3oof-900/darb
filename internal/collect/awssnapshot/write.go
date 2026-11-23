@@ -164,6 +164,16 @@ func (w *writer) bucket(acct string, b *awsraw.Bucket) {
 	if b.Tags != nil {
 		w.file(dir("get-bucket-tagging.json"), map[string]any{"TagSet": b.Tags})
 	}
+	if b.Ownership != nil {
+		rules := []any{}
+		if *b.Ownership != "" {
+			rules = append(rules, map[string]any{"ObjectOwnership": *b.Ownership})
+		}
+		w.file(dir("get-bucket-ownership-controls.json"), map[string]any{"OwnershipControls": map[string]any{"Rules": rules}})
+	}
+	if b.ACL != nil {
+		w.file(dir("get-bucket-acl.json"), map[string]any{"Grants": b.ACL})
+	}
 }
 
 func (w *writer) key(acct string, k *awsraw.Key) {
@@ -174,6 +184,9 @@ func (w *writer) key(acct string, k *awsraw.Key) {
 	}
 	if k.RotationEnabled != nil {
 		w.file(dir("get-key-rotation-status.json"), map[string]any{"KeyRotationEnabled": *k.RotationEnabled})
+	}
+	if k.Grants != nil {
+		w.file(dir("list-grants.json"), map[string]any{"Grants": k.Grants})
 	}
 	if k.Tags != nil {
 		tags := make([]map[string]string, len(k.Tags))

@@ -36,6 +36,18 @@
     {
       "Kind": "unresolved",
       "Source": "normalize-terraform",
+      "File": "terraform/pii_kms_bucket.tf",
+      "Line": 9,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "Object Ownership of this bucket is not in the input (no aws_s3_bucket_ownership_controls); ACLs may be enabled, and object ACLs are not collected"
+    },
+    {
+      "Kind": "unresolved",
+      "Source": "normalize-terraform",
       "File": "terraform/receipts.tf",
       "Line": 5,
       "Address": "aws_s3_bucket.receipts",
@@ -44,6 +56,18 @@
       "Account": "",
       "API": "",
       "Detail": "Block Public Access of this bucket is not in the input (no aws_s3_bucket_public_access_block); unknown"
+    },
+    {
+      "Kind": "unresolved",
+      "Source": "normalize-terraform",
+      "File": "terraform/receipts.tf",
+      "Line": 5,
+      "Address": "aws_s3_bucket.receipts",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "Object Ownership of this bucket is not in the input (no aws_s3_bucket_ownership_controls); ACLs may be enabled, and object ACLs are not collected"
     }
   ],
   "mappings": [],

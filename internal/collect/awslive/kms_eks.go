@@ -81,6 +81,9 @@ func (a *account) key(ctx context.Context, c *Clients, k *awsraw.Key) error {
 	if done(err) {
 		return err
 	}
+	if err := a.grants(ctx, c, k); done(err) {
+		return err
+	}
 	if k.Metadata.KeyManager == string(kmstypes.KeyManagerTypeAws) {
 		// AWS managed keys: AWS rotates them (the normalizer applies that
 		// documented default) and the account cannot tag them.
@@ -201,6 +204,39 @@ func (a *account) association(ctx context.Context, c *Clients, cl *awsraw.Cluste
 			RoleArn: aws.ToString(s.RoleArn), AssociationArn: aws.ToString(s.AssociationArn), TargetRoleArn: aws.ToString(s.TargetRoleArn),
 			DisableSessionTags: s.DisableSessionTags,
 		})
+		return nil
+	})
+}
+
+// grants lists the key's grants (kms:ListGrants, KMS API Reference ›
+// ListGrants), every page. A failed call leaves Grants nil: a gap, and the
+// key is named in the KMS grants note.
+func (a *account) grants(ctx context.Context, c *Clients, k *awsraw.Key) error {
+	id, region := k.Metadata.KeyID, k.Region
+	return a.call(ctx, "kms", region, "ListGrants", id, func(ctx context.Context) error {
+		out := []awsraw.Grant{}
+		p := kms.NewListGrantsPaginator(c.KMS, &kms.ListGrantsInput{KeyId: &id})
+		for p.HasMorePages() {
+			page, err := p.NextPage(ctx)
+			if err != nil {
+				return err
+			}
+			for _, g := range page.Grants {
+				ops := make([]string, len(g.Operations))
+				for i, op := range g.Operations {
+					ops[i] = string(op)
+				}
+				grant := awsraw.Grant{
+					GrantID: aws.ToString(g.GrantId), Name: aws.ToString(g.Name), GranteePrincipal: aws.ToString(g.GranteePrincipal),
+					RetiringPrincipal: aws.ToString(g.RetiringPrincipal), Operations: ops,
+				}
+				if cs := g.Constraints; cs != nil {
+					grant.Constraints = &awsraw.GrantConstraints{EncryptionContextEquals: cs.EncryptionContextEquals, EncryptionContextSubset: cs.EncryptionContextSubset}
+				}
+				out = append(out, grant)
+			}
+		}
+		k.Grants = out
 		return nil
 	})
 }

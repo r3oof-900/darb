@@ -43,6 +43,29 @@ func (r *reader) bucketFile(b *awsraw.Bucket, f, name string) error {
 		err := r.json(f, &v)
 		b.Tags = v.TagSet
 		return err
+	case "get-bucket-ownership-controls.json":
+		// A bucket with no ownership controls is written with no rule.
+		var v struct {
+			OwnershipControls struct {
+				Rules []struct {
+					ObjectOwnership string `json:"ObjectOwnership"`
+				} `json:"Rules"`
+			} `json:"OwnershipControls"`
+		}
+		err := r.json(f, &v)
+		own := ""
+		if rules := v.OwnershipControls.Rules; len(rules) > 0 {
+			own = rules[0].ObjectOwnership
+		}
+		b.Ownership = &own
+		return err
+	case "get-bucket-acl.json":
+		var v struct {
+			Grants []awsraw.ACLGrant `json:"Grants"`
+		}
+		err := r.json(f, &v)
+		b.ACL = append([]awsraw.ACLGrant{}, v.Grants...)
+		return err
 	case "get-bucket-location.json":
 		var v struct {
 			LocationConstraint *string `json:"LocationConstraint"`
@@ -67,6 +90,13 @@ func (r *reader) keyFile(k *awsraw.Key, f, name string) error {
 		if err == nil {
 			k.Metadata = v.KeyMetadata
 		}
+		return err
+	case "list-grants.json":
+		var v struct {
+			Grants []awsraw.Grant `json:"Grants"`
+		}
+		err := r.json(f, &v)
+		k.Grants = append([]awsraw.Grant{}, v.Grants...)
 		return err
 	case "get-key-policy.json":
 		var v struct {

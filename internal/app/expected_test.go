@@ -13,7 +13,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/r3oof-900/darb/internal/access"
 	"github.com/r3oof-900/darb/internal/model"
 	"github.com/r3oof-900/darb/internal/rules"
 )
@@ -36,11 +35,12 @@ type expectedFile struct {
 	// Notes: notes the report must carry, each by subject with texts its
 	// detail must contain (the unclassified data stores note names them).
 	Notes []expectedNote `json:"notes"`
-}
-
-type expectedNote struct {
-	Subject  string   `json:"subject"`
-	Contains []string `json:"contains"`
+	// NotesAbsent: subjects no note may have. Gaps: gaps the report must
+	// carry, by kind with texts the detail contains; GapsAbsent: texts no
+	// gap's detail may contain (phase 2 of the limits).
+	NotesAbsent []string       `json:"notes_absent"`
+	Gaps        []expectedNote `json:"gaps"`
+	GapsAbsent  []string       `json:"gaps_absent"`
 }
 
 type expectedFinding struct {
@@ -293,13 +293,7 @@ func compareExpected(t *testing.T, exp *expectedFile, a *Analysis) []string {
 			}
 		}
 	}
-	for _, n := range exp.Notes {
-		if !slices.ContainsFunc(a.Notes, func(got access.Note) bool {
-			return got.Subject == n.Subject && !slices.ContainsFunc(n.Contains, func(s string) bool { return !strings.Contains(got.Detail, s) })
-		}) {
-			out = append(out, fmt.Sprintf("missing note %q containing %q", n.Subject, n.Contains))
-		}
-	}
+	out = append(out, compareCoverage(exp, a)...)
 	for _, ia := range exp.IntendedAccess {
 		status := "missing"
 		for _, r := range a.IntendedAccess {

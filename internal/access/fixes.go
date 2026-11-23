@@ -159,21 +159,46 @@ func sideFix(kind graph.Kind, sub, side string, req *eval.Request, docs []*model
 			refs = append(refs, graph.Grant{Policy: id, Statement: gd.Statement.Index()})
 		}
 	}
-	if label == "" {
-		slices.Sort(ids)
-		label = strings.Join(ids, ", ")
-	}
-	fx.Policy = label
+	grantIDs := slices.DeleteFunc(slices.Clone(ids), func(id string) bool { return !model.IsGrantDoc(id) })
+	fx.Policy = sideLabel(label, resource, ids, grantIDs)
 	switch {
 	case len(stmts) > 0, len(fx.Resolve) == 0 && len(fx.Detach) == 0:
 		// With no granting statement found the grant cannot be shown broad.
-		fx.Kind = fixKind(stmts, side, t)
+		fx.Kind = sideKind(stmts, side, t, grantIDs)
 		fx.Cost = scoring.FixCost(kind, sub, side, fx.Kind)
 		fx.Grants = refs
 	case len(fx.Detach) == 0:
 		fx.Kind = graph.FixResolve
 	}
 	return fx
+}
+
+// sideKind: a KMS grant cannot be edited, only revoked or retired (no
+// UpdateGrant), so a side with one is a revoke whatever it names
+// (SCORING.md §4.1); otherwise fixKind decides.
+func sideKind(stmts []*model.Statement, side string, t *grantTarget, grantIDs []string) string {
+	if len(grantIDs) > 0 {
+		return graph.FixRevoke
+	}
+	return fixKind(stmts, side, t)
+}
+
+// sideLabel names what a side's fix changes: the policies of an identity
+// side (label ""), the resource whose policy changes otherwise; a KMS grant
+// is named itself, since revoking it is the change.
+func sideLabel(label, resource string, ids, grantIDs []string) string {
+	switch {
+	case label == "":
+		slices.Sort(ids)
+		return strings.Join(ids, ", ")
+	case len(grantIDs) == 0:
+		return label
+	}
+	slices.Sort(grantIDs)
+	if len(grantIDs) < len(ids) {
+		return resource + " key policy, " + strings.Join(grantIDs, ", ")
+	}
+	return strings.Join(grantIDs, ", ")
 }
 
 // awsManaged: an AWS managed policy (arn:<partition>:iam::aws:policy/...),

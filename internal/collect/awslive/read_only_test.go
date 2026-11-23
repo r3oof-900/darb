@@ -25,7 +25,9 @@ func allowedAPIs() []string {
 		"sts:GetCallerIdentity", "iam:GetAccountAuthorizationDetails",
 		"s3:ListAllMyBuckets", "s3:GetBucketLocation", "s3:GetBucketPolicy", "s3:GetEncryptionConfiguration",
 		"s3:GetBucketPublicAccessBlock", "s3:GetBucketTagging", "s3:GetAccountPublicAccessBlock",
+		"s3:GetBucketOwnershipControls", "s3:GetBucketAcl",
 		"kms:ListKeys", "kms:ListAliases", "kms:DescribeKey", "kms:GetKeyPolicy", "kms:GetKeyRotationStatus", "kms:ListResourceTags",
+		"kms:ListGrants",
 		"eks:ListClusters", "eks:DescribeCluster", "eks:ListPodIdentityAssociations", "eks:DescribePodIdentityAssociation",
 		"secretsmanager:ListSecrets", "secretsmanager:GetResourcePolicy",
 		"ssm:DescribeParameters", "ssm:ListTagsForResource", "ssm:GetResourcePolicies",
@@ -48,7 +50,7 @@ func TestClientInterfacesAreReadOnly(t *testing.T) {
 			}
 		}
 	}
-	if n != 24 {
+	if n != 27 {
 		t.Fatalf("%d methods; update allowedAPIs and docs/PERMISSIONS.md with the interfaces", n)
 	}
 }

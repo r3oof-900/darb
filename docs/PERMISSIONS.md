@@ -40,10 +40,13 @@ on those roles.
         "kms:GetKeyPolicy",
         "kms:GetKeyRotationStatus",
         "kms:ListAliases",
+        "kms:ListGrants",
         "kms:ListKeys",
         "kms:ListResourceTags",
         "s3:GetAccountPublicAccessBlock",
+        "s3:GetBucketAcl",
         "s3:GetBucketLocation",
+        "s3:GetBucketOwnershipControls",
         "s3:GetBucketPolicy",
         "s3:GetBucketPublicAccessBlock",
         "s3:GetBucketTagging",
@@ -69,15 +72,26 @@ every other call. A failed list call (for example `kms:ListKeys`) means darb
 does not know how many keys exist in that region, so coverage for that service
 and region is unknown, never 100%.
 
-Not collected yet; each report states them as `not-modelled` notes
+KMS grants and S3 Object Ownership (after v0.1.0-rc.1):
+
+- `kms:ListGrants`, for every key: each grant is evaluated as a resource-side
+  Allow of its operations to its grantee (DESIGN.md §6). A failed call is a
+  gap, and the key is named in the `KMS grants` note. **A missing grant can
+  hide a real path**, so the call matters.
+- `s3:GetBucketOwnershipControls`, for every bucket. With
+  `BucketOwnerEnforced`, ACLs are disabled and nothing more is read. Otherwise
+  `s3:GetBucketAcl` reads the bucket ACL, as evidence only: a bucket ACL's
+  `READ` lists objects and does not read them. Object ACLs, which can grant
+  read access to the data, are read one object at a time (`GetObjectAcl`);
+  darb does not read objects, so such a bucket gets a gap, and the `S3 ACLs`
+  note names it.
+
+Not collected; each report states them as `not-modelled` notes
 (DESIGN.md §12.3):
 
-- KMS grants (`kms:ListGrants`). **This can hide a real path:** a grant can give
-  `kms:Decrypt` to a principal the key policy does not name. The note names the
-  keys.
-- S3 bucket and object ACLs (`s3:GetBucketAcl`, `s3:GetBucketOwnershipControls`).
-  **This can hide a real path:** an ACL can grant read to another account or to
-  everyone. The note names the buckets.
+- KMS grants that AWS services create at runtime, in a Terraform scan (they
+  are not in the configuration), and object ACLs (above). **Both can hide a
+  real path.**
 - AWS Organizations SCPs and RCPs. They only restrict access: without them a
   reported path may be one they block, and none is hidden.
 

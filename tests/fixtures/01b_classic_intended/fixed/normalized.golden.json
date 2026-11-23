@@ -11,7 +11,7 @@
       "source": "darb.yaml (clusters.prod)"
     }
   ],
-  "collected": 15,
+  "collected": 17,
   "entry_points": [
     {
       "public": "true",

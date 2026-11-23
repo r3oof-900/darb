@@ -1,5 +1,7 @@
 package model
 
+import "strings"
+
 // Records of the canonical inventory. Nodes (Principal, Resource, Workload)
 // are immutable types with constructors; the relation records below are
 // plain value types that normalizers build once and nothing mutates after
@@ -18,6 +20,19 @@ type Encryption struct {
 // S3Settings are the S3 facts the evaluator needs.
 type S3Settings struct {
 	RestrictPublicBuckets Tri // bucket-level Block Public Access (Unknown when not stated)
+	// ACLs: whether ACLs affect access to the bucket's data: False with
+	// Object Ownership BucketOwnerEnforced ("ACLs are disabled ... ACLs no
+	// longer affect permissions to data", S3 User Guide › Controlling
+	// ownership of objects), True with ObjectWriter or BucketOwnerPreferred
+	// or no ownership controls on an existing bucket, Unknown when the input
+	// does not say. Ownership is the setting as stated ("" when none).
+	ACLs      Tri
+	Ownership string
+	// PublicACL: the public grantees (AllUsers, AuthenticatedUsers) the
+	// bucket ACL gives a permission, with the permission ("AllUsers READ").
+	// A bucket ACL's READ only lists objects (S3 User Guide › Access control
+	// list (ACL) overview): evidence, never a read of the data.
+	PublicACL []string
 }
 
 // AccountPublicAccessBlock is an account's S3 Block Public Access
@@ -225,3 +240,12 @@ func (inv *Inventory) RestrictPublic(r *Resource) Tri {
 	}
 	return v
 }
+
+// GrantDocMarker is in the ID of a policy document that stands for a KMS
+// grant on a key ("<key ARN>#grant/<grant ID or Terraform address>"). A
+// grant cannot be edited, only revoked or retired, so its side is always a
+// revoke (SCORING.md §4.1).
+const GrantDocMarker = "#grant/"
+
+// IsGrantDoc reports whether a policy ID stands for a KMS grant.
+func IsGrantDoc(id string) bool { return strings.Contains(id, GrantDocMarker) }

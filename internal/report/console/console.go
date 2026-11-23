@@ -177,7 +177,12 @@ func (p *printer) step(prefix string, s *schema.FixStep) {
 		p.printf("%s%s side, resolve: %s is unknown: %s (no change)\n", prefix, s.Side, s.Policy, s.Resolve)
 		return
 	}
-	p.printf("%s%s side, %s: change %s (cost %d)\n", prefix, s.Side, s.Kind, s.Policy, s.Cost)
+	if key, grant, ok := strings.Cut(s.Policy, "#grant/"); ok && !strings.Contains(grant, ", ") {
+		// A KMS grant (model.GrantDocMarker): it is revoked, not changed.
+		p.printf("%s%s side, %s: revoke the KMS grant %s on %s (cost %d)\n", prefix, s.Side, s.Kind, grant, key, s.Cost)
+	} else {
+		p.printf("%s%s side, %s: change %s (cost %d)\n", prefix, s.Side, s.Kind, s.Policy, s.Cost)
+	}
 	if s.Kind == "revoke" {
 		p.printf("%s  this removes an explicit grant; confirm it is not needed\n", strings.Repeat(" ", len(prefix)))
 	}
