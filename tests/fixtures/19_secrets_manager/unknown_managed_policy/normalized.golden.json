@@ -32,7 +32,7 @@
       "Source": "normalize-aws",
       "File": "",
       "Line": 0,
-      "Address": "arn:aws:iam::aws:policy/ReadOnlyAccess",
+      "Address": "arn:aws:iam::aws:policy/DarbExampleNotInSnapshot",
       "Service": "",
       "Region": "",
       "Account": "111122223333",
@@ -68,11 +68,11 @@
     },
     {
       "kind": "identity",
-      "policy": "arn:aws:iam::aws:policy/ReadOnlyAccess",
-      "source": "arn:aws:iam::aws:policy/ReadOnlyAccess via iam:GetAccountAuthorizationDetails",
+      "policy": "arn:aws:iam::aws:policy/DarbExampleNotInSnapshot",
+      "source": "arn:aws:iam::aws:policy/DarbExampleNotInSnapshot via iam:GetAccountAuthorizationDetails",
       "statements": [
-        "Allow ${darb:unresolved:arn_aws_iam__aws_policy_ReadOnlyAccess} on ${darb:unresolved:arn_aws_iam__aws_policy_ReadOnlyAccess} (0 conditions)",
-        "Deny ${darb:unresolved:arn_aws_iam__aws_policy_ReadOnlyAccess} on * (0 conditions)"
+        "Allow ${darb:unresolved:arn_aws_iam__aws_policy_DarbExampleNotInSnapshot} on ${darb:unresolved:arn_aws_iam__aws_policy_DarbExampleNotInSnapshot} (0 conditions)",
+        "Deny ${darb:unresolved:arn_aws_iam__aws_policy_DarbExampleNotInSnapshot} on * (0 conditions)"
       ],
       "target": "arn:aws:iam::111122223333:role/payments-api",
       "unresolved_statements": 2

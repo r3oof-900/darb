@@ -163,7 +163,7 @@ func TestCurrentSnapshotIsRewrittenIdentically(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(ps) != 3 || !bytes.Equal(out, data) {
+	if len(ps) != f.PolicyCount || len(ps) < 1000 || !bytes.Equal(out, data) {
 		t.Fatalf("%d policies; the rewrite differs:\n%s", len(ps), out)
 	}
 	empty, err := renderWith(header{Format: format, Date: "d", Partition: "aws", Source: "s"}, nil)
