@@ -1,0 +1,46 @@
+{
+  "format": "darb-expected/v1",
+  "derived_from": "item 4: the target has two keys, one inactive",
+  "findings": [
+    {
+      "rule": "DARB-PATH-001",
+      "entry": "arn:aws:iam::111122223333:user/reports",
+      "jewel": "arn:aws:s3:::acme-customer-pii",
+      "path": [
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 630,
+      "severity": "high",
+      "chokepoints": [
+        "CAN_READ arn:aws:iam::111122223333:user/reports -> arn:aws:s3:::acme-customer-pii"
+      ],
+      "alternative_fix": [],
+      "defaults_used": [],
+      "fix": [
+        {
+          "edge": "CAN_READ arn:aws:iam::111122223333:user/reports -> arn:aws:s3:::acme-customer-pii",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 3
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": [],
+      "status": "confirmed",
+      "also_fixes": [],
+      "uncuttable": [],
+      "remediation_status": "complete",
+      "fingerprint": "038763be64056f3f4bdff006abe18c2c983609eca3fcdabf9808f52565915164"
+    }
+  ],
+  "absent": [
+    {
+      "rule": "DARB-PATH-002",
+      "jewel": "arn:aws:s3:::acme-customer-pii"
+    }
+  ],
+  "intended_access": [],
+  "no_edges": []
+}

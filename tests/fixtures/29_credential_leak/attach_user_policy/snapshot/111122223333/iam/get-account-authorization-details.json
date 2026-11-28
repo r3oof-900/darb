@@ -1,0 +1,32 @@
+{
+ "UserDetailList": [
+  {
+   "Path": "/",
+   "UserName": "ci",
+   "UserId": "AIDACIXXXXXXXXXX",
+   "Arn": "arn:aws:iam::111122223333:user/ci",
+   "UserPolicyList": [
+    {
+     "PolicyName": "inline",
+     "PolicyDocument": {
+      "Version": "2012-10-17",
+      "Statement": [
+       {
+        "Sid": "AttachToSelf",
+        "Effect": "Allow",
+        "Action": "iam:AttachUserPolicy",
+        "Resource": "arn:aws:iam::111122223333:user/ci"
+       }
+      ]
+     }
+    }
+   ],
+   "GroupList": [],
+   "AttachedManagedPolicies": [],
+   "Tags": []
+  }
+ ],
+ "GroupDetailList": [],
+ "RoleDetailList": [],
+ "Policies": []
+}

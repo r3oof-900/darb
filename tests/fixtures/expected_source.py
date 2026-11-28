@@ -1284,6 +1284,165 @@ E["28_intended_other_route/fixed"] = {
     "absent": ABSENT_PII, "intended_access": INTENDED_28,
     "notes_absent": ["Intended access reached by another route"]}
 
+# 29 - IAM users as entry points (item 4, decided after the real-account
+# test; written by hand before the engine changed). Snapshot only, account
+# 111122223333, no Kubernetes. The PII bucket (DataClass pii) is SSE-S3,
+# except in the rewrite variants (SSE-KMS, a customer managed key with the
+# default key policy: the account root, kms:*). A user with an active
+# access key (credential report access_key_N_active) is an entry of reason
+# credential-leak, exposure 700 (approved table). Arithmetic, per-mille,
+# floor after each product, blast radius 1000 (one classified jewel):
+#   direct, 1 edge:   entry 700 x path factor 1000 (1 edge) = likelihood 700;
+#                     impact pii 900 x blast 1000 = 900; 700 x 900 = 630, high.
+#   escalation or lateral move, 2 edges:
+#                     entry 700 x path factor 900 (2 edges) = likelihood 630;
+#                     impact 900; 630 x 900 = 567, high.
+# Prices (SCORING.md 4.1): an IAM escalation's identity side is narrow 2 /
+# revoke 4; an IAM action has no resource policy, so no other side. A read
+# granted by an inline s3:GetObject on "<PII ARN>/*" is explicit: revoke,
+# identity, 3. Nothing after an "any permission" node is cuttable (4.2).
+CI = f"arn:aws:iam::{ACCT}:user/ci"
+REPORTS = f"arn:aws:iam::{ACCT}:user/reports"
+ROOT_29 = f"arn:aws:iam::{ACCT}:root"
+KEY_29 = f"arn:aws:kms:us-east-1:{ACCT}:key/29292929-2929-2929-2929-292929292929"
+ABSENT_PII_29 = [{"rule": "DARB-PATH-002", "jewel": PII}]
+
+
+def leak_direct(entry, *, also_fixes=None, status=None, undecided=None):
+    # reports reads the bucket with its own key: 630. Cut: its explicit
+    # read, revoke, identity, 3; no bucket policy, nothing else on the path.
+    read = f"CAN_READ {entry} -> {PII}"
+    confirmed = status in (None, "confirmed")
+    return path_finding("DARB-PATH-001", entry, PII, [f"CAN_READ_PLAINTEXT {PII}"], 630, "high", [read],
+                        confirmed=confirmed, status=status, confidence="high" if confirmed else "low", undecided=undecided,
+                        fix=[step(read, "identity", "revoke", 3)], other_side=[], alternative_detail=[], also_fixes=also_fixes)
+
+
+def leak_escalation(via, target, cut, cut_step, alt=None, alt_step=None):
+    # ci escalates (or moves) to target, which reads the bucket: 567.
+    return path_finding("DARB-PATH-002", CI, PII, [f"CAN_ESCALATE {target}", f"CAN_READ_PLAINTEXT {PII}"], 567, "high",
+                        [cut], [alt] if alt else [], fix=[cut_step], other_side=[], alternative_detail=[alt_step] if alt_step else [])
+
+
+CREATE_KEY = f"CAN_ESCALATE[iam:create-access-key] {CI} -> {REPORTS}"
+READ_REPORTS = f"CAN_READ {REPORTS} -> {PII}"
+# vulnerable: ci may iam:CreateAccessKey on "*"; reports has one key (< 2):
+# ci mints a key for reports and reads as reports. Cut: the CreateAccessKey
+# grant on "*" is broad: narrow, identity, 2 < the read (revoke, 3); the
+# alternative sharing no edge is that read. reports is an entry of its own
+# (630); its cut, the read, also breaks ci's path (also_fixes).
+E["29_credential_leak/vulnerable"] = {
+    "derived_from": "item 4: CreateAccessKey to another user with one key", "findings": [
+        leak_escalation("create-access-key", REPORTS, CREATE_KEY, step(CREATE_KEY, "identity", "narrow", 2),
+                        READ_REPORTS, step(READ_REPORTS, "identity", "revoke", 3)),
+        leak_direct(REPORTS, also_fixes=[{"rule": "DARB-PATH-002", "entry": CI, "jewel": PII}])]}
+# fixed: CreateAccessKey only on ci's own ARN: no lateral move.
+E["29_credential_leak/fixed"] = {"derived_from": "item 4 fixed: CreateAccessKey on the user itself",
+                                 "findings": [leak_direct(REPORTS)], "absent": ABSENT_PII_29}
+# two_keys: reports already has two keys (one inactive): CreateAccessKey
+# fails (the limit is two per user), so no edge.
+E["29_credential_leak/two_keys"] = {"derived_from": "item 4: the target has two keys, one inactive",
+                                    "findings": [leak_direct(REPORTS)], "absent": ABSENT_PII_29}
+# rewrite_both: ci may s3:PutBucketPolicy on the bucket and kms:PutKeyPolicy
+# on its key, and reads nothing itself. CAN_ESCALATE[rewrite-resource-policy]
+# ci -> "ci with the resource policies it can rewrite granting it" (identity
+# ci's ARN) is structural, uncuttable; that node reads the bucket through
+# the rewritten bucket policy and decrypts through the rewritten key policy.
+# Each of its edges is cut where the Put* is granted: the read, by ci's
+# PutBucketPolicy on the bucket ARN (explicit: revoke, identity, 4; no
+# bucket policy); the decrypt, by ci's PutKeyPolicy on the key ARN
+# (explicit: revoke, identity, 4) or by the key policy, which grants
+# PutKeyPolicy through the account root (kms:*, broad: narrow, resource,
+# 2). The derived read is cut at the decrypt (2 < 4), the key policy; the
+# alternative is the read (4).
+DEC_29 = f"CAN_DECRYPT[for {PII}] {CI} -> {KEY_29}"
+READ_29 = f"CAN_READ {CI} -> {PII}"
+E["29_credential_leak/rewrite_both"] = {
+    "derived_from": "item 4: PutBucketPolicy and PutKeyPolicy on an SSE-KMS bucket", "findings": [
+        path_finding("DARB-PATH-002", CI, PII, [f"CAN_ESCALATE {CI}", f"CAN_READ_PLAINTEXT {PII}"], 567, "high",
+                     [DEC_29], [READ_29], fix=[step(DEC_29, "resource", "narrow", 2)],
+                     other_side=[step(DEC_29, "identity", "revoke", 4)],
+                     alternative_detail=[step(READ_29, "identity", "revoke", 4)])]}
+# rewrite_bucket_only: the bucket policy alone gives a read, never the
+# decrypt (every other edge is evaluated as usual): no path.
+E["29_credential_leak/rewrite_bucket_only"] = {"derived_from": "item 4: PutBucketPolicy without the key",
+                                               "findings": [], "absent": ABSENT_PII_29}
+# version_limit: ci's managed policy ci-tools has 5 versions (the maximum)
+# and ci has no iam:DeletePolicyVersion: CreatePolicyVersion fails, no edge.
+E["29_credential_leak/version_limit"] = {"derived_from": "item 4: CreatePolicyVersion at five versions",
+                                         "findings": [], "absent": ABSENT_PII_29}
+# version_room: 4 versions: ci writes a fifth allowing everything, set as
+# default (--set-as-default needs no SetDefaultPolicyVersion): any
+# permission. Cut: CreatePolicyVersion on the policy's ARN, explicit:
+# revoke, identity, 4; nothing after the node is cuttable: no alternative.
+MODIFY_29 = f"CAN_ESCALATE[iam:modify-policy] {CI} -> {CI}"
+E["29_credential_leak/version_room"] = {"derived_from": "item 4: CreatePolicyVersion with room for a version",
+                                        "findings": [leak_escalation("modify-policy", CI, MODIFY_29, step(MODIFY_29, "identity", "revoke", 4))]}
+# attach_user_policy: iam:AttachUserPolicy on ci's own ARN: any
+# permission; the same cut.
+E["29_credential_leak/attach_user_policy"] = {"derived_from": "item 4: AttachUserPolicy on itself",
+                                              "findings": [leak_escalation("modify-policy", CI, MODIFY_29, step(MODIFY_29, "identity", "revoke", 4))]}
+# put_group_policy: iam:PutGroupPolicy on ci-group, a group ci is in: the
+# group's policies are ci's: any permission; the same cut.
+E["29_credential_leak/put_group_policy"] = {"derived_from": "item 4: PutGroupPolicy on its own group",
+                                            "findings": [leak_escalation("modify-policy", CI, MODIFY_29, step(MODIFY_29, "identity", "revoke", 4))]}
+# boundary: ci's inline policy reads the bucket (explicit) but its boundary
+# (boundary-sqs) allows sqs only: no direct path. iam:DeleteUserPermissions-
+# Boundary on itself -> "ci without boundary", which reads with ci's own
+# policies. Cut: that read, ci's explicit grant: revoke, identity, 3, below
+# the escalation (DeleteUserPermissionsBoundary on ci's ARN, explicit:
+# revoke, identity, 4), its alternative.
+BOUND_29 = f"CAN_ESCALATE[iam:boundary] {CI} -> {CI}"
+E["29_credential_leak/boundary"] = {"derived_from": "item 4: DeleteUserPermissionsBoundary on itself",
+                                    "findings": [leak_escalation("boundary", CI, READ_29, step(READ_29, "identity", "revoke", 3),
+                                                                 BOUND_29, step(BOUND_29, "identity", "revoke", 4))],
+                                    "absent": [{"rule": "DARB-PATH-001", "jewel": PII}]}
+# set_default_version: ci-tools v1 (default) allows sqs; v2 reads the
+# bucket; ci may iam:SetDefaultPolicyVersion on it -> "ci with ci-tools at
+# v2". Cut: v2's explicit read: revoke, identity, 3 (the escalation,
+# SetDefaultPolicyVersion on the policy ARN, explicit, 4, is the
+# alternative).
+SETDEF_29 = f"CAN_ESCALATE[iam:set-default-version] {CI} -> {CI}"
+E["29_credential_leak/set_default_version"] = {"derived_from": "item 4: SetDefaultPolicyVersion to a broader version",
+                                               "findings": [leak_escalation("set-default-version", CI, READ_29, step(READ_29, "identity", "revoke", 3),
+                                                                            SETDEF_29, step(SETDEF_29, "identity", "revoke", 4))]}
+# add_to_group: iam:AddUserToGroup on readers, whose inline policy reads
+# the bucket -> "ci in the groups it can join". Cut: the group's explicit
+# read, revoke, identity, 3; the escalation (4) is the alternative.
+JOIN_29 = f"CAN_ESCALATE[iam:add-to-group] {CI} -> {CI}"
+E["29_credential_leak/add_to_group"] = {"derived_from": "item 4: AddUserToGroup to a group that reads",
+                                        "findings": [leak_escalation("add-to-group", CI, READ_29, step(READ_29, "identity", "revoke", 3),
+                                                                     JOIN_29, step(JOIN_29, "identity", "revoke", 4))]}
+# login_profile: reports has no password, no MFA and no access key (not an
+# entry); ci may iam:CreateLoginProfile on it -> "reports console session"
+# (identity reports's ARN). Cut: reports's explicit read, revoke, 3; the
+# escalation (CreateLoginProfile on reports's ARN, explicit, 4) is the
+# alternative.
+LOGIN_29 = f"CAN_ESCALATE[iam:login-profile] {CI} -> {REPORTS}"
+E["29_credential_leak/login_profile"] = {"derived_from": "item 4: CreateLoginProfile for a user without a password or MFA",
+                                         "findings": [leak_escalation("login-profile", REPORTS, READ_REPORTS, step(READ_REPORTS, "identity", "revoke", 3),
+                                                                      LOGIN_29, step(LOGIN_29, "identity", "revoke", 4))]}
+# login_profile_mfa: reports has an MFA device: console sign-in needs it:
+# no edge, no path.
+E["29_credential_leak/login_profile_mfa"] = {"derived_from": "item 4: the target has MFA", "findings": [], "absent": ABSENT_PII_29}
+# root_key: the credential report's <root_account> row has an active key:
+# DARB-POST-009 (root has active access keys), base critical 850,
+# confidence high: 850, critical; and the root is a credential-leak entry.
+# The root reads the bucket (no bucket policy denies it): 630; no policy
+# restricts the root, so no change breaks the edge: no fix within
+# constraints (no chokepoints).
+E["29_credential_leak/root_key"] = {"derived_from": "item 4: the root user has an active access key", "findings": [
+    posture("DARB-POST-009", ROOT_29, 850, "critical"),
+    path_finding("DARB-PATH-001", ROOT_29, PII, [f"CAN_READ_PLAINTEXT {PII}"], 630, "high", [])]}
+# credential_unknown: no credential report and no ListAccessKeys in the
+# snapshot: reports is an entry at the worst case (700), its state unknown:
+# unconfirmed, confidence low, the score unchanged (630), undecided names
+# it, and a gap names the missing call.
+E["29_credential_leak/credential_unknown"] = {
+    "derived_from": "item 4: a snapshot without access-key data", "findings": [
+        leak_direct(REPORTS, status="unconfirmed", undecided=["credential state", "iam:GetCredentialReport"])],
+    "gaps": [{"kind": "unresolved", "contains": ["iam:GetCredentialReport", "user/reports"]}]}
+
 # Fingerprints (DESIGN.md 5 "Stable IDs", 8 "Fingerprint", 8.1 "Posture
 # finding identities"), written from the documents, not from the engine:
 # a node ID is sha256("darb/v1" NUL kind NUL canonical identity); a path
@@ -1310,6 +1469,10 @@ def kind_of(identity):
         return "aws:ssm:parameter"
     if ":role/" in identity:
         return "aws:iam:role"
+    if ":user/" in identity:
+        return "aws:iam:user"
+    if identity.startswith("arn:aws:iam::") and identity.endswith(":root"):
+        return "aws:iam:account-root"
     assert identity.startswith("arn:aws:kms:"), identity
     return "aws:kms:key"
 

@@ -1,0 +1,51 @@
+{
+  "format": "darb-expected/v1",
+  "derived_from": "item 4: AddUserToGroup to a group that reads",
+  "findings": [
+    {
+      "rule": "DARB-PATH-002",
+      "entry": "arn:aws:iam::111122223333:user/ci",
+      "jewel": "arn:aws:s3:::acme-customer-pii",
+      "path": [
+        "CAN_ESCALATE arn:aws:iam::111122223333:user/ci",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 567,
+      "severity": "high",
+      "chokepoints": [
+        "CAN_READ arn:aws:iam::111122223333:user/ci -> arn:aws:s3:::acme-customer-pii"
+      ],
+      "alternative_fix": [
+        "CAN_ESCALATE[iam:add-to-group] arn:aws:iam::111122223333:user/ci -> arn:aws:iam::111122223333:user/ci"
+      ],
+      "defaults_used": [],
+      "fix": [
+        {
+          "edge": "CAN_READ arn:aws:iam::111122223333:user/ci -> arn:aws:s3:::acme-customer-pii",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 3
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": [
+        {
+          "edge": "CAN_ESCALATE[iam:add-to-group] arn:aws:iam::111122223333:user/ci -> arn:aws:iam::111122223333:user/ci",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 4
+        }
+      ],
+      "status": "confirmed",
+      "also_fixes": [],
+      "uncuttable": [],
+      "remediation_status": "complete",
+      "fingerprint": "3c00b22fc0c244a54930dcc6fb857fdbff020922366ba463a54808c560f93b05"
+    }
+  ],
+  "absent": [],
+  "intended_access": [],
+  "no_edges": []
+}

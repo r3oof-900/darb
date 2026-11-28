@@ -1,0 +1,121 @@
+{
+ "UserDetailList": [
+  {
+   "Path": "/",
+   "UserName": "ci",
+   "UserId": "AIDACIXXXXXXXXXX",
+   "Arn": "arn:aws:iam::111122223333:user/ci",
+   "UserPolicyList": [
+    {
+     "PolicyName": "inline",
+     "PolicyDocument": {
+      "Version": "2012-10-17",
+      "Statement": [
+       {
+        "Sid": "NewVersion",
+        "Effect": "Allow",
+        "Action": "iam:CreatePolicyVersion",
+        "Resource": "arn:aws:iam::111122223333:policy/ci-tools"
+       }
+      ]
+     }
+    }
+   ],
+   "GroupList": [],
+   "AttachedManagedPolicies": [
+    {
+     "PolicyName": "ci-tools",
+     "PolicyArn": "arn:aws:iam::111122223333:policy/ci-tools"
+    }
+   ],
+   "Tags": []
+  }
+ ],
+ "GroupDetailList": [],
+ "RoleDetailList": [],
+ "Policies": [
+  {
+   "PolicyName": "ci-tools",
+   "PolicyId": "ANPACITOOLSXXXXX",
+   "Arn": "arn:aws:iam::111122223333:policy/ci-tools",
+   "DefaultVersionId": "v1",
+   "PolicyVersionList": [
+    {
+     "Document": {
+      "Version": "2012-10-17",
+      "Statement": [
+       {
+        "Sid": "QueuesOnly",
+        "Effect": "Allow",
+        "Action": "sqs:*",
+        "Resource": "*"
+       }
+      ]
+     },
+     "VersionId": "v1",
+     "IsDefaultVersion": true
+    },
+    {
+     "Document": {
+      "Version": "2012-10-17",
+      "Statement": [
+       {
+        "Sid": "QueuesOnly",
+        "Effect": "Allow",
+        "Action": "sqs:*",
+        "Resource": "*"
+       }
+      ]
+     },
+     "VersionId": "v2",
+     "IsDefaultVersion": false
+    },
+    {
+     "Document": {
+      "Version": "2012-10-17",
+      "Statement": [
+       {
+        "Sid": "QueuesOnly",
+        "Effect": "Allow",
+        "Action": "sqs:*",
+        "Resource": "*"
+       }
+      ]
+     },
+     "VersionId": "v3",
+     "IsDefaultVersion": false
+    },
+    {
+     "Document": {
+      "Version": "2012-10-17",
+      "Statement": [
+       {
+        "Sid": "QueuesOnly",
+        "Effect": "Allow",
+        "Action": "sqs:*",
+        "Resource": "*"
+       }
+      ]
+     },
+     "VersionId": "v4",
+     "IsDefaultVersion": false
+    },
+    {
+     "Document": {
+      "Version": "2012-10-17",
+      "Statement": [
+       {
+        "Sid": "QueuesOnly",
+        "Effect": "Allow",
+        "Action": "sqs:*",
+        "Resource": "*"
+       }
+      ]
+     },
+     "VersionId": "v5",
+     "IsDefaultVersion": false
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,16 @@
+{
+ "AccessKeyMetadata": [
+  {
+   "UserName": "reports",
+   "AccessKeyId": "AKIAEXAMPLEREPORTS01",
+   "Status": "Active",
+   "CreateDate": "2026-04-01T09:00:00+00:00"
+  },
+  {
+   "UserName": "reports",
+   "AccessKeyId": "AKIAEXAMPLEREPORTS02",
+   "Status": "Inactive",
+   "CreateDate": "2026-05-01T09:00:00+00:00"
+  }
+ ]
+}

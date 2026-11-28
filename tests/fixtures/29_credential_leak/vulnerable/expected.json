@@ -1,0 +1,89 @@
+{
+  "format": "darb-expected/v1",
+  "derived_from": "item 4: CreateAccessKey to another user with one key",
+  "findings": [
+    {
+      "rule": "DARB-PATH-002",
+      "entry": "arn:aws:iam::111122223333:user/ci",
+      "jewel": "arn:aws:s3:::acme-customer-pii",
+      "path": [
+        "CAN_ESCALATE arn:aws:iam::111122223333:user/reports",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 567,
+      "severity": "high",
+      "chokepoints": [
+        "CAN_ESCALATE[iam:create-access-key] arn:aws:iam::111122223333:user/ci -> arn:aws:iam::111122223333:user/reports"
+      ],
+      "alternative_fix": [
+        "CAN_READ arn:aws:iam::111122223333:user/reports -> arn:aws:s3:::acme-customer-pii"
+      ],
+      "defaults_used": [],
+      "fix": [
+        {
+          "edge": "CAN_ESCALATE[iam:create-access-key] arn:aws:iam::111122223333:user/ci -> arn:aws:iam::111122223333:user/reports",
+          "side": "identity",
+          "fix_kind": "narrow",
+          "cost": 2
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": [
+        {
+          "edge": "CAN_READ arn:aws:iam::111122223333:user/reports -> arn:aws:s3:::acme-customer-pii",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 3
+        }
+      ],
+      "status": "confirmed",
+      "also_fixes": [],
+      "uncuttable": [],
+      "remediation_status": "complete",
+      "fingerprint": "3c00b22fc0c244a54930dcc6fb857fdbff020922366ba463a54808c560f93b05"
+    },
+    {
+      "rule": "DARB-PATH-001",
+      "entry": "arn:aws:iam::111122223333:user/reports",
+      "jewel": "arn:aws:s3:::acme-customer-pii",
+      "path": [
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 630,
+      "severity": "high",
+      "chokepoints": [
+        "CAN_READ arn:aws:iam::111122223333:user/reports -> arn:aws:s3:::acme-customer-pii"
+      ],
+      "alternative_fix": [],
+      "defaults_used": [],
+      "fix": [
+        {
+          "edge": "CAN_READ arn:aws:iam::111122223333:user/reports -> arn:aws:s3:::acme-customer-pii",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 3
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": [],
+      "status": "confirmed",
+      "also_fixes": [
+        {
+          "rule": "DARB-PATH-002",
+          "entry": "arn:aws:iam::111122223333:user/ci",
+          "jewel": "arn:aws:s3:::acme-customer-pii"
+        }
+      ],
+      "uncuttable": [],
+      "remediation_status": "complete",
+      "fingerprint": "038763be64056f3f4bdff006abe18c2c983609eca3fcdabf9808f52565915164"
+    }
+  ],
+  "absent": [],
+  "intended_access": [],
+  "no_edges": []
+}

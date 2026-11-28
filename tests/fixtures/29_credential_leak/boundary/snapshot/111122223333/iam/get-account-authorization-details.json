@@ -1,0 +1,66 @@
+{
+ "UserDetailList": [
+  {
+   "Path": "/",
+   "UserName": "ci",
+   "UserId": "AIDACIXXXXXXXXXX",
+   "Arn": "arn:aws:iam::111122223333:user/ci",
+   "UserPolicyList": [
+    {
+     "PolicyName": "inline",
+     "PolicyDocument": {
+      "Version": "2012-10-17",
+      "Statement": [
+       {
+        "Sid": "ReadPII",
+        "Effect": "Allow",
+        "Action": "s3:GetObject",
+        "Resource": "arn:aws:s3:::acme-customer-pii/*"
+       },
+       {
+        "Sid": "DropBoundary",
+        "Effect": "Allow",
+        "Action": "iam:DeleteUserPermissionsBoundary",
+        "Resource": "arn:aws:iam::111122223333:user/ci"
+       }
+      ]
+     }
+    }
+   ],
+   "GroupList": [],
+   "AttachedManagedPolicies": [],
+   "Tags": [],
+   "PermissionsBoundary": {
+    "PermissionsBoundaryType": "Policy",
+    "PermissionsBoundaryArn": "arn:aws:iam::111122223333:policy/boundary-sqs"
+   }
+  }
+ ],
+ "GroupDetailList": [],
+ "RoleDetailList": [],
+ "Policies": [
+  {
+   "PolicyName": "boundary-sqs",
+   "PolicyId": "ANPABOUNDARYSQSX",
+   "Arn": "arn:aws:iam::111122223333:policy/boundary-sqs",
+   "DefaultVersionId": "v1",
+   "PolicyVersionList": [
+    {
+     "Document": {
+      "Version": "2012-10-17",
+      "Statement": [
+       {
+        "Sid": "QueuesOnly",
+        "Effect": "Allow",
+        "Action": "sqs:*",
+        "Resource": "*"
+       }
+      ]
+     },
+     "VersionId": "v1",
+     "IsDefaultVersion": true
+    }
+   ]
+  }
+ ]
+}

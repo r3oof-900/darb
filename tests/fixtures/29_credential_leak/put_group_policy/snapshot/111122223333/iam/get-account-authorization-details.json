@@ -1,0 +1,58 @@
+{
+ "UserDetailList": [
+  {
+   "Path": "/",
+   "UserName": "ci",
+   "UserId": "AIDACIXXXXXXXXXX",
+   "Arn": "arn:aws:iam::111122223333:user/ci",
+   "UserPolicyList": [
+    {
+     "PolicyName": "inline",
+     "PolicyDocument": {
+      "Version": "2012-10-17",
+      "Statement": [
+       {
+        "Sid": "WriteOwnGroup",
+        "Effect": "Allow",
+        "Action": "iam:PutGroupPolicy",
+        "Resource": "arn:aws:iam::111122223333:group/ci-group"
+       }
+      ]
+     }
+    }
+   ],
+   "GroupList": [
+    "ci-group"
+   ],
+   "AttachedManagedPolicies": [],
+   "Tags": []
+  }
+ ],
+ "GroupDetailList": [
+  {
+   "Path": "/",
+   "GroupName": "ci-group",
+   "GroupId": "AGPACIGROUPXXXXX",
+   "Arn": "arn:aws:iam::111122223333:group/ci-group",
+   "GroupPolicyList": [
+    {
+     "PolicyName": "inline",
+     "PolicyDocument": {
+      "Version": "2012-10-17",
+      "Statement": [
+       {
+        "Sid": "QueuesOnly",
+        "Effect": "Allow",
+        "Action": "sqs:*",
+        "Resource": "*"
+       }
+      ]
+     }
+    }
+   ],
+   "AttachedManagedPolicies": []
+  }
+ ],
+ "RoleDetailList": [],
+ "Policies": []
+}

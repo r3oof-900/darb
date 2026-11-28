@@ -1,0 +1,13 @@
+{
+  "format": "darb-expected/v1",
+  "derived_from": "item 4: CreatePolicyVersion at five versions",
+  "findings": [],
+  "absent": [
+    {
+      "rule": "DARB-PATH-002",
+      "jewel": "arn:aws:s3:::acme-customer-pii"
+    }
+  ],
+  "intended_access": [],
+  "no_edges": []
+}
