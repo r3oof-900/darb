@@ -28,7 +28,7 @@ func (b *builder) rewriter(who *model.Principal, resource, account string, res [
 			return false // across accounts the identity grant is still required
 		}
 		for _, a := range actions {
-			req := &eval.Request{Principal: b.session(who), Action: a, Resource: resource, ResourceAccount: account, Context: b.context(who, nil)}
+			req := &eval.Request{Principal: b.session(who), Action: a, Resource: resource, ResourceAccount: account, Context: b.context(who, a, resource, nil)}
 			if keepsRewrite(req, b.identitySet(who, res, required), fx) {
 				return true
 			}

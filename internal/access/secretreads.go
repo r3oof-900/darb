@@ -91,7 +91,7 @@ func (b *builder) readSecret(role *model.Principal, j *model.Resource, how *secr
 			if action == "ssm:GetParametersByPath" && target == j.ARN() || action != "ssm:GetParametersByPath" && target != j.ARN() {
 				continue // GetParametersByPath names the path; the others the parameter
 			}
-			req := &eval.Request{Principal: principal, Action: action, Resource: target, ResourceAccount: j.Account(), Context: b.context(role, nil)}
+			req := &eval.Request{Principal: principal, Action: action, Resource: target, ResourceAccount: j.Account(), Context: b.context(role, action, target, nil)}
 			if d := eval.Evaluate(req, set); d.Verdict.Grants() > read.Verdict.Grants() {
 				read, best = d, req
 			}
@@ -143,7 +143,7 @@ func (b *builder) decryptSecret(role *model.Principal, j *model.Resource, how *s
 	present := how.contexts(j)
 	present["kms:ViaService"] = []string{how.service + "." + j.Region() + ".amazonaws.com"}
 	present["kms:CallerAccount"] = []string{role.Account()}
-	req := &eval.Request{Principal: b.session(role), Action: "kms:Decrypt", Resource: key.ARN(), ResourceAccount: key.Account(), Context: b.context(role, present)}
+	req := &eval.Request{Principal: b.session(role), Action: "kms:Decrypt", Resource: key.ARN(), ResourceAccount: key.Account(), Context: b.context(role, "kms:Decrypt", key.ARN(), present)}
 	set := b.identitySet(role, b.policies[key.ID()], true)
 	d := eval.Evaluate(req, set)
 	if !grants(d.Verdict) {

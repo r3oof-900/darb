@@ -348,6 +348,6 @@ func (b *builder) canDo(who *model.Principal, action, resource, account string, 
 	if who == nil {
 		return false
 	}
-	req := &eval.Request{Principal: b.session(who), Action: action, Resource: resource, ResourceAccount: account, Context: b.context(who, nil)}
+	req := &eval.Request{Principal: b.session(who), Action: action, Resource: resource, ResourceAccount: account, Context: b.context(who, action, resource, nil)}
 	return grants(eval.Evaluate(req, b.identitySet(who, resourcePolicies, required)).Verdict)
 }

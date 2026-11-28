@@ -47,7 +47,7 @@ func (b *builder) identities() {
 func (b *builder) chain(src, dst *model.Principal, trust *model.PolicyDocument) eval.Verdict {
 	req := &eval.Request{
 		Principal: b.session(src), Action: "sts:AssumeRole", Resource: dst.Identity(),
-		ResourceAccount: dst.Account(), Context: b.context(src, nil),
+		ResourceAccount: dst.Account(), Context: b.context(src, "sts:AssumeRole", dst.Identity(), nil),
 	}
 	set := b.identitySet(src, []*model.PolicyDocument{trust}, true)
 	d := eval.Evaluate(req, set)
@@ -69,7 +69,7 @@ func (b *builder) ask(src *model.Principal, action, resource string, present map
 func (b *builder) request(src *model.Principal, action, resource string, present map[string][]string) *eval.Request {
 	return &eval.Request{
 		Principal: b.session(src), Action: action, Resource: resource, ResourceAccount: src.Account(),
-		Context: b.context(src, present),
+		Context: b.context(src, action, resource, present),
 	}
 }
 
