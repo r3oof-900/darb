@@ -75,13 +75,15 @@ Each report names the keys, buckets and shareable parameters these concern in
 `not-modelled` notes; the notes do not change the exit code. The full list,
 with whether each can hide a path, is [DESIGN.md §12.3](DESIGN.md#123-limits-every-report-states-phase-7).
 
-### Why is every role with an AWS managed policy UNKNOWN?
+### Why is a role with an AWS managed policy UNKNOWN?
 
-The bundled managed-policy snapshot holds only `AdministratorAccess`,
-`AmazonS3FullAccess` and `AmazonS3ReadOnlyAccess` until it is refreshed with
-`tools/refresh-managed-policies` ([DESIGN.md §12.1](DESIGN.md#121-known-constraints-carried-between-phases)).
-Any other attached managed policy is an unknown Allow and Deny: never "no
-permissions". The report warns about each one.
+The bundled managed-policy snapshot is IAM's list of every AWS managed
+policy at its default version on 2026-11-23 (1622 policies). A policy AWS
+published after that is not in it: an attached one is an unknown Allow and
+Deny, never "no permissions", and the report warns about each one until
+`tools/refresh-managed-policies` runs again
+([DESIGN.md §12.1](DESIGN.md#121-known-constraints-carried-between-phases)).
+A policy AWS changed after that is read at its 2026-11-23 version.
 
 ### Are fingerprints stable?
 

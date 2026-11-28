@@ -96,7 +96,7 @@ func (f *fake) GetAccountAuthorizationDetails(ctx context.Context, in *iam.GetAc
 		return &iam.GetAccountAuthorizationDetailsOutput{IsTruncated: true, Marker: aws.String("p2"), RoleDetailList: []iamtypes.RoleDetail{{
 			RoleName: aws.String("app"), Arn: aws.String("arn:aws:iam::111122223333:role/app"),
 			AssumeRolePolicyDocument: aws.String("%7B%22Version%22%3A%222012-10-17%22%2C%22Statement%22%3A%5B%5D%7D"),
-			AttachedManagedPolicies:  []iamtypes.AttachedPolicy{{PolicyName: aws.String("ReadOnlyAccess"), PolicyArn: aws.String("arn:aws:iam::aws:policy/ReadOnlyAccess")}},
+			AttachedManagedPolicies:  []iamtypes.AttachedPolicy{{PolicyName: aws.String("DarbExampleNotInSnapshot"), PolicyArn: aws.String("arn:aws:iam::aws:policy/DarbExampleNotInSnapshot")}},
 		}}}, nil
 	}
 	return &iam.GetAccountAuthorizationDetailsOutput{Policies: []iamtypes.ManagedPolicyDetail{{

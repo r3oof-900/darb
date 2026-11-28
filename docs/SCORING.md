@@ -181,8 +181,9 @@ known (in the vendored snapshot, e.g. AdministratorAccess in scenario 6); an
 unknown one is resolved, not detached (below). A fix step
 names it by `policy` (the managed policy's ARN); `cut_cost` counts each
 change once. When several policies grant an edge's identity side, each must
-change, and the fix lists every change (scenario 19 with ReadOnlyAccess:
-narrow the inline `kms:Decrypt`, 1, and detach ReadOnlyAccess, 4: cut 5).
+change, and the fix lists every change (an inline `kms:Decrypt` beside a
+managed policy in the snapshot that also grants it: narrow the inline grant,
+1, and detach the managed policy, 4: cut 5).
 The patch generator (§5) removes the attachment and adds the replacement
 policy as an unverified `TODO` when the permissions needed are not known; it
 never edits an AWS managed document.
@@ -196,9 +197,9 @@ value), that side's fix is `fix_kind: resolve`, **cost 0**, with no patch:
 it names the command that decides it (`tools/refresh-managed-policies`;
 `assume: {...}` in `darb.yaml`; `-var-file` or `--plan`; scanning the
 missing key or role). Where a side mixes known and unknown grants, the known
-ones get their usual fix and the unknown one a resolve step (scenario 19 with
-ReadOnlyAccess: narrow the inline `kms:Decrypt`, 1, and resolve
-ReadOnlyAccess, 0: cut 1). The §4.2 guards (a principal that may rewrite the
+ones get their usual fix and the unknown one a resolve step (scenario 19's
+`unknown_managed_policy` variant: narrow the inline `kms:Decrypt`, 1, and
+resolve the managed policy that is not in the snapshot, 0: cut 1). The §4.2 guards (a principal that may rewrite the
 target's policy) never remove a resolve step: a guard is about changes the
 principal could undo, and a resolve step is not a change but knowledge;
 resolving the key policy also decides whether the role may rewrite it
@@ -294,7 +295,7 @@ side it can rewrite does not count either; the cut moves before it:
   statement's other actions). Detaching AdministratorAccess removes the
   rewrite with the grant, so that identity side holds (scenario 6's
   alternative); an UNKNOWN rewrite never takes a side away, since resolving
-  it is part of the cut (scenario 19 with ReadOnlyAccess). Across accounts
+  it is part of the cut (scenario 19's `unknown_managed_policy` variant). Across accounts
   its identity grant is still required, so that side still counts.
 
 The ability to grant oneself access again is not a fixed property of a role:

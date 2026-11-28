@@ -38,7 +38,7 @@
           "side": "identity",
           "fix_kind": "resolve",
           "cost": 0,
-          "policy": "arn:aws:iam::aws:policy/ReadOnlyAccess",
+          "policy": "arn:aws:iam::aws:policy/DarbExampleNotInSnapshot",
           "resolve": "tools/refresh-managed-policies"
         },
         {
@@ -46,7 +46,7 @@
           "side": "identity",
           "fix_kind": "resolve",
           "cost": 0,
-          "policy": "arn:aws:iam::aws:policy/ReadOnlyAccess",
+          "policy": "arn:aws:iam::aws:policy/DarbExampleNotInSnapshot",
           "resolve": "tools/refresh-managed-policies"
         }
       ],
@@ -61,7 +61,7 @@
       ],
       "status": "confirmed_unless_denied",
       "undecided": [
-        "ReadOnlyAccess",
+        "DarbExampleNotInSnapshot",
         "tools/refresh-managed-policies"
       ],
       "also_fixes": [],

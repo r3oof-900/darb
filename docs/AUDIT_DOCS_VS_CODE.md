@@ -75,4 +75,5 @@ the code writes in the table.
 
 - `doctor` and `iam:SimulatePrincipalPolicy` — #8.
 - Not part of this audit's fixes, recorded in DESIGN.md §12.1 and §15.1: the
-  managed-policy snapshot (3 policies), RAM shares (named, not collected).
+  managed-policy snapshot (3 policies then; refreshed from IAM on 2026-11-23,
+  1622), RAM shares (named, not collected).

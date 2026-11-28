@@ -20,6 +20,15 @@ func TestSnapshot(t *testing.T) {
 	if _, ok := s.Lookup("arn:aws:iam::aws:policy/NotInSnapshot"); ok {
 		t.Error("unknown policies are not guessed")
 	}
+	// The policy scenario 19's unknown_managed_policy variant and the fake
+	// AWS account attach to stand for one AWS published after the snapshot
+	// must stay absent from it; ReadOnlyAccess, used before, is in it.
+	if _, ok := s.Lookup("arn:aws:iam::aws:policy/DarbExampleNotInSnapshot"); ok {
+		t.Error("DarbExampleNotInSnapshot must not be in the snapshot")
+	}
+	if _, ok := s.Lookup("arn:aws:iam::aws:policy/ReadOnlyAccess"); !ok || s.PolicyCount < 1000 {
+		t.Errorf("the refreshed snapshot: %d policies", s.PolicyCount)
+	}
 	for arn, want := range map[string]bool{
 		"arn:aws:iam::aws:policy/ReadOnlyAccess": true,
 		"arn:aws-cn:iam::aws:policy/x":           true,
