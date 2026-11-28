@@ -930,11 +930,10 @@ Secrets Manager and SSM decrypts already did.
   `aws:CalledVia`, `aws:CalledViaFirst` and `aws:CalledViaLast`. The condition
   keys page has no list of supporting services ("a service that supports
   aws:CalledVia") and names no S3 case: its examples are CloudFormation and
-  DynamoDB. The key's launch post
-  (https://aws.amazon.com/blogs/security/iam-makes-it-easier-to-manage-permissions-for-aws-services-accessing-resources/)
-  is cited for a launch list of Athena, CloudFormation, DynamoDB and KMS;
-  that list was not verified in this review (the page did not render for
-  the fetch). So
+  DynamoDB. A launch list of Athena, CloudFormation, DynamoDB and KMS
+  comes from a Classmethod article written when the key was released: a
+  **secondary source**, not AWS documentation, and not re-checked in this
+  review. The decision does not rest on it. So
   the value is undocumented for S3 (and for Secrets Manager and SSM): the
   three keys are one choice, all absent or all equal to the calling
   service, never one without the others.

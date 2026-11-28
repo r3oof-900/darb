@@ -43,7 +43,11 @@ func (c *Choice) Clone() Choice {
 	out.Keys = slices.Clone(c.Keys)
 	out.Options = make([]Option, len(c.Options))
 	for i, o := range c.Options {
-		out.Options[i] = Option(maps.Clone(map[string][]string(o)))
+		cp := make(Option, len(o))
+		for k, vs := range o {
+			cp[k] = slices.Clone(vs)
+		}
+		out.Options[i] = cp
 	}
 	return out
 }
