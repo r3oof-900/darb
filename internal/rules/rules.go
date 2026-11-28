@@ -77,6 +77,9 @@ type Entry struct {
 	// Unknown: what is undecided about the entry itself; a path from it is
 	// unconfirmed at its score (item 4: a user whose keys are not known).
 	Unknown string
+	// Evidence: what makes it an entry (its keys), added to every finding
+	// from it; never part of the score.
+	Evidence []string
 }
 
 // Input is what every rule sees. Rules are pure functions of it.

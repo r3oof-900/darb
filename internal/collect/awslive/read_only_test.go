@@ -23,6 +23,7 @@ func valueReads() []string {
 func allowedAPIs() []string {
 	return []string{
 		"sts:GetCallerIdentity", "iam:GetAccountAuthorizationDetails",
+		"iam:GenerateCredentialReport", "iam:GetCredentialReport", "iam:ListAccessKeys", "iam:GetAccessKeyLastUsed",
 		"s3:ListAllMyBuckets", "s3:GetBucketLocation", "s3:GetBucketPolicy", "s3:GetEncryptionConfiguration",
 		"s3:GetBucketPublicAccessBlock", "s3:GetBucketTagging", "s3:GetAccountPublicAccessBlock",
 		"s3:GetBucketOwnershipControls", "s3:GetBucketAcl",
@@ -34,8 +35,14 @@ func allowedAPIs() []string {
 	}
 }
 
-// Every method of every client interface reads: List*, Get*, Describe*,
-// and none reads a value.
+// preparesOnly: the one method outside List*, Get*, Describe*:
+// GenerateCredentialReport asks IAM to prepare the account's credential
+// report (read with GetCredentialReport). It changes no configuration and
+// no permission, and SecurityAudit grants it (item 4).
+func preparesOnly() []string { return []string{"GenerateCredentialReport"} }
+
+// Every method of every client interface reads: List*, Get*, Describe*
+// (or only prepares a report to read), and none reads a value.
 func TestClientInterfacesAreReadOnly(t *testing.T) {
 	n := 0
 	for _, typ := range []reflect.Type{
@@ -45,12 +52,13 @@ func TestClientInterfacesAreReadOnly(t *testing.T) {
 		for i := range typ.NumMethod() {
 			m := typ.Method(i).Name
 			n++
-			if !regexp.MustCompile(`^(List|Get|Describe)[A-Z]`).MatchString(m) || slices.Contains(valueReads(), m) {
+			read := regexp.MustCompile(`^(List|Get|Describe)[A-Z]`).MatchString(m) || slices.Contains(preparesOnly(), m)
+			if !read || slices.Contains(valueReads(), m) {
 				t.Errorf("%s.%s is not a metadata read", typ.Name(), m)
 			}
 		}
 	}
-	if n != 27 {
+	if n != 31 {
 		t.Fatalf("%d methods; update allowedAPIs and docs/PERMISSIONS.md with the interfaces", n)
 	}
 }

@@ -96,6 +96,8 @@ type EntryPoint struct {
 	// Unknown: what is undecided about the entry itself (a user whose
 	// credential state is not in the input); "" when nothing is.
 	Unknown string
+	// Evidence: what makes it an entry (a credential-leak entry's keys).
+	Evidence []string
 }
 
 // CredentialLeak is the entry reason of an IAM user (or the root) with an
@@ -122,7 +124,9 @@ func EntryPoints(inv *model.Inventory, assumeCompromised bool) []EntryPoint {
 	slices.SortFunc(out, func(a, b EntryPoint) int {
 		return cmp.Or(strings.Compare(string(a.Workload), string(b.Workload)), strings.Compare(a.Reason, b.Reason))
 	})
-	return slices.Compact(out)
+	return slices.CompactFunc(out, func(a, b EntryPoint) bool {
+		return a.Workload == b.Workload && a.Reason == b.Reason && a.Public == b.Public && a.Unknown == b.Unknown
+	})
 }
 
 // credentialEntries: every IAM user, and the root, with an active access
@@ -133,7 +137,7 @@ func credentialEntries(inv *model.Inventory) []EntryPoint {
 	var out []EntryPoint
 	for _, c := range inv.Credentials {
 		if a := c.ActiveKey(); a == model.True {
-			out = append(out, EntryPoint{Workload: c.Principal, Reason: CredentialLeak, Public: model.True})
+			out = append(out, EntryPoint{Workload: c.Principal, Reason: CredentialLeak, Public: model.True, Evidence: c.Evidence()})
 		} else if a == model.Unknown {
 			out = append(out, EntryPoint{
 				Workload: c.Principal, Reason: CredentialLeak, Public: model.Unknown,

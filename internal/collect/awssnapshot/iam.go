@@ -48,7 +48,11 @@ func (r *reader) iamFile(a *awsraw.Account, f string, parts []string) (bool, err
 		if a.KeyLastUsed == nil {
 			a.KeyLastUsed = map[string]string{}
 		}
-		a.KeyLastUsed[parts[3]] = v.Last.LastUsedDate
+		id, err := unescapeName(parts[3])
+		if err != nil {
+			return true, err
+		}
+		a.KeyLastUsed[id] = v.Last.LastUsedDate
 		return true, nil
 	}
 	return false, nil

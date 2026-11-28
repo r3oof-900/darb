@@ -40,6 +40,38 @@ func (c *Credentials) ActiveKey() Tri {
 	return TriOf(slices.ContainsFunc(c.Keys, func(k AccessKey) bool { return k.Active }))
 }
 
+// Label returns the key for evidence: its ID masked to the last four characters,
+// its creation and its last use (never the full ID).
+func (k AccessKey) Label() string {
+	s := "created " + k.Created
+	if k.ID != "" {
+		s = MaskedID(k.ID) + ", " + s
+	}
+	if k.LastUsed != "" {
+		s += ", last used " + k.LastUsed
+	}
+	return s
+}
+
+// Evidence returns what an entry's credentials are, for a finding (it never
+// changes a score): each active key and, from the report, when it was
+// generated (it may be hours old).
+func (c *Credentials) Evidence() []string {
+	if c == nil || c.Known != True {
+		return nil
+	}
+	var out []string
+	if c.Generated != "" {
+		out = append(out, "credential report generated "+c.Generated)
+	}
+	for _, k := range c.Keys {
+		if k.Active {
+			out = append(out, "active access key "+k.Label())
+		}
+	}
+	return out
+}
+
 // MaskedID is an access key ID with every character but the last four
 // replaced (reports never print a key ID in full).
 func MaskedID(id string) string {

@@ -13,11 +13,24 @@ names, ARNs, KMS keys, tags and resource policies.
 
 ## AWS
 
-Use the minimal custom policy below. DESIGN.md §4.4 expects the AWS managed
-policies `SecurityAudit` and `ViewOnlyAccess` together to be enough. That is
-**not verified** against their current versions: the managed-policy snapshot
-has not been refreshed yet (DESIGN.md §12.1). Until it is, the custom policy is
-the one known to cover every call.
+Use the minimal custom policy below, or the AWS managed policy
+`SecurityAudit`: checked against the managed-policy snapshot of 2026-11-23, it
+grants every action below, the credential report's included.
+`ViewOnlyAccess` does not grant `iam:GenerateCredentialReport`,
+`iam:GetCredentialReport` or `iam:GetAccessKeyLastUsed` (it grants
+`iam:ListAccessKeys`): with it alone, users' access keys are read without
+their last use, and a user whose keys cannot be read is an entry at the
+worst case, unconfirmed.
+
+**Credentials (item 4).** The collector asks IAM to prepare the account's
+credential report (`iam:GenerateCredentialReport`, the one call that is not
+a List, Get or Describe: it prepares a report and changes no configuration
+or permission), waits for it with a doubling delay up to 60 seconds, and
+reads it (`iam:GetCredentialReport`): each user's key state and last use,
+password and MFA. `iam:ListAccessKeys` gives each user's key IDs (reports
+print the last four characters only) and creation dates;
+`iam:GetAccessKeyLastUsed` is called only when the report cannot be read.
+No key secret is ever read: IAM does not return it after creation.
 
 For several accounts, the caller assumes a role in each account that has the
 same policy (`--aws-assume-role ARN`, repeatable), with `sts:AssumeRole` allowed
@@ -35,7 +48,11 @@ on those roles.
         "eks:DescribePodIdentityAssociation",
         "eks:ListClusters",
         "eks:ListPodIdentityAssociations",
+        "iam:GenerateCredentialReport",
+        "iam:GetAccessKeyLastUsed",
         "iam:GetAccountAuthorizationDetails",
+        "iam:GetCredentialReport",
+        "iam:ListAccessKeys",
         "kms:DescribeKey",
         "kms:GetKeyPolicy",
         "kms:GetKeyRotationStatus",

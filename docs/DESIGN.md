@@ -639,6 +639,28 @@ was declared.
 (`threat_model.assume_compromised` in `darb.yaml`, default **on**; there is no flag;
 the report states which model was used).
 
+*IAM users (item 4, after v0.1.0-rc.1; found by the first real-account test).*
+An IAM user with an active access key, and the account root with one, is an
+entry of reason `credential-leak`, exposure 700 (SCORING.md §1.1): a leaked
+key is worse than an internal service and better than an endpoint on the
+internet. Its credentials come from the credential report
+(`iam:GenerateCredentialReport`, polled with a doubling wait up to 60 s, then
+`iam:GetCredentialReport`: key state, last use, password, MFA, and when the
+report was generated), with `iam:ListAccessKeys` for each user's key IDs and
+creation dates (the report has none); `iam:GetAccessKeyLastUsed` only when the
+report could not be read. An inactive key, or none, is no entry. A user whose
+keys are not in the input (a snapshot without these files) is an entry too, at
+700, **unconfirmed** with its score unchanged; `undecided` names the missing
+calls and a gap names the user. A user's policies are its inline and managed
+policies, its groups' policies and its permissions boundary. The evidence of
+every finding from such an entry names each active key, its ID masked to the
+last four characters, its creation and last use, and the report's time; it
+never changes a score. `aws:SourceIp` and `aws:SourceVpc` stay UNKNOWN for a
+leaked key (the worst case, §6.2). A Terraform input's IAM users and groups
+are not analysed (a configuration does not say which keys are active): the
+`IAM users in Terraform` note names them. `DARB-POST-009` reports an active
+access key of the root (critical).
+
 ---
 
 ## 6. Policy evaluator
@@ -1078,6 +1100,13 @@ is `DARB-PATH-001`.
 | `CAN_ESCALATE[iam:passrole:<service>]` | role → role | `iam:PassRole` on the target (with `iam:PassedToService`), the target trusts the service, and the create actions are allowed: Lambda (`CreateFunction`; runs with `InvokeFunction`, `CreateEventSourceMapping` or `CreateFunctionUrlConfig`), EC2 (`RunInstances`), ECS tasks (`RegisterTaskDefinition`; `RunTask`, `StartTask` or `CreateService`), CloudFormation (`CreateStack`), Glue (`CreateJob`; `StartJobRun`), CodeBuild (`CreateProject`; `StartBuild`), SageMaker (`CreateNotebookInstance`). Where creating runs the code, it is the execution; without an execution primitive, `confidence: medium` | 2 |
 | `CAN_ESCALATE[iam:update-trust]` | role → role, **same account only** | `iam:UpdateAssumeRolePolicy` on the target: the source names itself in the trust and assumes it. IAM's only resource-based policy is the role trust policy, which governs `sts:AssumeRole`, not IAM writes (IAM User Guide › "AWS services that work with IAM": IAM, resource-based policies "Partial"; "Resource-based policies" › role trust policies), so a role in another account can be rewritten only after an `ASSUMES` into that account; that path is the chain plus a same-account edge. Corrected at the Phase 6 review (it allowed another account with `sts:AssumeRole`) | 2 |
 | `CAN_ESCALATE[iam:modify-policy]` | role → "role (any permission)" | `iam:AttachRolePolicy` or `iam:PutRolePolicy` on the target, or `iam:CreatePolicyVersion` on a customer managed policy attached to it, when the source is or can become the target. The synthetic principal's identity policy allows everything; the target's permissions boundary, resource policies and key policies still apply | 2 |
+| `CAN_ESCALATE[iam:modify-policy]` (users) | user → "user with any permission" | `iam:AttachUserPolicy` or `PutUserPolicy` on itself, `CreatePolicyVersion` on one of its customer managed policies (with fewer than five versions, or `iam:DeletePolicyVersion` on it; `--set-as-default` needs no `SetDefaultPolicyVersion`), or `PutGroupPolicy` / `AttachGroupPolicy` on one of its groups (item 4) | 2 |
+| `CAN_ESCALATE[iam:boundary]` | principal → "principal without boundary" | `Delete…PermissionsBoundary`, or `Put…PermissionsBoundary` (a broader one is the same), on a user it is or a role it can become; no edge without a boundary | 2 |
+| `CAN_ESCALATE[iam:set-default-version]` | user → "user with policy P at version v" | `iam:SetDefaultPolicyVersion` on one of its customer managed policies, one node per stored non-default version; a version that is not broader gives only dominated paths (§8), which are not reported | 2 |
+| `CAN_ESCALATE[iam:add-to-group]` | user → "user in the groups it can join" | `iam:AddUserToGroup` on groups it is not in | 2 |
+| `CAN_ESCALATE[iam:create-access-key]` | user → another user | `iam:CreateAccessKey` on a user with fewer than two keys (inactive ones count: IAM allows two); UNKNOWN when the count is not in the input | 2 |
+| `CAN_ESCALATE[iam:login-profile]` | user → "another user's console session" | `iam:CreateLoginProfile` for a user without a password, `UpdateLoginProfile` for one with; no edge when the target has an MFA device, UNKNOWN when that is not known. The session's `aws:MultiFactorAuthPresent` is false (§6.2) | 2 |
+| `CAN_ESCALATE[rewrite-resource-policy]` | principal → "principal with the resource policies it can rewrite granting it" | in its own account, `s3:PutBucketPolicy` on a crown-jewel bucket, or `kms:PutKeyPolicy` (or `kms:CreateGrant` to itself, its `kms:GranteePrincipal`, `kms:GrantOperations` and `kms:GrantIsForAWSResource` conditions evaluated) on the key protecting one, for access it does not already have. ALLOW or UNKNOWN (never dropped: an UNKNOWN rewrite that a direct path holds is dominated and hidden). Every other edge is evaluated as usual: a bucket policy alone gives no `kms:Decrypt` | structural (∞); the edges out of the node are priced where each Put* is granted: the identity grant (narrow 2 / revoke 4) and the resource policy when it grants the Put* (narrow 2 / revoke 4) |
 | `MAPS_TO` | IAM principal → Kubernetes user / group | `aws-auth` `mapRoles`/`mapUsers` (a `rolearn` carries no path, so a role matches by account and name) or an EKS access entry (`aws_eks_access_entry`: user name, groups). The subject's RBAC then gives `CAN_ESCALATE[rbac]`; `system:masters` is cluster-admin without a binding. An access policy association gives the principal the policy's rules directly (ClusterAdmin: all; Admin: create pods, impersonate service accounts; Edit: create pods; View, AdminView: read only — EKS User Guide › "Access policy permissions"); another policy is UNKNOWN | 8 |
 | `NODE_ROLE` | workload → node role of its cluster's node groups | IMDS is reachable: `hostNetwork: true` (any token setting, unless `http_endpoint` is disabled), or `http_tokens` optional, or hop limit ≥ 2; precondition, factor 900 when known, 500 when unknown | 3 |
 | `CAN_READ`, `CAN_DECRYPT[for J]`, `CAN_READ_PLAINTEXT` | principal → jewel / key | §7.3 | §9.1 |
@@ -2059,6 +2088,8 @@ anywhere else in the documents belongs here first.
 | Kubernetes admission policies are not read | `note: Kubernetes Secrets through admission` | no: admission only rejects pods | `21_k8s_secret/vulnerable` |
 | Account-level S3 Block Public Access missing from a snapshot written before Phase 7 | `note: S3 account-level Block Public Access` | no: the bucket's own setting applies, which can only report more | `14_same_names_two_accounts/vulnerable` |
 | An AWS managed policy missing from the vendored snapshot | `gap: managed policy document not available` | no: its grants are UNKNOWN, so paths through it are reported as unconfirmed, never dropped | `19_secrets_manager/unknown_managed_policy` |
+| IAM users and groups in a Terraform input are not analysed (a configuration does not say which access keys are active; item 4) | `note: IAM users in Terraform` | **yes**: a user with a key is an entry only from a snapshot or a live scan; the note names the users, groups and keys | `inline:terraform-iam-user` |
+| A user's access keys not in a snapshot (no credential report, no `ListAccessKeys`) | `gap: the access keys of` | no: the user is an entry at the worst case (700), unconfirmed | `29_credential_leak/credential_unknown` |
 
 These notes do not change the exit code; a coverage gap counts against the
 tolerance (§11). *After v0.1.0-rc.1 (phase 2 of the limits):* KMS grants are

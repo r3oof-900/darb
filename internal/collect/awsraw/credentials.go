@@ -13,6 +13,8 @@ type CredentialReport struct {
 	// GeneratedTime: when IAM generated it (it may be hours old).
 	GeneratedTime string
 	Rows          []CredentialRow
+	// Content: the report as IAM returned it (CSV), for a snapshot.
+	Content []byte
 }
 
 // CredentialRow is one user's row; values are as the report writes them
@@ -33,7 +35,7 @@ func ParseCredentialReport(content []byte, generated string) (*CredentialReport,
 	if len(records) == 0 || len(records[0]) < 2 || records[0][0] != "user" || records[0][1] != "arn" {
 		return nil, fmt.Errorf("credential report: no user,arn header")
 	}
-	rep := &CredentialReport{GeneratedTime: generated}
+	rep := &CredentialReport{GeneratedTime: generated, Content: bytes.Clone(content)}
 	header := records[0]
 	for _, rec := range records[1:] {
 		if len(rec) != len(header) {

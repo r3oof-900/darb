@@ -137,6 +137,7 @@ func (l *loader) terraform(ctx context.Context) error {
 		normtf.Normalize(m, opts, l.mp, l.b, l.rec)
 		l.collected += len(m.Resources)
 		l.recordFiles(inputTerraformPlan, p.Path, "", nil)
+		l.terraformUsers(m)
 	}
 	for _, d := range in.TerraformDirs {
 		m, err := hclstatic.Collect(ctx, input(in, d), l.rec)
@@ -146,6 +147,7 @@ func (l *loader) terraform(ctx context.Context) error {
 		normtf.Normalize(m, opts, l.mp, l.b, l.rec)
 		l.collected += len(m.Resources)
 		l.recordFiles(inputTerraformDir, d, "", nil)
+		l.terraformUsers(m)
 	}
 	return nil
 }

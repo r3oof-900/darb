@@ -32,26 +32,8 @@ func rootKeys(in *rules.Input) []hit {
 		if c.ActiveKey() != model.True {
 			continue
 		}
-		h := hit{resource: p.Identity(), id: p.ID(), location: *p.Source(), evidence: []string{"credential report generated " + c.Generated}}
-		for _, k := range c.Keys {
-			if k.Active {
-				h.evidence = append(h.evidence, "active key "+keyLabel(k))
-			}
-		}
+		h := hit{resource: p.Identity(), id: p.ID(), location: *p.Source(), evidence: c.Evidence()}
 		out = append(out, h)
 	}
 	return out
-}
-
-// keyLabel: a key for evidence: its ID masked to the last four characters,
-// its creation and last use (never its full ID).
-func keyLabel(k model.AccessKey) string {
-	s := "created " + k.Created
-	if k.ID != "" {
-		s = model.MaskedID(k.ID) + ", " + s
-	}
-	if k.LastUsed != "" {
-		s += ", last used " + k.LastUsed
-	}
-	return s
 }

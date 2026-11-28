@@ -44,6 +44,7 @@ func (a *account) iam(ctx context.Context, c *Clients) error {
 	a.mu.Lock()
 	a.acct.Auth = details
 	a.mu.Unlock()
+	a.credentials(ctx, c, details.UserDetailList)
 	return nil
 }
 

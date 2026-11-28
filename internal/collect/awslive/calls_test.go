@@ -12,6 +12,10 @@ import (
 func TestCallsAreAllowed(t *testing.T) {
 	ff := &awsfake.Factory{}
 	a, _ := run(t, ff, "eu-west-1")
+	// Without the credential report, the keys' last use comes from
+	// GetAccessKeyLastUsed.
+	denied, _ := run(t, &awsfake.Factory{Fail: map[string]error{"GenerateCredentialReport": awsfake.Denied("AccessDenied")}}, "eu-west-1")
+	a.Calls = append(a.Calls, denied.Calls...)
 	iamName := map[string]string{
 		"s3:ListBuckets": "s3:ListAllMyBuckets", "s3:GetBucketEncryption": "s3:GetEncryptionConfiguration",
 		"s3:GetPublicAccessBlock": "s3:GetBucketPublicAccessBlock", "s3control:GetPublicAccessBlock": "s3:GetAccountPublicAccessBlock",

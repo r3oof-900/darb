@@ -90,6 +90,7 @@ func describePath(g *graph.Graph, best paths.Path, f *rules.Finding, entry rules
 	if entry.Unknown != "" {
 		f.Status = rules.Weaker(f.Status, rules.StatusUnconfirmed)
 	}
+	f.Evidence = append(slices.Clone(entry.Evidence), f.Evidence...)
 	f.Confirmed = f.Status == rules.StatusConfirmed
 	switch f.Status {
 	case rules.StatusConfirmedUnlessDenied:
