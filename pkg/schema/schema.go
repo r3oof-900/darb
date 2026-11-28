@@ -314,8 +314,9 @@ type Gap struct {
 // Note is a coverage note from the analysis (e.g. protected data outside
 // the input).
 type Note struct {
-	// Kind: NoteManagedPolicies, NoteServiceCoverage, NoteInsecureTLS and
-	// NoteUnclassified are warnings the console prints; the others ("not-modelled", ...) are listed
+	// Kind: NoteManagedPolicies, NoteServiceCoverage, NoteInsecureTLS,
+	// NoteUnclassified and NoteIntendedOtherRoute are warnings the console
+	// prints; the others ("not-modelled", ...) are listed
 	// in the JSON report.
 	Kind    string `json:"kind"`
 	Subject string `json:"subject"`
@@ -336,6 +337,10 @@ const (
 	// unclassified jewels (or, with crown_jewels.unclassified: ignore, not
 	// scanned).
 	NoteUnclassified = "unclassified-data-stores"
+	// NoteIntendedOtherRoute: a declared intended access whose pair is also
+	// reached by a route other than the workload's own identity; that route
+	// is reported, only the declared one is protected (DESIGN.md §9.1).
+	NoteIntendedOtherRoute = "intended-access-other-route"
 )
 
 // Graph summarises the access graph.

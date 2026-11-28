@@ -32,6 +32,11 @@ const scale = 1000
 type Select struct {
 	Escalation bool
 	Dominated  func(graph.NodeID) bool
+	// Protected: a route of the pair that is not a way to the jewel (the
+	// intended access through the workload's own identity, DESIGN.md §9.1):
+	// reaching the jewel along exactly these edges is no path, so the cut
+	// breaks every other route and none of this one (protected.go).
+	Protected Path
 }
 
 func (s *Select) dominated(n graph.NodeID) bool { return s.Dominated != nil && s.Dominated(n) }
@@ -40,10 +45,13 @@ type pstate struct {
 	node graph.NodeID
 	mode mode
 	esc  bool
+	// route: how many edges of Select.Protected the walk has followed so
+	// far, from the entry; offRoute once it left them (or there are none).
+	route int
 }
 
-// next: whether e may follow s under the selection, and where it leads.
-func (s *Select) next(st pstate, e *graph.Edge) (pstate, bool) {
+// next: whether edge id may follow s under the selection, and where it leads.
+func (s *Select) next(st pstate, id graph.EdgeID, e *graph.Edge) (pstate, bool) {
 	if !traversed(e) || !allowed(st.mode, e) {
 		return pstate{}, false
 	}
@@ -54,11 +62,11 @@ func (s *Select) next(st pstate, e *graph.Edge) (pstate, bool) {
 		}
 		esc = true
 	}
-	return pstate{e.To, target(e), esc}, true
+	return pstate{e.To, target(e), esc, s.follow(st.route, id)}, true
 }
 
 func (s *Select) sink(st pstate, jewel graph.NodeID) bool {
-	return st.node == jewel && (!s.Escalation || st.esc)
+	return st.node == jewel && (!s.Escalation || st.esc) && !s.protectedEnd(st.route)
 }
 
 // Way is one side of an edge: every part must change for it to break.

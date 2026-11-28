@@ -67,7 +67,7 @@ func (p *printer) warnings(notes []schema.Note) {
 	n := 0
 	for _, note := range notes {
 		switch note.Kind {
-		case schema.NoteManagedPolicies, schema.NoteInsecureTLS, schema.NoteUnclassified:
+		case schema.NoteManagedPolicies, schema.NoteInsecureTLS, schema.NoteUnclassified, schema.NoteIntendedOtherRoute:
 			p.printf("WARNING: %s\n", note.Detail)
 		case schema.NoteServiceCoverage:
 			p.printf("WARNING: coverage of %s: %s\n", note.Subject, note.Detail)

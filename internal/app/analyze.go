@@ -8,7 +8,6 @@ import (
 	"github.com/r3oof-900/darb/internal/collect/tfraw"
 	"github.com/r3oof-900/darb/internal/config"
 	"github.com/r3oof-900/darb/internal/coverage"
-	"github.com/r3oof-900/darb/internal/eval"
 	"github.com/r3oof-900/darb/internal/findings"
 	"github.com/r3oof-900/darb/internal/graph"
 	"github.com/r3oof-900/darb/internal/model"
@@ -104,7 +103,8 @@ func analyze(l *Loaded, cfg *config.Config, failOn string, edit func(*graph.Grap
 		g = edit(g)
 	}
 	entries, entryInfo := entryPoints(g, l, *cfg.ThreatModel.AssumeCompromised)
-	uncuttable := intendedEdges(g, cfg, intended)
+	routes := intendedRoutes(g, inv, cfg, intended)
+	uncuttable := intendedEdges(g, routes)
 	opts := paths.Options{Cost: costs(g, cfg, uncuttable)}
 
 	jewelNodes := map[graph.NodeID]*model.Resource{}
@@ -115,13 +115,13 @@ func analyze(l *Loaded, cfg *config.Config, failOn string, edit func(*graph.Grap
 			dataJewels = append(dataJewels, n)
 		}
 	}
-	pairs := withoutIntended(paths.Analyze(g, entries, dataJewels, opts), g, cfg, intended)
+	pairs, routeNotes := withoutIntended(paths.Analyze(g, entries, dataJewels, opts), g, cfg, intended, routes)
 	in := &rules.Input{Inventory: inv, Graph: g, Pairs: pairs, Entries: entryInfo, Jewels: jewelNodes, Partition: partition(cfg), Cuts: &opts}
 	fs := findings.Finish(reg.Evaluate(in), reg)
 	a := &Analysis{
-		Findings: fs, Notes: slices.Concat(built.Notes, l.Notes, unclassifiedNotes(l.Inventory, cfg), notModelled(l.Inventory)),
+		Findings: fs, Notes: slices.Concat(built.Notes, l.Notes, unclassifiedNotes(l.Inventory, cfg), notModelled(l.Inventory), routeNotes),
 		Gaps: l.Gaps, Collected: l.Collected,
-		IntendedAccess: verifyIntended(g, cfg, intended, entries, opts),
+		IntendedAccess: verifyIntended(g, cfg, intended, routes),
 		Graph:          GraphStats{Nodes: g.NumNodes(), Edges: g.NumEdges(), Pairs: len(pairs)},
 		CatalogVersion: catalog.Version, Registry: reg, AccessGraph: g, intended: uncuttable, Inputs: l.Inputs,
 	}
@@ -192,114 +192,6 @@ func costs(g *graph.Graph, cfg *config.Config, uncuttable map[graph.EdgeID]bool)
 		}
 		return paths.Default // priced from its fixes: sides, detaches, resolve steps (SCORING.md §4)
 	}
-}
-
-// intendedTargets resolves each intended_access resource to a bucket of the
-// inventory ("arn:aws:s3:::B/*" names bucket B); nil when not modelled.
-func intendedTargets(inv *model.Inventory, cfg *config.Config) []*model.Resource {
-	out := make([]*model.Resource, len(cfg.IntendedAccess))
-	for i, ia := range cfg.IntendedAccess {
-		if ia.Action != "s3:GetObject" {
-			continue
-		}
-		bucket, _, _ := strings.Cut(ia.Resource, "/")
-		for _, r := range inv.Resources {
-			if r.ARN() == bucket && r.Kind() == model.KindS3Bucket {
-				out[i] = r
-			}
-		}
-	}
-	return out
-}
-
-// withoutIntended drops the pairs a declared intended access names: the
-// workload reading the whole bucket (resource "<bucket ARN>/*") is what the
-// user said it does, whatever the bucket's classification. A declaration
-// of part of a bucket (a prefix) leaves the pair: the path reads more than
-// was declared. The edges stay uncuttable for the other findings.
-func withoutIntended(pairs []paths.Pair, g *graph.Graph, cfg *config.Config, targets []*model.Resource) []paths.Pair {
-	declared := map[[2]graph.NodeID]bool{}
-	for i, ia := range cfg.IntendedAccess {
-		if targets[i] == nil || ia.Resource != targets[i].ARN()+"/*" {
-			continue
-		}
-		from, ok1 := g.Lookup(model.NewID(model.KindK8sWorkload, ia.Principal))
-		to, ok2 := g.Lookup(targets[i].ID())
-		if ok1 && ok2 {
-			declared[[2]graph.NodeID{from, to}] = true
-		}
-	}
-	return slices.DeleteFunc(pairs, func(p paths.Pair) bool { return declared[[2]graph.NodeID{p.Entry, p.Jewel}] })
-}
-
-// intendedEdges: every edge on a path that realises an intended access is
-// uncuttable (SCORING.md §4).
-func intendedEdges(g *graph.Graph, cfg *config.Config, targets []*model.Resource) map[graph.EdgeID]bool {
-	out := map[graph.EdgeID]bool{}
-	for i, ia := range cfg.IntendedAccess {
-		from, ok1 := g.Lookup(model.NewID(model.KindK8sWorkload, ia.Principal))
-		if targets[i] == nil || !ok1 {
-			continue
-		}
-		to, ok2 := g.Lookup(targets[i].ID())
-		if !ok2 {
-			continue
-		}
-		pairs := paths.Analyze(g, []graph.NodeID{from}, []graph.NodeID{to}, paths.Options{Cost: func(graph.EdgeID) int64 { return 1 }})
-		for _, p := range pairs {
-			markPaths(g, p.Paths, out)
-		}
-	}
-	return out
-}
-
-// markPaths marks every edge of the paths, and the edges a derived edge
-// stands for.
-func markPaths(g *graph.Graph, ps []paths.Path, out map[graph.EdgeID]bool) {
-	for _, path := range ps {
-		for _, id := range path {
-			out[id] = true
-			for _, u := range g.Edge(id).Under {
-				out[u] = true
-			}
-		}
-	}
-}
-
-func verifyIntended(g *graph.Graph, cfg *config.Config, targets []*model.Resource, _ []graph.NodeID, opts paths.Options) []IntendedResult {
-	out := []IntendedResult{}
-	for i, ia := range cfg.IntendedAccess {
-		r := IntendedResult{Principal: ia.Principal, Action: ia.Action, Resource: ia.Resource, Status: "not-satisfied"}
-		from, ok := g.Lookup(model.NewID(model.KindK8sWorkload, ia.Principal))
-		switch {
-		case targets[i] == nil:
-			r.Status, r.Detail = "not-modelled", "only s3:GetObject on a bucket in the input is verified"
-		case !ok:
-			r.Detail = "the principal is not a workload in the input"
-		default:
-			to, _ := g.Lookup(targets[i].ID())
-			for _, p := range paths.Analyze(g, []graph.NodeID{from}, []graph.NodeID{to}, opts) {
-				r.Status = "unconfirmed"
-				for _, path := range p.Paths {
-					if confirmed(g, path) {
-						r.Status = "verified"
-					}
-				}
-			}
-		}
-		out = append(out, r)
-	}
-	return out
-}
-
-func confirmed(g *graph.Graph, path paths.Path) bool {
-	for _, id := range path {
-		e := g.Edge(id)
-		if e.Verdict != eval.Allow || (e.Precondition != nil && e.Precondition.State != model.True) {
-			return false
-		}
-	}
-	return true
 }
 
 // gapsOverTolerance counts gaps beyond the per-kind tolerance (default 0).

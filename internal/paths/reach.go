@@ -15,7 +15,7 @@ func Breaks(g *graph.Graph, entry, jewel graph.NodeID, sel *Select, broken map[g
 		}
 		return slices.ContainsFunc(g.Edge(id).Under, func(u graph.EdgeID) bool { return broken[u] })
 	}
-	start := pstate{entry, full, false}
+	start := sel.start(entry)
 	seen := map[pstate]bool{start: true}
 	queue := []pstate{start}
 	for len(queue) > 0 {
@@ -25,7 +25,7 @@ func Breaks(g *graph.Graph, entry, jewel graph.NodeID, sel *Select, broken map[g
 			return false
 		}
 		for _, id := range g.Out(s.node) {
-			nx, ok := sel.next(s, g.Edge(id))
+			nx, ok := sel.next(s, id, g.Edge(id))
 			if ok && !gone(id) && !seen[nx] {
 				seen[nx] = true
 				queue = append(queue, nx)
