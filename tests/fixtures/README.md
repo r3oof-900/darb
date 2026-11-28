@@ -57,6 +57,7 @@ diff is a behaviour change.
 | 25 | `25_kms_grant` | key policy names only the key admin; an `aws_kms_grant` gives payments-api `Decrypt` | a path through the grant, 729 critical | the grant constrained to another bucket's encryption context |
 | 26 | `26_s3_acl` | Object Ownership `ObjectWriter`, a `public-read` bucket ACL | no path (a bucket ACL only lists objects); one gap for the object ACLs | `BucketOwnerEnforced` |
 | 27 | `27_kms_grant_cross_account` | a grant to a role of another account with no kms permission of its own | an unconfirmed path, 729 critical (worst case) | the grantee's identity policy denies `kms:Decrypt` |
+| 28 | `28_intended_other_route` | api and etl-job each read the PII bucket as declared through their own roles; `etl-reader`'s trust checks `:aud` only | the other route api → `etl-reader` → PII is reported (729 critical) with a note; cut: pin `:sub` on `etl-reader`'s trust | `:sub` pinned: no path, no note |
 
 For the "no path" scenarios (2, 3, 11) the vulnerable variant is the near-miss
 configuration that must *not* produce a path; the fixed variant is a hardened

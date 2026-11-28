@@ -37,7 +37,10 @@ most medium), not counted in blast radius, with no posture rules. The report
 names every such store in one note: tag them, or list them in
 `crown_jewels.explicit`. To scan classified data only, set
 `crown_jewels.unclassified: ignore`; the note then says which stores were not
-scanned. A workload's read declared in `intended_access` is not reported.
+scanned. A workload's read declared in `intended_access` is not reported when it goes
+through the workload's own role; another route to the same bucket (for
+example another role whose trust accepts the workload's token) is still
+reported, with a warning naming the declared pair.
 
 ### Why exit code 3 when there are no findings?
 

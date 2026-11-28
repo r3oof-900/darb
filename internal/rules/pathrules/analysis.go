@@ -40,7 +40,7 @@ func analyze(in *rules.Input) []rules.Finding {
 		}
 		for _, s := range split(in.Graph, p) {
 			b := built{entry: p.Entry, jewel: p.Jewel, sel: s.sel}
-			b.f = build(in, p, s, perEntry[p.Entry])
+			b.f = build(in, p, &s, perEntry[p.Entry])
 			all = append(all, b)
 		}
 	}
@@ -94,7 +94,7 @@ func split(g *graph.Graph, p *paths.Pair) []selection {
 		// escalations rather than hide them.
 		esc, dominated = append(esc, hidden...), map[graph.NodeID]bool{}
 	}
-	sel := paths.Select{Dominated: func(n graph.NodeID) bool { return dominated[n] }}
+	sel := paths.Select{Dominated: func(n graph.NodeID) bool { return dominated[n] }, Protected: p.Protected}
 	var out []selection
 	if len(direct) > 0 {
 		out = append(out, selection{rule: WorkloadReadsJewel, paths: direct, sel: sel})
@@ -127,7 +127,7 @@ func pathStatus(g *graph.Graph, path paths.Path) string {
 // the highest score among them, the status the strongest, the primary path
 // the best of the strongest status; a less certain path that scores higher
 // is the worst_case_path.
-func build(in *rules.Input, p *paths.Pair, s selection, jewels int) rules.Finding {
+func build(in *rules.Input, p *paths.Pair, s *selection, jewels int) rules.Finding {
 	g := in.Graph
 	jewel := in.Jewels[p.Jewel]
 	class, _ := jewel.Classification()

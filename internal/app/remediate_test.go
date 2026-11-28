@@ -131,6 +131,13 @@ func TestEveryVulnerableScenarioIsFixed(t *testing.T) {
 					break
 				}
 				fixed++
+			case "28_intended_other_route":
+				// The cut is the unintended route's IRSA trust (pin :sub); the
+				// trust generator is not written yet (DESIGN.md 9.2): the plan
+				// names the trust to change by hand, no patch.
+				if r.Memory.OK || r.Patch != nil || !strings.Contains(strings.Join(r.Memory.Reasons, " "), "role/etl-reader trust policy") {
+					t.Errorf("%s: the trust to change by hand, no patch: %+v %+v", name, r.Memory, r.Patch)
+				}
 			case "13_module_for_each":
 				if !r.Memory.OK || r.Patch == nil || r.Patch.Complete() ||
 					!strings.Contains(r.Patch.TODO[0], `input "bucket" of module "readers" at terraform/main.tf:4`) {
