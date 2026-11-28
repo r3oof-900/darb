@@ -138,6 +138,13 @@ func TestEveryVulnerableScenarioIsFixed(t *testing.T) {
 				if r.Memory.OK || r.Patch != nil || !strings.Contains(strings.Join(r.Memory.Reasons, " "), "role/etl-reader trust policy") {
 					t.Errorf("%s: the trust to change by hand, no patch: %+v %+v", name, r.Memory, r.Patch)
 				}
+			case "29_credential_leak":
+				// Users (item 4): their policy patches and the generators for
+				// the IAM escalations of users come with item 5; the plan says
+				// what to change by hand.
+				if r.Accepted() || len(r.Memory.Reasons)+len(r.Files.Reasons) == 0 {
+					t.Errorf("%s: what to change by hand, no verified patch yet: %+v %+v", name, r.Memory, r.Files)
+				}
 			case "13_module_for_each":
 				if !r.Memory.OK || r.Patch == nil || r.Patch.Complete() ||
 					!strings.Contains(r.Patch.TODO[0], `input "bucket" of module "readers" at terraform/main.tf:4`) {

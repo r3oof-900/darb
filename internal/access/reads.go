@@ -74,7 +74,7 @@ func (b *builder) reads() {
 			continue // a KMS key is a means to data, not a target (DESIGN.md 8.1)
 		}
 		b.g.Node(j.ID(), j.Kind(), j.ARN())
-		for _, role := range append(slices.Clone(b.roles), b.order...) {
+		for _, role := range slices.Concat(b.roles, b.users, b.order) {
 			if how != nil {
 				b.readSecret(role, j, how)
 			} else {
@@ -112,7 +112,7 @@ func (b *builder) read(role *model.Principal, j *model.Resource) {
 		set = &eval.PolicySet{Resource: b.policies[j.ID()]}
 	} else {
 		from, principal = role.ID(), b.session(role)
-		set = b.identitySet(role, b.policies[j.ID()], false)
+		set = b.identitySet(role, b.resourceDocs(role, j.ID(), j.ARN()), false)
 	}
 	object := j.ARN() + "/" + model.UnresolvedPlaceholder("object-key")
 	req := &eval.Request{Principal: principal, Action: "s3:GetObject", Resource: object, ResourceAccount: j.Account(), Context: b.context(role, "s3:GetObject", object, bucketRegion(j))}
@@ -127,6 +127,9 @@ func (b *builder) read(role *model.Principal, j *model.Resource) {
 	readEdge := b.edge(from, j.ID(), graph.CanRead, sub(role), &read, func(e *graph.Edge) {
 		e.Fixes = nonNil(b.policyFixes(graph.CanRead, req, set, role, j.ARN(), "bucket policy",
 			&grantTarget{action: "s3:GetObject", prefix: j.ARN() + "/", principal: identityOf(role)}, rewrite))
+		if fx, ok := b.rewriteFixes(role, j.ARN()); ok {
+			e.Fixes = fx
+		}
 	})
 	under := []graph.EdgeID{readEdge}
 	verdict := read.Verdict
@@ -194,15 +197,18 @@ func (b *builder) decrypt(role *model.Principal, principal match.RequestPrincipa
 	if contexts == nil {
 		contexts = []string{j.ARN(), object}
 	}
-	var result *eval.Decision
-	var req *eval.Request
-	set := b.identitySet(role, b.policies[key.ID()], true)
+	var result, granting *eval.Decision
+	var req, grantReq *eval.Request
+	set := b.identitySet(role, b.resourceDocs(role, key.ID(), key.ARN()), true)
 	for _, c := range contexts {
 		req = &eval.Request{
 			Principal: principal, Action: "kms:Decrypt", Resource: key.ARN(), ResourceAccount: key.Account(),
 			Context: b.context(role, "kms:Decrypt", key.ARN(), s3Decrypt(role, j, c)),
 		}
 		d := eval.Evaluate(req, set)
+		if granting == nil || d.Verdict.Grants() > granting.Verdict.Grants() {
+			granting, grantReq = &d, req
+		}
 		if result == nil {
 			result = &d
 		} else if result.Verdict != d.Verdict {
@@ -215,7 +221,10 @@ func (b *builder) decrypt(role *model.Principal, principal match.RequestPrincipa
 			})
 		}
 	}
-	fixReq := req
+	// The sides are those of the context under which the decrypt is
+	// granted (with the Bucket Key setting unknown, the last context tried
+	// may be the one that grants nothing: its fix would name no statement).
+	fixReq := grantReq
 	if !grants(result.Verdict) {
 		if u, same, ok := crossAccountGrant(req, set); ok {
 			// The sides are those of the grant's own decision: the
@@ -233,6 +242,9 @@ func (b *builder) decrypt(role *model.Principal, principal match.RequestPrincipa
 		e.For = b.node(j.ID())
 		e.Fixes = nonNil(b.policyFixes(graph.CanDecrypt, fixReq, set, role, key.ARN(), "key policy",
 			&grantTarget{action: "kms:Decrypt", principal: identityOf(role), context: j.ARN()}, rewrite))
+		if fx, ok := b.rewriteFixes(role, key.ARN()); ok {
+			e.Fixes = fx
+		}
 	})
 	return result.Verdict, e, true
 }

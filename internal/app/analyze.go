@@ -157,7 +157,7 @@ func entryPoints(g *graph.Graph, l *Loaded, assumeCompromised bool) (nodes []gra
 		}
 		exp := scoring.Exposure(e.Reason, e.Public)
 		if prev, seen := info[n]; !seen || exp > prev.Exposure {
-			info[n] = rules.Entry{Reason: e.Reason, Public: e.Public, Exposure: exp}
+			info[n] = rules.Entry{Reason: e.Reason, Public: e.Public, Exposure: exp, Unknown: e.Unknown}
 		}
 	}
 	if n, ok := g.Lookup(access.AnonymousID()); ok {

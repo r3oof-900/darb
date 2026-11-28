@@ -2,6 +2,7 @@ package paths
 
 import (
 	"slices"
+	"strconv"
 
 	"github.com/r3oof-900/darb/internal/graph"
 )
@@ -165,7 +166,10 @@ type Result struct {
 	AltSteps    []Step
 	// Uncuttable: underlying edges of a cut derived read that no change breaks.
 	Uncuttable []graph.EdgeID
-	Pending    bool
+	// Shared: other edges the chosen changes break (merged into one unit
+	// with a chosen edge, DESIGN.md 9.1); not listed as chokepoints.
+	Shared  []graph.EdgeID
+	Pending bool
 }
 
 // CutFor solves the cut of one selection of paths between entry and jewel,
@@ -191,6 +195,7 @@ func CutFor(g *graph.Graph, entry, jewel graph.NodeID, sel *Select, opts *Option
 		r.Other = append(r.Other, others(g, &way, opts)...)
 	}
 	r.Uncuttable = uncuttable(g, w, r.Ways, opts)
+	r.Shared = w.shared(r.Ways)
 	alt := newCutNetwork(g, entry, jewel, sel, opts, ex)
 	if acut, ok := alt.solve(); ok {
 		r.Alternative = alt.chosen(acut)
@@ -206,6 +211,7 @@ func CutFor(g *graph.Graph, entry, jewel graph.NodeID, sel *Select, opts *Option
 // detach shared by several edges counts once; a resolve step costs 0).
 func price(g *graph.Graph, ws []Way) (cost int64, steps []Step, pending bool) {
 	groups := map[string]bool{}
+	changes := map[string]bool{}
 	for i := range ws {
 		way := &ws[i]
 		side := ""
@@ -219,7 +225,12 @@ func price(g *graph.Graph, ws []Way) (cost int64, steps []Step, pending bool) {
 				s.Kind, s.Policy = fx.Kind, fx.Policy
 			}
 			steps = append(steps, s)
-			cost += way.Known
+			// One change on edges into different heads (not one unit, see
+			// cutnet.sameChange) is priced once, as a detach is.
+			if key := knownChange(g, way); key == "" || !changes[key] {
+				changes[key] = key != ""
+				cost += way.Known
+			}
 		}
 		for _, d := range way.Detach {
 			steps = append(steps, Step{Edge: way.Edge, Fix: way.Fix, Side: side, Kind: graph.FixRevoke, Policy: d.Policy, Cost: d.Cost})
@@ -358,4 +369,21 @@ func subsets(xs []string, k int) [][]string {
 		}
 	}
 	return out
+}
+
+// knownChange: the statements a way's own change narrows or revokes; ""
+// when it names none (priced by Options.Cost, or a fact side).
+func knownChange(g *graph.Graph, w *Way) string {
+	if w.Fix < 0 {
+		return ""
+	}
+	fx := &g.Edge(w.Edge).Fixes[w.Fix]
+	if len(fx.Grants) == 0 {
+		return ""
+	}
+	key := fx.Side + "|" + fx.Kind
+	for _, gr := range fx.Grants {
+		key += "|" + gr.Policy + "#" + strconv.Itoa(gr.Statement)
+	}
+	return key
 }

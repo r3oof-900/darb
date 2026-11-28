@@ -218,7 +218,7 @@ func TestPropertyCutLeavesNoNewFindingForThePair(t *testing.T) {
 				}
 			}
 			cut := map[graph.EdgeID]bool{}
-			for _, id := range f.ChokepointEdge {
+			for _, id := range slices.Concat(f.ChokepointEdge, f.SharedEdges) {
 				cut[id] = true
 			}
 			after := analyzed(t, loaded[v], nil, func(g *graph.Graph) *graph.Graph { return g.Without(cut) })

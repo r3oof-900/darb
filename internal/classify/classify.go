@@ -90,10 +90,17 @@ func containsFold(list []string, s string) bool {
 
 // EntryPoint is a workload an attacker can start from.
 type EntryPoint struct {
-	Workload model.ID
-	Reason   string    // "exposed:Service/LoadBalancer", "assume-compromised"
+	Workload model.ID  // the entry node: a workload, or an IAM user or root (credential-leak)
+	Reason   string    // "exposed:Service/LoadBalancer", "assume-compromised", "credential-leak"
 	Public   model.Tri // for exposures; Unknown for assume-compromised
+	// Unknown: what is undecided about the entry itself (a user whose
+	// credential state is not in the input); "" when nothing is.
+	Unknown string
 }
+
+// CredentialLeak is the entry reason of an IAM user (or the root) with an
+// active access key, or whose keys are not in the input (item 4).
+const CredentialLeak = "credential-leak" //nolint:gosec // G101: an entry reason, not a credential.
 
 // EntryPoints returns every exposed workload, plus every workload when the
 // "assume any pod compromised" threat model is on (the default).
@@ -111,8 +118,28 @@ func EntryPoints(inv *model.Inventory, assumeCompromised bool) []EntryPoint {
 			}
 		}
 	}
+	out = append(out, credentialEntries(inv)...)
 	slices.SortFunc(out, func(a, b EntryPoint) int {
 		return cmp.Or(strings.Compare(string(a.Workload), string(b.Workload)), strings.Compare(a.Reason, b.Reason))
 	})
 	return slices.Compact(out)
+}
+
+// credentialEntries: every IAM user, and the root, with an active access
+// key; a user whose keys are not in the input is an entry too, at the same
+// exposure, unconfirmed (DESIGN.md §5, item 4). An inactive key, or none,
+// is no entry.
+func credentialEntries(inv *model.Inventory) []EntryPoint {
+	var out []EntryPoint
+	for _, c := range inv.Credentials {
+		if a := c.ActiveKey(); a == model.True {
+			out = append(out, EntryPoint{Workload: c.Principal, Reason: CredentialLeak, Public: model.True})
+		} else if a == model.Unknown {
+			out = append(out, EntryPoint{
+				Workload: c.Principal, Reason: CredentialLeak, Public: model.Unknown,
+				Unknown: "credential state of the user is unknown: iam:GetCredentialReport and iam:ListAccessKeys are not in the input",
+			})
+		}
+	}
+	return out
 }

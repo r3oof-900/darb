@@ -1483,6 +1483,30 @@ intended_access:
   blocking constraints, rather than proposing a fix that breaks intended access.
 - Every proposed fix lists, per cut edge: kind, cost, the cost source (default table
   or config override) and the total cost.
+- **One change, one price (item 4 review).** A synthetic principal's edge
+  (a principal with a resource policy rewritten, without its boundary, ...)
+  often breaks with exactly the change that breaks its principal's edge
+  (the same statements, detaches and resolve steps). Counted per edge, the
+  cut listed that change twice and priced it twice (scenario 1
+  `key_outside_input`: the alternative read at 3 + 3). Two cases:
+  - **Same head** (both edges lead to the same state, or both to a sink
+    state of the search: the jewel with and without an escalation taken):
+    the edges are one unit of the flow network, u1 -> g and u2 -> g at
+    infinite capacity, then g -> v at the change's capacity. Exact.
+    `paths.Result.Shared` names the merged edges, which the cut breaks with
+    the chosen ones (`TestPropertyCutLeavesNoNewFindingForThePair`).
+  - **Different heads**: merging inside the network would add false paths
+    (u1 -> g -> v2), so the edges keep their own units; the change is
+    priced once after the cut, as a detach is, and listed per edge. The
+    cut found is then **not necessarily the cheapest**: the network may
+    choose it while counting the change once per edge. In the scenarios
+    this happens only for resolve steps (cost 0: the same unknown managed
+    policy behind a decrypt and a self escalation, scenario 19's
+    `unknown_managed_policy`), so no price there depends on it.
+  Tested: `TestSharedChangesCountOnceAndBreakEverything` (random graphs:
+  no change counted twice; making the chosen changes leaves no path) and
+  `TestCutStepsNameTheirChangeOnce` (every step names a policy or a resolve
+  command; no change listed twice for one edge).
 
 **Encryption-context fixes (decided in the Phase 4 review, scenarios 2a–2c).**
 A fix that scopes `kms:Decrypt` to one bucket must use the context S3 sends:

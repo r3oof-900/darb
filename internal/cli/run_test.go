@@ -37,10 +37,10 @@ func TestCommands(t *testing.T) {
 	if code, _, _ := run(t, "frobnicate"); code != ExitUsage {
 		t.Error("unknown command")
 	}
-	if code, out, _ := run(t, "version"); code != ExitOK || !strings.Contains(out, "rule catalog 2.1.0") {
+	if code, out, _ := run(t, "version"); code != ExitOK || !strings.Contains(out, "rule catalog 2.2.0") {
 		t.Errorf("version: %q", out)
 	}
-	if code, out, _ := run(t, "rules", "list"); code != ExitOK || strings.Count(out, "DARB-") != 11 {
+	if code, out, _ := run(t, "rules", "list"); code != ExitOK || strings.Count(out, "DARB-") != 12 {
 		t.Errorf("rules list: %q", out)
 	}
 	if code, out, _ := run(t, "rules", "show", "DARB-PATH-001"); code != ExitOK || !strings.Contains(out, "T1530") || !strings.Contains(out, "https://") {

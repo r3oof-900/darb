@@ -36,19 +36,24 @@ func TestResolveTieFewestCommandsThenSteps(t *testing.T) {
 			cmds = append(cmds, s.Resolve)
 		}
 	}
-	if !r.Finite || r.Cost != 0 || !r.Pending || len(r.Steps) != 2 || !slices.Equal(cmds, []string{"Z"}) ||
-		!slices.Equal(kinds, []graph.Kind{graph.CanReadPlaintext, graph.CanReadPlaintext}) {
+	// b1 and b2 are one change (the same resolve step into the same jewel):
+	// one unit, one step (DESIGN.md 9.1, shared changes).
+	if !r.Finite || r.Cost != 0 || !r.Pending || len(r.Steps) != 1 || !slices.Equal(cmds, []string{"Z"}) ||
+		!slices.Equal(kinds, []graph.Kind{graph.CanReadPlaintext}) {
 		t.Fatalf("one command (Z) beats two (X, Y) at equal steps: %+v", r.Steps)
 	}
 
 	// One command each: {b} (one step) beats {a1, a2} (two steps, closer).
 	y := newTG()
-	edgeY := func(from, to, sub string, kind graph.Kind, cmd string) {
-		y.b.Edge(&graph.Edge{From: y.n(from), To: y.n(to), Kind: kind, Sub: sub, For: graph.NoNode, Verdict: eval.Unknown, Fixes: resolve(cmd)})
+	// a1 and a2 are two unknowns (two policies) that one command decides:
+	// two steps; the same unknown on both would be one change, one step.
+	edgeY := func(from, to, sub string, kind graph.Kind, policy, cmd string) {
+		fixes := []graph.Fix{{Side: graph.SideIdentity, Kind: graph.FixResolve, Policy: policy, Resolve: []graph.Resolution{{Policy: policy, Command: cmd}}}}
+		y.b.Edge(&graph.Edge{From: y.n(from), To: y.n(to), Kind: kind, Sub: sub, For: graph.NoNode, Verdict: eval.Unknown, Fixes: fixes})
 	}
-	edgeY("s", "m", "sts", graph.Assumes, "X")
-	edgeY("s", "m", "irsa", graph.Assumes, "X")
-	edgeY("m", "j", "", graph.CanReadPlaintext, "Z")
+	edgeY("s", "m", "sts", graph.Assumes, "p-X1", "X")
+	edgeY("s", "m", "irsa", graph.Assumes, "p-X2", "X")
+	edgeY("m", "j", "", graph.CanReadPlaintext, "p-Z", "Z")
 	g = y.b.Build()
 	r = CutFor(g, lookup(g, "s"), lookup(g, "j"), &Select{}, opts)
 	if len(r.Steps) != 1 || r.Steps[0].Resolve != "Z" {

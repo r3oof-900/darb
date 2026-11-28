@@ -54,6 +54,12 @@
         "Effect": "Allow",
         "Action": "sqs:*",
         "Resource": "*"
+       },
+       {
+        "Sid": "SelfService",
+        "Effect": "Allow",
+        "Action": "iam:DeleteUserPermissionsBoundary",
+        "Resource": "arn:aws:iam::111122223333:user/ci"
        }
       ]
      },

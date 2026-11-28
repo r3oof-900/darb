@@ -29,6 +29,7 @@ var ErrFormat = errors.New("awssnapshot: not a " + Format + " bundle")
 //
 //	manifest.json
 //	<account>/iam/get-account-authorization-details.json
+//	<account>/iam/get-credential-report.json, iam/users/<user>/list-access-keys.json (iam.go)
 //	<account>/s3/<bucket>/{get-bucket-policy,get-bucket-encryption,get-public-access-block,get-bucket-tagging,get-bucket-location,
 //	                       get-bucket-ownership-controls,get-bucket-acl}.json
 //	<account>/<region>/kms/<key-id>/{describe-key,get-key-policy,get-key-rotation-status,list-resource-tags,list-grants}.json
@@ -152,6 +153,11 @@ func (r *reader) place(a *awsraw.Account, l *layout, f string, parts []string) e
 	if f == path.Join(a.ID, "iam", "get-account-authorization-details.json") {
 		a.Auth = &awsraw.AuthorizationDetails{}
 		return r.json(f, a.Auth)
+	}
+	if len(parts) >= 3 && parts[1] == "iam" {
+		if ok, err := r.iamFile(a, f, parts); ok {
+			return err
+		}
 	}
 	if f == path.Join(a.ID, "s3control", "get-public-access-block.json") {
 		var v struct {

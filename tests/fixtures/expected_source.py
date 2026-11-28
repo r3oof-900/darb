@@ -1387,7 +1387,10 @@ E["29_credential_leak/attach_user_policy"] = {"derived_from": "item 4: AttachUse
 E["29_credential_leak/put_group_policy"] = {"derived_from": "item 4: PutGroupPolicy on its own group",
                                             "findings": [leak_escalation("modify-policy", CI, MODIFY_29, step(MODIFY_29, "identity", "revoke", 4))]}
 # boundary: ci's inline policy reads the bucket (explicit) but its boundary
-# (boundary-sqs) allows sqs only: no direct path. iam:DeleteUserPermissions-
+# (boundary-sqs) allows sqs, and the user's own DeleteUserPermissions-
+# Boundary, only: no direct path. (Corrected before the first run: a
+# boundary limits IAM actions too, so the first fixture's sqs-only boundary
+# also blocked the delete; the engine was right.) iam:DeleteUserPermissions-
 # Boundary on itself -> "ci without boundary", which reads with ci's own
 # policies. Cut: that read, ci's explicit grant: revoke, identity, 3, below
 # the escalation (DeleteUserPermissionsBoundary on ci's ARN, explicit:
@@ -1434,6 +1437,59 @@ E["29_credential_leak/login_profile_mfa"] = {"derived_from": "item 4: the target
 E["29_credential_leak/root_key"] = {"derived_from": "item 4: the root user has an active access key", "findings": [
     posture("DARB-POST-009", ROOT_29, 850, "critical"),
     path_finding("DARB-PATH-001", ROOT_29, PII, [f"CAN_READ_PLAINTEXT {PII}"], 630, "high", [])]}
+# Unknown rewrites (review of item 4: UNKNOWN is never safe, so an unknown
+# Put* keeps its rewrite edge, UNKNOWN; dominance hides it when a direct
+# path holds). The bucket is SSE-S3.
+# rewrite_unknown_condition: ci may s3:PutBucketPolicy on the bucket only
+# under aws:PrincipalOrgID = o-exampleorg1, which the input cannot decide;
+# ci reads nothing itself. The rewrite edge is UNKNOWN (an unknown allow):
+# the path is unconfirmed, confidence low, at its worst case: entry 700 x
+# path factor 900 (2 edges) = 630; x impact 900 = 567, high; undecided
+# names the key and the Put*. Cut: the read of "ci with the bucket policy
+# rewritten" is priced where the PutBucketPolicy is granted: ci's grant,
+# applying only under the unknown condition: resolve, identity, 0, by
+# assume: {"aws:PrincipalOrgID": [...]}; no bucket policy. The rewrite edge
+# itself is structural: no alternative.
+ASSUME_ORG = 'assume: {"aws:PrincipalOrgID": [...]} in darb.yaml'
+E["29_credential_leak/rewrite_unknown_condition"] = {
+    "derived_from": "item 4 review: an unknown PutBucketPolicy and no direct path", "findings": [
+        path_finding("DARB-PATH-002", CI, PII, [f"CAN_ESCALATE {CI}", f"CAN_READ_PLAINTEXT {PII}"], 567, "high", [READ_29],
+                     confirmed=False, confidence="low", undecided=["aws:PrincipalOrgID", "s3:PutBucketPolicy"],
+                     fix=[step(READ_29, "identity", "resolve", 0, resolve=ASSUME_ORG)], other_side=[], alternative_detail=[])]}
+# rewrite_unknown_managed: ci's only policy is an AWS managed policy not in
+# the snapshot: an unknown document may grant anything, s3:GetObject
+# included, so a direct path holds: PATH-001, entry 700 x path factor 1000
+# (1 edge) = 700; x 900 = 630, high, unconfirmed, low. The same unknown
+# may grant PutBucketPolicy, and iam:AttachUserPolicy on ci itself: the
+# rewrite path and the "any permission" path are dominated (their source
+# reaches the bucket directly at the same status) and hidden, but their
+# edges stay in the cut (DESIGN.md 8). Cut, every step resting on the
+# unknown policy only: resolve, identity, 0, by
+# tools/refresh-managed-policies: the escalation into "ci with any
+# permission" (nothing after that node is cuttable), and the read, one
+# step for the direct read and the rewritten principal's read, which break
+# with the same change into the same jewel (one unit, DESIGN.md 9.1). The
+# search meets CAN_ESCALATE before CAN_READ_PLAINTEXT. No alternative.
+# (Corrected before review: the first derivation missed that the unknown
+# policy may also grant the self escalation, as scenario 19's variant
+# shows; the engine was right.)
+E["29_credential_leak/rewrite_unknown_managed"] = {
+    "derived_from": "item 4 review: an unknown managed policy, which may also grant the read itself", "findings": [
+        path_finding("DARB-PATH-001", CI, PII, [f"CAN_READ_PLAINTEXT {PII}"], 630, "high", [MODIFY_29, READ_29],
+                     confirmed=False, confidence="low", undecided=["DarbExampleNotInSnapshot", "tools/refresh-managed-policies"],
+                     fix=[step(MODIFY_29, "identity", "resolve", 0, NOT_IN_SNAPSHOT, "tools/refresh-managed-policies"),
+                          step(READ_29, "identity", "resolve", 0, NOT_IN_SNAPSHOT, "tools/refresh-managed-policies")],
+                     other_side=[], alternative_detail=[])],
+    "absent": ABSENT_PII_29}
+# rewrite_unknown_direct: the unknown PutBucketPolicy and an explicit
+# s3:GetObject: ci already reads the bucket (ALLOW), so rewriting adds
+# nothing: one direct finding, 630, confirmed, with the fingerprint of a
+# direct read; no PATH-002. Cut: the explicit read, revoke, 3.
+E["29_credential_leak/rewrite_unknown_direct"] = {
+    "derived_from": "item 4 review: an unknown PutBucketPolicy beside a direct read", "findings": [
+        path_finding("DARB-PATH-001", CI, PII, [f"CAN_READ_PLAINTEXT {PII}"], 630, "high", [READ_29],
+                     fix=[step(READ_29, "identity", "revoke", 3)], other_side=[], alternative_detail=[])],
+    "absent": ABSENT_PII_29}
 # credential_unknown: no credential report and no ListAccessKeys in the
 # snapshot: reports is an entry at the worst case (700), its state unknown:
 # unconfirmed, confidence low, the score unchanged (630), undecided names

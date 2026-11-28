@@ -22,6 +22,9 @@ const (
 	LongTerm Credential = "long-term"
 	// NoCredential: an anonymous request.
 	NoCredential Credential = "anonymous"
+	// ConsoleSession: an IAM user signed in to the console (item 4: a
+	// password someone else set with CreateLoginProfile).
+	ConsoleSession Credential = "console"
 )
 
 // RequestFacts are what the documented keys of one request depend on.
@@ -110,6 +113,9 @@ func keyTable() []keyRow {
 		{keys: []string{"aws:CalledVia", "aws:CalledViaFirst", "aws:CalledViaLast"}, fas: true, choice: &condition.Choice{
 			Keys: []string{"aws:CalledVia", "aws:CalledViaFirst", "aws:CalledViaLast"}, By: condition.Undocumented, Source: srcFAS,
 		}},
+		// A console sign-in without MFA: the key is "present in the
+		// request and set to a value of false".
+		{keys: []string{"aws:MultiFactorAuthPresent"}, creds: []Credential{ConsoleSession}, present: func(*RequestFacts) []string { return []string{"false"} }},
 		// Long-term credentials "do not include this key"; an anonymous
 		// request carries no credentials. A role session: the documentation
 		// does not say whether it is absent or false.

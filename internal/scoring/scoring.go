@@ -64,6 +64,8 @@ func Exposure(reason string, public model.Tri) int {
 	switch {
 	case reason == "anonymous":
 		return 1000
+	case reason == "credential-leak":
+		return 700 // an IAM user's (or the root's) access key (SCORING.md 1.1, item 4)
 	case !strings.HasPrefix(reason, "exposed:"):
 		return 400 // assume-compromised
 	case strings.HasSuffix(reason, "NodePort"):

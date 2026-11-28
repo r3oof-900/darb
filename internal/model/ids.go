@@ -32,6 +32,21 @@ const (
 	// KindIAMRoleAnyPermission: a role whose policies an attacker can rewrite
 	// (identity allows everything; its permissions boundary still applies).
 	KindIAMRoleAnyPermission NodeKind = "aws:iam:role:any-permission"
+	// Synthetic principals of the IAM escalations of users (item 4, after
+	// v0.1.0-rc.1); each keeps the principal's ARN as its identity:
+	// KindIAMUserAnyPermission, a user whose policies it can rewrite;
+	// KindRewritten, a principal with every resource policy it can rewrite
+	// (in its account) granting it; KindNoBoundary, a principal whose
+	// permissions boundary is removed; KindPolicyVersion, a principal with
+	// one of its managed policies at another stored version; KindInGroups, a
+	// user in every group it can join; KindConsoleSession, a user signed in
+	// to the console with a password someone else set.
+	KindIAMUserAnyPermission NodeKind = "aws:iam:user:any-permission"
+	KindRewritten            NodeKind = "aws:iam:principal:rewritten-resource-policies"
+	KindNoBoundary           NodeKind = "aws:iam:principal:no-boundary"
+	KindPolicyVersion        NodeKind = "aws:iam:principal:policy-version"
+	KindInGroups             NodeKind = "aws:iam:user:in-groups"
+	KindConsoleSession       NodeKind = "aws:iam:user:console-session"
 	KindEKSNodeGroup         NodeKind = "aws:eks:nodegroup"
 )
 

@@ -1,0 +1,61 @@
+{
+  "format": "darb-expected/v1",
+  "derived_from": "item 4 review: an unknown managed policy, which may also grant the read itself",
+  "findings": [
+    {
+      "rule": "DARB-PATH-001",
+      "entry": "arn:aws:iam::111122223333:user/ci",
+      "jewel": "arn:aws:s3:::acme-customer-pii",
+      "path": [
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
+      ],
+      "confirmed": false,
+      "confidence": "low",
+      "score": 630,
+      "severity": "high",
+      "chokepoints": [
+        "CAN_ESCALATE[iam:modify-policy] arn:aws:iam::111122223333:user/ci -> arn:aws:iam::111122223333:user/ci",
+        "CAN_READ arn:aws:iam::111122223333:user/ci -> arn:aws:s3:::acme-customer-pii"
+      ],
+      "alternative_fix": [],
+      "defaults_used": [],
+      "fix": [
+        {
+          "edge": "CAN_ESCALATE[iam:modify-policy] arn:aws:iam::111122223333:user/ci -> arn:aws:iam::111122223333:user/ci",
+          "side": "identity",
+          "fix_kind": "resolve",
+          "cost": 0,
+          "policy": "arn:aws:iam::aws:policy/DarbExampleNotInSnapshot",
+          "resolve": "tools/refresh-managed-policies"
+        },
+        {
+          "edge": "CAN_READ arn:aws:iam::111122223333:user/ci -> arn:aws:s3:::acme-customer-pii",
+          "side": "identity",
+          "fix_kind": "resolve",
+          "cost": 0,
+          "policy": "arn:aws:iam::aws:policy/DarbExampleNotInSnapshot",
+          "resolve": "tools/refresh-managed-policies"
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": [],
+      "status": "unconfirmed",
+      "undecided": [
+        "DarbExampleNotInSnapshot",
+        "tools/refresh-managed-policies"
+      ],
+      "also_fixes": [],
+      "uncuttable": [],
+      "remediation_status": "partial_pending_resolution",
+      "fingerprint": "5f884efbe002e69e2952773bed60ee1a74ee62c7ac89bceb0591296bf1aca279"
+    }
+  ],
+  "absent": [
+    {
+      "rule": "DARB-PATH-002",
+      "jewel": "arn:aws:s3:::acme-customer-pii"
+    }
+  ],
+  "intended_access": [],
+  "no_edges": []
+}

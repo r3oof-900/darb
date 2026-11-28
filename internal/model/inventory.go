@@ -215,6 +215,21 @@ type Inventory struct {
 	// AccountBlocks: account-level S3 Block Public Access of the accounts
 	// whose setting is in the input (Phase 7).
 	AccountBlocks []*AccountPublicAccessBlock
+	// Credentials of IAM users and the account root (item 4, after
+	// v0.1.0-rc.1); Groups and ManagedPolicies for the IAM escalations.
+	Credentials     []*Credentials
+	Groups          []*IAMGroup
+	ManagedPolicies []*ManagedPolicyVersions
+}
+
+// CredentialsOf returns the credentials of a principal, nil when none.
+func (inv *Inventory) CredentialsOf(id ID) *Credentials {
+	for _, c := range inv.Credentials {
+		if c.Principal == id {
+			return c
+		}
+	}
+	return nil
 }
 
 // RestrictPublic is a bucket's effective RestrictPublicBuckets: true when
