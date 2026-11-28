@@ -45,6 +45,9 @@ type caseSpec struct {
 	ExpectContributing []string `json:"expect_contributing"`
 	ExpectUnresolved   []string `json:"expect_unresolved"`
 	ExpectMissing      []string `json:"expect_missing"`
+	// ExpectDenyOnly: for an UNKNOWN, whether only unknown Denies stand
+	// between the request and ALLOW (DESIGN.md 6.2).
+	ExpectDenyOnly *bool `json:"expect_deny_only"`
 }
 
 type principalSpec struct {
@@ -60,6 +63,16 @@ type contextSpec struct {
 	Present map[string]stringList `json:"present"`
 	Absent  []string              `json:"absent"`
 	Unknown []string              `json:"unknown"`
+	// Documented: apply darb's documented-keys table (keys.go) for this
+	// credential kind and, for a forward access session, the calling
+	// service; the case's present, absent and unknown keys win.
+	Documented *documentedSpec `json:"documented"`
+}
+
+type documentedSpec struct {
+	Credential string `json:"credential"` // role-session | long-term | anonymous
+	Via        string `json:"via"`
+	Now        string `json:"now"` // RFC 3339; "" leaves the time keys unknown
 }
 
 // stringList accepts a string or a list of strings.
@@ -186,6 +199,9 @@ func runCase(t *testing.T, c *caseSpec) {
 	checkList(t, "contributing", c.ExpectContributing, refLabels(d.Contributing))
 	checkList(t, "unresolved", c.ExpectUnresolved, unresolvedLabels(d.Unresolved))
 	checkList(t, "missing", c.ExpectMissing, componentLabels(d.Missing))
+	if c.ExpectDenyOnly != nil && d.DenyOnly != *c.ExpectDenyOnly {
+		t.Fatalf("deny_only %v, want %v; doc: %s", d.DenyOnly, *c.ExpectDenyOnly, c.Doc)
+	}
 }
 
 func checkList(t *testing.T, what string, want, got []string) {

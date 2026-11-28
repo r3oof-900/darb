@@ -260,7 +260,7 @@ func triage(f *scanFlags) (*app.Triage, error) {
 }
 
 func inputs(f *scanFlags, cfg *config.Config) *app.Inputs {
-	in := &app.Inputs{Root: f.root, Config: cfg, Limits: app.DefaultLimits(), TerraformDirs: f.tfDirs, AWSSnapshots: f.snapshots, TerraformBin: f.terraformBin}
+	in := &app.Inputs{Root: f.root, Config: cfg, Limits: app.DefaultLimits(), TerraformDirs: f.tfDirs, AWSSnapshots: f.snapshots, TerraformBin: f.terraformBin, Now: time.Now()}
 	for _, p := range f.plans {
 		path, dir, _ := strings.Cut(p, "=")
 		in.TerraformPlans = append(in.TerraformPlans, app.PlanInput{Path: path, ConfigDir: dir})

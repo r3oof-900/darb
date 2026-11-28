@@ -860,6 +860,100 @@ every resolution of a path's unknowns scores at most what is reported, and
 adding an unknown policy to a principal never lowers a severity
 (`TestUnknownsNeverLowerSeverity`).
 
+**Documented keys (after v0.1.0-rc.1; found by the first real-account
+test).** Before this, every key the input did not state was UNKNOWN, so a
+bucket policy denying `aws:SecureTransport = false`, written in almost every
+account, made every read through it `confirmed_unless_denied`. Now one table
+(`eval.keyTable`, `internal/eval/keys.go`) says, per key, what the
+documentation decides for a request: a key of the same kind is a new row,
+no new code. Each row applies to direct requests or to forward access
+sessions (FAS), to some actions, and to some credential kinds (a role
+session: IRSA, Pod Identity, `sts:AssumeRole`; a long-term key; an
+anonymous request). A key the input states, or an `assume:` in darb.yaml,
+wins over its row. A row does one of four things:
+
+- **The caller chooses** (`condition.ByAttacker`): the value is a property
+  of the attacker's own request. Each option is tried as one whole request
+  and the best for access is taken: the attacker takes **one value per key
+  per request**, so an Allow only over HTTP and a Deny over HTTP are never
+  both met. Options come from the key's own domain; free-text and numeric
+  keys also take every value a policy compares them with and a value none
+  names; an optional key also takes "absent" (it changes `IfExists` and
+  `Null`).
+- **AWS sets it** (a known value): `aws:ViaAWSService` (false on a direct
+  request, true on a FAS request: "always included in the request
+  context"), `aws:RequestedRegion` when the resource fixes it, the S3 FAS
+  keys below, and the time keys.
+- **Absent**: `aws:CalledVia*` on a direct request ("not present when the
+  principal calls directly"); `aws:MultiFactorAuthPresent` with long-term
+  credentials ("Long-term credentials, such as access keys, do not include
+  this key") and anonymous requests.
+- **Undocumented** (`condition.Undocumented`): the documentation leaves the
+  value open between a few options. They are tried like the attacker's
+  (each with the attacker's best options); if they decide alike the
+  decision stands, otherwise it is UNKNOWN at the best of them (the worst
+  case, SCORING.md §1), `confirmed_unless_denied` when only Denies differ
+  and `unconfirmed` when an allow needs one of them, and `undecided` names
+  the key and the source. They are not the attacker's choice: the attacker
+  cannot pick them.
+
+| Key | Requests | Options or value | Source |
+|---|---|---|---|
+| `aws:SecureTransport` | direct | true, false (caller) | IAM UG › global condition keys › aws:SecureTransport ("always included") |
+| `s3:TlsVersion` | direct, `s3:*` | 1.2, 1.3 (caller) | S3 UG › Policy condition keys |
+| `s3:signatureversion` | direct, `s3:*` | AWS4-HMAC-SHA256 | S3 UG › Policy condition keys |
+| `s3:authType` | direct, `s3:*` | REST-HEADER, REST-QUERY-STRING, POST (caller) | S3 UG › Policy condition keys |
+| `aws:UserAgent`, `aws:Referer` | direct | absent, free text (caller) | IAM UG › global condition keys |
+| `aws:RequestedRegion` | direct | the resource's region; us-east-1 for IAM; the bucket's region for S3; else free (caller) | IAM UG › aws:RequestedRegion |
+| `s3:prefix`, `s3:delimiter`, `s3:max-keys` | direct, `s3:ListBucket*` | absent, free (caller) | S3 UG › Policy condition keys |
+| `secretsmanager:VersionStage`, `secretsmanager:VersionId` | direct, `GetSecretValue` | absent, free (caller) | Secrets Manager UG › Condition keys |
+| `sts:RoleSessionName` | direct, `sts:AssumeRole` | free (caller) | IAM UG › sts:RoleSessionName |
+| `aws:ViaAWSService` | direct / FAS | false / true | IAM UG › aws:ViaAWSService; › Forward access sessions |
+| `aws:CalledVia`, `aws:CalledViaFirst`, `aws:CalledViaLast` | direct | absent | IAM UG › aws:CalledVia |
+| the same three, **together** | FAS (S3, Secrets Manager or SSM calling KMS) | all absent, or all = the calling service (undocumented) | see below |
+| `aws:MultiFactorAuthPresent` | long-term key, anonymous | absent | IAM UG › Configuring MFA-protected API access |
+| `aws:MultiFactorAuthPresent` | role session | absent, or false (undocumented) | see below |
+| `aws:CurrentTime`, `aws:EpochTime` | every | the scan time | IAM UG › aws:CurrentTime ("always included") |
+
+The kms:Decrypt that S3 makes for SSE-KMS is a FAS request (IAM UG ›
+Forward access sessions: "FAS is used by Amazon S3 to make calls to AWS Key
+Management Service"); it carries `kms:ViaService =
+s3.<bucket region>.amazonaws.com` and `kms:CallerAccount` = the principal's
+account (KMS Developer Guide › kms:ViaService, kms:CallerAccount), as the
+Secrets Manager and SSM decrypts already did.
+
+*Two documented contradictions, recorded here (review of item 2):*
+
+- **`aws:CalledVia` on S3's call to KMS.** The Forward access sessions page
+  says, for FAS requests, the condition keys "are populated with the service
+  principal of the service that initiated the FAS call", naming
+  `aws:CalledVia`, `aws:CalledViaFirst` and `aws:CalledViaLast`. The condition
+  keys page has no list of supporting services ("a service that supports
+  aws:CalledVia") and names no S3 case: its examples are CloudFormation and
+  DynamoDB. The key's launch post
+  (https://aws.amazon.com/blogs/security/iam-makes-it-easier-to-manage-permissions-for-aws-services-accessing-resources/)
+  is cited for a launch list of Athena, CloudFormation, DynamoDB and KMS;
+  that list was not verified in this review (the page did not render for
+  the fetch). So
+  the value is undocumented for S3 (and for Secrets Manager and SSM): the
+  three keys are one choice, all absent or all equal to the calling
+  service, never one without the others.
+- **`aws:MultiFactorAuthPresent` for a role session.** The condition keys
+  page says the key is included "only when the principal uses temporary
+  credentials", and that in some cases it is present and false; the MFA
+  page says the credentials AssumeRole returns "do not include MFA
+  information in the context", and for AssumeRoleWithWebIdentity that AWS
+  "cannot determine" whether the provider required MFA. Neither says absent
+  or false for these sessions: both are options.
+
+Time keys favour nobody: they take the scan time (`app.Inputs.Now`; zero
+in tests leaves them unknown), and a `scan-time` note names the policies
+that compare them, since a scan at another time may decide differently.
+Tested by the corpus (`19_documented_keys.yaml`: an Allow and a Deny case
+per caller-chosen key, one value per request, Bool and BoolIfExists on MFA
+for both credential kinds, the joint CalledVia choice) and
+`TestDocumentedKeysOnScenario1`.
+
 ### 6.3 Matching and conditions
 
 - **Actions**: case-insensitive, `*` and `?` over the full `service:action`,

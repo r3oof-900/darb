@@ -32,12 +32,16 @@ type Input struct {
 	Present map[string][]string
 	Absent  []string
 	Unknown []string
+	// Choices: keys whose value is one of a known set (choice.go); a choice
+	// counts only while every one of its keys is unknown in this context.
+	Choices []Choice
 }
 
 // Context is an immutable request context.
 type Context struct {
-	def  State
-	keys map[string]Value
+	def     State
+	keys    map[string]Value
+	choices []Choice
 }
 
 // NewContext copies in. When a key is listed more than once, Unknown wins
@@ -46,6 +50,9 @@ func NewContext(in *Input) *Context {
 	c := &Context{def: in.Default, keys: map[string]Value{}}
 	if c.def == StatePresent {
 		c.def = StateUnknown
+	}
+	for _, ch := range in.Choices {
+		c.choices = append(c.choices, ch.Clone())
 	}
 	for _, k := range in.Absent {
 		c.keys[strings.ToLower(k)] = Value{State: StateAbsent}

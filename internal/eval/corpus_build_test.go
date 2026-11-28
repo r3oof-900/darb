@@ -3,7 +3,9 @@ package eval
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"testing"
+	"time"
 
 	"github.com/r3oof-900/darb/internal/eval/condition"
 	"github.com/r3oof-900/darb/internal/eval/match"
@@ -28,7 +30,7 @@ func buildCase(t *testing.T, c *caseSpec) (*Request, *PolicySet) {
 		req.ResourceAccount = *c.ResourceAccount
 	}
 	if c.Context != nil {
-		req.Context = buildContext(t, c.Context)
+		req.Context = buildContext(t, c.Context, req)
 	}
 	p := &c.Policies
 	ps := &PolicySet{
@@ -69,9 +71,25 @@ func principalKind(t *testing.T, s string) match.PrincipalKind {
 	return 0
 }
 
-func buildContext(t *testing.T, c *contextSpec) *condition.Context {
+func buildContext(t *testing.T, c *contextSpec, req *Request) *condition.Context {
 	t.Helper()
 	in := &condition.Input{Absent: c.Absent, Unknown: c.Unknown, Present: map[string][]string{}}
+	if d := c.Documented; d != nil {
+		f := &RequestFacts{Credential: Credential(d.Credential), Action: req.Action, Resource: req.Resource, Via: d.Via}
+		if d.Now != "" {
+			now, err := time.Parse(time.RFC3339, d.Now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			f.Now = now
+		}
+		present, absent, choices := DocumentedKeys(f)
+		for k, v := range present {
+			in.Present[k] = v
+		}
+		in.Absent = append(slices.Clone(absent), in.Absent...)
+		in.Choices = choices
+	}
 	switch c.Default {
 	case "", "unknown":
 		in.Default = condition.StateUnknown

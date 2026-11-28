@@ -97,7 +97,7 @@ func analyze(l *Loaded, cfg *config.Config, failOn string, edit func(*graph.Grap
 			targets = append(targets, r)
 		}
 	}
-	built := access.Build(inv, &access.Options{Partition: partition(cfg), Jewels: targets, Assume: cfg.Assume})
+	built := access.Build(inv, &access.Options{Partition: partition(cfg), Jewels: targets, Assume: cfg.Assume, Now: l.Now})
 	g := built.Graph
 	if edit != nil {
 		g = edit(g)
@@ -119,7 +119,7 @@ func analyze(l *Loaded, cfg *config.Config, failOn string, edit func(*graph.Grap
 	in := &rules.Input{Inventory: inv, Graph: g, Pairs: pairs, Entries: entryInfo, Jewels: jewelNodes, Partition: partition(cfg), Cuts: &opts}
 	fs := findings.Finish(reg.Evaluate(in), reg)
 	a := &Analysis{
-		Findings: fs, Notes: slices.Concat(built.Notes, l.Notes, unclassifiedNotes(l.Inventory, cfg), notModelled(l.Inventory), routeNotes),
+		Findings: fs, Notes: slices.Concat(built.Notes, l.Notes, unclassifiedNotes(l.Inventory, cfg), notModelled(l.Inventory), routeNotes, timeNote(l.Inventory, l.Now)),
 		Gaps: l.Gaps, Collected: l.Collected,
 		IntendedAccess: verifyIntended(g, cfg, intended, routes),
 		Graph:          GraphStats{Nodes: g.NumNodes(), Edges: g.NumEdges(), Pairs: len(pairs)},

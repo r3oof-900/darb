@@ -10,11 +10,11 @@ import (
 	"github.com/r3oof-900/darb/internal/model"
 )
 
-// Evaluate decides req against ps following AWS's documented policy
-// evaluation logic (docs/DESIGN.md section 6). It is a pure function:
-// statement and policy order never change the result.
-func Evaluate(req *Request, ps *PolicySet) Decision {
-	ctx := contextOf(req)
+// evaluateOne decides req against ps in one request context (choices
+// already applied, choose.go) following AWS's documented policy evaluation
+// logic (docs/DESIGN.md section 6). Statement and policy order never change
+// the result.
+func evaluateOne(req *Request, ps *PolicySet, ctx *condition.Context) Decision {
 	r := collect(req, ps, ctx)
 	if denies := r.filter(model.EffectDeny, model.True); len(denies) > 0 {
 		return Decision{Verdict: Deny, Contributing: sortRefs(denies)}
@@ -60,9 +60,8 @@ type GrantDetail struct {
 	Unresolved []Unresolved
 }
 
-// GrantingDetail is Granting with each statement's applicability.
-func GrantingDetail(req *Request, docs []*model.PolicyDocument) []GrantDetail {
-	ctx := contextOf(req)
+// grantingOne is GrantingDetail in one request context.
+func grantingOne(req *Request, docs []*model.PolicyDocument, ctx *condition.Context) []GrantDetail {
 	var out []GrantDetail
 	for _, d := range docs {
 		stmts := d.Statements()

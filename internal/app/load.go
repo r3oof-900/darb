@@ -7,6 +7,7 @@ import (
 	"path"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/r3oof-900/darb/internal/access"
 	"github.com/r3oof-900/darb/internal/classify"
@@ -44,6 +45,9 @@ type Inputs struct {
 	Config       *config.Config
 	Limits       safeio.Limits
 	TerraformBin string
+	// Now is the scan time: the value of aws:CurrentTime and aws:EpochTime
+	// (DESIGN.md §6.2). Zero leaves them unknown.
+	Now time.Time
 }
 
 // PlanInput is a Terraform plan and, when known, the root module directory it
@@ -75,6 +79,8 @@ type Loaded struct {
 	Collected int
 	// Inputs: what was scanned, with digests (the report's inputs).
 	Inputs []schema.ScannedInput
+	// Now: the scan time (Inputs.Now).
+	Now time.Time
 }
 
 // Load collects every input and normalizes it into one inventory.
@@ -105,7 +111,7 @@ func Load(ctx context.Context, in *Inputs) (*Loaded, error) {
 	return &Loaded{
 		Intended:  intended,
 		Inventory: inv, EntryPoints: classify.EntryPoints(inv, *in.Config.ThreatModel.AssumeCompromised),
-		Gaps: l.rec.Gaps(), Notes: l.notes, Collected: l.collected, Inputs: l.inputs,
+		Gaps: l.rec.Gaps(), Notes: l.notes, Collected: l.collected, Inputs: l.inputs, Now: in.Now,
 	}, nil
 }
 

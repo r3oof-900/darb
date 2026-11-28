@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/r3oof-900/darb/internal/eval"
 	"github.com/r3oof-900/darb/internal/eval/condition"
@@ -20,6 +21,9 @@ type Options struct {
 	// Assume holds context-key assumptions from darb.yaml (e.g.
 	// aws:PrincipalOrgID) for principals in the input.
 	Assume map[string][]string
+	// Now is the scan time, the value of aws:CurrentTime and aws:EpochTime;
+	// zero leaves them unknown (DESIGN.md §6.2).
+	Now time.Time
 }
 
 // Note is a coverage note about something the graph could not analyse.
@@ -211,11 +215,23 @@ func (b *builder) session(role *model.Principal) match.RequestPrincipal {
 	}
 }
 
-// context is the request context of a role session: the principal keys
-// AWS sets, the configured assumptions, and the extra keys given; every
-// other key is unknown.
-func (b *builder) context(role *model.Principal, present map[string][]string) *condition.Context {
-	in := &condition.Input{Default: condition.StateUnknown, Present: map[string][]string{}}
+// context is the request context of a role session (nil: an anonymous
+// request): the keys the documentation decides or bounds for it (DESIGN.md
+// §6.2, eval.DocumentedKeys), the principal keys AWS sets, the configured
+// assumptions, and the extra keys given; every other key is unknown. A
+// request whose extra keys name kms:ViaService is the service's forward
+// access session.
+func (b *builder) context(role *model.Principal, action, resource string, present map[string][]string) *condition.Context {
+	facts := &eval.RequestFacts{Credential: eval.RoleSession, Action: action, Resource: resource, Now: b.opts.Now}
+	if role == nil {
+		facts.Credential = eval.NoCredential
+	}
+	if via := present["kms:ViaService"]; len(via) == 1 {
+		service, _, _ := strings.Cut(via[0], ".")
+		facts.Via = service + ".amazonaws.com"
+	}
+	documented, absent, choices := eval.DocumentedKeys(facts)
+	in := &condition.Input{Default: condition.StateUnknown, Present: documented, Absent: absent, Choices: choices}
 	for k, v := range b.opts.Assume {
 		in.Present[k] = v
 	}

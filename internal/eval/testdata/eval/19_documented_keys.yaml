@@ -1,0 +1,330 @@
+# Documented keys (DESIGN.md 6.2): keys the caller sets (resolved for the
+# attacker, one value per key per request), keys AWS sets (known values),
+# and keys the documentation leaves open (UNKNOWN unless every option
+# decides alike). Written by hand before the table was wired into the
+# access builder.
+anchors:
+  allowS3: &allowS3 {Effect: Allow, Action: "s3:GetObject", Resource: "*"}
+  allowList: &allowList {Effect: Allow, Action: "s3:ListBucket", Resource: "*"}
+  allowSecret: &allowSecret {Effect: Allow, Action: "secretsmanager:GetSecretValue", Resource: "*"}
+  allowDecrypt: &allowDecrypt {Effect: Allow, Action: "kms:Decrypt", Resource: "*"}
+  roleSession: &roleSession {default: unknown, documented: {credential: role-session}}
+  longTerm: &longTerm {default: unknown, documented: {credential: long-term}}
+  viaS3: &viaS3 {default: unknown, documented: {credential: role-session, via: "s3.amazonaws.com"}}
+  user: &user {kind: iam-user, arn: "arn:aws:iam::111122223333:user/ci", account: "111122223333"}
+
+defaults:
+  principal: {kind: assumed-role, arn: "arn:aws:sts::111122223333:assumed-role/app/s1", account: "111122223333", source: "arn:aws:iam::111122223333:role/app"}
+  action: "s3:GetObject"
+  resource: "arn:aws:s3:::data/k"
+  resource_account: "111122223333"
+  context: *roleSession
+
+cases:
+  # aws:SecureTransport: true or false, the caller's choice.
+  - name: darb.documented.secure-transport.allow-needs-tls
+    doc: "IAM User Guide › aws:SecureTransport (always present); DESIGN.md 6.2: the attacker uses TLS"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {Bool: {"aws:SecureTransport": "true"}}}]}
+    expect: ALLOW
+  - name: darb.documented.secure-transport.deny-insecure-does-not-apply
+    doc: "IAM User Guide › aws:SecureTransport; DESIGN.md 6.2: a Deny on insecure transport never stops an attacker using TLS"
+    policies: {identity: [[*allowS3, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {Bool: {"aws:SecureTransport": "false"}}}]]}
+    expect: ALLOW
+  - name: darb.documented.one-value-per-request
+    doc: "DESIGN.md 6.2: one value per key per request: an Allow only over HTTP and a Deny over HTTP cannot both be met"
+    policies: {identity: [[{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {Bool: {"aws:SecureTransport": "false"}}},
+                           {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {Bool: {"aws:SecureTransport": "false"}}}]]}
+    expect: IMPLICIT_DENY
+  - name: darb.documented.stated-key-wins
+    doc: "DESIGN.md 6.2: a value the input states (or an assumption) wins over a choice"
+    context: {default: unknown, documented: {credential: role-session}, present: {"aws:SecureTransport": "false"}}
+    policies: {identity: [[*allowS3, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {Bool: {"aws:SecureTransport": "false"}}}]]}
+    expect: DENY
+
+  # s3:TlsVersion: 1.2 or 1.3.
+  - name: s3-ug.condition-keys.tls-version.allow
+    doc: "Amazon S3 User Guide › s3:TlsVersion; DESIGN.md 6.2"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {NumericGreaterThanEquals: {"s3:TlsVersion": "1.2"}}}]}
+    expect: ALLOW
+  - name: s3-ug.condition-keys.tls-version.deny-old-tls
+    doc: "Amazon S3 User Guide › s3:TlsVersion: the attacker picks 1.3"
+    policies: {identity: [[*allowS3, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {NumericLessThan: {"s3:TlsVersion": "1.3"}}}]]}
+    expect: ALLOW
+  - name: darb.documented.tls-version.one-value
+    doc: "DESIGN.md 6.2: Allow under 1.3 and Deny from 1.2 on: every version is denied"
+    policies: {identity: [[{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {NumericLessThan: {"s3:TlsVersion": "1.3"}}},
+                           {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {NumericGreaterThanEquals: {"s3:TlsVersion": "1.2"}}}]]}
+    expect: DENY
+
+  # s3:signatureversion: SigV4 only.
+  - name: s3-ug.condition-keys.signature-version.allow
+    doc: "Amazon S3 User Guide › s3:signatureversion: AWS4-HMAC-SHA256"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {StringEquals: {"s3:signatureversion": "AWS4-HMAC-SHA256"}}}]}
+    expect: ALLOW
+  - name: s3-ug.condition-keys.signature-version.deny-not-sigv4
+    doc: "Amazon S3 User Guide › s3:signatureversion: a Deny on other versions does not apply"
+    policies: {identity: [[*allowS3, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {StringNotEquals: {"s3:signatureversion": "AWS4-HMAC-SHA256"}}}]]}
+    expect: ALLOW
+  - name: darb.documented.signature-version.no-other-value
+    doc: "DESIGN.md 6.2: the domain has one value; a Deny on SigV4 applies"
+    policies: {identity: [[*allowS3, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {StringEquals: {"s3:signatureversion": "AWS4-HMAC-SHA256"}}}]]}
+    expect: DENY
+
+  # s3:authType: REST-HEADER, REST-QUERY-STRING or POST.
+  - name: s3-ug.condition-keys.auth-type.allow
+    doc: "Amazon S3 User Guide › s3:authType"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {StringEquals: {"s3:authType": "REST-QUERY-STRING"}}}]}
+    expect: ALLOW
+  - name: s3-ug.condition-keys.auth-type.deny
+    doc: "Amazon S3 User Guide › s3:authType: the attacker uses the header"
+    policies: {identity: [[*allowS3, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {StringNotEquals: {"s3:authType": "REST-HEADER"}}}]]}
+    expect: ALLOW
+
+  # aws:UserAgent: free text, optional.
+  - name: darb.documented.user-agent.allow
+    doc: "IAM User Guide › aws:UserAgent: the caller writes the header"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {StringLike: {"aws:UserAgent": "*internal-tool*"}}}]}
+    expect: ALLOW
+  - name: darb.documented.user-agent.deny
+    doc: "IAM User Guide › aws:UserAgent: a Deny on a client name is avoided"
+    policies: {identity: [[*allowS3, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {StringLike: {"aws:UserAgent": "*curl*"}}}]]}
+    expect: ALLOW
+  - name: darb.documented.user-agent.absent-for-null
+    doc: "DESIGN.md 6.2: leaving the header out is an option of its own (Null)"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {"Null": {"aws:UserAgent": "true"}}}]}
+    expect: ALLOW
+
+  # aws:Referer: free text, optional.
+  - name: darb.documented.referer.allow
+    doc: "IAM User Guide › aws:Referer: the caller writes the header"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {StringLike: {"aws:Referer": "https://example.com/*"}}}]}
+    expect: ALLOW
+  - name: darb.documented.referer.deny-unless-referer
+    doc: "IAM User Guide › aws:Referer: absent makes StringNotLike true; the attacker sends the named value instead"
+    policies: {identity: [[*allowS3, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {StringNotLike: {"aws:Referer": "https://example.com/*"}}}]]}
+    expect: ALLOW
+  - name: darb.documented.referer.deny-if-present
+    doc: "DESIGN.md 6.2: a Deny whenever the header is present is avoided by leaving it out"
+    policies: {identity: [[*allowS3, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {"Null": {"aws:Referer": "false"}}}]]}
+    expect: ALLOW
+
+  # aws:RequestedRegion: the caller's choice only when the resource does not fix it.
+  - name: darb.documented.requested-region.allow-free
+    doc: "IAM User Guide › aws:RequestedRegion: an S3 object ARN names no region"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {StringEquals: {"aws:RequestedRegion": "eu-west-1"}}}]}
+    expect: ALLOW
+  - name: darb.documented.requested-region.deny-free
+    doc: "IAM User Guide › aws:RequestedRegion: a region Deny is avoided when the region is free"
+    policies: {identity: [[*allowS3, {Effect: Deny, Action: "*", Resource: "*", Condition: {StringNotEquals: {"aws:RequestedRegion": ["eu-west-1", "eu-central-1"]}}}]]}
+    expect: ALLOW
+  - name: darb.documented.requested-region.fixed-by-resource
+    doc: "IAM User Guide › aws:RequestedRegion: a KMS key in us-east-1 is called in us-east-1"
+    action: "kms:Decrypt"
+    resource: "arn:aws:kms:us-east-1:111122223333:key/k1"
+    policies: {identity: [[*allowDecrypt, {Effect: Deny, Action: "*", Resource: "*", Condition: {StringNotEquals: {"aws:RequestedRegion": "eu-west-1"}}}]]}
+    expect: DENY
+  - name: darb.documented.requested-region.iam-is-us-east-1
+    doc: "IAM User Guide › aws:RequestedRegion: IAM, a global service, is us-east-1"
+    action: "iam:PassRole"
+    resource: "arn:aws:iam::111122223333:role/r"
+    policies: {identity: [[{Effect: Allow, Action: "iam:PassRole", Resource: "*"}, {Effect: Deny, Action: "*", Resource: "*", Condition: {StringNotEquals: {"aws:RequestedRegion": "eu-west-1"}}}]]}
+    expect: DENY
+
+  # s3:prefix, s3:delimiter, s3:max-keys on ListBucket.
+  - name: s3-ug.condition-keys.prefix.allow
+    doc: "Amazon S3 User Guide › s3:prefix"
+    action: "s3:ListBucket"
+    resource: "arn:aws:s3:::data"
+    policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "*", Condition: {StringLike: {"s3:prefix": "home/alice/*"}}}]}
+    expect: ALLOW
+  - name: s3-ug.condition-keys.prefix.deny-without-prefix
+    doc: "Amazon S3 User Guide › s3:prefix: a Deny on a missing prefix is avoided by sending one"
+    action: "s3:ListBucket"
+    resource: "arn:aws:s3:::data"
+    policies: {identity: [[*allowList, {Effect: Deny, Action: "s3:ListBucket", Resource: "*", Condition: {"Null": {"s3:prefix": "true"}}}]]}
+    expect: ALLOW
+  - name: s3-ug.condition-keys.delimiter.allow
+    doc: "Amazon S3 User Guide › s3:delimiter"
+    action: "s3:ListBucket"
+    resource: "arn:aws:s3:::data"
+    policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "*", Condition: {StringEquals: {"s3:delimiter": "/"}}}]}
+    expect: ALLOW
+  - name: s3-ug.condition-keys.delimiter.deny
+    doc: "Amazon S3 User Guide › s3:delimiter: left out, the Deny does not apply"
+    action: "s3:ListBucket"
+    resource: "arn:aws:s3:::data"
+    policies: {identity: [[*allowList, {Effect: Deny, Action: "s3:ListBucket", Resource: "*", Condition: {StringEquals: {"s3:delimiter": "/"}}}]]}
+    expect: ALLOW
+  - name: s3-ug.condition-keys.max-keys.allow
+    doc: "Amazon S3 User Guide › s3:max-keys"
+    action: "s3:ListBucket"
+    resource: "arn:aws:s3:::data"
+    policies: {identity: [{Effect: Allow, Action: "s3:ListBucket", Resource: "*", Condition: {NumericLessThanEquals: {"s3:max-keys": "100"}}}]}
+    expect: ALLOW
+  - name: s3-ug.condition-keys.max-keys.deny
+    doc: "Amazon S3 User Guide › s3:max-keys: the attacker asks for one key"
+    action: "s3:ListBucket"
+    resource: "arn:aws:s3:::data"
+    policies: {identity: [[*allowList, {Effect: Deny, Action: "s3:ListBucket", Resource: "*", Condition: {NumericGreaterThan: {"s3:max-keys": "10"}}}]]}
+    expect: ALLOW
+
+  # secretsmanager:VersionStage, secretsmanager:VersionId: optional parameters.
+  - name: darb.documented.version-stage.allow
+    doc: "Secrets Manager User Guide › secretsmanager:VersionStage"
+    action: "secretsmanager:GetSecretValue"
+    resource: "arn:aws:secretsmanager:us-east-1:111122223333:secret:db-AbCdEf"
+    policies: {identity: [{Effect: Allow, Action: "secretsmanager:GetSecretValue", Resource: "*", Condition: {StringEquals: {"secretsmanager:VersionStage": "AWSPREVIOUS"}}}]}
+    expect: ALLOW
+  - name: darb.documented.version-stage.deny
+    doc: "Secrets Manager User Guide › secretsmanager:VersionStage: left out, the Deny does not apply"
+    action: "secretsmanager:GetSecretValue"
+    resource: "arn:aws:secretsmanager:us-east-1:111122223333:secret:db-AbCdEf"
+    policies: {identity: [[*allowSecret, {Effect: Deny, Action: "secretsmanager:GetSecretValue", Resource: "*", Condition: {StringEquals: {"secretsmanager:VersionStage": "AWSCURRENT"}}}]]}
+    expect: ALLOW
+  - name: darb.documented.version-id.allow-if-exists
+    doc: "Secrets Manager User Guide › secretsmanager:VersionId: IfExists holds when left out"
+    action: "secretsmanager:GetSecretValue"
+    resource: "arn:aws:secretsmanager:us-east-1:111122223333:secret:db-AbCdEf"
+    policies: {identity: [{Effect: Allow, Action: "secretsmanager:GetSecretValue", Resource: "*", Condition: {StringEqualsIfExists: {"secretsmanager:VersionId": "v1"}}}]}
+    expect: ALLOW
+  - name: darb.documented.version-id.deny-if-present
+    doc: "Secrets Manager User Guide › secretsmanager:VersionId: a Deny when present is avoided"
+    action: "secretsmanager:GetSecretValue"
+    resource: "arn:aws:secretsmanager:us-east-1:111122223333:secret:db-AbCdEf"
+    policies: {identity: [[*allowSecret, {Effect: Deny, Action: "secretsmanager:GetSecretValue", Resource: "*", Condition: {"Null": {"secretsmanager:VersionId": "false"}}}]]}
+    expect: ALLOW
+
+  # sts:RoleSessionName: required, the caller writes it.
+  - name: darb.documented.role-session-name.allow
+    doc: "IAM User Guide › sts:RoleSessionName"
+    action: "sts:AssumeRole"
+    resource: "arn:aws:iam::111122223333:role/target"
+    policies: {identity: [{Effect: Allow, Action: "sts:AssumeRole", Resource: "*", Condition: {StringEquals: {"sts:RoleSessionName": "deploy"}}}]}
+    expect: ALLOW
+  - name: darb.documented.role-session-name.deny
+    doc: "IAM User Guide › sts:RoleSessionName: the attacker names the session as required"
+    action: "sts:AssumeRole"
+    resource: "arn:aws:iam::111122223333:role/target"
+    policies: {identity: [[{Effect: Allow, Action: "sts:AssumeRole", Resource: "*"}, {Effect: Deny, Action: "sts:AssumeRole", Resource: "*", Condition: {StringNotLike: {"sts:RoleSessionName": "approved-*"}}}]]}
+    expect: ALLOW
+
+  # Keys AWS sets: aws:ViaAWSService, aws:CalledVia on a direct request.
+  - name: iam-ug.condition-keys.via-aws-service.direct-is-false
+    doc: "IAM User Guide › aws:ViaAWSService: always present, false when the principal calls directly"
+    policies: {identity: [[*allowS3, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {Bool: {"aws:ViaAWSService": "false"}}}]]}
+    expect: DENY
+  - name: iam-ug.condition-keys.called-via.direct-is-absent
+    doc: "IAM User Guide › aws:CalledVia: not present when the principal calls directly"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {"ForAnyValue:StringEquals": {"aws:CalledVia": "s3.amazonaws.com"}}}]}
+    expect: IMPLICIT_DENY
+
+  # A forward access session: S3 calls KMS for SSE-KMS.
+  - name: iam-ug.forward-access-sessions.via-aws-service-true
+    doc: "IAM User Guide › Forward access sessions: aws:ViaAWSService is true for a FAS request"
+    action: "kms:Decrypt"
+    resource: "arn:aws:kms:us-east-1:111122223333:key/k1"
+    context: *viaS3
+    policies: {identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {Bool: {"aws:ViaAWSService": "true"}}}]}
+    expect: ALLOW
+  - name: darb.documented.called-via.allow-undocumented
+    doc: "DESIGN.md 6.2: aws:CalledVia for S3 calling KMS is undocumented (absent or s3.amazonaws.com): an Allow that needs it is UNKNOWN"
+    action: "kms:Decrypt"
+    resource: "arn:aws:kms:us-east-1:111122223333:key/k1"
+    context: *viaS3
+    policies: {identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {"ForAnyValue:StringEquals": {"aws:CalledVia": "s3.amazonaws.com"}}}]}
+    expect: UNKNOWN
+    expect_deny_only: false
+    expect_unresolved: ["Condition:aws:CalledVia"]
+  - name: darb.documented.called-via.deny-undocumented
+    doc: "DESIGN.md 6.2: a Deny on calls through S3 may or may not apply: UNKNOWN, deny-only"
+    action: "kms:Decrypt"
+    resource: "arn:aws:kms:us-east-1:111122223333:key/k1"
+    context: *viaS3
+    policies: {identity: [[*allowDecrypt, {Effect: Deny, Action: "kms:Decrypt", Resource: "*", Condition: {"ForAnyValue:StringEquals": {"aws:CalledVia": "s3.amazonaws.com"}}}]]}
+    expect: UNKNOWN
+    expect_deny_only: true
+    expect_unresolved: ["Condition:aws:CalledVia"]
+  - name: darb.documented.called-via.three-keys-together
+    doc: "DESIGN.md 6.2: CalledVia, CalledViaFirst and CalledViaLast are all absent or all set: never one without the others"
+    action: "kms:Decrypt"
+    resource: "arn:aws:kms:us-east-1:111122223333:key/k1"
+    context: *viaS3
+    policies: {identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*",
+                           Condition: {"ForAnyValue:StringEquals": {"aws:CalledVia": "s3.amazonaws.com"}, "Null": {"aws:CalledViaLast": "true"}}}]}
+    expect: IMPLICIT_DENY
+  - name: darb.documented.called-via.alike-is-decided
+    doc: "DESIGN.md 6.2: when every option decides alike the decision stands"
+    action: "kms:Decrypt"
+    resource: "arn:aws:kms:us-east-1:111122223333:key/k1"
+    context: *viaS3
+    policies: {identity: [{Effect: Allow, Action: "kms:Decrypt", Resource: "*", Condition: {"ForAllValues:StringEquals": {"aws:CalledVia": "s3.amazonaws.com"}}}]}
+    expect: ALLOW
+
+  # aws:MultiFactorAuthPresent. A role session: absent or false (undocumented).
+  - name: darb.documented.mfa.role-session.deny-bool-false
+    doc: "IAM User Guide › aws:MultiFactorAuthPresent; DESIGN.md 6.2: Bool false denies if the key is false, not if absent"
+    policies: {identity: [[*allowS3, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {Bool: {"aws:MultiFactorAuthPresent": "false"}}}]]}
+    expect: UNKNOWN
+    expect_deny_only: true
+    expect_unresolved: ["Condition:aws:MultiFactorAuthPresent"]
+  - name: darb.documented.mfa.role-session.deny-bool-if-exists-false
+    doc: "IAM User Guide › aws:MultiFactorAuthPresent: BoolIfExists false denies whether absent or false"
+    policies: {identity: [[*allowS3, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {BoolIfExists: {"aws:MultiFactorAuthPresent": "false"}}}]]}
+    expect: DENY
+  - name: darb.documented.mfa.role-session.allow-bool-true
+    doc: "IAM User Guide › aws:MultiFactorAuthPresent: without MFA neither option is true"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {Bool: {"aws:MultiFactorAuthPresent": "true"}}}]}
+    expect: IMPLICIT_DENY
+  - name: darb.documented.mfa.role-session.allow-bool-if-exists-true
+    doc: "DESIGN.md 6.2: BoolIfExists true holds if absent, not if false: UNKNOWN that needs the allow"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {BoolIfExists: {"aws:MultiFactorAuthPresent": "true"}}}]}
+    expect: UNKNOWN
+    expect_deny_only: false
+    expect_unresolved: ["Condition:aws:MultiFactorAuthPresent"]
+  - name: darb.documented.mfa.role-session.assumed-value-wins
+    doc: "DESIGN.md 6.2: an assumption in darb.yaml decides the key"
+    context: {default: unknown, documented: {credential: role-session}, present: {"aws:MultiFactorAuthPresent": "true"}}
+    policies: {identity: [[*allowS3, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {Bool: {"aws:MultiFactorAuthPresent": "false"}}}]]}
+    expect: ALLOW
+
+  # A long-term access key: the key is absent ("do not include this key").
+  - name: iam-ug.mfa.long-term.deny-bool-false
+    doc: "IAM User Guide › Configuring MFA-protected API access: long-term credentials do not include the key; Bool false does not match"
+    principal: *user
+    context: *longTerm
+    policies: {identity: [[*allowS3, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {Bool: {"aws:MultiFactorAuthPresent": "false"}}}]]}
+    expect: ALLOW
+  - name: iam-ug.mfa.long-term.deny-bool-if-exists-false
+    doc: "IAM User Guide › aws:MultiFactorAuthPresent: BoolIfExists false denies an absent key"
+    principal: *user
+    context: *longTerm
+    policies: {identity: [[*allowS3, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {BoolIfExists: {"aws:MultiFactorAuthPresent": "false"}}}]]}
+    expect: DENY
+  - name: iam-ug.mfa.long-term.allow-bool-true
+    doc: "IAM User Guide › aws:MultiFactorAuthPresent: absent is not true"
+    principal: *user
+    context: *longTerm
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {Bool: {"aws:MultiFactorAuthPresent": "true"}}}]}
+    expect: IMPLICIT_DENY
+  - name: iam-ug.mfa.long-term.allow-bool-if-exists-true
+    doc: "IAM User Guide › aws:MultiFactorAuthPresent: BoolIfExists holds for an absent key"
+    principal: *user
+    context: *longTerm
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {BoolIfExists: {"aws:MultiFactorAuthPresent": "true"}}}]}
+    expect: ALLOW
+
+  # aws:CurrentTime, aws:EpochTime: the scan time.
+  - name: darb.documented.time.scan-time-allow
+    doc: "IAM User Guide › aws:CurrentTime (always present); DESIGN.md 6.2: evaluated at the scan time"
+    context: {default: unknown, documented: {credential: role-session, now: "2026-11-28T00:00:00Z"}}
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {DateLessThan: {"aws:CurrentTime": "2027-01-01T00:00:00Z"}}}]}
+    expect: ALLOW
+  - name: darb.documented.time.scan-time-deny
+    doc: "IAM User Guide › aws:EpochTime; DESIGN.md 6.2: favours nobody: a Deny after a date in the past applies"
+    context: {default: unknown, documented: {credential: role-session, now: "2026-11-28T00:00:00Z"}}
+    policies: {identity: [[*allowS3, {Effect: Deny, Action: "s3:*", Resource: "*", Condition: {NumericGreaterThan: {"aws:EpochTime": "1767225600"}}}]]}
+    expect: DENY
+  - name: darb.documented.time.no-scan-time-unknown
+    doc: "DESIGN.md 6.2: without a scan time the time keys stay unknown"
+    policies: {identity: [{Effect: Allow, Action: "s3:GetObject", Resource: "*", Condition: {DateLessThan: {"aws:CurrentTime": "2027-01-01T00:00:00Z"}}}]}
+    expect: UNKNOWN

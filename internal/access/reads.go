@@ -115,7 +115,7 @@ func (b *builder) read(role *model.Principal, j *model.Resource) {
 		set = b.identitySet(role, b.policies[j.ID()], false)
 	}
 	object := j.ARN() + "/" + model.UnresolvedPlaceholder("object-key")
-	req := &eval.Request{Principal: principal, Action: "s3:GetObject", Resource: object, ResourceAccount: j.Account(), Context: b.context(role, nil)}
+	req := &eval.Request{Principal: principal, Action: "s3:GetObject", Resource: object, ResourceAccount: j.Account(), Context: b.context(role, "s3:GetObject", object, bucketRegion(j))}
 	read := eval.Evaluate(req, set)
 	if role == nil {
 		read.Verdict = publicAccess(read.Verdict, b.inv.RestrictPublic(j))
@@ -200,7 +200,7 @@ func (b *builder) decrypt(role *model.Principal, principal match.RequestPrincipa
 	for _, c := range contexts {
 		req = &eval.Request{
 			Principal: principal, Action: "kms:Decrypt", Resource: key.ARN(), ResourceAccount: key.Account(),
-			Context: b.context(role, map[string][]string{"kms:EncryptionContext:aws:s3:arn": {c}, "kms:EncryptionContextKeys": {"aws:s3:arn"}}),
+			Context: b.context(role, "kms:Decrypt", key.ARN(), s3Decrypt(role, j, c)),
 		}
 		d := eval.Evaluate(req, set)
 		if result == nil {
