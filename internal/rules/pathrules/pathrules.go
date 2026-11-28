@@ -71,7 +71,7 @@ func (r *pathRule) Evaluate(in *rules.Input) []rules.Finding {
 
 // describePath fills the path text, confirmation, confidence, defaults and
 // evidence of the representative path.
-func describePath(g *graph.Graph, best paths.Path, f *rules.Finding) {
+func describePath(g *graph.Graph, best paths.Path, f *rules.Finding, entry rules.Entry) {
 	conf := graph.High
 	defaults := map[string]bool{}
 	f.Status = rules.StatusConfirmed
@@ -87,6 +87,10 @@ func describePath(g *graph.Graph, best paths.Path, f *rules.Finding) {
 			f.Evidence = append(f.Evidence, g.Edge(u).Evidence...)
 		}
 	}
+	if entry.Unknown != "" {
+		f.Status = rules.Weaker(f.Status, rules.StatusUnconfirmed)
+	}
+	f.Evidence = append(slices.Clone(entry.Evidence), f.Evidence...)
 	f.Confirmed = f.Status == rules.StatusConfirmed
 	switch f.Status {
 	case rules.StatusConfirmedUnlessDenied:
@@ -96,6 +100,9 @@ func describePath(g *graph.Graph, best paths.Path, f *rules.Finding) {
 	}
 	if !f.Confirmed {
 		f.Undecided = g.Undecided(best)
+		if entry.Unknown != "" {
+			f.Undecided = append(f.Undecided, entry.Unknown)
+		}
 	}
 	f.Confidence = conf.String()
 	for d := range defaults {

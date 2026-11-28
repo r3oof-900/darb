@@ -27,6 +27,13 @@ func NewPrincipal(kind NodeKind, identity, account string, src *SourceLocation) 
 	return &Principal{id: NewID(kind, identity), kind: kind, identity: identity, account: account, source: *src}
 }
 
+// NewSyntheticPrincipal builds a principal whose ID also depends on key
+// (two synthetic principals of one identity and kind, e.g. one per policy
+// version); its identity stays the principal's ARN.
+func NewSyntheticPrincipal(kind NodeKind, identity, key, account string, src *SourceLocation) *Principal {
+	return &Principal{id: NewID(kind, identity+"|"+key), kind: kind, identity: identity, account: account, source: *src}
+}
+
 // ID returns the stable node ID.
 func (p *Principal) ID() ID { return p.id }
 

@@ -1,0 +1,54 @@
+{
+  "format": "darb-expected/v1",
+  "derived_from": "item 4: a snapshot without access-key data",
+  "findings": [
+    {
+      "rule": "DARB-PATH-001",
+      "entry": "arn:aws:iam::111122223333:user/reports",
+      "jewel": "arn:aws:s3:::acme-customer-pii",
+      "path": [
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
+      ],
+      "confirmed": false,
+      "confidence": "low",
+      "score": 630,
+      "severity": "high",
+      "chokepoints": [
+        "CAN_READ arn:aws:iam::111122223333:user/reports -> arn:aws:s3:::acme-customer-pii"
+      ],
+      "alternative_fix": [],
+      "defaults_used": [],
+      "fix": [
+        {
+          "edge": "CAN_READ arn:aws:iam::111122223333:user/reports -> arn:aws:s3:::acme-customer-pii",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 3
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": [],
+      "status": "unconfirmed",
+      "undecided": [
+        "credential state",
+        "iam:GetCredentialReport"
+      ],
+      "also_fixes": [],
+      "uncuttable": [],
+      "remediation_status": "complete",
+      "fingerprint": "038763be64056f3f4bdff006abe18c2c983609eca3fcdabf9808f52565915164"
+    }
+  ],
+  "gaps": [
+    {
+      "kind": "unresolved",
+      "contains": [
+        "iam:GetCredentialReport",
+        "user/reports"
+      ]
+    }
+  ],
+  "absent": [],
+  "intended_access": [],
+  "no_edges": []
+}

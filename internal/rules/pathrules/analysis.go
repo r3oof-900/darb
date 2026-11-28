@@ -146,7 +146,7 @@ func build(in *rules.Input, p *paths.Pair, s *selection, jewels int) rules.Findi
 	if f.Location.IsZero() {
 		f.Location = *jewel.Source()
 	}
-	describePath(g, primary, &f)
+	describePath(g, primary, &f, in.Entries[p.Entry])
 	if wf.Score > pf.Score && pathStatus(g, worst) != strongest {
 		for _, id := range worst {
 			f.WorstCasePath = append(f.WorstCasePath, graph.Label(g.Edge(id))+" "+g.Node(g.Edge(id).To).Identity)
@@ -280,7 +280,7 @@ func cut(g *graph.Graph, r paths.Result, f *rules.Finding) { //nolint:gocritic /
 		f.NoFix = true
 		return
 	}
-	f.CutCost = r.Cost
+	f.CutCost, f.SharedEdges = r.Cost, r.Shared
 	for _, w := range r.Ways {
 		f.ChokepointEdge = append(f.ChokepointEdge, w.Edge)
 		f.ChokepointFix = append(f.ChokepointFix, w.Fix)

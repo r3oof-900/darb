@@ -1,0 +1,58 @@
+{
+  "format": "darb-expected/v1",
+  "derived_from": "item 4: PutBucketPolicy and PutKeyPolicy on an SSE-KMS bucket",
+  "findings": [
+    {
+      "rule": "DARB-PATH-002",
+      "entry": "arn:aws:iam::111122223333:user/ci",
+      "jewel": "arn:aws:s3:::acme-customer-pii",
+      "path": [
+        "CAN_ESCALATE arn:aws:iam::111122223333:user/ci",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 567,
+      "severity": "high",
+      "chokepoints": [
+        "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:user/ci -> arn:aws:kms:us-east-1:111122223333:key/29292929-2929-2929-2929-292929292929"
+      ],
+      "alternative_fix": [
+        "CAN_READ arn:aws:iam::111122223333:user/ci -> arn:aws:s3:::acme-customer-pii"
+      ],
+      "defaults_used": [],
+      "fix": [
+        {
+          "edge": "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:user/ci -> arn:aws:kms:us-east-1:111122223333:key/29292929-2929-2929-2929-292929292929",
+          "side": "resource",
+          "fix_kind": "narrow",
+          "cost": 2
+        }
+      ],
+      "other_side_fix": [
+        {
+          "edge": "CAN_DECRYPT[for arn:aws:s3:::acme-customer-pii] arn:aws:iam::111122223333:user/ci -> arn:aws:kms:us-east-1:111122223333:key/29292929-2929-2929-2929-292929292929",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 4
+        }
+      ],
+      "alternative_fix_detail": [
+        {
+          "edge": "CAN_READ arn:aws:iam::111122223333:user/ci -> arn:aws:s3:::acme-customer-pii",
+          "side": "identity",
+          "fix_kind": "revoke",
+          "cost": 4
+        }
+      ],
+      "status": "confirmed",
+      "also_fixes": [],
+      "uncuttable": [],
+      "remediation_status": "complete",
+      "fingerprint": "3c00b22fc0c244a54930dcc6fb857fdbff020922366ba463a54808c560f93b05"
+    }
+  ],
+  "absent": [],
+  "intended_access": [],
+  "no_edges": []
+}

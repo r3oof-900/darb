@@ -1,0 +1,82 @@
+{
+  "addons": [],
+  "boundaries": [],
+  "clusters": [],
+  "collected": 1,
+  "entry_points": [
+    {
+      "public": "true",
+      "reason": "credential-leak",
+      "workload": "arn:aws:iam::111122223333:user/ci"
+    }
+  ],
+  "exposures": [],
+  "gaps": [],
+  "mappings": [],
+  "network_policies": [],
+  "node_groups": [],
+  "pod_identity": [],
+  "policies": [
+    {
+      "kind": "identity",
+      "policy": "arn:aws:iam::111122223333:user/ci#inline/inline",
+      "source": "arn:aws:iam::111122223333:user/ci via iam:GetAccountAuthorizationDetails",
+      "statements": [
+        "Allow s3:PutBucketPolicy on arn:aws:s3:::acme-customer-pii (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:user/ci",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "resource",
+      "policy": "arn:aws:kms:us-east-1:111122223333:key/29292929-2929-2929-2929-292929292929#key-policy",
+      "source": "arn:aws:kms:us-east-1:111122223333:key/29292929-2929-2929-2929-292929292929 via kms:GetKeyPolicy",
+      "statements": [
+        "Allow kms:* on * (0 conditions)"
+      ],
+      "target": "arn:aws:kms:us-east-1:111122223333:key/29292929-2929-2929-2929-292929292929",
+      "unresolved_statements": 0
+    }
+  ],
+  "principals": [
+    {
+      "account": "111122223333",
+      "identity": "arn:aws:iam::111122223333:user/ci",
+      "kind": "aws:iam:user",
+      "source": "arn:aws:iam::111122223333:user/ci via iam:GetAccountAuthorizationDetails"
+    }
+  ],
+  "rbac": [],
+  "resources": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:s3:::acme-customer-pii",
+      "classification": "pii",
+      "classified_by": "tag:DataClass",
+      "defaulted": [],
+      "encryption": {
+        "Type": "aws:kms",
+        "KeyARN": "arn:aws:kms:us-east-1:111122223333:key/29292929-2929-2929-2929-292929292929",
+        "BucketKey": "true"
+      },
+      "kind": "aws:s3:bucket",
+      "region": "us-east-1",
+      "restrict_public_buckets": "true",
+      "source": "arn:aws:s3:::acme-customer-pii via s3:GetBucketPolicy"
+    },
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:kms:us-east-1:111122223333:key/29292929-2929-2929-2929-292929292929",
+      "classification": "",
+      "classified_by": "",
+      "defaulted": [],
+      "key_rotation": "true",
+      "kind": "aws:kms:key",
+      "region": "us-east-1",
+      "source": "arn:aws:kms:us-east-1:111122223333:key/29292929-2929-2929-2929-292929292929 via kms:GetKeyPolicy"
+    }
+  ],
+  "service_accounts": [],
+  "trusts": [],
+  "workloads": []
+}

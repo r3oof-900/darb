@@ -1,0 +1,39 @@
+{
+  "format": "darb-expected/v1",
+  "derived_from": "item 4: the root user has an active access key",
+  "findings": [
+    {
+      "rule": "DARB-POST-009",
+      "resource": "arn:aws:iam::111122223333:root",
+      "score": 850,
+      "severity": "critical",
+      "defaults_used": [],
+      "fingerprint": "ef39b77c2a50e7105904d883b61e9b827da6d1377ff3303fdc8e5b908aec579c"
+    },
+    {
+      "rule": "DARB-PATH-001",
+      "entry": "arn:aws:iam::111122223333:root",
+      "jewel": "arn:aws:s3:::acme-customer-pii",
+      "path": [
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 630,
+      "severity": "high",
+      "chokepoints": [],
+      "alternative_fix": [],
+      "defaults_used": [],
+      "fix": [],
+      "other_side_fix": [],
+      "alternative_fix_detail": [],
+      "status": "confirmed",
+      "also_fixes": [],
+      "uncuttable": [],
+      "fingerprint": "327991d9ce7f877aa1ba7f533f23f1e278ba78910b5e2f0c35c88eff14e5b23c"
+    }
+  ],
+  "absent": [],
+  "intended_access": [],
+  "no_edges": []
+}

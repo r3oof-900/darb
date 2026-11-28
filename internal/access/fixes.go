@@ -87,7 +87,7 @@ func factKind(e *graph.Edge) string {
 // policies (and the principal cannot rewrite them).
 func (b *builder) policyFixes(kind graph.Kind, req *eval.Request, set *eval.PolicySet, who *model.Principal, resource, policy string, t *grantTarget, rw *rewriter) []graph.Fix {
 	var out []graph.Fix
-	if who != nil && who.Kind() != model.KindIAMRoleAnyPermission && len(set.Identity) > 0 {
+	if who != nil && !unrestricted(who.Kind()) && len(set.Identity) > 0 {
 		without := *set
 		without.Identity = nil
 		if d := eval.Evaluate(req, &without); !grants(d.Verdict) {

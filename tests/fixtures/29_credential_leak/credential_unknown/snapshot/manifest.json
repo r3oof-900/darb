@@ -1,0 +1,75 @@
+{
+ "format": "darb-snapshot/v1",
+ "accounts": [
+  {
+   "id": "111122223333",
+   "partition": "aws"
+  }
+ ],
+ "calls": [
+  {
+   "account": "111122223333",
+   "service": "iam",
+   "region": "",
+   "api": "GetAccountAuthorizationDetails",
+   "target": "",
+   "status": "ok"
+  },
+  {
+   "account": "111122223333",
+   "service": "s3",
+   "region": "",
+   "api": "ListBuckets",
+   "target": "",
+   "status": "ok"
+  },
+  {
+   "account": "111122223333",
+   "service": "s3",
+   "region": "",
+   "api": "GetBucketLocation",
+   "target": "acme-customer-pii",
+   "status": "ok"
+  },
+  {
+   "account": "111122223333",
+   "service": "s3",
+   "region": "us-east-1",
+   "api": "GetBucketEncryption",
+   "target": "acme-customer-pii",
+   "status": "ok"
+  },
+  {
+   "account": "111122223333",
+   "service": "s3",
+   "region": "us-east-1",
+   "api": "GetBucketTagging",
+   "target": "acme-customer-pii",
+   "status": "ok"
+  },
+  {
+   "account": "111122223333",
+   "service": "s3",
+   "region": "us-east-1",
+   "api": "GetPublicAccessBlock",
+   "target": "acme-customer-pii",
+   "status": "ok"
+  },
+  {
+   "account": "111122223333",
+   "service": "s3",
+   "region": "us-east-1",
+   "api": "GetBucketOwnershipControls",
+   "target": "acme-customer-pii",
+   "status": "ok"
+  },
+  {
+   "account": "111122223333",
+   "service": "s3",
+   "region": "us-east-1",
+   "api": "GetBucketPolicy",
+   "target": "acme-customer-pii",
+   "status": "ok"
+  }
+ ]
+}

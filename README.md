@@ -3,7 +3,8 @@
 darb (درب) is Arabic for path or trail.
 
 darb reads Kubernetes and AWS as **one graph** and finds the paths from an
-attacker's entry point (an exposed or compromised pod) to crown-jewel data (S3
+attacker's entry point (an exposed or compromised pod, or a leaked IAM access
+key) to crown-jewel data (S3
 buckets, KMS-protected data, Secrets Manager secrets, SSM SecureString
 parameters, Kubernetes Secrets). Every hop carries its evidence (`file:line` or
 ARN), every path its **cheapest fix** (a weighted minimum cut), and

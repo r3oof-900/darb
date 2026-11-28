@@ -1,0 +1,17 @@
+{
+ "UserDetailList": [
+  {
+   "Path": "/",
+   "UserName": "ci",
+   "UserId": "AIDACIXXXXXXXXXX",
+   "Arn": "arn:aws:iam::111122223333:user/ci",
+   "UserPolicyList": [],
+   "GroupList": [],
+   "AttachedManagedPolicies": [],
+   "Tags": []
+  }
+ ],
+ "GroupDetailList": [],
+ "RoleDetailList": [],
+ "Policies": []
+}

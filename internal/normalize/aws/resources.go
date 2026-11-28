@@ -13,7 +13,8 @@ import (
 
 const apiAuthDetails = "iam:GetAccountAuthorizationDetails"
 
-// iam: roles with trust, inline, attached managed policies and boundaries.
+// iam: roles with trust, inline, attached managed policies and boundaries;
+// users, groups and credentials (users.go).
 func (n *norm) iam() {
 	if n.acct.Auth == nil {
 		n.gap(coverage.KindNotModelled, "", "the snapshot has no IAM authorization details; IAM is not covered for this account")
@@ -26,9 +27,7 @@ func (n *norm) iam() {
 	for i := range n.acct.Auth.RoleDetailList {
 		n.role(&n.acct.Auth.RoleDetailList[i])
 	}
-	if len(n.acct.Auth.UserDetailList) > 0 || len(n.acct.Auth.GroupDetailList) > 0 {
-		n.gap(coverage.KindNotModelled, "", "IAM users and groups are not yet analysed as entry points (MVP: roles)")
-	}
+	n.users()
 }
 
 func (n *norm) role(r *awsraw.RoleDetail) {

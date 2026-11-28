@@ -49,6 +49,15 @@ func statedLimits(t *testing.T) []limitRow {
 
 // inlineScenarios are scenarios no fixture has, written by the test.
 var inlineScenarios = map[string]map[string]string{
+	// IAM users in Terraform are not analysed (item 4).
+	"terraform-iam-user": {"terraform/main.tf": `resource "aws_iam_user" "ci" {
+  name = "ci"
+}
+
+resource "aws_iam_access_key" "ci" {
+  user = aws_iam_user.ci.name
+}
+`},
 	// Terraform without tier takes the region's default tier: unknown, so
 	// the parameter may be advanced and can be shared.
 	"ssm-parameter-without-tier": {"terraform/main.tf": `resource "aws_ssm_parameter" "db" {

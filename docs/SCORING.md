@@ -20,7 +20,7 @@ impact     = min(1000, classification ⊗ blast_radius)
 
 | Factor | Value (per-mille) | Source |
 |---|---|---|
-| **exposure** — entry point | `1000` public `LoadBalancer` / `Ingress`; `800` `NodePort`; `500` internal load balancer; `400` any workload under the "assume any pod compromised" threat model | entry-point classification (DESIGN.md §5) |
+| **exposure** — entry point | `1000` public `LoadBalancer` / `Ingress`; `800` `NodePort`; `500` internal load balancer; `400` any workload under the "assume any pod compromised" threat model; `700` an IAM user or the root with an active access key, or whose keys are not in the input (`credential-leak`, item 4: below a public endpoint, above an internal service; worked in `expected_source.py`, scenario 29: one edge 700 x 1000 x pii 900 = 630, two edges 700 x 900 = 630 x 900 = 567) | entry-point classification (DESIGN.md §5) |
 | **hops** | `1000` for 1 edge, then × `900` per extra edge: 1→1000, 2→900, 3→810, 4→729, 5→656, … | number of edges on the path |
 | **preconditions** | product over the path's preconditions: `900` each (extra attacker effort, e.g. reaching IMDS), whether known satisfied or UNKNOWN: an UNKNOWN precondition is resolved as satisfied (the worst case) | edge preconditions (e.g. `NODE_ROLE`) |
 

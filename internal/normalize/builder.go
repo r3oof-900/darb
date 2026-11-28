@@ -152,6 +152,19 @@ func (b *Builder) AddAccountBlock(a *model.AccountPublicAccessBlock) {
 	b.inv.AccountBlocks = append(b.inv.AccountBlocks, a)
 }
 
+// AddCredentials records a user's (or the root's) credentials.
+func (b *Builder) AddCredentials(c *model.Credentials) {
+	b.inv.Credentials = append(b.inv.Credentials, c)
+}
+
+// AddGroup records an IAM group.
+func (b *Builder) AddGroup(g *model.IAMGroup) { b.inv.Groups = append(b.inv.Groups, g) }
+
+// AddManagedPolicy records a customer managed policy's versions.
+func (b *Builder) AddManagedPolicy(m *model.ManagedPolicyVersions) {
+	b.inv.ManagedPolicies = append(b.inv.ManagedPolicies, m)
+}
+
 // AddMapping records an IAM-to-Kubernetes identity mapping.
 func (b *Builder) AddMapping(m *model.IdentityMapping) { b.inv.Mappings = append(b.inv.Mappings, m) }
 
@@ -190,6 +203,9 @@ func (b *Builder) Build() (*model.Inventory, error) {
 	slices.SortFunc(inv.AccountBlocks, func(a, c *model.AccountPublicAccessBlock) int {
 		return cmp.Or(strings.Compare(a.Account, c.Account), strings.Compare(a.Source.String(), c.Source.String()))
 	})
+	slices.SortFunc(inv.Credentials, func(a, c *model.Credentials) int { return strings.Compare(string(a.Principal), string(c.Principal)) })
+	slices.SortFunc(inv.Groups, func(a, c *model.IAMGroup) int { return strings.Compare(a.ARN, c.ARN) })
+	slices.SortFunc(inv.ManagedPolicies, func(a, c *model.ManagedPolicyVersions) int { return strings.Compare(a.ARN, c.ARN) })
 	return &inv, nil
 }
 

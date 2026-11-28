@@ -74,6 +74,12 @@ type Entry struct {
 	Reason   string
 	Public   model.Tri
 	Exposure int
+	// Unknown: what is undecided about the entry itself; a path from it is
+	// unconfirmed at its score (item 4: a user whose keys are not known).
+	Unknown string
+	// Evidence: what makes it an entry (its keys), added to every finding
+	// from it; never part of the score.
+	Evidence []string
 }
 
 // Input is what every rule sees. Rules are pure functions of it.
@@ -133,6 +139,8 @@ type Finding struct {
 	NoFix          bool           `json:"no_fix_within_constraints,omitempty"`
 	Alternative    []string       `json:"alternative_fix,omitempty"`
 	ChokepointEdge []graph.EdgeID `json:"-"`
+	// SharedEdges: other edges the cut's changes break (paths.Result.Shared).
+	SharedEdges []graph.EdgeID `json:"-"`
 	// Fix: the side of each chokepoint edge the cut chose, its cheapest fix;
 	// OtherSideFix: the other sides that also break that edge, dearer
 	// (SCORING.md §4).

@@ -1,0 +1,47 @@
+{
+  "format": "darb-expected/v1",
+  "derived_from": "item 4 review: an unknown PutBucketPolicy and no direct path",
+  "findings": [
+    {
+      "rule": "DARB-PATH-002",
+      "entry": "arn:aws:iam::111122223333:user/ci",
+      "jewel": "arn:aws:s3:::acme-customer-pii",
+      "path": [
+        "CAN_ESCALATE arn:aws:iam::111122223333:user/ci",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
+      ],
+      "confirmed": false,
+      "confidence": "low",
+      "score": 567,
+      "severity": "high",
+      "chokepoints": [
+        "CAN_READ arn:aws:iam::111122223333:user/ci -> arn:aws:s3:::acme-customer-pii"
+      ],
+      "alternative_fix": [],
+      "defaults_used": [],
+      "fix": [
+        {
+          "edge": "CAN_READ arn:aws:iam::111122223333:user/ci -> arn:aws:s3:::acme-customer-pii",
+          "side": "identity",
+          "fix_kind": "resolve",
+          "cost": 0,
+          "resolve": "assume: {\"aws:PrincipalOrgID\": [...]} in darb.yaml"
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": [],
+      "status": "unconfirmed",
+      "undecided": [
+        "aws:PrincipalOrgID",
+        "s3:PutBucketPolicy"
+      ],
+      "also_fixes": [],
+      "uncuttable": [],
+      "remediation_status": "partial_pending_resolution",
+      "fingerprint": "3c00b22fc0c244a54930dcc6fb857fdbff020922366ba463a54808c560f93b05"
+    }
+  ],
+  "absent": [],
+  "intended_access": [],
+  "no_edges": []
+}

@@ -1,0 +1,8 @@
+{
+ "TagSet": [
+  {
+   "Key": "DataClass",
+   "Value": "pii"
+  }
+ ]
+}

@@ -34,6 +34,11 @@ type Options struct {
 	Concurrency int
 	// CallTimeout bounds every API call (each page of a list); default 30s.
 	CallTimeout time.Duration
+	// ReportWait bounds the wait for IAM to prepare the credential report
+	// (GenerateCredentialReport is asynchronous); default 60s. Sleep waits
+	// between polls (nil: a timer); tests replace it.
+	ReportWait time.Duration
+	Sleep      func(ctx context.Context, d time.Duration) error
 }
 
 // ErrNoRegion is returned when no region is given.
@@ -54,6 +59,10 @@ func Collect(ctx context.Context, opts *Options, rec *coverage.Recorder) (*awsra
 	o := *opts
 	o.Concurrency = cmp.Or(o.Concurrency, 4)
 	o.CallTimeout = cmp.Or(o.CallTimeout, 30*time.Second)
+	o.ReportWait = cmp.Or(o.ReportWait, 60*time.Second)
+	if o.Sleep == nil {
+		o.Sleep = sleep
+	}
 	targets := o.Targets
 	if len(targets) == 0 {
 		targets = []Target{{}}

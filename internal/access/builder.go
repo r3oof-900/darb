@@ -53,11 +53,13 @@ type builder struct {
 	boundaries map[model.ID]*model.PolicyDocument
 	trusts     map[model.ID]*model.PolicyDocument
 	roles      []*model.Principal
-	byARN      map[string]*model.Principal
-	resources  map[string]*model.Resource
-	clusters   map[string]*model.Cluster
-	accounts   map[string][]*model.ServiceAccount // cluster/namespace -> service accounts
-	workloads  map[string][]*model.Workload       // cluster/namespace -> workloads
+	// users: IAM users and the account root (item 4).
+	users     []*model.Principal
+	byARN     map[string]*model.Principal
+	resources map[string]*model.Resource
+	clusters  map[string]*model.Cluster
+	accounts  map[string][]*model.ServiceAccount // cluster/namespace -> service accounts
+	workloads map[string][]*model.Workload       // cluster/namespace -> workloads
 	// minters: service accounts another account controls through RBAC;
 	// selfMinters: accounts whose own RBAC lets them control themselves.
 	minters map[model.ID]bool
@@ -66,7 +68,10 @@ type builder struct {
 	rewritten   map[model.ID]*model.Principal
 	order       []*model.Principal
 	selfMinters map[model.ID]eval.Verdict
-	notes       []Note
+	// rewrites: the resource policies each rewritten principal grants
+	// itself, by resource ARN (rewritegrants.go).
+	rewrites map[model.ID]map[string]*rewriteGrant
+	notes    []Note
 }
 
 // Build derives the access graph from the inventory (DESIGN.md §7.2): each
@@ -89,6 +94,7 @@ func Build(inv *model.Inventory, opts *Options) *Result {
 	b.mappings()
 	b.minted()
 	b.identities()
+	b.rewriteResources()
 	b.nodeRoles()
 	b.reads()
 	return &Result{Graph: b.g.Build(), Notes: b.notes}
@@ -109,6 +115,14 @@ func (b *builder) index() {
 		b.byARN[p.Identity()] = p
 		if p.Kind() == model.KindIAMRole {
 			b.roles = append(b.roles, p)
+		}
+		if p.Kind() == model.KindIAMUser || p.Kind() == model.KindAccountRoot {
+			b.users = append(b.users, p)
+		}
+		if p.Kind() == model.KindAccountRoot {
+			// No policy restricts the root but an SCP or an explicit Deny
+			// (IAM User Guide › AWS account root user).
+			b.policies[p.ID()] = []*model.PolicyDocument{allowAll()}
 		}
 	}
 	for _, r := range b.inv.Resources {
@@ -185,7 +199,7 @@ func (b *builder) factFixes(e *graph.Edge, kind string) []graph.Fix {
 			fixes[i].Resource = to.Identity
 		}
 	}
-	if from.Kind == model.KindIAMRoleAnyPermission {
+	if unrestricted(from.Kind) {
 		fixes = slices.DeleteFunc(fixes, func(f graph.Fix) bool { return f.Side == graph.SideIdentity })
 	}
 	return fixes
@@ -206,13 +220,48 @@ func evidence(d *eval.Decision) []string {
 	return out
 }
 
-// session is the request principal of a role session.
+// session is the request principal of a role session, an IAM user (its
+// access key or a console session) or the root; a synthetic principal
+// requests as the principal it stands for.
 func (b *builder) session(role *model.Principal) match.RequestPrincipal {
+	if k := b.baseKind(role); k == model.KindIAMUser {
+		return match.RequestPrincipal{Kind: match.KindIAMUser, ARN: role.Identity(), Account: role.Account()}
+	} else if k == model.KindAccountRoot {
+		return match.RequestPrincipal{Kind: match.KindAccountRoot, ARN: role.Identity(), Account: role.Account()}
+	}
 	name := role.Identity()[strings.LastIndex(role.Identity(), "/")+1:]
 	return match.RequestPrincipal{
 		Kind: match.KindAssumedRole, Account: role.Account(), SourceARN: role.Identity(),
 		ARN: "arn:" + b.opts.Partition + ":sts::" + role.Account() + ":assumed-role/" + name + "/darb",
 	}
+}
+
+// baseKind: the kind of the principal a (possibly synthetic) principal
+// stands for.
+func (b *builder) baseKind(p *model.Principal) model.NodeKind {
+	if base, ok := b.byARN[p.Identity()]; ok {
+		return base.Kind()
+	}
+	return p.Kind()
+}
+
+// credential: what the principal's requests are signed with.
+func (b *builder) credential(p *model.Principal) eval.Credential {
+	switch {
+	case p == nil:
+		return eval.NoCredential
+	case p.Kind() == model.KindConsoleSession:
+		return eval.ConsoleSession
+	case b.baseKind(p) == model.KindIAMUser || b.baseKind(p) == model.KindAccountRoot:
+		return eval.LongTerm
+	}
+	return eval.RoleSession
+}
+
+// unrestricted: a principal with no identity side to change (SCORING.md
+// 4.2): it can grant itself anything, or nothing restricts it (the root).
+func unrestricted(k model.NodeKind) bool {
+	return k == model.KindIAMRoleAnyPermission || k == model.KindIAMUserAnyPermission || k == model.KindAccountRoot
 }
 
 // context is the request context of a role session (nil: an anonymous
@@ -222,10 +271,7 @@ func (b *builder) session(role *model.Principal) match.RequestPrincipal {
 // request whose extra keys name kms:ViaService is the service's forward
 // access session.
 func (b *builder) context(role *model.Principal, action, resource string, present map[string][]string) *condition.Context {
-	facts := &eval.RequestFacts{Credential: eval.RoleSession, Action: action, Resource: resource, Now: b.opts.Now}
-	if role == nil {
-		facts.Credential = eval.NoCredential
-	}
+	facts := &eval.RequestFacts{Credential: b.credential(role), Action: action, Resource: resource, Now: b.opts.Now}
 	if via := present["kms:ViaService"]; len(via) == 1 {
 		service, _, _ := strings.Cut(via[0], ".")
 		facts.Via = service + ".amazonaws.com"

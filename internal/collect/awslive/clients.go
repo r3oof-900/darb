@@ -25,9 +25,15 @@ type STSAPI interface {
 	GetCallerIdentity(ctx context.Context, in *sts.GetCallerIdentityInput, opts ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error)
 }
 
-// IAMAPI reads the account authorization details.
+// IAMAPI reads the account authorization details and the users'
+// credentials: the credential report (GenerateCredentialReport asks IAM to
+// prepare it; it changes no configuration), access keys and their last use.
 type IAMAPI interface {
 	iam.GetAccountAuthorizationDetailsAPIClient
+	iam.ListAccessKeysAPIClient
+	GenerateCredentialReport(ctx context.Context, in *iam.GenerateCredentialReportInput, opts ...func(*iam.Options)) (*iam.GenerateCredentialReportOutput, error)
+	GetCredentialReport(ctx context.Context, in *iam.GetCredentialReportInput, opts ...func(*iam.Options)) (*iam.GetCredentialReportOutput, error)
+	GetAccessKeyLastUsed(ctx context.Context, in *iam.GetAccessKeyLastUsedInput, opts ...func(*iam.Options)) (*iam.GetAccessKeyLastUsedOutput, error)
 }
 
 // S3API reads bucket configuration (never objects).

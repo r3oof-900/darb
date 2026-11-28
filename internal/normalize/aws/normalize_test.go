@@ -69,7 +69,7 @@ func TestNormalizeSnapshot(t *testing.T) {
 		}
 	}
 	gaps := gapText(rec)
-	for _, want := range []string{"IAM users and groups are not yet analysed", "no IAM authorization details", "not available; treated as unknown"} {
+	for _, want := range []string{"the access keys of arn:aws:iam::111122223333:user/alice are not in the input", "no IAM authorization details", "not available; treated as unknown"} {
 		if !strings.Contains(gaps, want) {
 			t.Errorf("missing gap %q in\n%s", want, gaps)
 		}

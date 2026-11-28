@@ -83,6 +83,10 @@ func metaV(id, version, title, rationale string, base int, techniques []string, 
 
 // Rules returns the posture rules.
 func Rules() []rules.Rule {
+	return append(postureRules(), rootKeyRule())
+}
+
+func postureRules() []rules.Rule {
 	return []rules.Rule{
 		&rule{
 			metaV(IRSATrustAnySA, "1.0.1", "IRSA trust policy accepts any service account",

@@ -1,0 +1,32 @@
+{
+ "UserDetailList": [
+  {
+   "Path": "/",
+   "UserName": "reports",
+   "UserId": "AIDAREPORTSXXXXX",
+   "Arn": "arn:aws:iam::111122223333:user/reports",
+   "UserPolicyList": [
+    {
+     "PolicyName": "inline",
+     "PolicyDocument": {
+      "Version": "2012-10-17",
+      "Statement": [
+       {
+        "Sid": "ReadPII",
+        "Effect": "Allow",
+        "Action": "s3:GetObject",
+        "Resource": "arn:aws:s3:::acme-customer-pii/*"
+       }
+      ]
+     }
+    }
+   ],
+   "GroupList": [],
+   "AttachedManagedPolicies": [],
+   "Tags": []
+  }
+ ],
+ "GroupDetailList": [],
+ "RoleDetailList": [],
+ "Policies": []
+}

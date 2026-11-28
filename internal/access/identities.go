@@ -23,7 +23,7 @@ import (
 // key policies. Sources include those synthetic principals, until no new
 // one appears.
 func (b *builder) identities() {
-	queue := append([]*model.Principal(nil), b.roles...)
+	queue := slices.Concat(b.roles, b.users)
 	for len(queue) > 0 {
 		src := queue[0]
 		queue = queue[1:]
@@ -40,7 +40,11 @@ func (b *builder) identities() {
 			if rewritten, ok := b.modifyPolicy(src, dst, act); ok {
 				queue = append(queue, rewritten)
 			}
+			if free, ok := b.dropBoundary(src, dst, act, "iam:DeleteRolePermissionsBoundary", "iam:PutRolePermissionsBoundary"); ok {
+				queue = append(queue, free)
+			}
 		}
+		queue = append(queue, b.userEscalations(src)...)
 	}
 }
 
@@ -156,11 +160,15 @@ func policyParts(arn string) (account, name string, ok bool) {
 // anyPermission returns the synthetic "dst with any permission" principal:
 // an identity policy that allows everything, dst's permissions boundary.
 func (b *builder) anyPermission(dst *model.Principal) (*model.Principal, bool) {
-	id := model.NewID(model.KindIAMRoleAnyPermission, dst.Identity())
+	kind := model.KindIAMRoleAnyPermission
+	if dst.Kind() == model.KindIAMUser {
+		kind = model.KindIAMUserAnyPermission
+	}
+	id := model.NewID(kind, dst.Identity())
 	if p, ok := b.rewritten[id]; ok {
 		return p, false
 	}
-	p := model.NewPrincipal(model.KindIAMRoleAnyPermission, dst.Identity(), dst.Account(), dst.Source())
+	p := model.NewPrincipal(kind, dst.Identity(), dst.Account(), dst.Source())
 	b.rewritten[id] = p
 	b.order = append(b.order, p)
 	b.g.Node(p.ID(), p.Kind(), dst.Identity()) // its identity is the role's ARN (DESIGN.md 7.2); the ID and CAN_ESCALATE[iam:modify-policy] tell it apart

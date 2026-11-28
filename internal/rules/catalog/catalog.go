@@ -9,7 +9,7 @@ import (
 )
 
 // Version is the rule catalog's semver.
-const Version = "2.1.0"
+const Version = "2.2.0"
 
 // New returns the registry of every rule.
 func New() (*rules.Registry, error) {

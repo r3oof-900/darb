@@ -152,6 +152,10 @@ func kindOf(identity string) model.NodeKind {
 		return model.KindS3Bucket
 	case strings.Contains(identity, ":role/"):
 		return model.KindIAMRole
+	case strings.Contains(identity, ":user/"):
+		return model.KindIAMUser
+	case strings.HasPrefix(identity, "arn:aws:iam::") && strings.HasSuffix(identity, ":root"):
+		return model.KindAccountRoot
 	}
 	return model.KindKMSKey
 }

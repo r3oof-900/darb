@@ -79,6 +79,13 @@ func stubResponses() map[string]stubResponse {
 		"GetCallerIdentity/": ok(`<GetCallerIdentityResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/"><GetCallerIdentityResult>` +
 			`<Arn>arn:aws:sts::111122223333:assumed-role/audit/darb</Arn><UserId>AROA:darb</UserId><Account>111122223333</Account>` +
 			`</GetCallerIdentityResult></GetCallerIdentityResponse>`),
+		"GenerateCredentialReport/": ok(`<GenerateCredentialReportResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/"><GenerateCredentialReportResult>` +
+			`<State>COMPLETE</State></GenerateCredentialReportResult></GenerateCredentialReportResponse>`),
+		// The report's Content is a base64 CSV: a header and the root's row.
+		"GetCredentialReport/": ok(`<GetCredentialReportResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/"><GetCredentialReportResult>` +
+			`<Content>dXNlcixhcm4sYWNjZXNzX2tleV8xX2FjdGl2ZQo8cm9vdF9hY2NvdW50Pixhcm46YXdzOmlhbTo6MTExMTIyMjIzMzMzOnJvb3QsZmFsc2UK</Content>` +
+			`<ReportFormat>text/csv</ReportFormat><GeneratedTime>2026-11-27T12:00:00Z</GeneratedTime>` +
+			`</GetCredentialReportResult></GetCredentialReportResponse>`),
 		"GetAccountAuthorizationDetails/": ok(`<GetAccountAuthorizationDetailsResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/"><GetAccountAuthorizationDetailsResult>` +
 			`<IsTruncated>true</IsTruncated><Marker>p2</Marker><RoleDetailList><member><RoleName>app</RoleName>` +
 			`<Arn>arn:aws:iam::111122223333:role/app</Arn><AssumeRolePolicyDocument>%7B%22Version%22%3A%222012-10-17%22%7D</AssumeRolePolicyDocument>` +

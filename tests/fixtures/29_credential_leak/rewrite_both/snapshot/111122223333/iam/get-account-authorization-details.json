@@ -1,0 +1,38 @@
+{
+ "UserDetailList": [
+  {
+   "Path": "/",
+   "UserName": "ci",
+   "UserId": "AIDACIXXXXXXXXXX",
+   "Arn": "arn:aws:iam::111122223333:user/ci",
+   "UserPolicyList": [
+    {
+     "PolicyName": "inline",
+     "PolicyDocument": {
+      "Version": "2012-10-17",
+      "Statement": [
+       {
+        "Sid": "RewriteBucket",
+        "Effect": "Allow",
+        "Action": "s3:PutBucketPolicy",
+        "Resource": "arn:aws:s3:::acme-customer-pii"
+       },
+       {
+        "Sid": "RewriteKey",
+        "Effect": "Allow",
+        "Action": "kms:PutKeyPolicy",
+        "Resource": "arn:aws:kms:us-east-1:111122223333:key/29292929-2929-2929-2929-292929292929"
+       }
+      ]
+     }
+    }
+   ],
+   "GroupList": [],
+   "AttachedManagedPolicies": [],
+   "Tags": []
+  }
+ ],
+ "GroupDetailList": [],
+ "RoleDetailList": [],
+ "Policies": []
+}

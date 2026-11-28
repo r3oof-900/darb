@@ -28,7 +28,15 @@ type Account struct {
 	// nil when not collected. PublicAccessBlockFailed: the call failed.
 	PublicAccessBlock       *PublicAccessBlock
 	PublicAccessBlockFailed bool
-	Calls                   []Call // every collection call, with its outcome
+	// CredentialReport: iam get-credential-report; nil when not collected.
+	CredentialReport *CredentialReport
+	// AccessKeys: iam list-access-keys by user name; nil when not
+	// collected, an empty list for a user without keys.
+	AccessKeys map[string][]AccessKeyMetadata
+	// KeyLastUsed: iam get-access-key-last-used by key ID, the fallback when
+	// the credential report could not be read.
+	KeyLastUsed map[string]string
+	Calls       []Call // every collection call, with its outcome
 }
 
 // AuthorizationDetails is iam:GetAccountAuthorizationDetails.

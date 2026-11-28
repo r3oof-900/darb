@@ -136,7 +136,7 @@ func (p *patcher) writeSnapshot(account, role, name string, doc *model.PolicyDoc
 		p.res.Snapshot = append(p.res.Snapshot, FileChange{Path: file, Before: data, After: append(out, 10)})
 		return nil
 	}
-	return todo("the inline policy %s of role %s is not in a snapshot of this input: apply the policy document in the account", name, role)
+	return todo("the inline policy %s of %s is not in a snapshot of this input: apply the policy document in the account", name, role)
 }
 
 // setInlinePolicy replaces (or, with no statement left, removes) the inline

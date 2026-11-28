@@ -36,6 +36,8 @@ type fake struct {
 	hang   map[string]bool
 	mu     *sync.Mutex
 	calls  *[]string
+	// pending: how many more GenerateCredentialReport calls answer STARTED.
+	pending *int
 }
 
 // Denied is an API error with code, as the SDK returns it.
@@ -57,17 +59,20 @@ func (f *fake) do(ctx context.Context, api, target string) error {
 
 // Factory is one account (111122223333) in every region. Fail maps "API"
 // or "API target" to the error that call returns; Hang makes a call wait
-// for its context (a timeout). Every call is recorded.
+// for its context (a timeout); ReportPending is how many
+// GenerateCredentialReport calls answer STARTED before COMPLETE. Every call
+// is recorded.
 type Factory struct {
-	Fail  map[string]error
-	Hang  map[string]bool
-	mu    sync.Mutex
-	calls []string
+	Fail          map[string]error
+	Hang          map[string]bool
+	ReportPending int
+	mu            sync.Mutex
+	calls         []string
 }
 
 // Clients implements awslive.Factory.
 func (ff *Factory) Clients(_ awslive.Target, region string) *awslive.Clients {
-	f := &fake{region: region, fail: ff.Fail, hang: ff.Hang, mu: &ff.mu, calls: &ff.calls}
+	f := &fake{region: region, fail: ff.Fail, hang: ff.Hang, mu: &ff.mu, calls: &ff.calls, pending: &ff.ReportPending}
 	return &awslive.Clients{STS: f, IAM: f, S3: f, Control: control{f}, KMS: f, EKS: f, Secrets: f, SSM: f}
 }
 
@@ -99,9 +104,12 @@ func (f *fake) GetAccountAuthorizationDetails(ctx context.Context, in *iam.GetAc
 			AttachedManagedPolicies:  []iamtypes.AttachedPolicy{{PolicyName: aws.String("DarbExampleNotInSnapshot"), PolicyArn: aws.String("arn:aws:iam::aws:policy/DarbExampleNotInSnapshot")}},
 		}}}, nil
 	}
-	return &iam.GetAccountAuthorizationDetailsOutput{Policies: []iamtypes.ManagedPolicyDetail{{
-		PolicyName: aws.String("custom"), Arn: aws.String("arn:aws:iam::111122223333:policy/custom"), DefaultVersionId: aws.String("v1"),
-	}}}, nil
+	return &iam.GetAccountAuthorizationDetailsOutput{
+		Policies: []iamtypes.ManagedPolicyDetail{{
+			PolicyName: aws.String("custom"), Arn: aws.String("arn:aws:iam::111122223333:policy/custom"), DefaultVersionId: aws.String("v1"),
+		}},
+		UserDetailList: []iamtypes.UserDetail{{UserName: aws.String("deploy"), Arn: aws.String("arn:aws:iam::111122223333:user/deploy")}},
+	}, nil
 }
 
 func (f *fake) ListBuckets(ctx context.Context, _ *s3.ListBucketsInput, _ ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
