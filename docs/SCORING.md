@@ -367,9 +367,12 @@ needs), with the trust side (cost 5) as the other fix.
 
 Rules:
 
-- **`intended_access` is the strongest constraint**: every edge on any path
-  that realises a declared entry is uncuttable, whatever its cost (tested:
-  scenario 1 with its read declared intended has no fix).
+- **`intended_access` is the strongest constraint**: every edge of the route
+  that realises a declared entry through the workload's own identity
+  (DESIGN.md §5) is uncuttable, whatever its cost (tested: scenario 1 with its
+  read declared intended has no fix). Any other route of the pair is a
+  finding, cut without touching the own route (scenario 28: the other role's
+  trust, narrow, 5).
 - **Uncuttable** (`∞`): `PROTECTS`; every edge with no side left (§4.2); every
   edge listed in `remediation.uncuttable_edges` in `darb.yaml`; and the
   intended-access edges above.

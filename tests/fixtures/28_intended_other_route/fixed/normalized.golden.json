@@ -1,0 +1,203 @@
+{
+  "addons": [],
+  "boundaries": [],
+  "clusters": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "name": "prod",
+      "oidc_issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
+      "region": "us-east-1",
+      "source": "darb.yaml (clusters.prod)"
+    }
+  ],
+  "collected": 17,
+  "entry_points": [
+    {
+      "public": "unknown",
+      "reason": "assume-compromised",
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/etl/Deployment/etl-job"
+    },
+    {
+      "public": "true",
+      "reason": "exposed:Service/LoadBalancer",
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api"
+    }
+  ],
+  "exposures": [
+    {
+      "public": "true",
+      "via": "Service/LoadBalancer",
+      "workload": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api"
+    }
+  ],
+  "gaps": [
+    {
+      "Kind": "unresolved",
+      "Source": "normalize-terraform",
+      "File": "terraform/pii_kms_bucket.tf",
+      "Line": 9,
+      "Address": "aws_s3_bucket.customer_pii",
+      "Service": "",
+      "Region": "",
+      "Account": "",
+      "API": "",
+      "Detail": "Object Ownership of this bucket is not in the input (no aws_s3_bucket_ownership_controls); ACLs may be enabled, and object ACLs are not collected"
+    }
+  ],
+  "mappings": [],
+  "network_policies": [],
+  "node_groups": [],
+  "pod_identity": [],
+  "policies": [
+    {
+      "kind": "identity",
+      "policy": "aws_iam_role_policy.etl_reader",
+      "source": "terraform/etl_role.tf:27-37 (aws_iam_role_policy.etl_reader)",
+      "statements": [
+        "Allow s3:GetObject on arn:aws:s3:::acme-customer-pii/* (0 conditions)",
+        "Allow kms:Decrypt on arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/etl-reader",
+      "unresolved_statements": 0
+    },
+    {
+      "default": "kms.default-key-policy",
+      "kind": "resource",
+      "policy": "aws_kms_key.pii.policy",
+      "source": "terraform/pii_kms_bucket.tf:1-7 (aws_kms_key.pii)",
+      "statements": [
+        "Allow kms:* on * (0 conditions)"
+      ],
+      "target": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "identity",
+      "policy": "aws_iam_role_policy.payments_api",
+      "source": "terraform/payments_role.tf:27-37 (aws_iam_role_policy.payments_api)",
+      "statements": [
+        "Allow s3:GetObject on arn:aws:s3:::acme-customer-pii/* (0 conditions)",
+        "Allow kms:Decrypt on arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii (0 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/payments-api",
+      "unresolved_statements": 0
+    }
+  ],
+  "principals": [
+    {
+      "account": "111122223333",
+      "identity": "arn:aws:iam::111122223333:role/etl-reader",
+      "kind": "aws:iam:role",
+      "source": "terraform/etl_role.tf:2-5 (aws_iam_role.etl_reader)"
+    },
+    {
+      "account": "111122223333",
+      "identity": "arn:aws:iam::111122223333:role/payments-api",
+      "kind": "aws:iam:role",
+      "source": "terraform/payments_role.tf:2-5 (aws_iam_role.payments_api)"
+    }
+  ],
+  "rbac": [],
+  "resources": [
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:s3:::acme-customer-pii",
+      "classification": "pii",
+      "classified_by": "tag:DataClass",
+      "defaulted": [],
+      "encryption": {
+        "Type": "aws:kms",
+        "KeyARN": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+        "BucketKey": "unknown"
+      },
+      "kind": "aws:s3:bucket",
+      "region": "us-east-1",
+      "restrict_public_buckets": "true",
+      "source": "terraform/pii_kms_bucket.tf:9-14 (aws_s3_bucket.customer_pii)"
+    },
+    {
+      "account": "111122223333",
+      "arn": "arn:aws:kms:us-east-1:111122223333:key/tf-aws_kms_key.pii",
+      "classification": "pii",
+      "classified_by": "tag:DataClass",
+      "defaulted": [],
+      "key_rotation": "true",
+      "kind": "aws:kms:key",
+      "region": "us-east-1",
+      "source": "terraform/pii_kms_bucket.tf:1-7 (aws_kms_key.pii)"
+    }
+  ],
+  "service_accounts": [
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
+      "role_arn": "arn:aws:iam::111122223333:role/payments-api",
+      "source": "k8s/payments.yaml:6 (ServiceAccount/payments/api)",
+      "subject": "system:serviceaccount:payments:api"
+    },
+    {
+      "audience": "sts.amazonaws.com",
+      "automount_token": "true",
+      "cluster": "arn:aws:eks:us-east-1:111122223333:cluster/prod",
+      "defaulted": [
+        "eks.irsa.audience",
+        "k8s.automountServiceAccountToken"
+      ],
+      "role_arn": "arn:aws:iam::111122223333:role/etl-reader",
+      "source": "k8s/etl.yaml:6 (ServiceAccount/etl/etl-runner)",
+      "subject": "system:serviceaccount:etl:etl-runner"
+    }
+  ],
+  "trusts": [
+    {
+      "kind": "resource",
+      "policy": "aws_iam_role.etl_reader.assume_role_policy",
+      "source": "terraform/etl_role.tf:2-5 (aws_iam_role.etl_reader)",
+      "statements": [
+        "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (2 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/etl-reader",
+      "unresolved_statements": 0
+    },
+    {
+      "kind": "resource",
+      "policy": "aws_iam_role.payments_api.assume_role_policy",
+      "source": "terraform/payments_role.tf:2-5 (aws_iam_role.payments_api)",
+      "statements": [
+        "Allow sts:AssumeRoleWithWebIdentity on \u003cno Resource element\u003e (2 conditions)"
+      ],
+      "target": "arn:aws:iam::111122223333:role/payments-api",
+      "unresolved_statements": 0
+    }
+  ],
+  "workloads": [
+    {
+      "automount_token": "true",
+      "defaulted": [
+        "k8s.automountServiceAccountToken"
+      ],
+      "host_network": false,
+      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/etl/Deployment/etl-job",
+      "privileged": false,
+      "service_account": "etl-runner",
+      "source": "k8s/etl.yaml:14 (Deployment/etl/etl-job)"
+    },
+    {
+      "automount_token": "true",
+      "defaulted": [
+        "k8s.automountServiceAccountToken"
+      ],
+      "host_network": false,
+      "identity": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
+      "privileged": false,
+      "service_account": "api",
+      "source": "k8s/payments.yaml:14 (Deployment/payments/api)"
+    }
+  ]
+}

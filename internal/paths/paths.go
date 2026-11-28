@@ -75,6 +75,9 @@ type Pair struct {
 	Entry, Jewel graph.NodeID
 	Paths        []Path // deterministic order; at most MaxPaths
 	Truncated    bool   // more paths exist than MaxPaths, or deeper than MaxDepth
+	// Protected: the declared route of the pair (Select.Protected), not
+	// among Paths; nil when the pair has none.
+	Protected Path
 }
 
 // Analyze finds, for every entry, the jewels it reaches and the paths

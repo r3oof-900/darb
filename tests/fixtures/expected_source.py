@@ -1233,6 +1233,57 @@ for v in ("vulnerable", "fixed"):
 E["22_direct_and_escalation/dominance"]["exit_code"] = 3
 E["22_direct_and_escalation/dominance"]["gaps"] = [{"kind": "unresolved", "contains": [OWNERSHIP_UNKNOWN]}]
 
+# 28 - intended access reached by another route (decided after the
+# real-account test, before the engine changed). payments/api (public
+# LoadBalancer) reads the PII bucket through its own role payments-api
+# (trust pinned to payments:api), and etl/etl-job through its own role
+# etl-reader; both are declared intended_access on the whole bucket. The
+# trust of etl-reader checks :aud only, so api's token also assumes it.
+# Only the route through a workload's own identity is protected (DESIGN.md
+# 9.1): api's route through payments-api and etl-job's route through
+# etl-reader are kept and their edges are uncuttable for every finding;
+# api -> etl-reader -> PII is another route of a declared pair and stays a
+# DARB-PATH-001, with a note naming the pair. etl-job reaches the bucket
+# only through its own route: no finding.
+# Score: exposure 1000 (public LoadBalancer), 3 edges (810): likelihood
+# 810; pii 900 x blast radius 1000 (one jewel): 810 x 900 / 1000 = 729,
+# critical. Cut (SCORING.md 4.1): RUNS_AS api -> SA api is on api's
+# protected route (uncuttable); etl-reader's read (explicit, revoke 3) and
+# decrypt (explicit, revoke 3; key policy default, narrow 2) are on
+# etl-job's protected route (uncuttable). The only edge left is ASSUMES
+# SA api -> etl-reader: its trust side is :aud only, broad: narrow, 5 -
+# pin :sub - never the LoadBalancer. No identity side (a service account
+# has no identity policy) and no alternative cut sharing no edge with it.
+# DARB-POST-001 on etl-reader: base high 600. DARB-POST-007 in payments and
+# etl: 245, low. The key has rotation on and Block Public Access is on: no
+# DARB-POST-006, no DARB-POST-005; every grant names its ARN: no POST-008.
+ETL_READER = f"arn:aws:iam::{ACCT}:role/etl-reader"
+ETL_JOB = f"k8s:{PROD}/etl/Deployment/etl-job"
+NS_ETL = f"k8s:{PROD}//Namespace/etl"
+OTHER_ROUTE = f"ASSUMES {SA_API} -> {ETL_READER}"
+INTENDED_28 = [{"principal": p, "action": "s3:GetObject", "resource": f"{PII}/*", "status": "verified"} for p in (API, ETL_JOB)]
+E["28_intended_other_route/vulnerable"] = {
+    "derived_from": "real-account test: an intended pair reached by an unintended route",
+    "findings": [path_finding("DARB-PATH-001", API, PII,
+                              [f"RUNS_AS {SA_API}", f"ASSUMES {ETL_READER}", f"CAN_READ_PLAINTEXT {PII}"],
+                              729, "critical", [OTHER_ROUTE], defaults=IRSA_DEFAULTS,
+                              fix=[step(OTHER_ROUTE, "trust", "narrow", 5)], other_side=[], alternative_detail=[]),
+                 posture("DARB-POST-001", ETL_READER, 600, "high"),
+                 no_default_deny(NS_PAYMENTS), no_default_deny(NS_ETL)],
+    "absent": [{"rule": "DARB-PATH-002", "jewel": PII}],
+    "intended_access": INTENDED_28,
+    "notes": [{"subject": "Intended access reached by another route",
+               "contains": [f"{API} reads {PII}/* as declared, through its own identity",
+                            "1 other route reaches it too and is reported"]}]}
+# fixed: etl-reader's trust pins :sub to etl:etl-runner. api's token no
+# longer assumes it: no other route, no path finding, no note; both
+# declared accesses still verified.
+E["28_intended_other_route/fixed"] = {
+    "derived_from": "real-account test fixed: the unintended route's trust pins :sub",
+    "findings": [no_default_deny(NS_PAYMENTS), no_default_deny(NS_ETL)],
+    "absent": ABSENT_PII, "intended_access": INTENDED_28,
+    "notes_absent": ["Intended access reached by another route"]}
+
 # Fingerprints (DESIGN.md 5 "Stable IDs", 8 "Fingerprint", 8.1 "Posture
 # finding identities"), written from the documents, not from the engine:
 # a node ID is sha256("darb/v1" NUL kind NUL canonical identity); a path

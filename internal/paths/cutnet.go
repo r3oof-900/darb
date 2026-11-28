@@ -43,7 +43,7 @@ type network struct {
 
 func newCutNetwork(g *graph.Graph, entry, jewel graph.NodeID, sel *Select, opts *Options, ex *exclude) *network {
 	w := &network{g: g, opts: opts, sel: sel, ex: ex, states: map[pstate]int{}, units: map[ukey]*unit{}, group: map[gkey]int{}}
-	start := pstate{entry, full, false}
+	start := sel.start(entry)
 	w.source = w.state(start)
 	seen := map[pstate]bool{start: true}
 	queue := []pstate{start}
@@ -54,12 +54,20 @@ func newCutNetwork(g *graph.Graph, entry, jewel graph.NodeID, sel *Select, opts 
 			w.sinks = append(w.sinks, w.state(s))
 		}
 		for _, id := range g.Out(s.node) {
-			nx, ok := sel.next(s, g.Edge(id))
+			nx, ok := sel.next(s, id, g.Edge(id))
 			if !ok {
 				continue
 			}
-			u := w.unit(id, s.esc, nx)
-			w.arcs = append(w.arcs, FlowEdge{From: w.state(s), To: u.in, Cost: Uncuttable})
+			if nx.route != offRoute {
+				// A step along the protected route: never cut on it (its
+				// edges are uncuttable for every finding, app.intendedEdges),
+				// and a unit, shared per edge and phase, would lead an
+				// off-route walk onto the route's states.
+				w.arcs = append(w.arcs, FlowEdge{From: w.state(s), To: w.state(nx), Cost: Uncuttable})
+			} else {
+				u := w.unit(id, s.esc, nx)
+				w.arcs = append(w.arcs, FlowEdge{From: w.state(s), To: u.in, Cost: Uncuttable})
+			}
 			if !seen[nx] {
 				seen[nx] = true
 				queue = append(queue, nx)

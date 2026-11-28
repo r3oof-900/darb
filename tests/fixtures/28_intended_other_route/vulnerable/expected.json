@@ -1,0 +1,97 @@
+{
+  "format": "darb-expected/v1",
+  "derived_from": "real-account test: an intended pair reached by an unintended route",
+  "findings": [
+    {
+      "rule": "DARB-PATH-001",
+      "entry": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
+      "jewel": "arn:aws:s3:::acme-customer-pii",
+      "path": [
+        "RUNS_AS k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api",
+        "ASSUMES arn:aws:iam::111122223333:role/etl-reader",
+        "CAN_READ_PLAINTEXT arn:aws:s3:::acme-customer-pii"
+      ],
+      "confirmed": true,
+      "confidence": "high",
+      "score": 729,
+      "severity": "critical",
+      "chokepoints": [
+        "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api -> arn:aws:iam::111122223333:role/etl-reader"
+      ],
+      "alternative_fix": [],
+      "defaults_used": [
+        "eks.irsa.audience",
+        "eks.irsa.oidc-provider-audience"
+      ],
+      "fix": [
+        {
+          "edge": "ASSUMES k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/ServiceAccount/api -> arn:aws:iam::111122223333:role/etl-reader",
+          "side": "trust",
+          "fix_kind": "narrow",
+          "cost": 5
+        }
+      ],
+      "other_side_fix": [],
+      "alternative_fix_detail": [],
+      "status": "confirmed",
+      "also_fixes": [],
+      "uncuttable": [],
+      "remediation_status": "complete",
+      "fingerprint": "b2113156f5b8e654d956e2fa48fd29a41a4e344219f79bf274686dcc09d04a66"
+    },
+    {
+      "rule": "DARB-POST-001",
+      "resource": "arn:aws:iam::111122223333:role/etl-reader",
+      "score": 600,
+      "severity": "high",
+      "defaults_used": [],
+      "fingerprint": "36cc5a9d36d5c1f3a1571b6933781be975ef4f2882e379d1a965020b97681dbe"
+    },
+    {
+      "rule": "DARB-POST-007",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/payments",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": [],
+      "fingerprint": "fe1ae67f98c056f873685d2df3e72ae5def9ae84ccea894079e4f039a7565639"
+    },
+    {
+      "rule": "DARB-POST-007",
+      "resource": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod//Namespace/etl",
+      "score": 245,
+      "severity": "low",
+      "defaults_used": [],
+      "fingerprint": "f404e1f3ecff729d9e7708c636395f2c99057834d1ae2ce19edf063eefe5d45f"
+    }
+  ],
+  "absent": [
+    {
+      "rule": "DARB-PATH-002",
+      "jewel": "arn:aws:s3:::acme-customer-pii"
+    }
+  ],
+  "intended_access": [
+    {
+      "principal": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api",
+      "action": "s3:GetObject",
+      "resource": "arn:aws:s3:::acme-customer-pii/*",
+      "status": "verified"
+    },
+    {
+      "principal": "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/etl/Deployment/etl-job",
+      "action": "s3:GetObject",
+      "resource": "arn:aws:s3:::acme-customer-pii/*",
+      "status": "verified"
+    }
+  ],
+  "notes": [
+    {
+      "subject": "Intended access reached by another route",
+      "contains": [
+        "k8s:arn:aws:eks:us-east-1:111122223333:cluster/prod/payments/Deployment/api reads arn:aws:s3:::acme-customer-pii/* as declared, through its own identity",
+        "1 other route reaches it too and is reported"
+      ]
+    }
+  ],
+  "no_edges": []
+}

@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: etl
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: etl-runner
+  namespace: etl
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/etl-reader
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: etl-job
+  namespace: etl
+spec:
+  selector:
+    matchLabels:
+      app: etl-job
+  template:
+    metadata:
+      labels:
+        app: etl-job
+    spec:
+      serviceAccountName: etl-runner
+      containers:
+        - name: etl
+          image: registry.example.com/etl/job:3.1.0

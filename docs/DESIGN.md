@@ -619,10 +619,20 @@ not: v0.1.0-rc.1 reported nothing for a role reading an untagged bucket. So:
   and the note says they were not scanned (scenario 24, variant `ignore`).
 
 A declared `intended_access` pair (a workload reading a whole bucket,
-`<bucket ARN>/*`) is not reported, whatever the bucket's classification: it is
-what the user said the workload does. Its edges stay uncuttable for every other
-finding (SCORING.md §4), and a declaration of part of a bucket (a prefix)
-leaves the pair reported, since the path reads more than was declared.
+`<bucket ARN>/*`) is not reported through its **own route**, whatever the
+bucket's classification: that is what the user said the workload does. The
+own route is the workload's cloud identity (`RUNS_AS`) and then only roles
+its service account is bound to (the IRSA annotation, a Pod Identity
+association and its target role), with no escalation, node role or mapping;
+among several, a confirmed one, then the cheapest by real cut costs (§9.1).
+Every **other route** of the pair stays a finding (`DARB-PATH-001` or
+`-002`, same fingerprint) and a note (`intended-access-other-route`) names
+the pair (scenario 28; found by the first real-account test: an `:aud`-only
+trust let the declared workload reach the same bucket through another role,
+and declaring the read hid that route). The own route's edges stay
+uncuttable for every finding (SCORING.md §4); a declaration of part of a
+bucket (a prefix) leaves the pair reported, since the path reads more than
+was declared.
 
 **Entry points**: workloads exposed via `Service` `LoadBalancer`/`NodePort` or
 `Ingress`; plus every workload under the "assume any pod compromised" threat model
@@ -1368,10 +1378,16 @@ intended_access:
 
 - Edges listed in `uncuttable_edges` get capacity `∞` (selectors match canonical
   identities; globs allowed; `reason` mandatory).
-- **Every edge on any path that realises a declared `intended_access` is treated as
-  uncuttable automatically.** Trade-off: conservative — it can leave no finite cut,
-  in which case the report says "no fix within constraints" and names the blocking
-  constraints, rather than proposing a fix that breaks intended access.
+- **Every edge of the route that realises a declared `intended_access` through
+  the workload's own identity (§5) is treated as uncuttable automatically.**
+  Only that one route: until scenario 28 every path from the workload to the
+  bucket was, so a second, unintended route (another role whose trust accepts
+  the workload's token) was protected with it, and the pair was not reported.
+  The cut of a pair with a protected route breaks every other route and none
+  of that one (`paths.Select.Protected`: reaching the jewel along exactly the
+  protected route is no path). Trade-off: conservative — it can leave no finite
+  cut, in which case the report says "no fix within constraints" and names the
+  blocking constraints, rather than proposing a fix that breaks intended access.
 - Every proposed fix lists, per cut edge: kind, cost, the cost source (default table
   or config override) and the total cost.
 
@@ -2021,6 +2037,7 @@ Encryption type of every jewel bucket is stated explicitly in the fixture
 | 25 | (after v0.1.0-rc.1) Scenario 1 with the PII key's policy naming only `role/key-admin` (no account root, so no IAM policy can let anyone use the key), payments-api reading the PII objects with no kms permission, and an `aws_kms_grant` giving it `Decrypt`; fixed: the grant's `EncryptionContextEquals` names another bucket | grant `Decrypt` | `DARB-PATH-001`, 729 critical, cut the read (identity, revoke, 3), alternative the grant (resource, revoke, 4); fixed: no path; both: the runtime-grants note names the key |
 | 26 | (after v0.1.0-rc.1) A PII bucket with Object Ownership `ObjectWriter` and a `public-read` bucket ACL; Block Public Access blocks public policies but not public ACLs; no bucket policy; fixed: `BucketOwnerEnforced` | bucket ACL `READ` to AllUsers (lists objects) | no `DARB-PATH-003` (a bucket ACL does not read the data), one `not-modelled` gap for the object ACLs naming the public bucket ACL, the `S3 ACLs` note, exit 3; fixed: no gap, no note, exit 0 |
 | 27 | (review of darb#4) The PII bucket and key in account A, the key policy naming only `role/key-admin`; `role/reader` in account B (the cluster's IRSA role) may read the objects (its identity policy and the bucket policy) and has no kms permission; an `aws_kms_grant` gives it `Decrypt`; fixed: reader's identity policy denies `kms:Decrypt` | grant `Decrypt` across accounts | `DARB-PATH-001` unconfirmed (the documentation does not settle a cross-account grant without an IAM allow), worst case 729 critical, `undecided` names the grant; cut the read (identity, revoke, 3; other side the bucket policy, 4), alternative the grant (4); fixed: no path |
+| 28 | (after the real-account test) `payments/api` (public LoadBalancer) reads the PII bucket through its own role `payments-api` (trust pinned to `payments:api`), `etl/etl-job` through `etl-reader`; both declared `intended_access` on the whole bucket; `etl-reader`'s trust checks `:aud` only | api's token also assumes `etl-reader` | `DARB-PATH-001` api → `etl-reader` → PII, 729 critical, and an `intended-access-other-route` note; cut `ASSUMES` api's SA → `etl-reader` (trust, narrow, 5: pin `:sub`), never the LoadBalancer; both intended accesses verified; fixed: `:sub` pinned, no path, no note |
 
 Fixed variants remove exactly the cause the scenario tests (e.g. scenario 1 scopes
 `s3:GetObject` and `kms:Decrypt` to the workload's legitimate bucket and key, with an
